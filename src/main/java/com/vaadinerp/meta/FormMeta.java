@@ -1,0 +1,43 @@
+package com.vaadinerp.meta;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+import java.util.List;
+
+@Entity
+@Table(name = "meta_form")
+@Data
+public class FormMeta {
+    @Id
+    @Column(name = "form_code", length = 50)
+    private String formCode;
+
+    @Column(name = "form_title", length = 100)
+    private String formTitle;
+
+    @Column(name = "table_name", length = 100)
+    private String tableName;
+
+    @Column(name = "primary_key", length = 50)
+    private String primaryKey;
+
+    @Column(name = "label_width")
+    private String labelWidth;
+
+    @Column(name = "form_type", length = 20)
+    private String formType = "SINGLE"; // "SINGLE" or "MASTER_DETAIL"
+
+    @Column(name = "detail_table_name", length = 100)
+    private String detailTableName;
+
+    @Column(name = "detail_primary_key", length = 50)
+    private String detailPrimaryKey;
+
+    @Column(name = "detail_foreign_key", length = 50)
+    private String detailForeignKey;
+
+    @OneToMany(mappedBy = "formMeta", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OrderBy("rowGroup ASC, colOrder ASC")
+    private List<FieldMeta> fields;
+}

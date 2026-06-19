@@ -1,0 +1,131 @@
+/* Custom theme styles */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+html {
+    --lumo-font-family: 'Outfit', sans-serif;
+    --lumo-border-radius-m: 8px;
+    --lumo-border-radius-l: 12px;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+vaadin-grid::part(cell) {
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* Sidebar Styling */
+.sidebar {
+    background: linear-gradient(180deg, #0b0f19 0%, #111827 100%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25) !important;
+    color: #e5e7eb;
+}
+
+/* Glowing Logo */
+.sidebar-logo {
+    background: linear-gradient(to right, #6366f1, #a855f7, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+    font-size: 1.4rem;
+    letter-spacing: 0.5px;
+    text-shadow: 0 0 30px rgba(99, 102, 241, 0.3);
+    padding: 10px 0;
+}
+
+/* Custom Navigation Button / Menu Item */
+.menu-item-button {
+    color: #9ca3af !important;
+    border-radius: 8px !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    padding-left: 12px !important;
+    justify-content: flex-start !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.menu-item-button:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #ffffff !important;
+    padding-left: 18px !important; /* Micro-slide animation */
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+}
+
+.menu-item-button.active {
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%) !important;
+    color: #a5b4fc !important;
+    border-left: 3px solid #6366f1 !important;
+    border-radius: 0 8px 8px 0 !important;
+    font-weight: 600 !important;
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.1) !important;
+}
+
+/* TabSheet styling */
+vaadin-tabsheet {
+    background: #f9fafb;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+vaadin-tabsheet [slot="tabs"] {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 8px 16px 0 16px;
+}
+
+vaadin-tab {
+    font-size: 0.9rem !important;
+    font-weight: 500 !important;
+    color: #6b7280 !important;
+    transition: all 0.2s ease !important;
+    border-radius: 8px 8px 0 0 !important;
+    margin-right: 4px !important;
+}
+
+vaadin-tab:hover {
+    color: #111827 !important;
+    background: #f3f4f6 !important;
+}
+
+vaadin-tab[selected] {
+    color: #4f46e5 !important;
+    background: #ffffff !important;
+    border-bottom: 2px solid #4f46e5 !important;
+    font-weight: 600 !important;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Micro-interaction Button scale on click */
+vaadin-button {
+    transition: transform 0.1s ease !important;
+}
+
+vaadin-button:active {
+    transform: scale(0.97) !important;
+}
