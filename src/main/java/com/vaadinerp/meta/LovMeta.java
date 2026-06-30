@@ -7,7 +7,7 @@ import jakarta.persistence.Table;
 import lombok.Data;
 
 @Entity
-@Table(name = "meta_lov")
+@Table(name = "meta_lov", schema = "public")
 @Data
 public class LovMeta {
     @Id

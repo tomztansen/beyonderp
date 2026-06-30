@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 public class ReportBuilderView extends VerticalLayout {
 
     private final ReportMetaRepository reportMetaRepository;
+    @SuppressWarnings("unused")
     private final FormMetaRepository formMetaRepository;
     private final Runnable onReportSavedListener;
 

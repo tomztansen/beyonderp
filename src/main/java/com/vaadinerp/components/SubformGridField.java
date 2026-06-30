@@ -1,0 +1,632 @@
+package com.vaadinerp.components;
+
+import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.HasValue;
+import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.customfield.CustomField;
+import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.GridVariant;
+import com.vaadin.flow.component.grid.editor.Editor;
+import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.grid.HeaderRow;
+import com.vaadin.flow.component.contextmenu.ContextMenu;
+import com.vaadin.flow.component.contextmenu.MenuItem;
+import com.vaadinerp.meta.FieldMeta;
+import com.vaadinerp.meta.FormMeta;
+import com.vaadinerp.service.DynamicDataService;
+import com.vaadin.flow.data.provider.ListDataProvider;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class SubformGridField extends CustomField<List<Map<String, Object>>> {
+
+    private final DynamicDataService dataService;
+    private FormMeta childFormDef;
+
+    private final List<Map<String, Object>> items = new ArrayList<>();
+    private final List<Map<String, Object>> deletedItems = new ArrayList<>();
+    private final Grid<Map<String, Object>> grid = new Grid<>();
+    private final Button btnAdd = new Button("Tambah Baris", VaadinIcon.PLUS.create());
+    private final Button btnDelete = new Button("Hapus Baris", VaadinIcon.TRASH.create());
+    private final Map<String, Component> editorComponents = new HashMap<>();
+
+    private final Map<String, FilterCriteria> filterValues = new HashMap<>();
+    private final Map<Grid.Column<Map<String, Object>>, String> columnToFieldNameMap = new HashMap<>();
+    private Map<String, Object> draggedItem;
+
+    private static class FilterCriteria {
+        String operator = "Contains";
+        String value = "";
+    }
+
+    public SubformGridField(String label, FieldMeta fieldMeta, DynamicDataService dataService) {
+        this.dataService = dataService;
+        setLabel(label);
+
+        VerticalLayout layout = new VerticalLayout();
+        layout.setWidthFull();
+        layout.setPadding(false);
+        layout.setSpacing(true);
+
+        // Fetch child FormMeta
+        if (fieldMeta.getLovCode() != null) {
+            this.childFormDef = dataService.getFormMetaRepository()
+                    .findById(fieldMeta.getLovCode()).orElse(null);
+        }
+
+        // Toolbar
+        HorizontalLayout toolbar = new HorizontalLayout();
+        toolbar.setWidthFull();
+        toolbar.setSpacing(true);
+
+        btnAdd.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
+        
+        btnDelete.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
+        
+        toolbar.add(btnAdd, btnDelete);
+
+        // Setup Grid
+        grid.setWidthFull();
+        grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES, GridVariant.LUMO_COMPACT);
+        grid.setSelectionMode(Grid.SelectionMode.MULTI);
+        grid.setAllRowsVisible(true);
+        grid.setDataProvider(createDataProvider());
+
+        if (childFormDef != null) {
+            buildGridColumns();
+        }
+
+        layout.add(toolbar, grid);
+        add(layout);
+
+        // Listeners
+        grid.addItemClickListener(event -> {
+            if (isReadOnly()) {
+                return;
+            }
+            Map<String, Object> item = event.getItem();
+            if (item != null) {
+                Editor<Map<String, Object>> editor = grid.getEditor();
+                if (editor.isOpen() && editor.getItem() == item) {
+                    return; // already editing
+                }
+                editor.editItem(item);
+            }
+        });
+
+        btnAdd.addClickListener(e -> {
+            if (grid.getEditor().isOpen()) {
+                grid.getEditor().cancel();
+            }
+            Map<String, Object> newRow = new HashMap<>();
+            newRow.put("_tempId", java.util.UUID.randomUUID().toString());
+            items.add(newRow);
+            grid.getDataProvider().refreshAll();
+
+            grid.getEditor().editItem(newRow);
+
+            Component firstCompToFocus = null;
+            if (childFormDef != null && !childFormDef.getFields().isEmpty()) {
+                List<FieldMeta> childFields = childFormDef.getFields().stream()
+                        .filter(f -> f.isShowInGrid() && !f.isHideInForm() && !"HIDDEN".equalsIgnoreCase(f.getComponentType()))
+                        .collect(Collectors.toList());
+
+                childFields.sort((f1, f2) -> {
+                    Integer o1 = f1.getColOrder() != null ? f1.getColOrder() : Integer.MAX_VALUE;
+                    Integer o2 = f2.getColOrder() != null ? f2.getColOrder() : Integer.MAX_VALUE;
+                    return o1.compareTo(o2);
+                });
+
+                if (!childFields.isEmpty()) {
+                    String firstFieldName = childFields.get(0).getFieldName();
+                    firstCompToFocus = editorComponents.get(firstFieldName);
+                }
+            }
+
+            UI.getCurrent().getPage().executeJs(
+                "var grid = $0; var targetIdx = $1; var firstEditor = $2; " +
+                "if (grid && typeof grid.scrollToIndex === 'function') { " +
+                "  grid.scrollToIndex(targetIdx); " +
+                "} " +
+                "if (firstEditor) { " +
+                "  function waitAndFocus(attempt) { " +
+                "    var isAttached = firstEditor.isConnected; " +
+                "    if (!isAttached && document.body.contains(firstEditor)) isAttached = true; " +
+                "    if (isAttached) { " +
+                "      setTimeout(function() { " +
+                "        try { " +
+                "          var focusable = firstEditor.querySelector('vaadin-text-field:not([readonly]), vaadin-combo-box:not([readonly]), vaadin-integer-field:not([readonly]), vaadin-big-decimal-field:not([readonly]), vaadin-button, input:not([readonly])'); " +
+                "          var target = focusable || firstEditor.focusElement || firstEditor.inputElement || " +
+                "             (firstEditor.shadowRoot && firstEditor.shadowRoot.querySelector('input:not([readonly]),textarea:not([readonly])')) || " +
+                "             firstEditor; " +
+                "          if (target && typeof target.focus === 'function') { target.focus(); } " +
+                "        } catch(e){} " +
+                "      }, 150); " +
+                "    } else { " +
+                "      if (attempt < 60) setTimeout(function(){ waitAndFocus(attempt + 1); }, 50); " +
+                "    } " +
+                "  } " +
+                "  waitAndFocus(0); " +
+                "}",
+                grid.getElement(), items.size() - 1, firstCompToFocus != null ? firstCompToFocus.getElement() : null
+            );
+
+            updateValue();
+        });
+
+        btnDelete.addClickListener(e -> {
+            java.util.Set<Map<String, Object>> selectedItems = grid.getSelectedItems();
+            if (selectedItems != null && !selectedItems.isEmpty()) {
+                if (grid.getEditor().isOpen()) {
+                    grid.getEditor().cancel();
+                }
+                items.removeAll(selectedItems);
+                if (childFormDef != null) {
+                    String pk = childFormDef.getPrimaryKey() != null ? childFormDef.getPrimaryKey() : "id";
+                    for (Map<String, Object> selected : selectedItems) {
+                        if (selected.containsKey(pk) && selected.get(pk) != null && !selected.get(pk).toString().trim().isEmpty()) {
+                            deletedItems.add(selected);
+                        }
+                    }
+                }
+                grid.getDataProvider().refreshAll();
+                grid.deselectAll();
+                updateValue();
+            } else {
+                Notification.show("Pilih baris rincian terlebih dahulu.", 3000, Notification.Position.MIDDLE);
+            }
+        });
+    }
+
+    private void applyFilters() {
+        if (!(grid.getDataProvider() instanceof ListDataProvider)) {
+            return;
+        }
+        @SuppressWarnings("unchecked")
+        ListDataProvider<Map<String, Object>> dp = (ListDataProvider<Map<String, Object>>) grid.getDataProvider();
+        
+        dp.setFilter(item -> {
+            for (Map.Entry<String, FilterCriteria> entry : filterValues.entrySet()) {
+                String fieldName = entry.getKey();
+                FilterCriteria criteria = entry.getValue();
+                
+                String op = criteria.operator;
+                String query = criteria.value;
+                
+                Object val = item.get(fieldName);
+                String strVal = val != null ? val.toString().toLowerCase() : "";
+                
+                if ("Blank".equals(op)) {
+                    if (!strVal.isEmpty()) return false;
+                    continue;
+                }
+                if ("Not blank".equals(op)) {
+                    if (strVal.isEmpty()) return false;
+                    continue;
+                }
+                
+                if (query == null || query.trim().isEmpty()) {
+                    continue;
+                }
+                
+                query = query.toLowerCase();
+                
+                switch (op) {
+                    case "Contains":
+                        if (!strVal.contains(query)) return false;
+                        break;
+                    case "Not contains":
+                        if (strVal.contains(query)) return false;
+                        break;
+                    case "Equals":
+                        if (!strVal.equals(query)) return false;
+                        break;
+                    case "Not equal":
+                        if (strVal.equals(query)) return false;
+                        break;
+                    case "Starts with":
+                        if (!strVal.startsWith(query)) return false;
+                        break;
+                    case "Ends with":
+                        if (!strVal.endsWith(query)) return false;
+                        break;
+                }
+            }
+            return true;
+        });
+    }
+
+    private int findIndexByReference(List<Map<String, Object>> list, Map<String, Object> item) {
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i) == item) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private void buildGridColumns() {
+        List<FieldMeta> childFields = childFormDef.getFields().stream()
+                .filter(FieldMeta::isShowInGrid)
+                .collect(Collectors.toList());
+
+        // Sort by colOrder
+        childFields.sort((f1, f2) -> {
+            Integer o1 = f1.getColOrder() != null ? f1.getColOrder() : Integer.MAX_VALUE;
+            Integer o2 = f2.getColOrder() != null ? f2.getColOrder() : Integer.MAX_VALUE;
+            return o1.compareTo(o2);
+        });
+
+        Editor<Map<String, Object>> editor = grid.getEditor();
+        Binder<Map<String, Object>> gridBinder = new Binder<>();
+        editor.setBinder(gridBinder);
+        editor.setBuffered(false);
+
+        Map<String, Grid.Column<Map<String, Object>>> columnsMap = new LinkedHashMap<>();
+
+        java.util.function.BiConsumer<String, Object> subformUpdateFieldValue = (targetFieldName, val) -> {
+            Component targetComp = editorComponents.get(targetFieldName);
+            if (targetComp == null) {
+                for (java.util.Map.Entry<String, Component> e : editorComponents.entrySet()) {
+                    if (e.getKey() != null && e.getKey().equalsIgnoreCase(targetFieldName)) {
+                        targetComp = e.getValue();
+                        break;
+                    }
+                }
+            }
+            if (targetComp instanceof HasValue) {
+                @SuppressWarnings("unchecked")
+                HasValue<?, Object> hv = (HasValue<?, Object>) targetComp;
+                Object convertedVal = convertToFieldValue(val, targetComp);
+                if (convertedVal != null && !convertedVal.equals(hv.getValue()) || (convertedVal == null && hv.getValue() != null)) {
+                    hv.setValue(convertedVal);
+                }
+            }
+            if (grid.getEditor().isOpen() && grid.getEditor().getItem() != null) {
+                Map<String, Object> activeItem = grid.getEditor().getItem();
+                activeItem.put(targetFieldName, val);
+                evaluateRowFormulas(activeItem);
+            }
+        };
+
+        for (FieldMeta field : childFields) {
+            String fieldName = field.getFieldName();
+            Grid.Column<Map<String, Object>> col = grid.addColumn(map -> ComponentFactory.formatFieldValueWithLov(field, map.get(fieldName), dataService))
+                    .setHeader(field.getFieldLabel())
+                    .setAutoWidth(true)
+                    .setFlexGrow(0)
+                    .setResizable(true)
+                    .setKey(fieldName);
+
+            if (field.isHideInForm() || "HIDDEN".equalsIgnoreCase(field.getComponentType())) {
+                col.setVisible(false);
+            }
+
+            columnsMap.put(fieldName, col);
+            columnToFieldNameMap.put(col, fieldName);
+
+            // Editor component
+            Component editorComp = ComponentFactory.create(field, dataService, subformUpdateFieldValue, true);
+            col.setEditorComponent(editorComp);
+            editorComponents.put(fieldName, editorComp);
+
+            @SuppressWarnings("unchecked")
+            HasValue<?, Object> hasValue = (HasValue<?, Object>) editorComp;
+            Binder.BindingBuilder<Map<String, Object>, Object> builder = gridBinder.forField(hasValue);
+            if (field.isRequired()) {
+                builder.asRequired(field.getFieldLabel() + " wajib diisi");
+            }
+            builder.bind(map -> convertToFieldValue(map.get(fieldName), editorComp),
+                         (map, val) -> {
+                             map.put(fieldName, val);
+                             evaluateRowFormulas(map);
+                             if (grid.getDataProvider() instanceof ListDataProvider) {
+                                 @SuppressWarnings("unchecked")
+                                 ListDataProvider<Map<String, Object>> dp = (ListDataProvider<Map<String, Object>>) grid.getDataProvider();
+                                 dp.refreshItem(map);
+                             }
+                             updateValue();
+                         });
+        }
+
+        // 2. Setup Header Filter Row
+        HeaderRow filterRow = grid.appendHeaderRow();
+        columnsMap.forEach((fieldName, col) -> {
+            FilterCriteria criteria = new FilterCriteria();
+            filterValues.put(fieldName, criteria);
+
+            TextField filterField = new TextField();
+            filterField.setPlaceholder("Filter...");
+            filterField.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.EAGER);
+            filterField.setWidthFull();
+            filterField.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
+
+            Button filterButton = new Button(VaadinIcon.FILTER.create());
+            filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+            filterButton.getStyle().set("cursor", "pointer");
+            filterButton.getElement().setProperty("title", "Contains");
+            filterField.setPrefixComponent(filterButton);
+
+            ContextMenu contextMenu = new ContextMenu(filterButton);
+            contextMenu.setOpenOnClick(true);
+
+            Runnable applyOperatorUI = () -> {
+                String op = criteria.operator;
+                filterButton.getElement().setProperty("title", op);
+                boolean needsInput = !("Blank".equals(op) || "Not blank".equals(op));
+                if (!needsInput) {
+                    filterField.setValue("");
+                    filterField.setPlaceholder(op);
+                    filterField.setReadOnly(true);
+                } else {
+                    filterField.setPlaceholder("Filter...");
+                    filterField.setReadOnly(false);
+                }
+            };
+
+            com.vaadin.flow.component.ComponentEventListener<com.vaadin.flow.component.ClickEvent<MenuItem>> listener = event -> {
+                if (event.getSource().getText() != null) {
+                    criteria.operator = event.getSource().getText();
+                    applyOperatorUI.run();
+                    applyFilters();
+                }
+            };
+
+            contextMenu.addItem("Contains", listener);
+            contextMenu.addItem("Not contains", listener);
+            contextMenu.addItem("Equals", listener);
+            contextMenu.addItem("Not equal", listener);
+            contextMenu.addItem("Starts with", listener);
+            contextMenu.addItem("Ends with", listener);
+            contextMenu.addItem("Blank", listener);
+            contextMenu.addItem("Not blank", listener);
+
+            contextMenu.addItem(new com.vaadin.flow.component.html.Hr(), e -> {});
+            contextMenu.addItem(col.isFrozen() ? "Unfreeze Column" : "Freeze Column", event -> {
+                boolean nextFrozen = !col.isFrozen();
+                col.setFrozen(nextFrozen);
+                event.getSource().setText(nextFrozen ? "Unfreeze Column" : "Freeze Column");
+                com.vaadin.flow.component.notification.Notification.show(
+                    nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END
+                );
+            });
+
+            filterField.addValueChangeListener(e -> {
+                if (grid.getEditor().isOpen()) {
+                    grid.getEditor().cancel();
+                }
+                criteria.value = e.getValue();
+                applyFilters();
+            });
+
+            filterRow.getCell(col).setComponent(filterField);
+        });
+
+        // 3. Row Drag and Drop
+        grid.setRowsDraggable(true);
+        grid.addDragStartListener(event -> {
+            if (!event.getDraggedItems().isEmpty()) {
+                draggedItem = event.getDraggedItems().get(0);
+                grid.setDropMode(com.vaadin.flow.component.grid.dnd.GridDropMode.BETWEEN);
+            }
+        });
+
+        grid.addDropListener(event -> {
+            Map<String, Object> targetItem = event.getDropTargetItem().orElse(null);
+            if (targetItem != null && draggedItem != null && targetItem != draggedItem) {
+                int indexDragged = findIndexByReference(items, draggedItem);
+                int indexTarget = findIndexByReference(items, targetItem);
+                
+                if (indexDragged >= 0 && indexTarget >= 0) {
+                    items.remove(indexDragged);
+                    int newIndex = findIndexByReference(items, targetItem);
+                    if (event.getDropLocation() == com.vaadin.flow.component.grid.dnd.GridDropLocation.BELOW) {
+                        items.add(newIndex + 1, draggedItem);
+                    } else {
+                        items.add(newIndex, draggedItem);
+                    }
+                    grid.getDataProvider().refreshAll();
+                    updateValue();
+                }
+            }
+            draggedItem = null;
+        });
+
+        grid.addDragEndListener(event -> {
+            draggedItem = null;
+            grid.setDropMode(null);
+        });
+
+        // 4. Column Reordering
+        grid.setColumnReorderingAllowed(true);
+        grid.addColumnReorderListener(event -> {
+            List<Grid.Column<Map<String, Object>>> newOrder = event.getColumns();
+            List<String> orderedFieldNames = new ArrayList<>();
+            for (Grid.Column<Map<String, Object>> col : newOrder) {
+                String fieldName = columnToFieldNameMap.get(col);
+                if (fieldName != null) {
+                    orderedFieldNames.add(fieldName);
+                }
+            }
+            try {
+                dataService.saveColumnOrder(childFormDef.getFormCode(), orderedFieldNames);
+                Notification.show("Urutan kolom detail disimpan", 1500, Notification.Position.BOTTOM_END);
+            } catch (Exception ex) {
+                Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
+            }
+        });
+    }
+
+    private Object convertToFieldValue(Object rawVal, Component comp) {
+        if (rawVal == null) {
+            if (comp instanceof TextField) {
+                return "";
+            }
+            return null;
+        }
+        if (comp instanceof TextField) {
+            return rawVal.toString();
+        }
+        if (comp instanceof com.vaadin.flow.component.textfield.IntegerField || comp instanceof com.vaadinerp.components.FormattedIntegerField) {
+            if (rawVal instanceof Number) {
+                return ((Number) rawVal).intValue();
+            }
+            try {
+                return Integer.parseInt(rawVal.toString());
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        if (comp instanceof com.vaadin.flow.component.textfield.BigDecimalField || comp instanceof com.vaadinerp.components.FormattedBigDecimalField) {
+            if (rawVal instanceof java.math.BigDecimal) {
+                return rawVal;
+            }
+            try {
+                return new java.math.BigDecimal(rawVal.toString());
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        if (comp instanceof com.vaadin.flow.component.datepicker.DatePicker) {
+            if (rawVal instanceof java.time.LocalDate) {
+                return rawVal;
+            }
+            if (rawVal instanceof java.sql.Date) {
+                return ((java.sql.Date) rawVal).toLocalDate();
+            }
+            if (rawVal instanceof java.util.Date) {
+                return new java.sql.Date(((java.util.Date) rawVal).getTime()).toLocalDate();
+            }
+            try {
+                return java.time.LocalDate.parse(rawVal.toString());
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        return rawVal;
+    }
+
+    public List<Map<String, Object>> getDeletedValues() {
+        return new ArrayList<>(deletedItems);
+    }
+
+    public void setParentFieldValue(String parentFieldName, Object value) {
+        if (childFormDef == null) return;
+        for (FieldMeta field : childFormDef.getFields()) {
+            if (field.getFilters() != null) {
+                for (com.vaadinerp.meta.FieldFilterMeta filter : field.getFilters()) {
+                    if ("FIELD".equalsIgnoreCase(filter.getSourceType()) && parentFieldName.equalsIgnoreCase(filter.getSourceName())) {
+                        Component editorComp = editorComponents.get(field.getFieldName());
+                        if (editorComp != null) {
+                            FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), value, filter.getLogicalOperator(), filter.getComparisonOperator());
+                            if (editorComp instanceof BandboxField) {
+                                ((BandboxField<?, ?>) editorComp).setFilterValue(condition);
+                            } else if (editorComp instanceof LovComboBox) {
+                                ((LovComboBox) editorComp).setFilterValue(condition);
+                            } else if (editorComp instanceof LovSelect) {
+                                ((LovSelect) editorComp).setFilterValue(condition);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public void clearDeletedValues() {
+        deletedItems.clear();
+    }
+
+    public boolean validateRows() {
+        if (grid.getEditor().isOpen()) {
+            boolean ok = grid.getEditor().getBinder().validate().isOk();
+            if (!ok) return false;
+        }
+        if (childFormDef == null) return true;
+        for (Map<String, Object> row : items) {
+            for (FieldMeta field : childFormDef.getFields()) {
+                if (field.isRequired()) {
+                    Object val = row.get(field.getFieldName());
+                    if (val == null || val.toString().trim().isEmpty()) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    @Override
+    protected List<Map<String, Object>> generateModelValue() {
+        return new ArrayList<>(items);
+    }
+
+    private void evaluateRowFormulas(Map<String, Object> row) {
+        if (childFormDef == null) return;
+        for (FieldMeta field : childFormDef.getFields()) {
+            if (field.getFormula() != null && !field.getFormula().trim().isEmpty()) {
+                try {
+                    double calculated = com.vaadinerp.util.FormulaEvaluator.evaluate(field.getFormula(), row);
+                    row.put(field.getFieldName(), calculated);
+                    
+                    Component editorComp = editorComponents.get(field.getFieldName());
+                    if (editorComp instanceof com.vaadin.flow.component.HasValue) {
+                        @SuppressWarnings("unchecked")
+                        com.vaadin.flow.component.HasValue<?, Object> hasValue = (com.vaadin.flow.component.HasValue<?, Object>) editorComp;
+                        Object converted = convertToFieldValue(calculated, editorComp);
+                        if (converted != null && !converted.equals(hasValue.getValue())) {
+                            hasValue.setValue(converted);
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    private ListDataProvider<Map<String, Object>> createDataProvider() {
+        return new ListDataProvider<Map<String, Object>>(items) {
+            @Override
+            public Object getId(Map<String, Object> item) {
+                if (item == null) {
+                    return 0;
+                }
+                return System.identityHashCode(item);
+            }
+        };
+    }
+
+    @Override
+    protected void setPresentationValue(List<Map<String, Object>> newPresentationValue) {
+        items.clear();
+        deletedItems.clear();
+        if (newPresentationValue != null) {
+            for (Map<String, Object> row : newPresentationValue) {
+                if (row != null) {
+                    evaluateRowFormulas(row);
+                    items.add(row);
+                }
+            }
+        }
+        grid.setDataProvider(createDataProvider());
+        applyFilters();
+    }
+
+    @Override
+    protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        boolean readOnly = isReadOnly();
+        btnAdd.setEnabled(!readOnly);
+        btnDelete.setEnabled(!readOnly);
+        if (readOnly && grid.getEditor().isOpen()) {
+            grid.getEditor().cancel();
+        }
+    }
+}

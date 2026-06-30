@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.ToString;
 
 @Entity
-@Table(name = "meta_field_filter")
+@Table(name = "meta_field_filter", schema = "public")
 @Data
 @ToString(exclude = "fieldMeta")
 public class FieldFilterMeta {
@@ -26,4 +26,10 @@ public class FieldFilterMeta {
 
     @Column(name = "source_name", length = 50, nullable = false)
     private String sourceName;
+
+    @Column(name = "logical_operator", length = 10)
+    private String logicalOperator = "AND";
+
+    @Column(name = "comparison_operator", length = 10)
+    private String comparisonOperator = "=";
 }

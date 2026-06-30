@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.List;
 
 @Entity
-@Table(name = "meta_report")
+@Table(name = "meta_report", schema = "public")
 @Data
 public class ReportMeta {
     @Id

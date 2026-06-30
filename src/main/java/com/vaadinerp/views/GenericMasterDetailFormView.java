@@ -2,6 +2,7 @@ package com.vaadinerp.views;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.HasValue;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.formlayout.FormLayout;
@@ -29,9 +30,7 @@ import com.vaadinerp.meta.FormMeta;
 import com.vaadinerp.meta.FormMetaRepository;
 import com.vaadinerp.service.DynamicDataService;
 import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.grid.HeaderRow;
-import com.vaadin.flow.component.contextmenu.ContextMenu;
-import com.vaadin.flow.component.contextmenu.MenuItem;
+
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -87,6 +86,56 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     private boolean isEvaluatingFormulas = false;
     private boolean isEvaluatingGridFormulas = false;
 
+    private final Map<String, Map<String, String>> lovLabelMapCache = new HashMap<>();
+    private final Map<String, String> fieldNameToLovCodeMap = new HashMap<>();
+
+    // Flag to prevent cascading filter listeners from clearing child LOV values during data loading
+    private boolean isLoadingExistingData = false;
+
+    private Object getMapValIgnoreCase(Map<String, Object> rec, String col) {
+        if (col == null || rec == null) return null;
+        if (rec.containsKey(col)) return rec.get(col);
+        for (Map.Entry<String, Object> e : rec.entrySet()) {
+            if (e.getKey().equalsIgnoreCase(col)) return e.getValue();
+        }
+        return null;
+    }
+
+    private String getLovDisplayLabel(String lovCode, String val) {
+        if (val == null || val.trim().isEmpty() || lovCode == null || lovCode.trim().isEmpty()) return val != null ? val : "";
+        String strVal = val.trim();
+        Map<String, String> map = lovLabelMapCache.computeIfAbsent(lovCode, code -> {
+            Map<String, String> res = new HashMap<>();
+            dynamicDataService.getLovMeta(code).ifPresent(lovMeta -> {
+                java.util.List<Map<String, Object>> records = dynamicDataService.fetchAllLovRecords(lovMeta);
+                String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank() ? lovMeta.getValueColumn().trim() : "id";
+                String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank() ? lovMeta.getLabelColumn().trim() : valCol;
+                for (Map<String, Object> rec : records) {
+                    Object v = getMapValIgnoreCase(rec, valCol);
+                    if (v == null && rec.containsKey("id")) v = rec.get("id");
+                    if (v != null) {
+                        Object l = getMapValIgnoreCase(rec, lblCol);
+                        if (l == null || l.toString().trim().isEmpty()) {
+                            if (getMapValIgnoreCase(rec, "code") != null) l = getMapValIgnoreCase(rec, "code");
+                            else if (getMapValIgnoreCase(rec, "name") != null) l = getMapValIgnoreCase(rec, "name");
+                            else l = v;
+                        }
+                        res.put(v.toString().trim(), l.toString().trim());
+                    }
+                }
+            });
+            return res;
+        });
+
+        if (strVal.contains(",")) {
+            return java.util.Arrays.stream(strVal.split(","))
+                    .map(String::trim)
+                    .map(item -> map.getOrDefault(item, item))
+                    .collect(java.util.stream.Collectors.joining(", "));
+        }
+        return map.getOrDefault(strVal, strVal);
+    }
+
     public void setCloseHandler(Runnable closeHandler) {
         this.closeHandler = closeHandler;
     }
@@ -113,6 +162,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 .set("gap", "15px");
 
         masterGrid.setWidthFull();
+        masterGrid.setSelectionMode(Grid.SelectionMode.MULTI);
         masterGrid.setAllRowsVisible(true);
 
         // Setup Tab Sheet layouts
@@ -145,6 +195,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         detailsToolbar.add(detailTitle, btnAddRow, btnDeleteRow);
 
         detailsGrid.setWidthFull();
+        detailsGrid.setSelectionMode(Grid.SelectionMode.MULTI);
         detailsGrid.setAllRowsVisible(true);
         
         transaksiLayout.add(formLayout, detailsToolbar, detailsGrid);
@@ -156,6 +207,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         tabSheet.addSelectedChangeListener(event -> {
             if (currentFormDef != null) {
+                if (event.getSelectedTab() == historisTab) {
+                    refreshMasterGridData();
+                }
                 boolean isUpdate = false;
                 Map<String, Object> bean = formBinder != null ? formBinder.getBean() : null;
                 String pk = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey() : "id";
@@ -169,7 +223,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         add(title, toolbar, tabSheet);
 
         // Bind Details Row Add/Delete Action
-        btnAddRow.addClickListener(e -> {
+         btnAddRow.addClickListener(e -> {
             Editor<Map<String, Object>> editor = detailsGrid.getEditor();
             if (editor.isOpen()) {
                 Map<String, Object> prevItem = editor.getItem();
@@ -180,19 +234,45 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 }
             }
             Map<String, Object> newRow = new HashMap<>();
+            newRow.put("_tempId", java.util.UUID.randomUUID().toString());
             detailsList.add(newRow);
             applyDetailsFilters();
             applyMasterFiltersToDetailEditors(currentFormDef);
-            editor.editItem(newRow);
+
+            UI.getCurrent().getPage().executeJs(
+                "var grid = $0; var targetRowIdx = $1; " +
+                "function tryEdit(attempt) { " +
+                "  var body = grid.shadowRoot.querySelector('[part=\"body\"]'); " +
+                "  if(!body) { if(attempt < 60) setTimeout(function(){tryEdit(attempt+1)},30); return; } " +
+                "  var rows = body.querySelectorAll('[part=\"row\"]'); " +
+                "  var targetRow = null; " +
+                "  for(var i=0; i<rows.length; i++) { " +
+                "    if(rows[i].getAttribute('part').indexOf('row') !== -1) { " +
+                "      if(i === rows.length - 1 || rows[i].getAttribute('rowindex') == targetRowIdx) { " +
+                "        targetRow = rows[i]; break; " +
+                "      } " +
+                "    } " +
+                "  } " +
+                "  if(!targetRow) { if(attempt < 60) setTimeout(function(){tryEdit(attempt+1)},30); return; } " +
+                "  try { targetRow.scrollIntoView({behavior:'smooth', block:'center'}); } catch(e){} " +
+                "  var cells = targetRow.querySelectorAll('td'); " +
+                "  if(cells.length > 0) { " +
+                "    cells[0].dispatchEvent(new MouseEvent('dblclick', {bubbles:true, cancelable:true})); " +
+                "  } " +
+                "} " +
+                "tryEdit(0);",
+                detailsGrid.getElement(), detailsList.size() - 1
+            );
         });
 
         btnDeleteRow.addClickListener(e -> {
-            Map<String, Object> selected = detailsGrid.asSingleSelect().getValue();
-            if (selected != null) {
-                showConfirmDialog("Konfirmasi Hapus Rincian", "Apakah Anda yakin ingin menghapus baris rincian terpilih ini?", () -> {
-                    detailsList.remove(selected);
-                    deletedDetailsList.add(selected);
+            java.util.Set<Map<String, Object>> selectedItems = detailsGrid.getSelectedItems();
+            if (selectedItems != null && !selectedItems.isEmpty()) {
+                showConfirmDialog("Konfirmasi Hapus Rincian", "Apakah Anda yakin ingin menghapus " + selectedItems.size() + " baris rincian terpilih ini?", () -> {
+                    detailsList.removeAll(selectedItems);
+                    deletedDetailsList.addAll(selectedItems);
                     applyDetailsFilters();
+                    detailsGrid.deselectAll();
                 });
             } else {
                 Notification.show("Pilih baris rincian yang ingin dihapus terlebih dahulu.", 3000, Notification.Position.MIDDLE);
@@ -236,6 +316,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         btnNew.getStyle().set("font-weight", "500").set("color", "#374151");
         btnNew.addClickListener(e -> {
             formBinder.setBean(new HashMap<>());
+            clearAllComponents();
             detailsList.clear();
             deletedDetailsList.clear();
             applyDetailsFilters();
@@ -251,14 +332,17 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         btnDelete.getStyle().set("font-weight", "500").set("color", "#374151");
         btnDelete.addClickListener(e -> {
             if (tabSheet.getSelectedTab() == historisTab) {
-                Map<String, Object> selected = masterGrid.asSingleSelect().getValue();
-                if (selected != null) {
-                    showConfirmDialog("Konfirmasi Hapus", "Apakah Anda yakin ingin menghapus data Master-Detail yang dipilih ini?", () -> {
+                java.util.Set<Map<String, Object>> selectedItems = masterGrid.getSelectedItems();
+                if (selectedItems != null && !selectedItems.isEmpty()) {
+                    showConfirmDialog("Konfirmasi Hapus", "Apakah Anda yakin ingin menghapus " + selectedItems.size() + " data Master-Detail yang dipilih ini?", () -> {
                         toolbar.setEnabled(false);
                         try {
-                            dynamicDataService.deleteData(formDef, selected);
+                            for (Map<String, Object> selected : selectedItems) {
+                                dynamicDataService.deleteData(formDef, selected);
+                            }
                             Notification.show("Data Master-Detail berhasil dihapus!", 3000, Notification.Position.TOP_CENTER);
                             refreshMasterGridData();
+                            masterGrid.deselectAll();
                         } catch (Exception ex) {
                             Notification.show("Gagal menghapus: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
                         } finally {
@@ -278,6 +362,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                             dynamicDataService.deleteData(formDef, bean);
                             Notification.show("Data Master-Detail berhasil dihapus!", 3000, Notification.Position.TOP_CENTER);
                             formBinder.setBean(new HashMap<>());
+                            clearAllComponents();
                             detailsList.clear();
                             deletedDetailsList.clear();
                             applyDetailsFilters();
@@ -310,7 +395,14 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 boolean masterRequiredOk = true;
 
                 // Programmatic double-check for all required master fields
+                boolean rulesOk = true;
                 for (FieldMeta field : formDef.getFields()) {
+                    if (!field.isDetail()) {
+                        Component comp = formComponents.get(field.getFieldName());
+                        if (comp != null && !com.vaadinerp.components.ComponentFactory.validateFieldRule(field, comp)) {
+                            rulesOk = false;
+                        }
+                    }
                     if (!field.isDetail() && field.isRequired()) {
                         Component comp = formComponents.get(field.getFieldName());
                         if (comp instanceof com.vaadin.flow.component.HasValue) {
@@ -352,20 +444,50 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     }
                 }
 
-                if (binderOk && masterRequiredOk && detailsOk) {
+                if (binderOk && masterRequiredOk && rulesOk && detailsOk) {
                     dynamicDataService.saveMasterDetailData(formDef, formBinder.getBean(), detailsList, deletedDetailsList);
                     Notification.show("Data berhasil disimpan secara transactional!", 3000, Notification.Position.TOP_CENTER);
                     formBinder.setBean(new HashMap<>());
+                    clearAllComponents();
                     detailsList.clear();
                     deletedDetailsList.clear();
                     applyDetailsFilters();
                     refreshMasterGridData();
                     tabSheet.setSelectedTab(historisTab);
                 } else {
-                    Notification.show("Silakan lengkapi kolom yang wajib diisi (Master dan Rincian).", 3000, Notification.Position.MIDDLE);
+                    java.util.List<String> errMsgs = new java.util.ArrayList<>();
+                    if (!binderOk) {
+                        formBinder.validate().getValidationErrors().forEach(err -> errMsgs.add(err.getErrorMessage()));
+                    }
+                    if (!masterRequiredOk) {
+                        errMsgs.add("Kolom master wajib diisi belum lengkap");
+                    }
+                    if (!rulesOk) {
+                        errMsgs.add("Aturan validasi kolom master tidak terpenuhi");
+                    }
+                    if (!detailsOk) {
+                        errMsgs.add("Kolom rincian wajib diisi belum lengkap");
+                    }
+                    String finalMsg = errMsgs.isEmpty() ? "Silakan periksa kembali inputan form Anda." : String.join(" | ", errMsgs);
+                    Notification n = Notification.show("⚠️ Gagal Menyimpan: " + finalMsg, 6000, Notification.Position.MIDDLE);
+                    n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
                 }
             } catch (Exception ex) {
-                Notification.show("Gagal menyimpan: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                Throwable rootCause = ex;
+                while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+                    rootCause = rootCause.getCause();
+                }
+                ex.printStackTrace();
+                String cleanMsg = rootCause.getMessage();
+                if (cleanMsg != null) {
+                    if (cleanMsg.contains("ERROR:")) cleanMsg = cleanMsg.substring(cleanMsg.indexOf("ERROR:") + 6);
+                    if (cleanMsg.contains("Where: PL/pgSQL")) cleanMsg = cleanMsg.substring(0, cleanMsg.indexOf("Where: PL/pgSQL"));
+                    cleanMsg = cleanMsg.trim();
+                } else {
+                    cleanMsg = "Terjadi kesalahan internal pada sistem.";
+                }
+                Notification n = Notification.show("⚠️ " + cleanMsg, 8000, Notification.Position.MIDDLE);
+                n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
             } finally {
                 toolbar.setEnabled(true);
                 btnSave.setEnabled(true);
@@ -384,6 +506,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 detailsGrid.getEditor().cancel();
             }
             formBinder.setBean(new HashMap<>());
+            clearAllComponents();
             detailsList.clear();
             deletedDetailsList.clear();
             applyDetailsFilters();
@@ -452,6 +575,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         }
                     } else {
                         formBinder.setBean(new HashMap<>());
+                        clearAllComponents();
                         detailsList.clear();
                         deletedDetailsList.clear();
                         applyDetailsFilters();
@@ -473,6 +597,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         formComponents.clear();
 
         java.util.function.BiConsumer<String, Object> updateFieldValue = (targetFieldName, value) -> {
+            if (isLoadingExistingData) return;
             Component targetComponent = formComponents.get(targetFieldName);
             if (targetComponent instanceof HasValue) {
                 @SuppressWarnings("unchecked")
@@ -514,6 +639,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
             for (FieldMeta field : groupFields) {
                 Component input = ComponentFactory.create(field, dynamicDataService, updateFieldValue);
+                if (field.isHideInForm()) {
+                    input.setVisible(false);
+                }
                 rowLayout.add(input);
                 formComponents.put(field.getFieldName(), input);
                 bindComponent(formBinder, input, field);
@@ -544,13 +672,31 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         masterGrid.addItemDoubleClickListener(event -> {
             Map<String, Object> selectedMaster = event.getItem();
             if (selectedMaster != null) {
-                formBinder.setBean(new HashMap<>(selectedMaster));
+                String pk = formDef.getPrimaryKey() != null ? formDef.getPrimaryKey() : "id";
+                Object masterId = getValueCaseInsensitive(selectedMaster, pk);
+                Map<String, Object> freshMaster = selectedMaster;
+                if (masterId != null && !masterId.toString().trim().isEmpty()) {
+                    try {
+                        Map<String, Object> dbRow = dynamicDataService.fetchLovRecord(formDef.getTableName(), pk, masterId);
+                        if (dbRow != null && !dbRow.isEmpty()) {
+                            freshMaster = dbRow;
+                        }
+                    } catch (Exception ex) {
+                        Notification.show("Error memuat data: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                    }
+                }
+                Map<String, Object> formValues = new HashMap<>(freshMaster);
+
+                // Set flag to prevent cascading listeners from clearing child LOV values
+                isLoadingExistingData = true;
+                try {
+                    formBinder.setBean(formValues);
+                } finally {
+                    isLoadingExistingData = false;
+                }
                 evaluateFormulas();
                 
                 // Fetch details
-                String pk = formDef.getPrimaryKey() != null ? formDef.getPrimaryKey() : "id";
-                Object masterId = selectedMaster.get(pk);
-                
                 detailsList.clear();
                 deletedDetailsList.clear();
                 if (masterId != null) {
@@ -581,10 +727,19 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         for (FieldMeta field : sortedFields) {
             String fieldName = field.getFieldName();
-            Grid.Column<Map<String, Object>> col = masterGrid.addColumn(map -> map.get(fieldName))
+            String lovCode = field.getLovCode();
+            if (lovCode != null && !lovCode.trim().isEmpty()) {
+                fieldNameToLovCodeMap.put(fieldName, lovCode);
+            }
+
+            Grid.Column<Map<String, Object>> col = masterGrid.addColumn(map -> {
+                Object valObj = getValueCaseInsensitive(map, fieldName);
+                return com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(field, valObj, dynamicDataService);
+            })
                     .setHeader(field.getFieldLabel())
                     .setAutoWidth(true)
-                    .setFlexGrow(1)
+                    .setFlexGrow(0)
+                    .setResizable(true)
                     .setKey(fieldName);
 
             col.setComparator((map1, map2) -> {
@@ -593,8 +748,15 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 if (val1 == null && val2 == null) return 0;
                 if (val1 == null) return -1;
                 if (val2 == null) return 1;
+                if (lovCode != null && !lovCode.trim().isEmpty()) {
+                    String s1 = getLovDisplayLabel(lovCode, val1.toString());
+                    String s2 = getLovDisplayLabel(lovCode, val2.toString());
+                    return s1.compareToIgnoreCase(s2);
+                }
                 if (val1 instanceof Comparable && val2 instanceof Comparable) {
-                    return ((Comparable) val1).compareTo(val2);
+                    @SuppressWarnings("unchecked")
+                    Comparable<Object> comp1 = (Comparable<Object>) val1;
+                    return comp1.compareTo(val2);
                 }
                 return val1.toString().compareTo(val2.toString());
             });
@@ -655,6 +817,16 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             contextMenu.addItem("Ends with", listener);
             contextMenu.addItem("Blank", listener);
             contextMenu.addItem("Not blank", listener);
+
+            contextMenu.addItem(new com.vaadin.flow.component.html.Hr(), e -> {});
+            contextMenu.addItem(col.isFrozen() ? "Unfreeze Column" : "Freeze Column", event -> {
+                boolean nextFrozen = !col.isFrozen();
+                col.setFrozen(nextFrozen);
+                event.getSource().setText(nextFrozen ? "Unfreeze Column" : "Freeze Column");
+                com.vaadin.flow.component.notification.Notification.show(
+                    nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END
+                );
+            });
 
             filterField.addValueChangeListener(e -> {
                 criteria.value = e.getValue();
@@ -742,12 +914,41 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         java.util.Map<String, Grid.Column<Map<String, Object>>> columnsMap = new java.util.LinkedHashMap<>();
 
+        java.util.function.BiConsumer<String, Object> detailUpdateFieldValue = (targetFieldName, val) -> {
+            if (isLoadingExistingData) return;
+            Component targetComp = detailEditorComponents.get(targetFieldName);
+            if (targetComp == null) {
+                for (java.util.Map.Entry<String, Component> e : detailEditorComponents.entrySet()) {
+                    if (e.getKey() != null && e.getKey().equalsIgnoreCase(targetFieldName)) {
+                        targetComp = e.getValue();
+                        break;
+                    }
+                }
+            }
+            if (targetComp instanceof HasValue) {
+                @SuppressWarnings("unchecked")
+                HasValue<?, Object> hv = (HasValue<?, Object>) targetComp;
+                Object convertedVal = convertToFieldValue(val, targetComp);
+                if (convertedVal != null && !convertedVal.equals(hv.getValue()) || (convertedVal == null && hv.getValue() != null)) {
+                    hv.setValue(convertedVal);
+                }
+            }
+            if (detailsGrid.getEditor().isOpen() && detailsGrid.getEditor().getItem() != null) {
+                putValueCaseInsensitive(detailsGrid.getEditor().getItem(), targetFieldName, val);
+            }
+        };
+
         for (FieldMeta field : detailFields) {
             String fieldName = field.getFieldName();
-            Grid.Column<Map<String, Object>> col = detailsGrid.addColumn(map -> map.get(fieldName))
+            String lovCode = field.getLovCode();
+            Grid.Column<Map<String, Object>> col = detailsGrid.addColumn(map -> {
+                Object valObj = getValueCaseInsensitive(map, fieldName);
+                return com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(field, valObj, dynamicDataService);
+            })
                     .setHeader(field.getFieldLabel())
                     .setAutoWidth(true)
-                    .setFlexGrow(1)
+                    .setFlexGrow(0)
+                    .setResizable(true)
                     .setKey(fieldName);
 
             // Setup Comparator for Sorting
@@ -757,8 +958,15 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 if (val1 == null && val2 == null) return 0;
                 if (val1 == null) return -1;
                 if (val2 == null) return 1;
+                if (lovCode != null && !lovCode.trim().isEmpty()) {
+                    String s1 = getLovDisplayLabel(lovCode, val1.toString());
+                    String s2 = getLovDisplayLabel(lovCode, val2.toString());
+                    return s1.compareToIgnoreCase(s2);
+                }
                 if (val1 instanceof Comparable && val2 instanceof Comparable) {
-                    return ((Comparable) val1).compareTo(val2);
+                    @SuppressWarnings("unchecked")
+                    Comparable<Object> comp1 = (Comparable<Object>) val1;
+                    return comp1.compareTo(val2);
                 }
                 return val1.toString().compareTo(val2.toString());
             });
@@ -768,7 +976,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             detailsColumnToFieldNameMap.put(col, fieldName);
 
             // Create inline editor component
-            Component editorComp = ComponentFactory.create(field, dynamicDataService, null, true);
+            Component editorComp = ComponentFactory.create(field, dynamicDataService, detailUpdateFieldValue, true);
             col.setEditorComponent(editorComp);
             detailEditorComponents.put(fieldName, editorComp);
             
@@ -799,13 +1007,15 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                             HasValue<?, Object> hasValueSource = (HasValue<?, Object>) sourceComponent;
                             hasValueSource.addValueChangeListener(event -> {
                                 Object newValue = event.getValue();
-                                applyFilterToComponent(targetComponent, filter.getFilterColumn(), newValue);
+                                com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), newValue, filter.getLogicalOperator(), filter.getComparisonOperator());
+                                applyFilterToComponent(targetComponent, condition);
                             });
                             
                             // Apply initial/current filter value
                             Object initVal = hasValueSource.getValue();
                             if (initVal != null) {
-                                applyFilterToComponent(targetComponent, filter.getFilterColumn(), initVal);
+                                com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), initVal, filter.getLogicalOperator(), filter.getComparisonOperator());
+                                applyFilterToComponent(targetComponent, condition);
                             }
                         }
                     }
@@ -867,7 +1077,12 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     }
                 }
                 applyMasterFiltersToDetailEditors(formDef);
-                editor.editItem(item);
+                isLoadingExistingData = true;
+                try {
+                    editor.editItem(item);
+                } finally {
+                    isLoadingExistingData = false;
+                }
             }
         });
 
@@ -922,6 +1137,16 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             contextMenu.addItem("Ends with", listener);
             contextMenu.addItem("Blank", listener);
             contextMenu.addItem("Not blank", listener);
+
+            contextMenu.addItem(new com.vaadin.flow.component.html.Hr(), e -> {});
+            contextMenu.addItem(col.isFrozen() ? "Unfreeze Column" : "Freeze Column", event -> {
+                boolean nextFrozen = !col.isFrozen();
+                col.setFrozen(nextFrozen);
+                event.getSource().setText(nextFrozen ? "Unfreeze Column" : "Freeze Column");
+                com.vaadin.flow.component.notification.Notification.show(
+                    nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END
+                );
+            });
 
             filterField.addValueChangeListener(e -> {
                 if (detailsGrid.getEditor().isOpen()) {
@@ -1041,7 +1266,19 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         
         filteredDetailsList.clear();
         filteredDetailsList.addAll(filtered);
-        detailsGrid.setItems(new ArrayList<>(filteredDetailsList));
+        
+        com.vaadin.flow.data.provider.DataProvider<Map<String, Object>, ?> dp = detailsGrid.getDataProvider();
+        if (dp instanceof com.vaadin.flow.data.provider.ListDataProvider) {
+            com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> ldp = 
+                (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) dp;
+            if (ldp.getItems() == filteredDetailsList) {
+                ldp.refreshAll();
+            } else {
+                detailsGrid.setItems(filteredDetailsList);
+            }
+        } else {
+            detailsGrid.setItems(filteredDetailsList);
+        }
     }
 
     private void calculateRowTotal(Map<String, Object> row) {
@@ -1084,6 +1321,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
 
             for (FieldMeta field : currentFormDef.getFields()) {
+                if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
+                    continue;
+                }
                 if (!field.isDetail() && field.getFormula() != null && !field.getFormula().trim().isEmpty()) {
                     double calculated = com.vaadinerp.util.FormulaEvaluator.evaluate(field.getFormula(), bean);
                     bean.put(field.getFieldName(), calculated);
@@ -1105,8 +1345,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
     private void refreshMasterGridData() {
         if (currentFormDef != null) {
+            lovLabelMapCache.clear();
             allMasterGridItems.clear();
-            allMasterGridItems.addAll(dynamicDataService.fetchTableData(currentFormDef.getTableName()));
+            allMasterGridItems.addAll(dynamicDataService.fetchGridData(currentFormDef));
             applyFilters();
         }
     }
@@ -1121,7 +1362,12 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 String query = criteria.value;
                 
                 Object val = item.get(fieldName);
-                String strVal = val != null ? val.toString().toLowerCase() : "";
+                String strVal = val != null ? val.toString() : "";
+                String lovCode = fieldNameToLovCodeMap.get(fieldName);
+                if (lovCode != null && !strVal.isEmpty()) {
+                    strVal = getLovDisplayLabel(lovCode, strVal);
+                }
+                strVal = strVal.toLowerCase();
                 
                 if ("Blank".equals(op)) {
                     if (!strVal.isEmpty()) return false;
@@ -1186,15 +1432,31 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         }
         if (component instanceof com.vaadin.flow.component.datepicker.DatePicker) {
             if (value instanceof java.time.LocalDate) return (V) value;
+            if (value instanceof java.time.LocalDateTime) return (V) ((java.time.LocalDateTime) value).toLocalDate();
+            if (value instanceof java.sql.Timestamp) return (V) ((java.sql.Timestamp) value).toLocalDateTime().toLocalDate();
             if (value instanceof java.sql.Date) return (V) ((java.sql.Date) value).toLocalDate();
             if (value instanceof java.util.Date) return (V) new java.sql.Date(((java.util.Date) value).getTime()).toLocalDate();
             try { return (V) java.time.LocalDate.parse(value.toString()); } catch (Exception e) { return null; }
         }
-        if (component instanceof com.vaadin.flow.component.textfield.BigDecimalField) {
+        if (component instanceof com.vaadin.flow.component.datetimepicker.DateTimePicker) {
+            if (value instanceof java.time.LocalDateTime) return (V) value;
+            if (value instanceof java.time.LocalDate) return (V) ((java.time.LocalDate) value).atStartOfDay();
+            if (value instanceof java.sql.Timestamp) return (V) ((java.sql.Timestamp) value).toLocalDateTime();
+            if (value instanceof java.util.Date) return (V) new java.sql.Timestamp(((java.util.Date) value).getTime()).toLocalDateTime();
+            try { return (V) java.time.LocalDateTime.parse(value.toString().replace(" ", "T")); } catch (Exception e) {
+                try { return (V) java.time.LocalDate.parse(value.toString()).atStartOfDay(); } catch (Exception ex) { return null; }
+            }
+        }
+        if (component instanceof com.vaadin.flow.component.timepicker.TimePicker) {
+            if (value instanceof java.time.LocalTime) return (V) value;
+            if (value instanceof java.sql.Time) return (V) ((java.sql.Time) value).toLocalTime();
+            try { return (V) java.time.LocalTime.parse(value.toString()); } catch (Exception e) { return null; }
+        }
+        if (component instanceof com.vaadin.flow.component.textfield.BigDecimalField || component instanceof com.vaadinerp.components.FormattedBigDecimalField) {
             if (value instanceof java.math.BigDecimal) return (V) value;
             try { return (V) new java.math.BigDecimal(value.toString()); } catch (Exception e) { return null; }
         }
-        if (component instanceof com.vaadin.flow.component.textfield.IntegerField) {
+        if (component instanceof com.vaadin.flow.component.textfield.IntegerField || component instanceof com.vaadinerp.components.FormattedIntegerField) {
             if (value instanceof Integer) return (V) value;
             if (value instanceof Number) return (V) Integer.valueOf(((Number) value).intValue());
             try { return (V) Integer.valueOf(Integer.parseInt(value.toString())); } catch (Exception e) { return null; }
@@ -1220,8 +1482,30 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             builder.asRequired(field.getFieldLabel() + " wajib diisi");
         }
         builder.bind(
-                map -> convertToFieldValue(map.get(field.getFieldName()), editComponent),
-                (map, value) -> map.put(field.getFieldName(), value));
+                map -> convertToFieldValue(getValueCaseInsensitive(map, field.getFieldName()), editComponent),
+                (map, value) -> putValueCaseInsensitive(map, field.getFieldName(), value));
+    }
+
+    private Object getValueCaseInsensitive(Map<String, Object> map, String key) {
+        if (map == null || key == null) return null;
+        if (map.containsKey(key)) return map.get(key);
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(key)) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    private void putValueCaseInsensitive(Map<String, Object> map, String key, Object value) {
+        if (map == null || key == null) return;
+        for (String k : map.keySet()) {
+            if (k != null && k.equalsIgnoreCase(key)) {
+                map.put(k, value);
+                return;
+            }
+        }
+        map.put(key, value);
     }
 
     private void updateTitle(FormMeta formDef, boolean isUpdate) {
@@ -1252,22 +1536,40 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         dialog.open();
      }
 
-    private void applyFilterToComponent(Component targetComponent, String filterColumn, Object value) {
+    private void applyFilterToComponent(Component targetComponent, com.vaadinerp.components.FilterCondition condition) {
         if (targetComponent == null) {
             return;
         }
         if (targetComponent instanceof LovComboBox) {
             LovComboBox combo = (LovComboBox) targetComponent;
-            combo.setFilterValue(filterColumn, value);
-            combo.clear();
+            combo.setFilterValue(condition);
+            if (!isLoadingExistingData) {
+                combo.clear();
+            }
         } else if (targetComponent instanceof LovSelect) {
             LovSelect select = (LovSelect) targetComponent;
-            select.setFilterValue(filterColumn, value);
-            select.clear();
+            select.setFilterValue(condition);
+            if (!isLoadingExistingData) {
+                select.clear();
+            }
         } else if (targetComponent instanceof BandboxField) {
             BandboxField<?, ?> bandbox = (BandboxField<?, ?>) targetComponent;
-            bandbox.setFilterValue(filterColumn, value);
-            bandbox.clear();
+            bandbox.setFilterValue(condition);
+            if (!isLoadingExistingData) {
+                bandbox.clear();
+            }
+        }
+    }
+
+    private void clearAllComponents() {
+        if (formComponents != null) {
+            for (Component comp : formComponents.values()) {
+                if (comp instanceof com.vaadin.flow.component.HasValue) {
+                    ((com.vaadin.flow.component.HasValue<?, ?>) comp).clear();
+                } else if (comp instanceof com.vaadinerp.components.SubformGridField) {
+                    ((com.vaadinerp.components.SubformGridField) comp).setValue(new ArrayList<>());
+                }
+            }
         }
     }
 
@@ -1282,7 +1584,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                             Component sourceComponent = formComponents.get(sourceFieldName);
                             if (sourceComponent instanceof HasValue) {
                                 Object val = ((HasValue<?, ?>) sourceComponent).getValue();
-                                applyFilterToComponent(targetComponent, filter.getFilterColumn(), val);
+                                com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), val, filter.getLogicalOperator(), filter.getComparisonOperator());
+                                applyFilterToComponent(targetComponent, condition);
                             }
                         }
                     }
