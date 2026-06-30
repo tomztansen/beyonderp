@@ -14,7 +14,9 @@ public class LovSelect extends Select<String> {
     private final String lovCode;
     private final DynamicDataService dataService;
     private final Map<String, String> valueToLabelMap = new HashMap<>();
-    private final Map<String, Object> activeFilters = new HashMap<>();
+    private final Map<String, FilterCondition> activeFilters = new HashMap<>();
+
+    private final List<String> currentItems = new ArrayList<>();
 
     public LovSelect(String label, String lovCode, DynamicDataService dataService) {
         setLabel(label);
@@ -27,11 +29,45 @@ public class LovSelect extends Select<String> {
         refreshItems();
     }
 
-    public void setFilterValue(String filterColumn, Object value) {
-        if (value == null || value.toString().trim().isEmpty()) {
-            activeFilters.remove(filterColumn);
+    private Object getCaseInsensitive(Map<String, Object> map, String key) {
+        if (map == null || key == null) return null;
+        if (map.containsKey(key)) return map.get(key);
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(key)) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public void setValue(String value) {
+        if (value != null && !value.isEmpty() && !currentItems.contains(value)) {
+            currentItems.add(value);
+            if (!valueToLabelMap.containsKey(value)) {
+                LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
+                if (lovMeta != null) {
+                    Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), value);
+                    Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
+                    if (lblObj != null) {
+                        valueToLabelMap.put(value, lblObj.toString());
+                    } else {
+                        valueToLabelMap.put(value, value);
+                    }
+                } else {
+                    valueToLabelMap.put(value, value);
+                }
+            }
+            setItems(new ArrayList<>(currentItems));
+        }
+        super.setValue(value);
+    }
+
+    public void setFilterValue(FilterCondition condition) {
+        if (condition.getValue() == null || condition.getValue().toString().trim().isEmpty()) {
+            activeFilters.remove(condition.getFilterId());
         } else {
-            activeFilters.put(filterColumn, value);
+            activeFilters.put(condition.getFilterId(), condition);
         }
         refreshItems();
     }
@@ -43,11 +79,11 @@ public class LovSelect extends Select<String> {
                     lovMeta.getTableName(),
                     lovMeta.getSearchColumn(),
                     "",
-                    activeFilters
+                    activeFilters.values()
             );
             
             valueToLabelMap.clear();
-            List<String> values = new ArrayList<>();
+            currentItems.clear();
             for (Map<String, Object> rec : records) {
                 Object valObj = rec.get(lovMeta.getValueColumn());
                 Object lblObj = rec.get(lovMeta.getLabelColumn());
@@ -57,11 +93,12 @@ public class LovSelect extends Select<String> {
                 
                 if (!val.isEmpty()) {
                     valueToLabelMap.put(val, lbl);
-                    values.add(val);
+                    currentItems.add(val);
                 }
             }
-            setItems(values);
+            setItems(new ArrayList<>(currentItems));
         } else {
+            currentItems.clear();
             setItems(new ArrayList<>());
         }
     }

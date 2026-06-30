@@ -9,21 +9,24 @@ import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.H4;
-import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.icon.Icon;
+
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.router.Route;
+
 import com.vaadinerp.service.DynamicDataService;
 import com.vaadinerp.service.DynamicDataService.ColumnDefinition;
 import com.vaadinerp.service.DynamicDataService.TriggerDefinition;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+import com.vaadinerp.components.StandardGridUtils;
+
 import java.util.HashSet;
 import java.util.List;
 
@@ -45,6 +48,7 @@ public class TableDesignerView extends VerticalLayout {
     // Columns Grid
     private final Grid<ColumnDefinition> columnsGrid = new Grid<>();
     private final List<ColumnDefinition> columnsList = new ArrayList<>();
+    private Runnable columnsGridRefresher;
 
     // Trigger Inputs
     private final Checkbox enableTriggerCheckbox = new Checkbox("Aktifkan Database Trigger PL/pgSQL");
@@ -130,11 +134,11 @@ public class TableDesignerView extends VerticalLayout {
 
     private void setupGrid() {
         columnsGrid.setHeight("250px");
-        columnsGrid.addColumn(ColumnDefinition::getColumnName).setHeader("Nama Kolom");
-        columnsGrid.addColumn(ColumnDefinition::getDataType).setHeader("Tipe Data");
-        columnsGrid.addColumn(col -> col.isPrimaryKey() ? "YES" : "NO").setHeader("PK");
-        columnsGrid.addColumn(col -> col.isNullable() ? "YES" : "NO").setHeader("Nullable");
-        columnsGrid.addColumn(ColumnDefinition::getDefaultValue).setHeader("Default Value");
+        Grid.Column<ColumnDefinition> c1 = columnsGrid.addColumn(ColumnDefinition::getColumnName).setHeader("Nama Kolom");
+        Grid.Column<ColumnDefinition> c2 = columnsGrid.addColumn(ColumnDefinition::getDataType).setHeader("Tipe Data");
+        Grid.Column<ColumnDefinition> c3 = columnsGrid.addColumn(col -> col.isPrimaryKey() ? "YES" : "NO").setHeader("PK");
+        Grid.Column<ColumnDefinition> c4 = columnsGrid.addColumn(col -> col.isNullable() ? "YES" : "NO").setHeader("Nullable");
+        Grid.Column<ColumnDefinition> c5 = columnsGrid.addColumn(ColumnDefinition::getDefaultValue).setHeader("Default Value");
 
         columnsGrid.addComponentColumn(col -> {
             Button btnDel = new Button(VaadinIcon.TRASH.create());
@@ -142,14 +146,21 @@ public class TableDesignerView extends VerticalLayout {
             btnDel.setTooltipText("Hapus Kolom");
             btnDel.addClickListener(e -> {
                 columnsList.remove(col);
-                columnsGrid.setItems(new ArrayList<>(columnsList));
+                if (columnsGridRefresher != null) columnsGridRefresher.run();
             });
             // Don't allow deleting PK 'id'
             btnDel.setEnabled(!"id".equalsIgnoreCase(col.getColumnName()));
             return btnDel;
         }).setHeader("Aksi").setWidth("80px").setFlexGrow(0);
 
-        columnsGrid.setItems(columnsList);
+        Map<Grid.Column<ColumnDefinition>, Function<ColumnDefinition, String>> getterMap = new HashMap<>();
+        getterMap.put(c1, col -> col.getColumnName() != null ? col.getColumnName() : "");
+        getterMap.put(c2, col -> col.getDataType() != null ? col.getDataType() : "");
+        getterMap.put(c3, col -> col.isPrimaryKey() ? "YES" : "NO");
+        getterMap.put(c4, col -> col.isNullable() ? "YES" : "NO");
+        getterMap.put(c5, col -> col.getDefaultValue() != null ? col.getDefaultValue() : "");
+        this.columnsGridRefresher = StandardGridUtils.attachGridFilters(columnsGrid, getterMap, () -> columnsList);
+        columnsGridRefresher.run();
     }
 
     private void setupTriggerPanel() {
@@ -229,7 +240,7 @@ public class TableDesignerView extends VerticalLayout {
         col.setDefaultValue(defVal.isEmpty() ? null : defVal);
 
         columnsList.add(col);
-        columnsGrid.setItems(new ArrayList<>(columnsList));
+        if (columnsGridRefresher != null) columnsGridRefresher.run();
 
         // Reset Inputs
         colNameInput.clear();
@@ -290,7 +301,7 @@ public class TableDesignerView extends VerticalLayout {
             idCol.setNullable(false);
             columnsList.add(idCol);
             
-            columnsGrid.setItems(new ArrayList<>(columnsList));
+            if (columnsGridRefresher != null) columnsGridRefresher.run();
             enableTriggerCheckbox.setValue(false);
             triggerPanel.setVisible(false);
             updateTriggerTemplate();

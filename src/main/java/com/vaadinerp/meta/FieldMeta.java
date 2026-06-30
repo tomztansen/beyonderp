@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.ToString;
 
 @Entity
-@Table(name = "meta_field")
+@Table(name = "meta_field", schema = "public")
 @Data
 @ToString(exclude = "formMeta")
 public class FieldMeta {
@@ -44,8 +44,14 @@ public class FieldMeta {
     @Column(name = "show_in_grid")
     private boolean showInGrid;
 
+    @Column(name = "hide_in_form")
+    private Boolean hideInForm = false;
+
     @Column(name = "is_detail")
     private Boolean isDetail;
+
+    @Column(name = "is_sortable")
+    private Boolean isSortable = true;
 
     @Column(name = "formula", length = 255)
     private String formula;
@@ -56,12 +62,34 @@ public class FieldMeta {
     @Column(name = "save_on_update")
     private Boolean saveOnUpdate = true;
 
+    @Column(name = "validation_rule", length = 100)
+    private String validationRule;
+
+    @Column(name = "display_format", length = 50)
+    private String displayFormat;
+
     public boolean isDetail() {
         return isDetail != null && isDetail;
     }
 
     public void setDetail(Boolean isDetail) {
         this.isDetail = isDetail;
+    }
+
+    public boolean isSortable() {
+        return isSortable == null || isSortable;
+    }
+
+    public void setSortable(Boolean sortable) {
+        this.isSortable = sortable;
+    }
+
+    public boolean isHideInForm() {
+        return hideInForm != null && hideInForm;
+    }
+
+    public void setHideInForm(Boolean hideInForm) {
+        this.hideInForm = hideInForm;
     }
 
     public boolean isSaveOnInsert() {

@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.ToString;
 
 @Entity
-@Table(name = "meta_report_element")
+@Table(name = "meta_report_element", schema = "public")
 @Data
 @ToString(exclude = "reportMeta")
 public class ReportElementMeta {

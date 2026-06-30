@@ -4,7 +4,7 @@ import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.grid.editor.Editor;
+
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -17,11 +17,12 @@ import com.vaadinerp.components.ComponentFactory;
 import com.vaadinerp.components.LovComboBox;
 import com.vaadinerp.components.LovSelect;
 import com.vaadinerp.components.BandboxField;
+import com.vaadinerp.components.SubformGridField;
 import com.vaadinerp.meta.FieldMeta;
 import com.vaadinerp.meta.FormMeta;
 import com.vaadinerp.meta.FormMetaRepository;
 import com.vaadinerp.meta.FieldFilterMeta;
-import com.vaadin.flow.router.QueryParameters;
+
 
 import com.vaadinerp.service.DynamicDataService;
 import com.vaadin.flow.component.notification.Notification;
@@ -36,7 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
+
 
 @Route("generic")
 public class GenericFormView extends VerticalLayout implements HasUrlParameter<String> {
@@ -82,6 +83,56 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private Map<Grid.Column<Map<String, Object>>, String> columnToFieldNameMap = new HashMap<>();
     private String currentFormCode;
     private FormMeta currentFormDef;
+
+    private final Map<String, Map<String, String>> lovLabelMapCache = new HashMap<>();
+    private final Map<String, String> fieldNameToLovCodeMap = new HashMap<>();
+
+    // Flag to prevent cascading filter listeners from clearing child LOV values during data loading
+    private boolean isLoadingExistingData = false;
+
+    private Object getMapValIgnoreCase(Map<String, Object> rec, String col) {
+        if (col == null || rec == null) return null;
+        if (rec.containsKey(col)) return rec.get(col);
+        for (Map.Entry<String, Object> e : rec.entrySet()) {
+            if (e.getKey().equalsIgnoreCase(col)) return e.getValue();
+        }
+        return null;
+    }
+
+    private String getLovDisplayLabel(String lovCode, String val) {
+        if (val == null || val.trim().isEmpty() || lovCode == null || lovCode.trim().isEmpty()) return val != null ? val : "";
+        String strVal = val.trim();
+        Map<String, String> map = lovLabelMapCache.computeIfAbsent(lovCode, code -> {
+            Map<String, String> res = new HashMap<>();
+            dynamicDataService.getLovMeta(code).ifPresent(lovMeta -> {
+                java.util.List<Map<String, Object>> records = dynamicDataService.fetchAllLovRecords(lovMeta);
+                String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank() ? lovMeta.getValueColumn().trim() : "id";
+                String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank() ? lovMeta.getLabelColumn().trim() : valCol;
+                for (Map<String, Object> rec : records) {
+                    Object v = getMapValIgnoreCase(rec, valCol);
+                    if (v == null && rec.containsKey("id")) v = rec.get("id");
+                    if (v != null) {
+                        Object l = getMapValIgnoreCase(rec, lblCol);
+                        if (l == null || l.toString().trim().isEmpty()) {
+                            if (getMapValIgnoreCase(rec, "code") != null) l = getMapValIgnoreCase(rec, "code");
+                            else if (getMapValIgnoreCase(rec, "name") != null) l = getMapValIgnoreCase(rec, "name");
+                            else l = v;
+                        }
+                        res.put(v.toString().trim(), l.toString().trim());
+                    }
+                }
+            });
+            return res;
+        });
+
+        if (strVal.contains(",")) {
+            return java.util.Arrays.stream(strVal.split(","))
+                    .map(String::trim)
+                    .map(item -> map.getOrDefault(item, item))
+                    .collect(java.util.stream.Collectors.joining(", "));
+        }
+        return map.getOrDefault(strVal, strVal);
+    }
     private boolean isEvaluatingFormulas = false;
 
     public GenericFormView(FormMetaRepository formMetaRepository, DynamicDataService dynamicDataService) {
@@ -105,6 +156,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         grid = new Grid<>();
         grid.setWidthFull();
+        grid.setSelectionMode(Grid.SelectionMode.MULTI);
         grid.setAllRowsVisible(true); // Memuat seluruh baris secara vertikal tanpa terpotong
 
         // Setup TabSheet layouts
@@ -127,6 +179,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         tabSheet.addSelectedChangeListener(event -> {
             if (currentFormDef != null) {
+                if (event.getSelectedTab() == historisTab) {
+                    refreshGridData(currentFormDef);
+                }
                 boolean isUpdate = false;
                 Map<String, Object> bean = formBinder != null ? formBinder.getBean() : null;
                 String pk = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey() : "id";
@@ -181,6 +236,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnNew.getStyle().set("font-weight", "500").set("color", "#374151");
         btnNew.addClickListener(e -> {
             formBinder.setBean(new HashMap<>());
+            clearAllComponents();
             tabSheet.setSelectedTab(transaksiTab);
         });
 
@@ -193,14 +249,17 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnDelete.getStyle().set("font-weight", "500").set("color", "#374151");
         btnDelete.addClickListener(e -> {
             if (tabSheet.getSelectedTab() == historisTab) {
-                Map<String, Object> selected = grid.asSingleSelect().getValue();
-                if (selected != null) {
-                    showConfirmDialog("Konfirmasi Hapus", "Apakah Anda yakin ingin menghapus data yang dipilih ini?", () -> {
+                java.util.Set<Map<String, Object>> selectedItems = grid.getSelectedItems();
+                if (selectedItems != null && !selectedItems.isEmpty()) {
+                    showConfirmDialog("Konfirmasi Hapus", "Apakah Anda yakin ingin menghapus " + selectedItems.size() + " data yang dipilih ini?", () -> {
                         toolbar.setEnabled(false);
                         try {
-                            dynamicDataService.deleteData(formDef, selected);
+                            for (Map<String, Object> selected : selectedItems) {
+                                dynamicDataService.deleteData(formDef, selected);
+                            }
                             Notification.show("Data berhasil dihapus!", 3000, Notification.Position.TOP_CENTER);
                             refreshGridData(formDef);
+                            grid.deselectAll();
                         } catch (Exception ex) {
                             Notification.show("Gagal menghapus: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
                         } finally {
@@ -220,6 +279,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             dynamicDataService.deleteData(formDef, bean);
                             Notification.show("Data berhasil dihapus!", 3000, Notification.Position.TOP_CENTER);
                             formBinder.setBean(new HashMap<>());
+                            clearAllComponents();
                             refreshGridData(formDef);
                             tabSheet.setSelectedTab(historisTab);
                         } catch (Exception ex) {
@@ -249,9 +309,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 boolean requiredOk = true;
 
                 // Programmatic double-check for all required fields
+                boolean rulesOk = true;
                 for (FieldMeta field : formDef.getFields()) {
+                    Component comp = formComponents.get(field.getFieldName());
+                    if (comp != null && !com.vaadinerp.components.ComponentFactory.validateFieldRule(field, comp)) {
+                        rulesOk = false;
+                    }
                     if (field.isRequired()) {
-                        Component comp = formComponents.get(field.getFieldName());
                         if (comp instanceof com.vaadin.flow.component.HasValue) {
                             Object val = ((com.vaadin.flow.component.HasValue<?, ?>) comp).getValue();
                             if (val == null || val.toString().trim().isEmpty()) {
@@ -265,17 +329,75 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     }
                 }
 
-                if (binderOk && requiredOk) {
-                    dynamicDataService.saveData(formDef, formBinder.getBean());
+                // Subform validation check
+                boolean subformsOk = true;
+                for (FieldMeta field : formDef.getFields()) {
+                    if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
+                        Component comp = formComponents.get(field.getFieldName());
+                        if (comp instanceof SubformGridField) {
+                            SubformGridField subformField = (SubformGridField) comp;
+                            if (!subformField.validateRows()) {
+                                subformsOk = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (binderOk && requiredOk && rulesOk && subformsOk) {
+                    Map<String, Object> parentData = formBinder.getBean();
+                    // Inject deleted records into the parent data map before saving
+                    for (FieldMeta field : formDef.getFields()) {
+                        if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
+                            Component comp = formComponents.get(field.getFieldName());
+                            if (comp instanceof SubformGridField) {
+                                SubformGridField subformField = (SubformGridField) comp;
+                                parentData.put("__deleted_" + field.getFieldName(), subformField.getDeletedValues());
+                            }
+                        }
+                    }
+
+                    dynamicDataService.saveData(formDef, parentData);
                     Notification.show("Data berhasil disimpan!", 3000, Notification.Position.TOP_CENTER);
+                    
                     formBinder.setBean(new HashMap<>());
+                    clearAllComponents();
                     refreshGridData(formDef);
                     tabSheet.setSelectedTab(historisTab);
                 } else {
-                    Notification.show("Silakan lengkapi kolom yang wajib diisi.", 3000, Notification.Position.MIDDLE);
+                    java.util.List<String> errMsgs = new java.util.ArrayList<>();
+                    if (!binderOk) {
+                        formBinder.validate().getValidationErrors().forEach(err -> errMsgs.add(err.getErrorMessage()));
+                    }
+                    if (!requiredOk) {
+                        errMsgs.add("Kolom wajib diisi belum lengkap");
+                    }
+                    if (!rulesOk) {
+                        errMsgs.add("Terdapat inputan yang tidak memenuhi aturan validasi");
+                    }
+                    if (!subformsOk) {
+                        errMsgs.add("Data rincian wajib belum lengkap");
+                    }
+                    String finalMsg = errMsgs.isEmpty() ? "Silakan periksa kembali inputan form Anda." : String.join(" | ", errMsgs);
+                    Notification n = Notification.show("⚠️ Gagal Menyimpan: " + finalMsg, 6000, Notification.Position.MIDDLE);
+                    n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
                 }
             } catch (Exception ex) {
-                Notification.show("Gagal menyimpan: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                Throwable rootCause = ex;
+                while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+                    rootCause = rootCause.getCause();
+                }
+                ex.printStackTrace();
+                String cleanMsg = rootCause.getMessage();
+                if (cleanMsg != null) {
+                    if (cleanMsg.contains("ERROR:")) cleanMsg = cleanMsg.substring(cleanMsg.indexOf("ERROR:") + 6);
+                    if (cleanMsg.contains("Where: PL/pgSQL")) cleanMsg = cleanMsg.substring(0, cleanMsg.indexOf("Where: PL/pgSQL"));
+                    cleanMsg = cleanMsg.trim();
+                } else {
+                    cleanMsg = "Terjadi kesalahan internal pada sistem.";
+                }
+                Notification n = Notification.show("⚠️ " + cleanMsg, 8000, Notification.Position.MIDDLE);
+                n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
             } finally {
                 toolbar.setEnabled(true);
                 btnSave.setEnabled(true);
@@ -291,6 +413,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnCancel.getStyle().set("font-weight", "500").set("color", "#374151");
         btnCancel.addClickListener(e -> {
             formBinder.setBean(new HashMap<>());
+            clearAllComponents();
             tabSheet.setSelectedTab(historisTab);
         });
 
@@ -339,6 +462,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         Map<String, Object> freshRecord = dynamicDataService.fetchLovRecord(formDef.getTableName(), pk, idVal);
                         if (freshRecord != null) {
                             formBinder.setBean(new HashMap<>(freshRecord));
+                            loadSubformGridData(freshRecord);
                             evaluateFormulas();
                             Notification.show("Data berhasil direfresh!", 1500, Notification.Position.BOTTOM_END);
                         } else {
@@ -346,6 +470,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         }
                     } else {
                         formBinder.setBean(new HashMap<>());
+                        clearAllComponents();
                         Notification.show("Form dibersihkan!", 1500, Notification.Position.BOTTOM_END);
                     }
                 }
@@ -359,22 +484,28 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         toolbar.add(btnNew, btnDelete, btnSave, btnCancel, btnRefresh, btnClose, btnPrint);
     }
 
-    private void applyFilterToComponent(Component targetComponent, String filterColumn, Object value) {
+    private void applyFilterToComponent(Component targetComponent, com.vaadinerp.components.FilterCondition condition) {
         if (targetComponent == null) {
             return;
         }
         if (targetComponent instanceof LovComboBox) {
             LovComboBox combo = (LovComboBox) targetComponent;
-            combo.setFilterValue(filterColumn, value);
-            combo.clear();
+            combo.setFilterValue(condition);
+            if (!isLoadingExistingData) {
+                combo.clear();
+            }
         } else if (targetComponent instanceof LovSelect) {
             LovSelect select = (LovSelect) targetComponent;
-            select.setFilterValue(filterColumn, value);
-            select.clear();
+            select.setFilterValue(condition);
+            if (!isLoadingExistingData) {
+                select.clear();
+            }
         } else if (targetComponent instanceof BandboxField) {
             BandboxField<?, ?> bandbox = (BandboxField<?, ?>) targetComponent;
-            bandbox.setFilterValue(filterColumn, value);
-            bandbox.clear();
+            bandbox.setFilterValue(condition);
+            if (!isLoadingExistingData) {
+                bandbox.clear();
+            }
         }
     }
 
@@ -396,6 +527,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         formComponents.clear();
 
         java.util.function.BiConsumer<String, Object> updateFieldValue = (targetFieldName, value) -> {
+            if (isLoadingExistingData) return;
             Component targetComponent = formComponents.get(targetFieldName);
             if (targetComponent instanceof com.vaadin.flow.component.HasValue) {
                 @SuppressWarnings("unchecked")
@@ -419,13 +551,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         } catch (Exception e) {
                             convertedValue = null;
                         }
-                    } else if (targetComponent instanceof com.vaadin.flow.component.textfield.BigDecimalField && !(value instanceof java.math.BigDecimal)) {
+                    } else if ((targetComponent instanceof com.vaadin.flow.component.textfield.BigDecimalField || targetComponent instanceof com.vaadinerp.components.FormattedBigDecimalField) && !(value instanceof java.math.BigDecimal)) {
                         try {
                             convertedValue = new java.math.BigDecimal(value.toString());
                         } catch (Exception e) {
                             convertedValue = null;
                         }
-                    } else if (targetComponent instanceof com.vaadin.flow.component.textfield.IntegerField && !(value instanceof Integer)) {
+                    } else if ((targetComponent instanceof com.vaadin.flow.component.textfield.IntegerField || targetComponent instanceof com.vaadinerp.components.FormattedIntegerField) && !(value instanceof Integer)) {
                         try {
                             convertedValue = Integer.parseInt(value.toString());
                         } catch (Exception e) {
@@ -468,6 +600,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
             for (FieldMeta field : groupFields) {
                 Component input = ComponentFactory.create(field, dynamicDataService, updateFieldValue);
+                if (field.isHideInForm()) {
+                    input.setVisible(false);
+                }
                 rowLayout.add(input);
                 formComponents.put(field.getFieldName(), input);
                 bindComponent(formBinder, input, field);
@@ -492,11 +627,29 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             com.vaadin.flow.component.HasValue<?, Object> hasValueSource = (com.vaadin.flow.component.HasValue<?, Object>) sourceComponent;
                             hasValueSource.addValueChangeListener(event -> {
                                 Object newValue = event.getValue();
-                                applyFilterToComponent(targetComponent, filter.getFilterColumn(), newValue);
+                                com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), newValue, filter.getLogicalOperator(), filter.getComparisonOperator());
+                                applyFilterToComponent(targetComponent, condition);
                             });
                         }
                     }
                 }
+            }
+        }
+
+        // Setup cascading from parent fields to SubformGrid fields
+        for (FieldMeta field : formDef.getFields()) {
+            Component sourceComponent = formComponents.get(field.getFieldName());
+            if (sourceComponent instanceof com.vaadin.flow.component.HasValue) {
+                @SuppressWarnings("unchecked")
+                com.vaadin.flow.component.HasValue<?, Object> hasValueSource = (com.vaadin.flow.component.HasValue<?, Object>) sourceComponent;
+                hasValueSource.addValueChangeListener(event -> {
+                    Object newValue = event.getValue();
+                    for (Component comp : formComponents.values()) {
+                        if (comp instanceof SubformGridField) {
+                            ((SubformGridField) comp).setParentFieldValue(field.getFieldName(), newValue);
+                        }
+                    }
+                });
             }
         }
 
@@ -507,13 +660,15 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     Component targetComponent = formComponents.get(field.getFieldName());
                     if (targetComponent != null) {
                         if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
-                            applyFilterToComponent(targetComponent, filter.getFilterColumn(), filter.getSourceName());
+                            com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(), filter.getComparisonOperator());
+                            applyFilterToComponent(targetComponent, condition);
                         } else if ("QUERY".equalsIgnoreCase(filter.getSourceType())) {
                             String paramName = filter.getSourceName();
                             if (queryParameters != null && queryParameters.getParameters().containsKey(paramName)) {
                                 java.util.List<String> vals = queryParameters.getParameters().get(paramName);
                                 if (vals != null && !vals.isEmpty()) {
-                                    applyFilterToComponent(targetComponent, filter.getFilterColumn(), vals.get(0));
+                                    com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), vals.get(0), filter.getLogicalOperator(), filter.getComparisonOperator());
+                                    applyFilterToComponent(targetComponent, condition);
                                 }
                             }
                         }
@@ -557,8 +712,29 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         grid.addItemDoubleClickListener(event -> {
             Map<String, Object> selectedRow = event.getItem();
             if (selectedRow != null) {
-                Map<String, Object> formValues = new HashMap<>(selectedRow);
-                formBinder.setBean(formValues);
+                String pk = formDef.getPrimaryKey() != null ? formDef.getPrimaryKey() : "id";
+                Object pkVal = getValueCaseInsensitive(selectedRow, pk);
+                Map<String, Object> freshRow = selectedRow;
+                if (pkVal != null && !pkVal.toString().trim().isEmpty()) {
+                    try {
+                        Map<String, Object> dbRow = dynamicDataService.fetchLovRecord(formDef.getTableName(), pk, pkVal);
+                        if (dbRow != null && !dbRow.isEmpty()) {
+                            freshRow = dbRow;
+                        }
+                    } catch (Exception ex) {
+                        Notification.show("Error memuat data: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                    }
+                }
+                Map<String, Object> formValues = new HashMap<>(freshRow);
+
+                // Set flag to prevent cascading listeners from clearing child LOV values
+                isLoadingExistingData = true;
+                try {
+                    formBinder.setBean(formValues);
+                } finally {
+                    isLoadingExistingData = false;
+                }
+                loadSubformGridData(formValues);
                 evaluateFormulas();
                 tabSheet.setSelectedTab(transaksiTab);
             }
@@ -579,10 +755,19 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         for (FieldMeta field : sortedFields) {
             if (field.isShowInGrid()) {
                 String fieldName = field.getFieldName();
-                Grid.Column<Map<String, Object>> col = grid.addColumn(map -> map.get(fieldName))
+                String lovCode = field.getLovCode();
+                if (lovCode != null && !lovCode.trim().isEmpty()) {
+                    fieldNameToLovCodeMap.put(fieldName, lovCode);
+                }
+
+                Grid.Column<Map<String, Object>> col = grid.addColumn(map -> {
+                    Object valObj = getValueCaseInsensitive(map, fieldName);
+                    return com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(field, valObj, dynamicDataService);
+                })
                         .setHeader(field.getFieldLabel())
                         .setAutoWidth(true)
-                        .setFlexGrow(1)
+                        .setFlexGrow(0)
+                        .setResizable(true)
                         .setKey(fieldName); // setKey supaya bisa diakses ulang kalau perlu
 
                 // Setup Comparator for Sorting
@@ -592,12 +777,19 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     if (val1 == null && val2 == null) return 0;
                     if (val1 == null) return -1;
                     if (val2 == null) return 1;
+                    if (lovCode != null && !lovCode.trim().isEmpty()) {
+                        String s1 = getLovDisplayLabel(lovCode, val1.toString());
+                        String s2 = getLovDisplayLabel(lovCode, val2.toString());
+                        return s1.compareToIgnoreCase(s2);
+                    }
                     if (val1 instanceof Comparable && val2 instanceof Comparable) {
-                        return ((Comparable) val1).compareTo(val2);
+                        @SuppressWarnings("unchecked")
+                        Comparable<Object> comp1 = (Comparable<Object>) val1;
+                        return comp1.compareTo(val2);
                     }
                     return val1.toString().compareTo(val2.toString());
                 });
-                col.setSortable(true);
+                col.setSortable(field.isSortable());
 
                 columnsMap.put(fieldName, col);
                 columnToFieldNameMap.put(col, fieldName); // <-- daftarkan mapping untuk reorder
@@ -657,6 +849,16 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             contextMenu.addItem("Ends with", listener);
             contextMenu.addItem("Blank", listener);
             contextMenu.addItem("Not blank", listener);
+
+            contextMenu.addItem(new com.vaadin.flow.component.html.Hr(), e -> {});
+            contextMenu.addItem(col.isFrozen() ? "Unfreeze Column" : "Freeze Column", event -> {
+                boolean nextFrozen = !col.isFrozen();
+                col.setFrozen(nextFrozen);
+                event.getSource().setText(nextFrozen ? "Unfreeze Column" : "Freeze Column");
+                com.vaadin.flow.component.notification.Notification.show(
+                    nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END
+                );
+            });
 
             filterField.addValueChangeListener(e -> {
                 criteria.value = e.getValue();
@@ -732,8 +934,33 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     }
 
     private void refreshGridData(FormMeta formDef) {
+        lovLabelMapCache.clear();
         allGridItems.clear();
-        allGridItems.addAll(dynamicDataService.fetchTableData(formDef.getTableName()));
+        allGridItems.addAll(dynamicDataService.fetchGridData(formDef));
+        
+        // Initial / Default Sort
+        String sortField = formDef.getDefaultSortField();
+        String sortDir = formDef.getDefaultSortDirection();
+        if (sortField != null && !sortField.trim().isEmpty()) {
+            boolean asc = !"DESC".equalsIgnoreCase(sortDir);
+            allGridItems.sort((m1, m2) -> {
+                Object v1 = m1.get(sortField);
+                Object v2 = m2.get(sortField);
+                if (v1 == v2) return 0;
+                if (v1 == null) return asc ? -1 : 1;
+                if (v2 == null) return asc ? 1 : -1;
+                int cmp;
+                if (v1 instanceof Comparable && v2 instanceof Comparable) {
+                    @SuppressWarnings("unchecked")
+                    Comparable<Object> comp1 = (Comparable<Object>) v1;
+                    cmp = comp1.compareTo(v2);
+                } else {
+                    cmp = v1.toString().compareTo(v2.toString());
+                }
+                return asc ? cmp : -cmp;
+            });
+        }
+
         applyFilters();
     }
 
@@ -747,7 +974,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 String query = criteria.value;
                 
                 Object val = item.get(fieldName);
-                String strVal = val != null ? val.toString().toLowerCase() : "";
+                String strVal = val != null ? val.toString() : "";
+                String lovCode = fieldNameToLovCodeMap.get(fieldName);
+                if (lovCode != null && !strVal.isEmpty()) {
+                    strVal = getLovDisplayLabel(lovCode, strVal);
+                }
+                strVal = strVal.toLowerCase();
                 
                 if ("Blank".equals(op)) {
                     if (!strVal.isEmpty()) return false;
@@ -810,6 +1042,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             }
 
             for (FieldMeta field : currentFormDef.getFields()) {
+                if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
+                    continue;
+                }
                 if (field.getFormula() != null && !field.getFormula().trim().isEmpty()) {
                     double calculated = com.vaadinerp.util.FormulaEvaluator.evaluate(field.getFormula(), bean);
                     bean.put(field.getFieldName(), calculated);
@@ -831,6 +1066,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
     @SuppressWarnings("unchecked")
     private <V> V convertToFieldValue(Object value, Component component) {
+        if (component instanceof SubformGridField) {
+            if (value instanceof List) {
+                return (V) value;
+            }
+            return (V) new ArrayList<Map<String, Object>>();
+        }
         if (value == null) {
             if (component instanceof com.vaadin.flow.component.checkbox.Checkbox) {
                 return (V) Boolean.FALSE;
@@ -840,6 +1081,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         if (component instanceof com.vaadin.flow.component.datepicker.DatePicker) {
             if (value instanceof java.time.LocalDate) {
                 return (V) value;
+            }
+            if (value instanceof java.time.LocalDateTime) {
+                return (V) ((java.time.LocalDateTime) value).toLocalDate();
+            }
+            if (value instanceof java.sql.Timestamp) {
+                return (V) ((java.sql.Timestamp) value).toLocalDateTime().toLocalDate();
             }
             if (value instanceof java.sql.Date) {
                 return (V) ((java.sql.Date) value).toLocalDate();
@@ -853,7 +1100,43 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 return null;
             }
         }
-        if (component instanceof com.vaadin.flow.component.textfield.BigDecimalField) {
+        if (component instanceof com.vaadin.flow.component.datetimepicker.DateTimePicker) {
+            if (value instanceof java.time.LocalDateTime) {
+                return (V) value;
+            }
+            if (value instanceof java.time.LocalDate) {
+                return (V) ((java.time.LocalDate) value).atStartOfDay();
+            }
+            if (value instanceof java.sql.Timestamp) {
+                return (V) ((java.sql.Timestamp) value).toLocalDateTime();
+            }
+            if (value instanceof java.util.Date) {
+                return (V) new java.sql.Timestamp(((java.util.Date) value).getTime()).toLocalDateTime();
+            }
+            try {
+                return (V) java.time.LocalDateTime.parse(value.toString().replace(" ", "T"));
+            } catch (Exception e) {
+                try {
+                    return (V) java.time.LocalDate.parse(value.toString()).atStartOfDay();
+                } catch (Exception ex) {
+                    return null;
+                }
+            }
+        }
+        if (component instanceof com.vaadin.flow.component.timepicker.TimePicker) {
+            if (value instanceof java.time.LocalTime) {
+                return (V) value;
+            }
+            if (value instanceof java.sql.Time) {
+                return (V) ((java.sql.Time) value).toLocalTime();
+            }
+            try {
+                return (V) java.time.LocalTime.parse(value.toString());
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        if (component instanceof com.vaadin.flow.component.textfield.BigDecimalField || component instanceof com.vaadinerp.components.FormattedBigDecimalField) {
             if (value instanceof java.math.BigDecimal) {
                 return (V) value;
             }
@@ -863,7 +1146,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 return null;
             }
         }
-        if (component instanceof com.vaadin.flow.component.textfield.IntegerField) {
+        if (component instanceof com.vaadin.flow.component.textfield.IntegerField || component instanceof com.vaadinerp.components.FormattedIntegerField) {
             if (value instanceof Integer) {
                 return (V) value;
             }
@@ -922,8 +1205,30 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             builder.asRequired(field.getFieldLabel() + " wajib diisi");
         }
         builder.bind(
-                map -> convertToFieldValue(map.get(field.getFieldName()), editComponent),
-                (map, value) -> map.put(field.getFieldName(), value));
+                map -> convertToFieldValue(getValueCaseInsensitive(map, field.getFieldName()), editComponent),
+                (map, value) -> putValueCaseInsensitive(map, field.getFieldName(), value));
+    }
+
+    private Object getValueCaseInsensitive(Map<String, Object> map, String key) {
+        if (map == null || key == null) return null;
+        if (map.containsKey(key)) return map.get(key);
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(key)) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    private void putValueCaseInsensitive(Map<String, Object> map, String key, Object value) {
+        if (map == null || key == null) return;
+        for (String k : map.keySet()) {
+            if (k != null && k.equalsIgnoreCase(key)) {
+                map.put(k, value);
+                return;
+            }
+        }
+        map.put(key, value);
     }
 
     private int findIndexByReference(java.util.List<Map<String, Object>> list, Map<String, Object> item) {
@@ -961,5 +1266,73 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         dialog.getFooter().add(btnCancel, btnConfirm);
         dialog.open();
+    }
+
+    private void loadSubformGridData(Map<String, Object> parentValues) {
+        if (currentFormDef == null) return;
+        String pk = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey() : "id";
+        Object parentPkValue = parentValues.get(pk);
+        
+        for (FieldMeta field : currentFormDef.getFields()) {
+            if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
+                Component comp = formComponents.get(field.getFieldName());
+                if (comp instanceof SubformGridField) {
+                    SubformGridField subformField = (SubformGridField) comp;
+                    
+                    // Pre-populate parent filter values
+                    for (FieldMeta parentField : currentFormDef.getFields()) {
+                        Component parentComp = formComponents.get(parentField.getFieldName());
+                        if (parentComp instanceof com.vaadin.flow.component.HasValue) {
+                            Object val = ((com.vaadin.flow.component.HasValue<?, ?>) parentComp).getValue();
+                            subformField.setParentFieldValue(parentField.getFieldName(), val);
+                        }
+                    }
+
+                    List<Map<String, Object>> childData = new ArrayList<>();
+                    if (parentPkValue != null && field.getLovCode() != null && field.getFormula() != null) {
+                        FormMeta childForm = formMetaRepository.findById(field.getLovCode()).orElse(null);
+                        if (childForm != null) {
+                            String childTableName = childForm.getTableName();
+                            String childFkColumn = field.getFormula();
+                            childData = dynamicDataService.fetchDetailTableData(childTableName, childFkColumn, parentPkValue);
+                        }
+                    }
+                    subformField.setValue(childData);
+                    subformField.clearDeletedValues();
+                }
+            }
+        }
+    }
+
+    private void clearAllComponents() {
+        if (formComponents != null) {
+            for (Component comp : formComponents.values()) {
+                if (comp instanceof com.vaadin.flow.component.HasValue) {
+                    ((com.vaadin.flow.component.HasValue<?, ?>) comp).clear();
+                } else if (comp instanceof SubformGridField) {
+                    ((SubformGridField) comp).setValue(new ArrayList<>());
+                }
+            }
+        }
+        clearSubformGrids();
+    }
+
+    private void clearSubformGrids() {
+        if (currentFormDef == null) return;
+        for (FieldMeta field : currentFormDef.getFields()) {
+            if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
+                Component comp = formComponents.get(field.getFieldName());
+                if (comp instanceof SubformGridField) {
+                    SubformGridField subformField = (SubformGridField) comp;
+                    subformField.setValue(new ArrayList<>());
+                    subformField.clearDeletedValues();
+                    
+                    // Clear parent filter values
+                    for (FieldMeta parentField : currentFormDef.getFields()) {
+                        subformField.setParentFieldValue(parentField.getFieldName(), null);
+                    }
+                }
+            }
+        }
     }
 }

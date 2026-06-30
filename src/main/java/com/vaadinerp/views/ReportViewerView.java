@@ -20,7 +20,7 @@ import com.vaadinerp.service.DynamicDataService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.HashMap;
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 @Route("report-viewer")
 public class ReportViewerView extends VerticalLayout {
 
+    @SuppressWarnings("unused")
     private final ReportMetaRepository reportMetaRepository;
     private final DynamicDataService dynamicDataService;
 
@@ -368,7 +369,7 @@ public class ReportViewerView extends VerticalLayout {
                     cleanPattern = pattern.replace("Rp ", "").replace("Rp", "").trim();
                 }
                 
-                java.util.Locale locale = new java.util.Locale("id", "ID");
+                java.util.Locale locale = java.util.Locale.of("id", "ID");
                 java.text.DecimalFormatSymbols symbols = new java.text.DecimalFormatSymbols(locale);
                 java.text.DecimalFormat df = new java.text.DecimalFormat(cleanPattern, symbols);
                 String formattedNumber = df.format(numVal);

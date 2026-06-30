@@ -9,6 +9,8 @@ import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
+import com.vaadin.flow.component.datetimepicker.DateTimePicker;
+import com.vaadin.flow.component.timepicker.TimePicker;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.IntegerField;
@@ -32,10 +34,18 @@ public class ComponentFactory {
             boolean req = field.isRequired();
             if (component instanceof com.vaadin.flow.component.textfield.TextField) {
                 ((com.vaadin.flow.component.textfield.TextField) component).setRequiredIndicatorVisible(req);
-            } else if (component instanceof com.vaadin.flow.component.textfield.IntegerField) {
-                ((com.vaadin.flow.component.textfield.IntegerField) component).setRequiredIndicatorVisible(req);
-            } else if (component instanceof com.vaadin.flow.component.textfield.BigDecimalField) {
-                ((com.vaadin.flow.component.textfield.BigDecimalField) component).setRequiredIndicatorVisible(req);
+            } else if (component instanceof com.vaadin.flow.component.textfield.IntegerField
+                    || component instanceof FormattedIntegerField) {
+                if (component instanceof com.vaadin.flow.component.textfield.IntegerField i)
+                    i.setRequiredIndicatorVisible(req);
+                else
+                    ((FormattedIntegerField) component).setRequiredIndicatorVisible(req);
+            } else if (component instanceof com.vaadin.flow.component.textfield.BigDecimalField
+                    || component instanceof FormattedBigDecimalField) {
+                if (component instanceof com.vaadin.flow.component.textfield.BigDecimalField b)
+                    b.setRequiredIndicatorVisible(req);
+                else
+                    ((FormattedBigDecimalField) component).setRequiredIndicatorVisible(req);
             } else if (component instanceof com.vaadin.flow.component.datepicker.DatePicker) {
                 ((com.vaadin.flow.component.datepicker.DatePicker) component).setRequiredIndicatorVisible(req);
             } else if (component instanceof com.vaadin.flow.component.checkbox.Checkbox) {
@@ -47,91 +57,92 @@ public class ComponentFactory {
             } else if (component instanceof com.vaadin.flow.component.select.Select) {
                 ((com.vaadin.flow.component.select.Select<?>) component).setRequiredIndicatorVisible(req);
             } else if (component instanceof com.vaadin.flow.component.combobox.MultiSelectComboBox) {
-                ((com.vaadin.flow.component.combobox.MultiSelectComboBox<?>) component).setRequiredIndicatorVisible(req);
+                ((com.vaadin.flow.component.combobox.MultiSelectComboBox<?>) component)
+                        .setRequiredIndicatorVisible(req);
             } else if (component instanceof com.vaadinerp.components.BandboxField) {
                 ((com.vaadinerp.components.BandboxField<?, ?>) component).setRequiredIndicatorVisible(req);
+            } else if (component instanceof SubformGridField) {
+                ((SubformGridField) component).setRequiredIndicatorVisible(req);
             }
         }
 
-        // Tambahkan event listener generic untuk SEMUA komponen 
-        // Khusus untuk menangani deselection (nilai dihapus/null) atau transfer nilai untuk komponen standar
+        // Tambahkan event listener generic untuk SEMUA komponen
+        // Khusus untuk menangani deselection (nilai dihapus/null) atau transfer nilai
+        // untuk komponen standar
         if (component instanceof com.vaadin.flow.component.HasValue) {
             java.util.List<com.vaadinerp.meta.FieldLovTargetMeta> lovTargets = field.getLovTargets();
             if (lovTargets != null && !lovTargets.isEmpty() && updateFieldValue != null) {
                 @SuppressWarnings("unchecked")
                 com.vaadin.flow.component.HasValue<?, Object> hasValue = (com.vaadin.flow.component.HasValue<?, Object>) component;
                 hasValue.addValueChangeListener(event -> {
-                    // Hanya jalankan mapping jika perubahan dipicu oleh user (dari client), 
-                    // kecuali untuk BandboxField yang merupakan CustomField (selalu bernilai isFromClient = false di server-side)
-                    if (!event.isFromClient() && !(component instanceof com.vaadinerp.components.BandboxField)) {
-                        return;
-                    }
                     if (event.getValue() == null || event.getValue().toString().isEmpty()) {
-                        // Jika komponen di-deselect (nilainya dikosongkan), kosongkan juga semua targetnya
                         for (com.vaadinerp.meta.FieldLovTargetMeta target : lovTargets) {
                             updateFieldValue.accept(target.getTargetField(), null);
                         }
                     } else {
-                        if ("BANDBOX".equalsIgnoreCase(field.getComponentType())) {
-                            com.vaadinerp.meta.LovMeta lovMeta = dataService.getLovMeta(field.getLovCode()).orElse(null);
-                            if (lovMeta != null) {
-                                BandboxField<?, ?> bandbox = (BandboxField<?, ?>) component;
-                                Object selectedVal = event.getValue();
-                                Map<String, Object> row = null;
-                                if (bandbox.getSelectedItem() != null) {
-                                    @SuppressWarnings("unchecked")
-                                    Map<String, Object> item = (Map<String, Object>) bandbox.getSelectedItem();
-                                    String valCol = lovMeta.getValueColumn();
-                                    if (item.get(valCol) != null && item.get(valCol).toString().equals(selectedVal.toString())) {
-                                        row = item;
-                                    }
-                                }
-                                if (row == null) {
-                                    // Programmatic set, fetch dari DB
-                                    row = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), selectedVal);
-                                }
-                                if (row != null) {
-                                    for (com.vaadinerp.meta.FieldLovTargetMeta target : lovTargets) {
-                                        String srcLovCol = target.getSourceColumn();
-                                        String targetFormField = target.getTargetField();
-                                        Object val = row.get(srcLovCol);
-                                        updateFieldValue.accept(targetFormField, val);
-                                    }
-                                }
+                        Object selectedVal = event.getValue();
+                        Map<String, Object> row = null;
+
+                        if (component instanceof com.vaadinerp.components.BandboxField) {
+                            BandboxField<?, ?> bandbox = (BandboxField<?, ?>) component;
+                            if (bandbox.getSelectedItem() != null) {
+                                @SuppressWarnings("unchecked")
+                                Map<String, Object> item = (Map<String, Object>) bandbox.getSelectedItem();
+                                row = item;
                             }
-                        } else {
-                            // Komponen standar (textbox, combobox, dll)
-                            for (com.vaadinerp.meta.FieldLovTargetMeta target : lovTargets) {
-                                String action = target.getActionType();
-                                if ("QUERY_LOV".equalsIgnoreCase(action)) {
-                                    String targetFieldName = target.getTargetField();
-                                    if (field.getFormMeta() != null && field.getFormMeta().getFields() != null) {
-                                        FieldMeta targetFieldMeta = field.getFormMeta().getFields().stream()
+                        }
+
+                        com.vaadinerp.meta.LovMeta lovMeta = null;
+                        if (field.getLovCode() != null && !field.getLovCode().trim().isEmpty()) {
+                            lovMeta = dataService.getLovMeta(field.getLovCode()).orElse(null);
+                        }
+
+                        if (row == null && lovMeta != null) {
+                            row = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), selectedVal);
+                        }
+
+                        for (com.vaadinerp.meta.FieldLovTargetMeta target : lovTargets) {
+                            String action = target.getActionType();
+                            if ("QUERY_LOV".equalsIgnoreCase(action)) {
+                                String targetFieldName = target.getTargetField();
+                                if (field.getFormMeta() != null && field.getFormMeta().getFields() != null) {
+                                    FieldMeta targetFieldMeta = field.getFormMeta().getFields().stream()
                                             .filter(f -> f.getFieldName().equalsIgnoreCase(targetFieldName))
                                             .findFirst().orElse(null);
-                                        if (targetFieldMeta != null && "BANDBOX".equalsIgnoreCase(targetFieldMeta.getComponentType())) {
-                                            String targetLovCode = targetFieldMeta.getLovCode();
-                                            com.vaadinerp.meta.LovMeta targetLovMeta = dataService.getLovMeta(targetLovCode).orElse(null);
-                                            if (targetLovMeta != null) {
-                                                String lookupCol = target.getLookupColumn();
-                                                if (lookupCol != null && !lookupCol.isEmpty()) {
-                                                    // Query exact match pada tabel LOV target
-                                                    Map<String, Object> match = dataService.fetchLovRecord(targetLovMeta.getTableName(), lookupCol, event.getValue());
-                                                    if (match != null) {
-                                                        Object val = match.get(targetLovMeta.getValueColumn());
-                                                        updateFieldValue.accept(targetFieldName, val);
-                                                    } else {
-                                                        // Reset target jika tidak ada yang cocok
-                                                        updateFieldValue.accept(targetFieldName, null);
-                                                    }
+                                    if (targetFieldMeta != null && targetFieldMeta.getLovCode() != null) {
+                                        com.vaadinerp.meta.LovMeta targetLovMeta = dataService
+                                                .getLovMeta(targetFieldMeta.getLovCode()).orElse(null);
+                                        if (targetLovMeta != null) {
+                                            String lookupCol = target.getLookupColumn();
+                                            if (lookupCol != null && !lookupCol.isEmpty()) {
+                                                Map<String, Object> match = dataService.fetchLovRecord(
+                                                        targetLovMeta.getTableName(), lookupCol, selectedVal);
+                                                if (match != null) {
+                                                    Object val = match.get(targetLovMeta.getValueColumn());
+                                                    updateFieldValue.accept(targetFieldName, val);
+                                                } else {
+                                                    updateFieldValue.accept(targetFieldName, null);
                                                 }
                                             }
                                         }
                                     }
-                                } else {
-                                    // Default/COPY
-                                    updateFieldValue.accept(target.getTargetField(), event.getValue());
                                 }
+                            } else {
+                                // COPY action
+                                Object valToSet = selectedVal;
+                                if (row != null && target.getSourceColumn() != null) {
+                                    String srcCol = target.getSourceColumn();
+                                    valToSet = row.get(srcCol);
+                                    if (valToSet == null) {
+                                        for (Map.Entry<String, Object> entry : row.entrySet()) {
+                                            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(srcCol)) {
+                                                valToSet = entry.getValue();
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                updateFieldValue.accept(target.getTargetField(), valToSet);
                             }
                         }
                     }
@@ -139,7 +150,414 @@ public class ComponentFactory {
             }
         }
 
+        // === APPLY METADATA VALIDATION RULES ===
+        String rawRule = field.getValidationRule();
+        if (rawRule != null && !rawRule.trim().isEmpty() && !rawRule.equalsIgnoreCase("NONE")
+                && component instanceof com.vaadin.flow.component.HasValue<?, ?>) {
+            @SuppressWarnings("unchecked")
+            com.vaadin.flow.component.HasValue<?, Object> valComp = (com.vaadin.flow.component.HasValue<?, Object>) component;
+            valComp.addValueChangeListener(ev -> validateFieldRule(field, component));
+        }
+
         return component;
+    }
+
+    public static boolean validateFieldRule(FieldMeta field, Component component) {
+        String rawRule = field.getValidationRule();
+        if (rawRule == null || rawRule.trim().isEmpty() || rawRule.equalsIgnoreCase("NONE")
+                || !(component instanceof com.vaadin.flow.component.HasValue<?, ?> valComp)) {
+            return true;
+        }
+        Object val = valComp.getValue();
+        boolean isInvalid = false;
+        String errMsg = "";
+
+        String rule = rawRule;
+        String customErrMsg = null;
+        int pipeIdx = rule.indexOf('|');
+        if (pipeIdx > 0) {
+            customErrMsg = rule.substring(pipeIdx + 1).trim();
+            rule = rule.substring(0, pipeIdx).trim();
+        }
+
+        if (val == null || val.toString().trim().isEmpty()) {
+            if ("NOT_BLANK".equalsIgnoreCase(rule)) {
+                isInvalid = true;
+                errMsg = "Kolom ini tidak boleh kosong!";
+            }
+        } else {
+            String strVal = val.toString().trim();
+
+            // STRING / TEXT RULES
+            if (rule.equalsIgnoreCase("EMAIL")) {
+                if (!strVal.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+                    isInvalid = true;
+                    errMsg = "Format alamat email tidak valid!";
+                }
+            } else if (rule.equalsIgnoreCase("ALPHANUMERIC")) {
+                if (!strVal.matches("^[a-zA-Z0-9 ]+$")) {
+                    isInvalid = true;
+                    errMsg = "Hanya boleh huruf dan angka!";
+                }
+            } else if (rule.toUpperCase().startsWith("REGEX:")) {
+                String regex = rule.substring(6).trim();
+                try {
+                    if (!strVal.matches(regex)) {
+                        isInvalid = true;
+                        errMsg = "Format input tidak sesuai!";
+                    }
+                } catch (Exception ignored) {
+                }
+            } else if (rule.toUpperCase().startsWith("MIN_LEN:")) {
+                try {
+                    int min = Integer.parseInt(rule.substring(8).trim());
+                    if (strVal.length() < min) {
+                        isInvalid = true;
+                        errMsg = "Minimal " + min + " karakter!";
+                    }
+                } catch (Exception ignored) {
+                }
+            } else if (rule.toUpperCase().startsWith("MAX_LEN:")) {
+                try {
+                    int max = Integer.parseInt(rule.substring(8).trim());
+                    if (strVal.length() > max) {
+                        isInvalid = true;
+                        errMsg = "Maksimal " + max + " karakter!";
+                    }
+                } catch (Exception ignored) {
+                }
+            } else if (rule.toUpperCase().startsWith("DISALLOW:")) {
+                String disallowed = rule.substring(9).trim();
+                if (strVal.equalsIgnoreCase(disallowed)) {
+                    isInvalid = true;
+                    errMsg = "Pilihan '" + disallowed + "' tidak diperbolehkan!";
+                }
+            }
+
+            // NUMBER RULES
+            double d = Double.NaN;
+            if (val instanceof Number num) {
+                d = num.doubleValue();
+            } else {
+                try {
+                    d = Double.parseDouble(strVal.replace(".", "").replace(",", "."));
+                } catch (Exception ignored) {
+                }
+            }
+
+            if (!Double.isNaN(d)) {
+                if (rule.equalsIgnoreCase("POSITIVE_NUM") && d <= 0) {
+                    isInvalid = true;
+                    errMsg = "Angka harus lebih besar dari 0!";
+                } else if (rule.equalsIgnoreCase("NON_NEGATIVE") && d < 0) {
+                    isInvalid = true;
+                    errMsg = "Angka tidak boleh negatif!";
+                } else if (rule.toUpperCase().startsWith("MIN:")) {
+                    try {
+                        double min = Double.parseDouble(rule.substring(4).trim());
+                        if (d < min) {
+                            isInvalid = true;
+                            errMsg = "Nilai minimal adalah " + (long) min;
+                        }
+                    } catch (Exception ignored) {
+                    }
+                } else if (rule.toUpperCase().startsWith("MAX:")) {
+                    try {
+                        double max = Double.parseDouble(rule.substring(4).trim());
+                        if (d > max) {
+                            isInvalid = true;
+                            errMsg = "Nilai maksimal adalah " + (long) max;
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+
+            // DATE RULES
+            java.time.LocalDate date = null;
+            if (val instanceof java.time.LocalDate ld)
+                date = ld;
+            else if (val instanceof java.time.LocalDateTime ldt)
+                date = ldt.toLocalDate();
+
+            if (date != null) {
+                java.time.DayOfWeek dow = date.getDayOfWeek();
+                if (rule.equalsIgnoreCase("ONLY_SUNDAY") && dow != java.time.DayOfWeek.SUNDAY) {
+                    isInvalid = true;
+                    errMsg = "Tanggal wajib jatuh pada hari Minggu!";
+                } else if (rule.equalsIgnoreCase("NOT_SUNDAY") && dow == java.time.DayOfWeek.SUNDAY) {
+                    isInvalid = true;
+                    errMsg = "Tanggal tidak boleh jatuh pada hari Minggu!";
+                } else if (rule.equalsIgnoreCase("WEEKDAYS")
+                        && (dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY)) {
+                    isInvalid = true;
+                    errMsg = "Tanggal wajib hari kerja (Senin-Jumat)!";
+                } else if (rule.equalsIgnoreCase("WEEKEND")
+                        && (dow != java.time.DayOfWeek.SATURDAY && dow != java.time.DayOfWeek.SUNDAY)) {
+                    isInvalid = true;
+                    errMsg = "Tanggal wajib akhir pekan (Sabtu/Minggu)!";
+                } else if (rule.equalsIgnoreCase("PAST_DATE") && date.isAfter(java.time.LocalDate.now())) {
+                    isInvalid = true;
+                    errMsg = "Tanggal tidak boleh mendahului hari ini!";
+                } else if (rule.equalsIgnoreCase("FUTURE_DATE") && date.isBefore(java.time.LocalDate.now())) {
+                    isInvalid = true;
+                    errMsg = "Tanggal harus di masa depan!";
+                }
+            }
+        }
+
+        if (isInvalid && customErrMsg != null && !customErrMsg.isEmpty()) {
+            errMsg = customErrMsg;
+        }
+
+        if (component instanceof com.vaadin.flow.component.HasValidation hvComp) {
+            hvComp.setInvalid(isInvalid);
+            hvComp.setErrorMessage(errMsg);
+        }
+        return !isInvalid;
+    }
+
+    private static final java.util.Map<String, java.util.Map<String, String>> lovLabelCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static String formatFieldValueWithLov(FieldMeta field, Object val, com.vaadinerp.service.DynamicDataService dataService) {
+        if (val == null) return "";
+        String strVal = val.toString().trim();
+        if (strVal.isEmpty()) return "";
+        if (field != null && field.getLovCode() != null && !field.getLovCode().trim().isEmpty() && dataService != null) {
+            String lovCode = field.getLovCode().trim();
+            java.util.Map<String, String> map = lovLabelCache.computeIfAbsent(lovCode, code -> {
+                java.util.Map<String, String> res = new java.util.concurrent.ConcurrentHashMap<>();
+                dataService.getLovMeta(code).ifPresent(lovMeta -> {
+                    java.util.List<Map<String, Object>> records = dataService.fetchAllLovRecords(lovMeta);
+                    String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank() ? lovMeta.getValueColumn().trim() : "id";
+                    String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank() ? lovMeta.getLabelColumn().trim() : valCol;
+                    for (Map<String, Object> rec : records) {
+                        Object v = getCaseInsensitiveVal(rec, valCol);
+                        if (v == null && rec.containsKey("id")) v = rec.get("id");
+                        if (v != null) {
+                            Object l = getCaseInsensitiveVal(rec, lblCol);
+                            if (l == null || l.toString().trim().isEmpty()) {
+                                if (getCaseInsensitiveVal(rec, "code") != null) l = getCaseInsensitiveVal(rec, "code");
+                                else if (getCaseInsensitiveVal(rec, "name") != null) l = getCaseInsensitiveVal(rec, "name");
+                                else l = v;
+                            }
+                            res.put(v.toString().trim(), l.toString().trim());
+                        }
+                    }
+                });
+                return res;
+            });
+            if (strVal.contains(",")) {
+                return java.util.Arrays.stream(strVal.split(","))
+                        .map(String::trim)
+                        .map(item -> {
+                            if (map.containsKey(item)) return map.get(item);
+                            return fetchSingleLovLabel(lovCode, item, dataService);
+                        })
+                        .collect(java.util.stream.Collectors.joining(", "));
+            }
+            if (map.containsKey(strVal)) {
+                return map.get(strVal);
+            }
+            return fetchSingleLovLabel(lovCode, strVal, dataService);
+        }
+        return formatFieldValue(field, val);
+    }
+
+    private static String fetchSingleLovLabel(String lovCode, String val, com.vaadinerp.service.DynamicDataService dataService) {
+        com.vaadinerp.meta.LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
+        if (lovMeta != null) {
+            Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), val);
+            if (rec != null) {
+                String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank() ? lovMeta.getValueColumn().trim() : "id";
+                String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank() ? lovMeta.getLabelColumn().trim() : valCol;
+                Object l = getCaseInsensitiveVal(rec, lblCol);
+                if (l == null || l.toString().trim().isEmpty()) {
+                    if (getCaseInsensitiveVal(rec, "code") != null) l = getCaseInsensitiveVal(rec, "code");
+                    else if (getCaseInsensitiveVal(rec, "name") != null) l = getCaseInsensitiveVal(rec, "name");
+                    else l = val;
+                }
+                java.util.Map<String, String> cache = lovLabelCache.get(lovCode);
+                if (cache != null && l != null) {
+                    cache.put(val, l.toString().trim());
+                }
+                return l != null ? l.toString().trim() : val;
+            }
+        }
+        return val;
+    }
+
+    private static Object getCaseInsensitiveVal(Map<String, Object> map, String key) {
+        if (map == null || key == null) return null;
+        if (map.containsKey(key)) return map.get(key);
+        for (Map.Entry<String, Object> e : map.entrySet()) {
+            if (e.getKey() != null && e.getKey().equalsIgnoreCase(key)) return e.getValue();
+        }
+        return null;
+    }
+
+    public static String formatFieldValue(FieldMeta field, Object val) {
+        if (val == null)
+            return "";
+        String pattern = field != null ? field.getDisplayFormat() : null;
+        boolean hasCustomFormat = pattern != null && !pattern.trim().isEmpty() && !pattern.equalsIgnoreCase("NONE");
+        pattern = hasCustomFormat ? pattern.trim() : null;
+
+        // Date formatting
+        if (val instanceof java.time.LocalDateTime ldt) {
+            String fmt = hasCustomFormat ? pattern : "dd/MM/yyyy HH:mm";
+            try {
+                return ldt.format(java.time.format.DateTimeFormatter.ofPattern(fmt));
+            } catch (Exception e) {
+                return ldt.toString();
+            }
+        }
+        if (val instanceof java.sql.Timestamp ts) {
+            String fmt = hasCustomFormat ? pattern : "dd/MM/yyyy HH:mm";
+            try {
+                return ts.toLocalDateTime().format(java.time.format.DateTimeFormatter.ofPattern(fmt));
+            } catch (Exception e) {
+                return ts.toString();
+            }
+        }
+        if (val instanceof java.time.LocalDate ld) {
+            String fmt = hasCustomFormat ? pattern : "dd/MM/yyyy";
+            try {
+                return ld.format(java.time.format.DateTimeFormatter.ofPattern(fmt));
+            } catch (Exception e) {
+                return ld.toString();
+            }
+        }
+        if (val instanceof java.sql.Date sd) {
+            String fmt = hasCustomFormat ? pattern : "dd/MM/yyyy";
+            try {
+                return sd.toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern(fmt));
+            } catch (Exception e) {
+                return sd.toString();
+            }
+        }
+        if (val instanceof java.time.LocalTime lt) {
+            String fmt = hasCustomFormat ? pattern : "HH:mm";
+            try {
+                return lt.format(java.time.format.DateTimeFormatter.ofPattern(fmt));
+            } catch (Exception e) {
+                return lt.toString();
+            }
+        }
+        if (val instanceof java.sql.Time st) {
+            String fmt = hasCustomFormat ? pattern : "HH:mm";
+            try {
+                return st.toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern(fmt));
+            } catch (Exception e) {
+                return st.toString();
+            }
+        }
+
+        // Check string parsing for dates if string looks like date
+        if (val instanceof String sVal && hasCustomFormat) {
+            if (sVal.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                try {
+                    return java.time.LocalDate.parse(sVal)
+                            .format(java.time.format.DateTimeFormatter.ofPattern(pattern));
+                } catch (Exception ignored) {
+                }
+            }
+            if (sVal.matches("\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}.*")) {
+                try {
+                    return java.time.LocalDateTime.parse(sVal.replace(" ", "T").substring(0, 19))
+                            .format(java.time.format.DateTimeFormatter.ofPattern(pattern));
+                } catch (Exception ignored) {
+                }
+            }
+        }
+
+        // Numeric formatting
+        if (val instanceof Number || (val instanceof String && hasCustomFormat)) {
+            java.math.BigDecimal numVal = null;
+            if (val instanceof Number num)
+                numVal = new java.math.BigDecimal(num.toString());
+            else if (hasCustomFormat) {
+                try {
+                    numVal = new java.math.BigDecimal(val.toString().replace(".", "").replace(",", "."));
+                } catch (Exception ignored) {
+                }
+            }
+            if (numVal != null && hasCustomFormat) {
+                try {
+                    boolean hasRp = pattern.startsWith("Rp ") || pattern.startsWith("Rp");
+                    String cleanPattern = pattern;
+                    if (hasRp)
+                        cleanPattern = pattern.replace("Rp ", "").replace("Rp", "").trim();
+                    java.util.Locale locale = java.util.Locale.of("id", "ID");
+                    java.text.DecimalFormatSymbols symbols = new java.text.DecimalFormatSymbols(locale);
+                    java.text.DecimalFormat df = new java.text.DecimalFormat(cleanPattern, symbols);
+                    String formatted = df.format(numVal);
+                    return hasRp ? "Rp " + formatted : formatted;
+                } catch (Exception ignored) {
+                }
+            }
+        }
+
+        return val.toString();
+    }
+
+    private static void applyNumberFormatting(Component comp, String fmt) {
+        if (fmt == null || fmt.trim().isEmpty() || "NONE".equalsIgnoreCase(fmt))
+            return;
+        String cleanFmt = fmt.trim();
+        com.vaadin.flow.component.html.Span prefix = null;
+        com.vaadin.flow.component.html.Span suffix = null;
+
+        if (cleanFmt.toUpperCase().startsWith("RP ") || cleanFmt.toUpperCase().startsWith("RP")) {
+            prefix = new com.vaadin.flow.component.html.Span("Rp ");
+            prefix.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-weight", "500");
+        } else if (cleanFmt.startsWith("$") || cleanFmt.toUpperCase().startsWith("USD")) {
+            prefix = new com.vaadin.flow.component.html.Span("$ ");
+            prefix.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-weight", "500");
+        }
+
+        if (cleanFmt.endsWith("%")) {
+            suffix = new com.vaadin.flow.component.html.Span("%");
+            suffix.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-weight", "500");
+        } else if (cleanFmt.toUpperCase().endsWith(" KG")) {
+            suffix = new com.vaadin.flow.component.html.Span(" kg");
+            suffix.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-weight", "500");
+        } else if (cleanFmt.toUpperCase().endsWith(" PCS")) {
+            suffix = new com.vaadin.flow.component.html.Span(" pcs");
+            suffix.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-weight", "500");
+        }
+
+        if (comp instanceof IntegerField intField) {
+            intField.setPlaceholder(cleanFmt);
+            if (prefix != null)
+                intField.setPrefixComponent(prefix);
+            if (suffix != null)
+                intField.setSuffixComponent(suffix);
+        } else if (comp instanceof BigDecimalField decField) {
+            decField.setPlaceholder(cleanFmt);
+            if (prefix != null)
+                decField.setPrefixComponent(prefix);
+            if (suffix != null)
+                decField.setSuffixComponent(suffix);
+        } else if (comp instanceof TextField txtField) {
+            txtField.setPlaceholder(cleanFmt);
+            if (prefix != null)
+                txtField.setPrefixComponent(prefix);
+            if (suffix != null)
+                txtField.setSuffixComponent(suffix);
+        }
+    }
+
+    private static DatePicker.DatePickerI18n createIndonesianDatePickerI18n(String dateFormat) {
+        DatePicker.DatePickerI18n i18n = new DatePicker.DatePickerI18n();
+        i18n.setMonthNames(java.util.Arrays.asList("Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli",
+                "Agustus", "September", "Oktober", "November", "Desember"));
+        i18n.setWeekdays(java.util.Arrays.asList("Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"));
+        i18n.setWeekdaysShort(java.util.Arrays.asList("Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"));
+        i18n.setToday("Hari Ini");
+        i18n.setCancel("Batal");
+        i18n.setDateFormat(dateFormat != null && !dateFormat.trim().isEmpty() ? dateFormat.trim() : "dd/MM/yyyy");
+        return i18n;
     }
 
     private static Component createInternal(FieldMeta field, DynamicDataService dataService,
@@ -149,24 +567,44 @@ public class ComponentFactory {
         if (type == null)
             type = "TEXTBOX";
 
+        String fmt = field.getDisplayFormat();
+        boolean hasFmt = fmt != null && !fmt.trim().isEmpty() && !fmt.equalsIgnoreCase("NONE");
+
         switch (type.toUpperCase()) {
             case "TEXTBOX":
                 TextField textField = new TextField(label);
                 textField.setReadOnly(field.isReadonly());
                 textField.setRequiredIndicatorVisible(field.isRequired());
+                applyNumberFormatting(textField, fmt);
                 return textField;
             case "INTBOX":
-                IntegerField intField = new IntegerField(label);
+                FormattedIntegerField intField = new FormattedIntegerField(label);
                 intField.setReadOnly(field.isReadonly());
+                intField.setDisplayFormat(fmt);
                 return intField;
             case "DECIMALBOX":
-                BigDecimalField decimalField = new BigDecimalField(label);
+                FormattedBigDecimalField decimalField = new FormattedBigDecimalField(label);
                 decimalField.setReadOnly(field.isReadonly());
+                decimalField.setDisplayFormat(fmt);
                 return decimalField;
             case "DATEBOX":
                 DatePicker datePicker = new DatePicker(label);
                 datePicker.setReadOnly(field.isReadonly());
+                datePicker.setLocale(java.util.Locale.of("id", "ID"));
+                datePicker.setI18n(createIndonesianDatePickerI18n(hasFmt ? fmt : "dd/MM/yyyy"));
                 return datePicker;
+            case "DATETIMEBOX":
+                DateTimePicker dateTimePicker = new DateTimePicker(label);
+                dateTimePicker.setReadOnly(field.isReadonly());
+                dateTimePicker.setLocale(java.util.Locale.of("id", "ID"));
+                dateTimePicker.setDatePickerI18n(
+                        createIndonesianDatePickerI18n(hasFmt ? fmt.trim().split(" ")[0] : "dd/MM/yyyy"));
+                return dateTimePicker;
+            case "TIMEBOX":
+                TimePicker timePicker = new TimePicker(label);
+                timePicker.setReadOnly(field.isReadonly());
+                timePicker.setLocale(java.util.Locale.of("id", "ID"));
+                return timePicker;
             case "CHECKBOX":
                 Checkbox checkbox = new Checkbox(label);
                 checkbox.setReadOnly(field.isReadonly());
@@ -181,10 +619,21 @@ public class ComponentFactory {
                     lovCombo.setReadOnly(field.isReadonly());
                     return lovCombo;
                 }
-                ComboBox<String> comboBox = new ComboBox<>(label);
+                ComboBox<String> comboBox = new ComboBox<String>(label) {
+                    private final java.util.List<String> items = new java.util.ArrayList<>();
+                    {
+                        setItems(new java.util.ArrayList<>(items));
+                    }
+                    @Override
+                    public void setValue(String value) {
+                        if (value != null && !value.isEmpty() && !items.contains(value)) {
+                            items.add(value);
+                            setItems(new java.util.ArrayList<>(items));
+                        }
+                        super.setValue(value);
+                    }
+                };
                 comboBox.setReadOnly(field.isReadonly());
-                List<String> comboItems = Arrays.asList("A Option A", "A Optionx A", "B Option B", "C Option C");
-                comboBox.setItems(comboItems);
 
                 // Aktifkan tombol 'X' untuk menghapus pilihan jika dibutuhkan
                 comboBox.setClearButtonVisible(true);
@@ -192,14 +641,10 @@ public class ComponentFactory {
                 // (Opsional) Teks bantuan abu-abu di dalam input
                 comboBox.setPlaceholder("Ketik untuk mencari...");
 
-                // Auto-select match pertama saat Enter ditekan (berkat fitur Custom Value)
+                // Auto-select atau tambahkan value saat Enter ditekan (berkat fitur Custom Value)
                 comboBox.setAllowCustomValue(true);
                 comboBox.addCustomValueSetListener(e -> {
-                    String typedValue = e.getDetail().toLowerCase();
-                    comboItems.stream()
-                            .filter(item -> item.toLowerCase().contains(typedValue))
-                            .findFirst()
-                            .ifPresent(comboBox::setValue);
+                    comboBox.setValue(e.getDetail());
                 });
 
                 return comboBox;
@@ -210,20 +655,57 @@ public class ComponentFactory {
                     lovSel.setReadOnly(field.isReadonly());
                     return lovSel;
                 }
-                Select<String> select = new Select<>();
+                Select<String> select = new Select<String>() {
+                    private final java.util.List<String> items = new java.util.ArrayList<>();
+                    {
+                        setItems(new java.util.ArrayList<>(items));
+                    }
+                    @Override
+                    public void setValue(String value) {
+                        if (value != null && !value.isEmpty() && !items.contains(value)) {
+                            items.add(value);
+                            setItems(new java.util.ArrayList<>(items));
+                        }
+                        super.setValue(value);
+                    }
+                };
                 select.setLabel(label);
                 select.setEnabled(!field.isReadonly());
-                select.setItems("Item A", "Item B", "Item C");
                 select.setPlaceholder("Pilih item...");
-
-                // Custom filter untuk case-insensitive
-                // select.setFilter((item, filterText) ->
-                // item.toLowerCase().contains(filterText.toLowerCase()));
                 return select;
             case "CHOSENBOX":
-                MultiSelectComboBox<String> chosenBox = new MultiSelectComboBox<>(label);
+                if (field.getLovCode() != null && !field.getLovCode().trim().isEmpty()) {
+                    LovChosenBox lovChosen = new LovChosenBox(label, field.getLovCode(), dataService);
+                    lovChosen.setReadOnly(field.isReadonly());
+                    return lovChosen;
+                }
+                MultiSelectComboBox<String> chosenBox = new MultiSelectComboBox<String>(label) {
+                    private final java.util.List<String> items = new java.util.ArrayList<>();
+                    {
+                        setItems(new java.util.ArrayList<>(items));
+                    }
+                    @Override
+                    public void setValue(java.util.Set<String> values) {
+                        if (values != null && !values.isEmpty()) {
+                            boolean added = false;
+                            for (String v : values) {
+                                if (v != null && !v.isEmpty() && !items.contains(v)) {
+                                    items.add(v);
+                                    added = true;
+                                }
+                            }
+                            if (added) setItems(new java.util.ArrayList<>(items));
+                        }
+                        super.setValue(values);
+                    }
+                };
                 chosenBox.setReadOnly(field.isReadonly());
-                chosenBox.setItems("Tag 1", "Tag 2", "Tag 3");
+                chosenBox.setAllowCustomValue(true);
+                chosenBox.addCustomValueSetListener(e -> {
+                    java.util.Set<String> current = new java.util.HashSet<>(chosenBox.getValue());
+                    current.add(e.getDetail());
+                    chosenBox.setValue(current);
+                });
                 return chosenBox;
             case "BANDBOX":
                 BandboxField<Map<String, Object>, Object> bandbox = new BandboxField<>(label);
@@ -248,22 +730,35 @@ public class ComponentFactory {
                                     .setWidth(colWidth);
                         }
                     } else {
-                        bandbox.getGrid()
-                                .addColumn(row -> row.get(lovMeta.getValueColumn()) != null
-                                        ? row.get(lovMeta.getValueColumn()).toString()
-                                        : "")
-                                .setHeader("Kode");
-                        bandbox.getGrid()
-                                .addColumn(row -> row.get(lovMeta.getLabelColumn()) != null
-                                        ? row.get(lovMeta.getLabelColumn()).toString()
-                                        : "")
-                                .setHeader("Nama");
+                        List<String> allCols = dataService.getColumnsForQueryOrTable(lovMeta.getTableName());
+                        if (allCols.isEmpty()) {
+                            bandbox.getGrid()
+                                    .addColumn(row -> row.get(lovMeta.getValueColumn()) != null
+                                            ? row.get(lovMeta.getValueColumn()).toString()
+                                            : "")
+                                    .setHeader("Kode");
+                            bandbox.getGrid()
+                                    .addColumn(row -> row.get(lovMeta.getLabelColumn()) != null
+                                            ? row.get(lovMeta.getLabelColumn()).toString()
+                                            : "")
+                                    .setHeader("Nama");
+                        } else {
+                            for (String colName : allCols) {
+                                String header = colName.substring(0, 1).toUpperCase()
+                                        + colName.substring(1).replace("_", " ");
+                                bandbox.getGrid()
+                                        .addColumn(row -> row.get(colName) != null ? row.get(colName).toString() : "")
+                                        .setHeader(header)
+                                        .setWidth("150px");
+                            }
+                        }
                     }
 
                     // 2. Konfigurasi Fetch Data (Filter) secara dinamis dari database
                     String searchCol = lovMeta.getSearchColumn();
                     bandbox.setDataFetchCallback(keyword -> {
-                        return dataService.fetchLovDataWithFilters(lovMeta.getTableName(), searchCol, keyword, bandbox.getActiveFilters());
+                        return dataService.fetchLovDataWithFilters(lovMeta.getTableName(), searchCol, keyword,
+                                bandbox.getActiveFilters().values());
                     });
 
                     // Item Finder untuk memulihkan record berdasarkan value/key-nya
@@ -277,7 +772,23 @@ public class ComponentFactory {
 
                     // 4. Display Label Generator
                     String lblCol = lovMeta.getLabelColumn();
-                    bandbox.setItemLabelGenerator(row -> row.get(lblCol) != null ? row.get(lblCol).toString() : "");
+                    bandbox.setItemLabelGenerator(row -> {
+                        if (row == null)
+                            return "";
+                        Object val = row.get(lblCol);
+                        if (val != null && !val.toString().trim().isEmpty()) {
+                            return val.toString();
+                        }
+                        if (row.containsKey("code") && row.get("code") != null)
+                            return row.get("code").toString();
+                        if (row.containsKey("name") && row.get("name") != null)
+                            return row.get("name").toString();
+                        if (row.containsKey(lovMeta.getValueColumn()) && row.get(lovMeta.getValueColumn()) != null) {
+                            return row.get(lovMeta.getValueColumn()).toString();
+                        }
+                        return row.values().stream().filter(java.util.Objects::nonNull).findFirst()
+                                .map(Object::toString).orElse("");
+                    });
                 } else {
                     // Fallback static jika LovMeta tidak ditemukan di DB
                     bandbox.getGrid().addColumn(row -> row.get("code") != null ? row.get("code").toString() : "")
@@ -287,6 +798,10 @@ public class ComponentFactory {
                 }
 
                 return bandbox;
+            case "SUBFORM_GRID":
+                SubformGridField subformGrid = new SubformGridField(label, field, dataService);
+                subformGrid.setReadOnly(field.isReadonly());
+                return subformGrid;
             default:
                 return new TextField(field.getFieldLabel());
         }

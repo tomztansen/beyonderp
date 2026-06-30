@@ -38,6 +38,8 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+        initSecurityCoreTables();
+
         // Create table lov_parent if not exists
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS lov_parent (" +
                 "code VARCHAR(50) PRIMARY KEY, " +
@@ -110,13 +112,12 @@ public class DataInitializer implements CommandLineRunner {
             lovMetaRepository.save(lovMeta);
         }
 
-        // Force recreate of TEST_FORM_2 to include new cascading fields and filters
-        if (formMetaRepository.existsById("TEST_FORM_2")) {
-            formMetaRepository.deleteById("TEST_FORM_2");
-            System.out.println("Existing TEST_FORM_2 metadata deleted.");
-        }
+        try {
+            jdbcTemplate.update("UPDATE meta_field SET show_in_grid = true WHERE form_code = 'TEST_FORM_2' AND field_name = 'skills'");
+        } catch (Exception ignored) {}
 
-        System.out.println("Inserting fresh TEST_FORM_2 metadata...");
+        if (!formMetaRepository.existsById("TEST_FORM_2")) {
+            System.out.println("Inserting fresh TEST_FORM_2 metadata...");
 
         FormMeta form = new FormMeta();
         form.setFormCode("TEST_FORM_2");
@@ -260,7 +261,7 @@ public class DataInitializer implements CommandLineRunner {
         f8.setComponentType("CHOSENBOX");
         f8.setRowGroup(5);
         f8.setColOrder(1);
-        f8.setShowInGrid(false);
+        f8.setShowInGrid(true);
         form.getFields().add(f8);
 
         // 9. section (NEW CASCADING FIELD)
@@ -299,6 +300,7 @@ public class DataInitializer implements CommandLineRunner {
 
         formMetaRepository.save(form);
         dynamicDataService.generatePhysicalTable(form);
+        }
 
         // Create table invoice_items if not exists under schema dynamic
         jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS dynamic;");
@@ -379,21 +381,87 @@ public class DataInitializer implements CommandLineRunner {
             formMetaRepository.save(invForm);
         }
 
-        // Create pre-defined Invoice Master-Detail Form
-        if (formMetaRepository.existsById("INVOICE_MD")) {
-            formMetaRepository.deleteById("INVOICE_MD");
-        }
+        if (!formMetaRepository.existsById("INVOICE_MD")) {
 
+        // 1. Define Detail Form
+        FormMeta dtlForm = new FormMeta();
+        dtlForm.setFormCode("INVOICE_MD_DTL");
+        dtlForm.setFormTitle("Detail Faktur Penjualan");
+        dtlForm.setFormType("SINGLE");
+        dtlForm.setTableName("inv_dtl");
+        dtlForm.setPrimaryKey("id");
+        dtlForm.setLabelWidth("150px");
+        dtlForm.setFields(new ArrayList<>());
+
+        // Detail field 1: item_code
+        FieldMeta df1 = new FieldMeta();
+        df1.setFormMeta(dtlForm);
+        df1.setFieldName("item_code");
+        df1.setFieldLabel("Kode Barang");
+        df1.setComponentType("BANDBOX");
+        df1.setLovCode("lov_child");
+        df1.setColOrder(10);
+        df1.setRequired(true);
+        df1.setShowInGrid(true);
+
+        List<FieldFilterMeta> df1Filters = new ArrayList<>();
+        FieldFilterMeta dtlFilt = new FieldFilterMeta();
+        dtlFilt.setFieldMeta(df1);
+        dtlFilt.setFilterColumn("parent_code");
+        dtlFilt.setSourceType("FIELD");
+        dtlFilt.setSourceName("customer");
+        df1Filters.add(dtlFilt);
+        df1.setFilters(df1Filters);
+
+        dtlForm.getFields().add(df1);
+
+        // Detail field 2: qty
+        FieldMeta df2 = new FieldMeta();
+        df2.setFormMeta(dtlForm);
+        df2.setFieldName("qty");
+        df2.setFieldLabel("Kuantitas");
+        df2.setComponentType("INTBOX");
+        df2.setColOrder(20);
+        df2.setRequired(true);
+        df2.setShowInGrid(true);
+        dtlForm.getFields().add(df2);
+
+        // Detail field 3: price
+        FieldMeta df3 = new FieldMeta();
+        df3.setFormMeta(dtlForm);
+        df3.setFieldName("price");
+        df3.setFieldLabel("Harga Satuan");
+        df3.setComponentType("DECIMALBOX");
+        df3.setColOrder(30);
+        df3.setRequired(true);
+        df3.setShowInGrid(true);
+        dtlForm.getFields().add(df3);
+
+        // Detail field 4: total_price
+        FieldMeta df4 = new FieldMeta();
+        df4.setFormMeta(dtlForm);
+        df4.setFieldName("total_price");
+        df4.setFieldLabel("Subtotal");
+        df4.setComponentType("DECIMALBOX");
+        df4.setColOrder(40);
+        df4.setReadonly(true);
+        df4.setShowInGrid(true);
+        df4.setFormula("qty * price");
+        df4.setSaveOnInsert(true);
+        df4.setSaveOnUpdate(true);
+        dtlForm.getFields().add(df4);
+
+        formMetaRepository.save(dtlForm);
+        dynamicDataService.generatePhysicalTable(dtlForm);
+
+        // 2. Define Master/Parent Form
         FormMeta mdForm = new FormMeta();
         mdForm.setFormCode("INVOICE_MD");
         mdForm.setFormTitle("Faktur Penjualan (Master-Detail)");
-        mdForm.setFormType("MASTER_DETAIL");
+        mdForm.setFormType("SINGLE"); // Set to SINGLE because subform grid is self-contained in a field
         mdForm.setTableName("inv_hdr");
         mdForm.setPrimaryKey("id");
         mdForm.setLabelWidth("150px");
-        mdForm.setDetailTableName("inv_dtl");
-        mdForm.setDetailPrimaryKey("id");
-        mdForm.setDetailForeignKey("invoice_id");
         mdForm.setFields(new ArrayList<>());
 
         // Master field 1
@@ -406,7 +474,6 @@ public class DataInitializer implements CommandLineRunner {
         mf1.setColOrder(10);
         mf1.setRequired(true);
         mf1.setShowInGrid(true);
-        mf1.setDetail(false);
         mdForm.getFields().add(mf1);
 
         // Master field 2
@@ -419,7 +486,6 @@ public class DataInitializer implements CommandLineRunner {
         mf2.setColOrder(20);
         mf2.setRequired(true);
         mf2.setShowInGrid(true);
-        mf2.setDetail(false);
         mdForm.getFields().add(mf2);
 
         // Master field 3
@@ -433,68 +499,25 @@ public class DataInitializer implements CommandLineRunner {
         mf3.setColOrder(30);
         mf3.setRequired(false);
         mf3.setShowInGrid(true);
-        mf3.setDetail(false);
         mdForm.getFields().add(mf3);
 
-        // Detail field 1
-        FieldMeta df1 = new FieldMeta();
-        df1.setFormMeta(mdForm);
-        df1.setFieldName("item_code");
-        df1.setFieldLabel("Kode Barang");
-        df1.setComponentType("BANDBOX");
-        df1.setLovCode("lov_child");
-        df1.setColOrder(10);
-        df1.setRequired(true);
-        df1.setDetail(true);
-
-        List<FieldFilterMeta> df1Filters = new ArrayList<>();
-        FieldFilterMeta filt = new FieldFilterMeta();
-        filt.setFieldMeta(df1);
-        filt.setFilterColumn("parent_code");
-        filt.setSourceType("FIELD");
-        filt.setSourceName("customer");
-        df1Filters.add(filt);
-        df1.setFilters(df1Filters);
-
-        mdForm.getFields().add(df1);
-
-        // Detail field 2
-        FieldMeta df2 = new FieldMeta();
-        df2.setFormMeta(mdForm);
-        df2.setFieldName("qty");
-        df2.setFieldLabel("Kuantitas");
-        df2.setComponentType("INTBOX");
-        df2.setColOrder(20);
-        df2.setRequired(true);
-        df2.setDetail(true);
-        mdForm.getFields().add(df2);
-
-        // Detail field 3
-        FieldMeta df3 = new FieldMeta();
-        df3.setFormMeta(mdForm);
-        df3.setFieldName("price");
-        df3.setFieldLabel("Harga Satuan");
-        df3.setComponentType("DECIMALBOX");
-        df3.setColOrder(30);
-        df3.setRequired(true);
-        df3.setDetail(true);
-        mdForm.getFields().add(df3);
-
-        // Detail field 4
-        FieldMeta df4 = new FieldMeta();
-        df4.setFormMeta(mdForm);
-        df4.setFieldName("total_price");
-        df4.setFieldLabel("Subtotal");
-        df4.setComponentType("DECIMALBOX");
-        df4.setColOrder(40);
-        df4.setReadonly(true);
-        df4.setDetail(true);
-        df4.setFormula("qty * price");
-        df4.setSaveOnInsert(true);
-        df4.setSaveOnUpdate(true);
-        mdForm.getFields().add(df4);
+        // Master field 4: Subform Grid pointing to INVOICE_MD_DTL
+        FieldMeta mf4 = new FieldMeta();
+        mf4.setFormMeta(mdForm);
+        mf4.setFieldName("invoice_details");
+        mf4.setFieldLabel("Daftar Barang Detail");
+        mf4.setComponentType("SUBFORM_GRID");
+        mf4.setLovCode("INVOICE_MD_DTL"); // Child form code
+        mf4.setRowGroup(3);
+        mf4.setColOrder(40);
+        mf4.setRequired(false);
+        mf4.setShowInGrid(false);
+        mf4.setFormula("invoice_id"); // Child FK column
+        mdForm.getFields().add(mf4);
 
         formMetaRepository.save(mdForm);
+        dynamicDataService.generatePhysicalTable(mdForm);
+        }
 
         // Create pre-defined Invoice Report
         if (reportMetaRepository.existsById("INVOICE_REPORT")) {
@@ -556,7 +579,401 @@ public class DataInitializer implements CommandLineRunner {
 
         reportMetaRepository.save(invoiceReport);
 
+        if (!formMetaRepository.existsById("SCROLL_MD")) {
+            System.out.println("Inserting fresh SCROLL_MD metadata...");
+
+            // 1. Define Detail Form (SCROLL_MD_DTL)
+            FormMeta dtlForm = new FormMeta();
+            dtlForm.setFormCode("SCROLL_MD_DTL");
+            dtlForm.setFormTitle("Detail Barang Banyak Kolom");
+            dtlForm.setFormType("SINGLE");
+            dtlForm.setTableName("scroll_dtl");
+            dtlForm.setPrimaryKey("id");
+            dtlForm.setLabelWidth("150px");
+            dtlForm.setFields(new ArrayList<>());
+
+            // Detail fields (lots of them!)
+            addDetailField(dtlForm, "item_code", "Kode Barang", "BANDBOX", "lov_child", 10, true, true);
+            addDetailField(dtlForm, "item_name", "Nama Barang", "TEXTBOX", null, 20, false, true);
+            addDetailField(dtlForm, "qty", "Kuantitas", "INTBOX", null, 30, true, true);
+            addDetailField(dtlForm, "uom", "Satuan (UOM)", "COMBOBOX", null, 40, false, true);
+            addDetailField(dtlForm, "price", "Harga Satuan", "DECIMALBOX", null, 50, true, true);
+            addDetailField(dtlForm, "discount_pct", "Diskon %", "DECIMALBOX", null, 60, false, true);
+            addDetailField(dtlForm, "discount_amt", "Nilai Diskon", "DECIMALBOX", null, 70, false, true);
+            addDetailField(dtlForm, "tax_pct", "Pajak %", "DECIMALBOX", null, 80, false, true);
+            addDetailField(dtlForm, "tax_amt", "Nilai Pajak", "DECIMALBOX", null, 90, false, true);
+            addDetailField(dtlForm, "weight_grid", "Berat (kg)", "DECIMALBOX", null, 100, false, true);
+            addDetailField(dtlForm, "batch_no", "Nomor Batch", "TEXTBOX", null, 110, false, true);
+            addDetailField(dtlForm, "expiry_date", "Tgl Kadaluarsa", "DATEBOX", null, 120, false, true);
+            addDetailField(dtlForm, "total_price", "Subtotal Bersih", "DECIMALBOX", null, 130, false, true);
+            addDetailField(dtlForm, "notes_detail", "Catatan Rincian", "TEXTAREA", null, 140, false, true);
+
+            formMetaRepository.save(dtlForm);
+            dynamicDataService.generatePhysicalTable(dtlForm);
+
+            // 2. Define Master Form (SCROLL_MD)
+            FormMeta mdForm = new FormMeta();
+            mdForm.setFormCode("SCROLL_MD");
+            mdForm.setFormTitle("Faktur Pengiriman Lengkap (Auto Scroll)");
+            mdForm.setFormType("SINGLE");
+            mdForm.setTableName("scroll_hdr");
+            mdForm.setPrimaryKey("id");
+            mdForm.setLabelWidth("160px");
+            mdForm.setFields(new ArrayList<>());
+
+            // Master fields (lots of them!)
+            addMasterField(mdForm, "invoice_no", "Nomor Faktur", "TEXTBOX", 1, 10, true);
+            addMasterField(mdForm, "invoice_date", "Tanggal Faktur", "DATEBOX", 1, 20, true);
+            addMasterField(mdForm, "customer", "Pelanggan", "COMBOBOX", "lov_parent", 1, 30, false);
+            addMasterField(mdForm, "npwp", "NPWP Pajak", "TEXTBOX", 2, 40, false);
+            addMasterField(mdForm, "payment_term", "Termin Pembayaran", "COMBOBOX", null, 2, 50, false);
+            addMasterField(mdForm, "salesperson", "Nama Sales", "TEXTBOX", 2, 60, false);
+            addMasterField(mdForm, "shipping_method", "Metode Pengiriman", "TEXTBOX", 3, 70, false);
+            addMasterField(mdForm, "tracking_no", "Nomor Resi", "TEXTBOX", 3, 80, false);
+            addMasterField(mdForm, "warehouse_code", "Kode Gudang", "TEXTBOX", 3, 90, false);
+            addMasterField(mdForm, "currency", "Mata Uang", "TEXTBOX", 4, 100, false);
+            addMasterField(mdForm, "exchange_rate", "Kurs", "DECIMALBOX", 4, 110, false);
+            addMasterField(mdForm, "notes", "Keterangan", "TEXTAREA", 5, 120, false);
+
+            // Subform Grid pointing to SCROLL_MD_DTL
+            FieldMeta subformField = new FieldMeta();
+            subformField.setFormMeta(mdForm);
+            subformField.setFieldName("details");
+            subformField.setFieldLabel("Daftar Item Barang (Rincian)");
+            subformField.setComponentType("SUBFORM_GRID");
+            subformField.setLovCode("SCROLL_MD_DTL"); // Child form code
+            subformField.setRowGroup(6);
+            subformField.setColOrder(130);
+            subformField.setRequired(false);
+            subformField.setShowInGrid(false);
+            subformField.setFormula("invoice_id"); // Child FK column
+            mdForm.getFields().add(subformField);
+
+            formMetaRepository.save(mdForm);
+            dynamicDataService.generatePhysicalTable(mdForm);
+
+            // Insert initial mock data to make it look full and ready
+            try {
+                jdbcTemplate.update("INSERT INTO dynamic.scroll_hdr (id, invoice_no, invoice_date, customer, npwp, payment_term, salesperson, shipping_method, tracking_no, warehouse_code, currency, exchange_rate, notes) VALUES " +
+                        "(101, 'INV/2026/0001', '2026-06-22', 'IT', '01.234.567.8-901.000', 'COD', 'ALEX GMN', 'JNE YES', 'TRK1002345', 'WH-MAIN', 'IDR', 1.0, 'Pengiriman tahap pertama'), " +
+                        "(102, 'INV/2026/0002', '2026-06-23', 'HR', '02.456.789.0-123.000', '30 DAYS', 'SARAH JANE', 'DHL EXPRESS', 'TRK9988771', 'WH-EAST', 'USD', 16500.0, 'Prioritas pengiriman kilat')");
+                
+                jdbcTemplate.update("INSERT INTO dynamic.scroll_dtl (id, invoice_id, item_code, item_name, qty, uom, price, discount_pct, discount_amt, tax_pct, tax_amt, weight_grid, batch_no, expiry_date, total_price, notes_detail) VALUES " +
+                        "(201, 101, 'IT-DEV', 'Software Development Service', 5, 'Man-Months', 15000000.00, 10.0, 7500000.00, 11.0, 7425000.00, 0.0, 'BATCH-01', '2027-12-31', 74925000.00, 'Development Phase 1'), " +
+                        "(202, 101, 'IT-OPS', 'IT Infrastructure Ops', 10, 'Hours', 850000.00, 0.0, 0.0, 11.0, 935000.00, 2.5, 'BATCH-02', '2026-12-31', 9435000.00, 'Support Setup'), " +
+                        "(203, 102, 'HR-REC', 'Senior Recruiter Hour', 20, 'Hours', 1200000.00, 5.0, 1200000.00, 11.0, 2508000.00, 1.2, 'BATCH-R3', '2026-08-31', 25308000.00, 'Recruitment Drive')");
+            } catch (Exception e) {
+                System.out.println("Mock data insert for SCROLL_MD already exists or failed: " + e.getMessage());
+            }
+        }
+
+        // Create table master_item if not exists under schema dynamic
+        jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS dynamic;");
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS dynamic.master_item (" +
+                "id SERIAL PRIMARY KEY, " +
+                "item_code VARCHAR(50), " +
+                "item_name VARCHAR(255), " +
+                "category VARCHAR(100), " +
+                "uom VARCHAR(50), " +
+                "price DECIMAL(19, 2), " +
+                "stock_qty INTEGER, " +
+                "status VARCHAR(50)" +
+                ")");
+
+        // Insert mock data into master_item
+        Integer masterItemCheck = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dynamic.master_item", Integer.class);
+        if (masterItemCheck == null || masterItemCheck == 0) {
+            jdbcTemplate.execute("INSERT INTO dynamic.master_item (item_code, item_name, category, uom, price, stock_qty, status) VALUES " +
+                    "('ITM-001', 'MacBook Pro M3 Max 16-inch', 'Electronics', 'Unit', 48000000.00, 10, 'Active'), " +
+                    "('ITM-002', 'Logitech MX Master 3S Mouse', 'Accessories', 'Unit', 1650000.00, 50, 'Active'), " +
+                    "('ITM-003', 'Dell UltraSharp 32 4K Monitor U3223QE', 'Electronics', 'Unit', 14200000.00, 15, 'Active'), " +
+                    "('ITM-004', 'Keychron Q1 Pro Mechanical Keyboard', 'Accessories', 'Unit', 2950000.00, 30, 'Active'), " +
+                    "('ITM-005', 'Herman Miller Aeron Chair', 'Furniture', 'Unit', 25000000.00, 5, 'Active')");
+        }
+
+        if (!formMetaRepository.existsById("MASTER_ITEM")) {
+            System.out.println("Inserting fresh MASTER_ITEM metadata...");
+
+            FormMeta itemForm = new FormMeta();
+            itemForm.setFormCode("MASTER_ITEM");
+            itemForm.setFormTitle("Master Data Barang");
+            itemForm.setTableName("master_item");
+            itemForm.setPrimaryKey("id");
+            itemForm.setLabelWidth("150px");
+            itemForm.setFields(new ArrayList<>());
+
+            addMasterField(itemForm, "item_code", "Kode Barang", "TEXTBOX", 1, 10, true);
+            addMasterField(itemForm, "item_name", "Nama Barang", "TEXTBOX", 1, 20, true);
+            addMasterField(itemForm, "category", "Kategori", "COMBOBOX", null, 2, 30, false);
+            
+            FieldMeta uomField = new FieldMeta();
+            uomField.setFormMeta(itemForm);
+            uomField.setFieldName("uom");
+            uomField.setFieldLabel("Satuan");
+            uomField.setComponentType("COMBOBOX");
+            uomField.setLovCode("GLOBAL_MASTER");
+            uomField.setRowGroup(2);
+            uomField.setColOrder(40);
+            uomField.setRequired(true);
+            uomField.setShowInGrid(true);
+            uomField.setDetail(false);
+
+            List<FieldFilterMeta> uomFilters = new ArrayList<>();
+            FieldFilterMeta uomFilt = new FieldFilterMeta();
+            uomFilt.setFieldMeta(uomField);
+            uomFilt.setFilterColumn("category");
+            uomFilt.setSourceType("STATIC");
+            uomFilt.setSourceName("UOM");
+            uomFilters.add(uomFilt);
+            uomField.setFilters(uomFilters);
+
+            itemForm.getFields().add(uomField);
+
+            addMasterField(itemForm, "price", "Harga Satuan", "DECIMALBOX", 3, 50, true);
+            addMasterField(itemForm, "stock_qty", "Stok", "INTBOX", 3, 60, true);
+            addMasterField(itemForm, "status", "Status", "COMBOBOX", null, 4, 70, true);
+
+            formMetaRepository.save(itemForm);
+            dynamicDataService.generatePhysicalTable(itemForm);
+        }
+
+        if (!formMetaRepository.existsById("MASTER_CUSTOMER")) {
+            System.out.println("Inserting fresh MASTER_CUSTOMER metadata...");
+
+            FormMeta custForm = new FormMeta();
+            custForm.setFormCode("MASTER_CUSTOMER");
+            custForm.setFormTitle("Master Data Pelanggan");
+            custForm.setTableName("master_customer");
+            custForm.setPrimaryKey("id");
+            custForm.setLabelWidth("160px");
+            custForm.setFields(new ArrayList<>());
+
+            addMasterField(custForm, "customer_code", "Kode Pelanggan", "TEXTBOX", 1, 10, true);
+            addMasterField(custForm, "customer_name", "Nama Pelanggan", "TEXTBOX", 1, 20, true);
+            addMasterField(custForm, "contact_person", "Contact Person", "TEXTBOX", 2, 30, false);
+            addMasterField(custForm, "phone", "No. Telepon / HP", "TEXTBOX", 2, 40, false);
+            addMasterField(custForm, "email", "Email", "TEXTBOX", 3, 50, false);
+            addMasterField(custForm, "credit_limit", "Batas Kredit", "DECIMALBOX", 3, 60, false);
+            addMasterField(custForm, "address", "Alamat Lengkap", "TEXTAREA", 4, 70, false);
+            addMasterField(custForm, "status", "Status", "COMBOBOX", null, 5, 80, true);
+
+            formMetaRepository.save(custForm);
+            dynamicDataService.generatePhysicalTable(custForm);
+        }
+
+        if (!lovMetaRepository.existsById("MASTER_CUSTOMER")) {
+            LovMeta custLov = new LovMeta();
+            custLov.setLovCode("MASTER_CUSTOMER");
+            custLov.setLovName("Daftar Pelanggan");
+            custLov.setTableName("master_customer");
+            custLov.setValueColumn("customer_code");
+            custLov.setLabelColumn("customer_name");
+            custLov.setSearchColumn("customer_name");
+            custLov.setGridColumns("customer_code:Kode Pelanggan:130px,customer_name:Nama Pelanggan:200px,contact_person:Contact Person:150px,phone:Telepon:130px");
+            lovMetaRepository.save(custLov);
+        }
+
+        try {
+            Integer custCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dynamic.master_customer", Integer.class);
+            if (custCount == null || custCount == 0) {
+                jdbcTemplate.execute("INSERT INTO dynamic.master_customer (customer_code, customer_name, contact_person, phone, email, credit_limit, address, status) VALUES " +
+                        "('CUST-001', 'PT. Maju Mundur Sentosa', 'Budi Santoso', '081234567890', 'budi@majumundur.com', 50000000, 'Jl. Sudirman No. 123, Jakarta', 'Active'), " +
+                        "('CUST-002', 'CV. Karya Makmur Abadi', 'Siti Aminah', '081987654321', 'siti@karyamakmur.com', 25000000, 'Jl. Ahmad Yani No. 45, Surabaya', 'Active'), " +
+                        "('CUST-003', 'Toko Rejeki Lancar', 'Hendra Wijaya', '081555666777', 'rejeki@lancar.com', 10000000, 'Jl. Asia Afrika No. 88, Bandung', 'Active')");
+            }
+        } catch (Exception ignored) {}
+
+        // Check if GLOBAL_MASTER needs to be re-initialized for Subform Grid
+        FormMeta existingGlobal = formMetaRepository.findById("GLOBAL_MASTER").orElse(null);
+        boolean recreateGlobal = false;
+        if (existingGlobal != null) {
+            boolean hasSubform = existingGlobal.getFields() != null && existingGlobal.getFields().stream()
+                    .anyMatch(f -> "SUBFORM_GRID".equalsIgnoreCase(f.getComponentType()));
+            if (!hasSubform) {
+                recreateGlobal = true;
+            }
+        } else {
+            recreateGlobal = true;
+        }
+
+        if (recreateGlobal) {
+            if (existingGlobal != null) {
+                formMetaRepository.delete(existingGlobal);
+                formMetaRepository.flush();
+            }
+            if (formMetaRepository.existsById("GLOBAL_MASTER_DTL")) {
+                formMetaRepository.deleteById("GLOBAL_MASTER_DTL");
+                formMetaRepository.flush();
+            }
+            try {
+                jdbcTemplate.execute("DROP TABLE IF EXISTS dynamic.global_master");
+            } catch (Exception e) {}
+        }
+
+        // Create table global_category (Master)
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS dynamic.global_category (" +
+                "id SERIAL PRIMARY KEY, " +
+                "category_code VARCHAR(50), " +
+                "category_name VARCHAR(255), " +
+                "description TEXT, " +
+                "status VARCHAR(50)" +
+                ")");
+
+        Integer categoryCheck = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dynamic.global_category", Integer.class);
+        if (categoryCheck == null || categoryCheck == 0) {
+            jdbcTemplate.execute("INSERT INTO dynamic.global_category (category_code, category_name, description, status) VALUES " +
+                    "('UOM', 'Unit of Measurement', 'Satuan Ukuran', 'Active'), " +
+                    "('CITY', 'City', 'Kota / Kabupaten', 'Active'), " +
+                    "('POSTAL_CODE', 'Postal Code', 'Kodepos', 'Active')");
+        }
+
+        // Create table global_master_detail (Detail)
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS dynamic.global_master_detail (" +
+                "id SERIAL PRIMARY KEY, " +
+                "global_category_id INT, " +
+                "code VARCHAR(50), " +
+                "name VARCHAR(255), " +
+                "description TEXT, " +
+                "status VARCHAR(50)" +
+                ")");
+
+        Integer detailCheck = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dynamic.global_master_detail", Integer.class);
+        if (detailCheck == null || detailCheck == 0) {
+            jdbcTemplate.execute("INSERT INTO dynamic.global_master_detail (global_category_id, code, name, description, status) VALUES " +
+                    "(1, 'PCS', 'Pieces', 'Satuan Pieces', 'Active'), " +
+                    "(1, 'KG', 'Kilogram', 'Satuan Kilogram', 'Active'), " +
+                    "(1, 'LTR', 'Liter', 'Satuan Liter', 'Active'), " +
+                    "(2, 'JKT', 'Jakarta', 'Kota Jakarta', 'Active'), " +
+                    "(2, 'BDG', 'Bandung', 'Kota Bandung', 'Active'), " +
+                    "(2, 'SBY', 'Surabaya', 'Kota Surabaya', 'Active'), " +
+                    "(3, '12190', 'Kebayoran Baru', 'Kodepos Kebayoran Baru, Jakarta', 'Active'), " +
+                    "(3, '40111', 'Sumurbandung', 'Kodepos Sumurbandung, Bandung', 'Active')");
+        }
+
+        if (!formMetaRepository.existsById("GLOBAL_MASTER_DTL")) {
+            System.out.println("Inserting GLOBAL_MASTER_DTL metadata...");
+            FormMeta dtlForm = new FormMeta();
+            dtlForm.setFormCode("GLOBAL_MASTER_DTL");
+            dtlForm.setFormTitle("Global Master Data Detail");
+            dtlForm.setFormType("SINGLE");
+            dtlForm.setTableName("global_master_detail");
+            dtlForm.setPrimaryKey("id");
+            dtlForm.setLabelWidth("150px");
+            dtlForm.setFields(new ArrayList<>());
+
+            FieldMeta df1 = new FieldMeta();
+            df1.setFormMeta(dtlForm);
+            df1.setFieldName("code");
+            df1.setFieldLabel("Kode");
+            df1.setComponentType("TEXTBOX");
+            df1.setColOrder(10);
+            df1.setRequired(true);
+            df1.setShowInGrid(true);
+            dtlForm.getFields().add(df1);
+
+            FieldMeta df2 = new FieldMeta();
+            df2.setFormMeta(dtlForm);
+            df2.setFieldName("name");
+            df2.setFieldLabel("Nama / Nilai");
+            df2.setComponentType("TEXTBOX");
+            df2.setColOrder(20);
+            df2.setRequired(true);
+            df2.setShowInGrid(true);
+            dtlForm.getFields().add(df2);
+
+            FieldMeta df3 = new FieldMeta();
+            df3.setFormMeta(dtlForm);
+            df3.setFieldName("description");
+            df3.setFieldLabel("Deskripsi");
+            df3.setComponentType("TEXTBOX");
+            df3.setColOrder(30);
+            df3.setRequired(false);
+            df3.setShowInGrid(true);
+            dtlForm.getFields().add(df3);
+
+            FieldMeta df4 = new FieldMeta();
+            df4.setFormMeta(dtlForm);
+            df4.setFieldName("status");
+            df4.setFieldLabel("Status");
+            df4.setComponentType("COMBOBOX");
+            df4.setColOrder(40);
+            df4.setRequired(true);
+            df4.setShowInGrid(true);
+            dtlForm.getFields().add(df4);
+
+            formMetaRepository.save(dtlForm);
+            dynamicDataService.generatePhysicalTable(dtlForm);
+        }
+
+        if (!formMetaRepository.existsById("GLOBAL_MASTER")) {
+            System.out.println("Inserting GLOBAL_MASTER metadata (SINGLE with SUBFORM_GRID)...");
+
+            FormMeta globalForm = new FormMeta();
+            globalForm.setFormCode("GLOBAL_MASTER");
+            globalForm.setFormTitle("Global Master Data");
+            globalForm.setFormType("SINGLE"); // Set to SINGLE because subform grid is self-contained in a field
+            globalForm.setTableName("global_category");
+            globalForm.setPrimaryKey("id");
+            globalForm.setLabelWidth("150px");
+            globalForm.setFields(new ArrayList<>());
+
+            addMasterField(globalForm, "category_code", "Kode Kategori", "TEXTBOX", 1, 10, true);
+            addMasterField(globalForm, "category_name", "Nama Kategori", "TEXTBOX", 1, 20, true);
+            addMasterField(globalForm, "description", "Deskripsi", "TEXTAREA", 2, 30, false);
+            addMasterField(globalForm, "status", "Status", "COMBOBOX", null, 3, 40, true);
+
+            FieldMeta subformField = new FieldMeta();
+            subformField.setFormMeta(globalForm);
+            subformField.setFieldName("details");
+            subformField.setFieldLabel("Daftar Detail Nilai");
+            subformField.setComponentType("SUBFORM_GRID");
+            subformField.setLovCode("GLOBAL_MASTER_DTL"); // Child form code
+            subformField.setRowGroup(4);
+            subformField.setColOrder(50);
+            subformField.setRequired(false);
+            subformField.setShowInGrid(false);
+            subformField.setFormula("global_category_id"); // Child FK column
+            globalForm.getFields().add(subformField);
+
+            formMetaRepository.save(globalForm);
+            dynamicDataService.generatePhysicalTable(globalForm);
+        }
+
         System.out.println("Generic dummy data and metadata initialized successfully.");
+    }
+
+    private void addDetailField(FormMeta form, String fieldName, String fieldLabel, String componentType, String lovCode, int colOrder, boolean isRequired, boolean showInGrid) {
+        FieldMeta f = new FieldMeta();
+        f.setFormMeta(form);
+        f.setFieldName(fieldName);
+        f.setFieldLabel(fieldLabel);
+        f.setComponentType(componentType);
+        f.setLovCode(lovCode);
+        f.setColOrder(colOrder);
+        f.setRequired(isRequired);
+        f.setShowInGrid(showInGrid);
+        f.setDetail(true);
+        f.setRowGroup(1);
+        form.getFields().add(f);
+    }
+
+    private void addMasterField(FormMeta form, String fieldName, String fieldLabel, String componentType, int rowGroup, int colOrder, boolean isRequired) {
+        addMasterField(form, fieldName, fieldLabel, componentType, null, rowGroup, colOrder, isRequired);
+    }
+
+    private void addMasterField(FormMeta form, String fieldName, String fieldLabel, String componentType, String lovCode, int rowGroup, int colOrder, boolean isRequired) {
+        FieldMeta f = new FieldMeta();
+        f.setFormMeta(form);
+        f.setFieldName(fieldName);
+        f.setFieldLabel(fieldLabel);
+        f.setComponentType(componentType);
+        f.setLovCode(lovCode);
+        f.setRowGroup(rowGroup);
+        f.setColOrder(colOrder);
+        f.setRequired(isRequired);
+        f.setShowInGrid(true);
+        f.setDetail(false);
+        form.getFields().add(f);
     }
 
     private ReportElementMeta createElement(ReportMeta report, String band, String type, String value, String width,
@@ -572,5 +989,88 @@ public class DataInitializer implements CommandLineRunner {
         el.setFormatPattern(formatPattern);
         el.setColOrder(order);
         return el;
+    }
+
+    private void initSecurityCoreTables() {
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS public.app_roles (" +
+                "role_code VARCHAR(50) PRIMARY KEY, " +
+                "role_name VARCHAR(100), " +
+                "description VARCHAR(255)" +
+                ")");
+
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS public.app_users (" +
+                "username VARCHAR(50) PRIMARY KEY, " +
+                "password_hash VARCHAR(255), " +
+                "full_name VARCHAR(100), " +
+                "role_code VARCHAR(50), " +
+                "is_active BOOLEAN DEFAULT TRUE" +
+                ")");
+
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS public.app_menus (" +
+                "menu_code VARCHAR(50) PRIMARY KEY, " +
+                "menu_title VARCHAR(100), " +
+                "route_path VARCHAR(100), " +
+                "icon_name VARCHAR(50), " +
+                "parent_menu_code VARCHAR(50), " +
+                "display_order INTEGER DEFAULT 10, " +
+                "menu_type VARCHAR(20) DEFAULT 'ITEM'" +
+                ")");
+
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS public.app_role_menu_permissions (" +
+                "id SERIAL PRIMARY KEY, " +
+                "role_code VARCHAR(50) NOT NULL, " +
+                "menu_code VARCHAR(50) NOT NULL, " +
+                "can_add BOOLEAN DEFAULT TRUE, " +
+                "can_edit BOOLEAN DEFAULT TRUE, " +
+                "can_delete BOOLEAN DEFAULT TRUE, " +
+                "can_print BOOLEAN DEFAULT TRUE, " +
+                "UNIQUE(role_code, menu_code)" +
+                ")");
+
+        // Seed default Roles
+        Integer rCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_roles", Integer.class);
+        if (rCount == null || rCount == 0) {
+            jdbcTemplate.execute("INSERT INTO public.app_roles (role_code, role_name, description) VALUES " +
+                    "('SUPER_ADMIN', 'Super Administrator', 'Hak akses penuh seluruh sistem'), " +
+                    "('STAFF', 'Staff Gudang & Transaksi', 'Hak akses terbatas operasional')");
+        }
+
+        // Seed default Users
+        Integer uCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_users", Integer.class);
+        if (uCount == null || uCount == 0) {
+            jdbcTemplate.execute("INSERT INTO public.app_users (username, password_hash, full_name, role_code, is_active) VALUES " +
+                    "('admin', 'admin', 'Administrator Sistem ERP', 'SUPER_ADMIN', TRUE), " +
+                    "('staff', 'staff', 'Jennie Staff Operasional', 'STAFF', TRUE)");
+        }
+
+        // Seed default Menus (Tree Structure)
+        // GROUP = folder/parent, ITEM = leaf/clickable menu
+        Integer mCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_menus", Integer.class);
+        if (mCount == null || mCount == 0) {
+            jdbcTemplate.execute("INSERT INTO public.app_menus (menu_code, menu_title, route_path, icon_name, parent_menu_code, display_order, menu_type) VALUES " +
+                    // === Top-level Groups ===
+                    "('GRP_DEV_TOOLS', 'Developer Tools', NULL, 'TOOLS', NULL, 10, 'GROUP'), " +
+                    "('GRP_REPORTS', 'Report & Cetak', NULL, 'FILE_TEXT', NULL, 20, 'GROUP'), " +
+                    "('GRP_SYSTEM', 'Sistem & Keamanan', NULL, 'COG', NULL, 30, 'GROUP'), " +
+                    // === Developer Tools children ===
+                    "('FORM_BUILDER', 'Form Metadata Builder', 'builder', 'WRENCH', 'GRP_DEV_TOOLS', 10, 'ITEM'), " +
+                    "('DB_EXPLORER', 'Database Manager', 'explorer', 'DATABASE', 'GRP_DEV_TOOLS', 20, 'ITEM'), " +
+                    "('LOV_BUILDER', 'LOV Metadata Builder', 'lov-builder', 'LIST', 'GRP_DEV_TOOLS', 30, 'ITEM'), " +
+                    // === Report children ===
+                    "('REPORT_BUILDER', 'Report Designer', 'report-builder', 'EDIT', 'GRP_REPORTS', 10, 'ITEM'), " +
+                    "('REPORT_VIEWER', 'Report Viewer', 'report-viewer', 'PRINT', 'GRP_REPORTS', 20, 'ITEM'), " +
+                    // === Sistem & Keamanan children ===
+                    "('SECURITY_ADMIN', 'Security & Authority Admin', 'security-admin', 'SHIELD', 'GRP_SYSTEM', 10, 'ITEM')");
+        }
+
+        // Seed permissions for STAFF role
+        // STAFF hanya melihat menu yang punya record di sini. Yang tidak ada = tidak muncul di sidebar.
+        // Untuk GROUP parent: jika minimal 1 child visible, GROUP otomatis terlihat.
+        Integer pCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_role_menu_permissions", Integer.class);
+        if (pCount == null || pCount == 0) {
+            jdbcTemplate.execute("INSERT INTO public.app_role_menu_permissions (role_code, menu_code, can_add, can_edit, can_delete, can_print) VALUES " +
+                    "('STAFF', 'DB_EXPLORER', FALSE, FALSE, FALSE, TRUE), " +
+                    "('STAFF', 'REPORT_VIEWER', FALSE, FALSE, FALSE, TRUE)");
+        }
     }
 }

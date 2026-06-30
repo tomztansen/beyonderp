@@ -1,6 +1,6 @@
 package com.vaadinerp.components;
 
-import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadinerp.meta.LovMeta;
 import com.vaadinerp.service.DynamicDataService;
 
@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class LovComboBox extends ComboBox<String> {
+public class LovChosenBox extends MultiSelectComboBox<String> {
 
     private final String lovCode;
     private final DynamicDataService dataService;
@@ -18,15 +18,14 @@ public class LovComboBox extends ComboBox<String> {
 
     private final List<String> currentItems = new ArrayList<>();
 
-    public LovComboBox(String label, String lovCode, DynamicDataService dataService) {
+    public LovChosenBox(String label, String lovCode, DynamicDataService dataService) {
         super(label);
         this.lovCode = lovCode;
         this.dataService = dataService;
         
-        // Map value (key) to its display label
         setItemLabelGenerator(val -> valueToLabelMap.getOrDefault(val, val));
         setClearButtonVisible(true);
-        setPlaceholder("Pilih...");
+        setPlaceholder("Pilih beberapa...");
         
         refreshItems();
     }
@@ -43,26 +42,34 @@ public class LovComboBox extends ComboBox<String> {
     }
 
     @Override
-    public void setValue(String value) {
-        if (value != null && !value.isEmpty() && !currentItems.contains(value)) {
-            currentItems.add(value);
-            if (!valueToLabelMap.containsKey(value)) {
-                LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
-                if (lovMeta != null) {
-                    Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), value);
-                    Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
-                    if (lblObj != null) {
-                        valueToLabelMap.put(value, lblObj.toString());
-                    } else {
-                        valueToLabelMap.put(value, value);
+    public void setValue(java.util.Set<String> values) {
+        if (values != null && !values.isEmpty()) {
+            boolean added = false;
+            for (String v : values) {
+                if (v != null && !v.isEmpty() && !currentItems.contains(v)) {
+                    currentItems.add(v);
+                    if (!valueToLabelMap.containsKey(v)) {
+                        LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
+                        if (lovMeta != null) {
+                            Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), v);
+                            Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
+                            if (lblObj != null) {
+                                valueToLabelMap.put(v, lblObj.toString());
+                            } else {
+                                valueToLabelMap.put(v, v);
+                            }
+                        } else {
+                            valueToLabelMap.put(v, v);
+                        }
                     }
-                } else {
-                    valueToLabelMap.put(value, value);
+                    added = true;
                 }
             }
-            setItems(new ArrayList<>(currentItems));
+            if (added) {
+                setItems(new ArrayList<>(currentItems));
+            }
         }
-        super.setValue(value);
+        super.setValue(values);
     }
 
     public void setFilterValue(FilterCondition condition) {

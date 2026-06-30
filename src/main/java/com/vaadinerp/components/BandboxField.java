@@ -30,17 +30,17 @@ public class BandboxField<T, V> extends CustomField<V> {
     private V selectedValue;
     private T selectedItem;
 
-    private final java.util.Map<String, Object> activeFilters = new java.util.HashMap<>();
+    private final java.util.Map<String, FilterCondition> activeFilters = new java.util.HashMap<>();
 
-    public void setFilterValue(String filterColumn, Object value) {
-        if (value == null || value.toString().trim().isEmpty()) {
-            activeFilters.remove(filterColumn);
+    public void setFilterValue(FilterCondition condition) {
+        if (condition.getValue() == null || condition.getValue().toString().trim().isEmpty()) {
+            activeFilters.remove(condition.getFilterId());
         } else {
-            activeFilters.put(filterColumn, value);
+            activeFilters.put(condition.getFilterId(), condition);
         }
     }
 
-    public java.util.Map<String, Object> getActiveFilters() {
+    public java.util.Map<String, FilterCondition> getActiveFilters() {
         return activeFilters;
     }
 
@@ -151,7 +151,7 @@ public class BandboxField<T, V> extends CustomField<V> {
                 executeSearch(searchField.getValue());
                 searchField.focus();
 
-                // Posisikan Dialog tepat di bawah text field menggunakan JavaScript
+                // Posisikan Dialog secara dinamis (di bawah atau di atas jika overflow)
                 popup.getElement().executeJs(
                         "setTimeout(() => {" +
                                 "  const rect = $0.getBoundingClientRect();" +
@@ -162,9 +162,21 @@ public class BandboxField<T, V> extends CustomField<V> {
                                 "    const overlayPart = overlay.shadowRoot.querySelector('[part=\"overlay\"]');" +
                                 "    if (overlayPart) {" +
                                 "      overlayPart.style.position = 'absolute';" +
-                                "      overlayPart.style.top = rect.bottom + 'px';" +
-                                "      overlayPart.style.left = rect.left + 'px';" +
                                 "      overlayPart.style.margin = '0';" +
+                                "      const popupHeight = overlayPart.offsetHeight || 480;" +
+                                "      const spaceBelow = window.innerHeight - rect.bottom;" +
+                                "      const spaceAbove = rect.top;" +
+                                "      if (spaceBelow < popupHeight && spaceAbove > spaceBelow) {" +
+                                "        overlayPart.style.top = Math.max(0, rect.top - popupHeight - 5) + 'px';" +
+                                "      } else {" +
+                                "        overlayPart.style.top = rect.bottom + 'px';" +
+                                "      }" +
+                                "      const popupWidth = overlayPart.offsetWidth || 700;" +
+                                "      if (rect.left + popupWidth > window.innerWidth) {" +
+                                "        overlayPart.style.left = Math.max(0, window.innerWidth - popupWidth - 15) + 'px';" +
+                                "      } else {" +
+                                "        overlayPart.style.left = rect.left + 'px';" +
+                                "      }" +
                                 "    }" +
                                 "  }" +
                                 "}, 50);",
@@ -244,7 +256,10 @@ public class BandboxField<T, V> extends CustomField<V> {
         }
 
         if (labelGenerator != null) {
-            setSelectedLabel(labelGenerator.apply(item));
+            String lbl = labelGenerator.apply(item);
+            setSelectedLabel((lbl != null && !lbl.isEmpty()) ? lbl : (this.selectedValue != null ? this.selectedValue.toString() : ""));
+        } else if (this.selectedValue != null) {
+            setSelectedLabel(this.selectedValue.toString());
         }
 
         if (onSelectListener != null) {
@@ -300,6 +315,10 @@ public class BandboxField<T, V> extends CustomField<V> {
         displayField.setValue(label != null ? label : "");
     }
 
+    public void setPlaceholder(String placeholder) {
+        displayField.setPlaceholder(placeholder);
+    }
+
     public T getSelectedItem() {
         return selectedItem;
     }
@@ -326,7 +345,8 @@ public class BandboxField<T, V> extends CustomField<V> {
             if (itemFinder != null) {
                 this.selectedItem = itemFinder.find(newPresentationValue);
                 if (this.selectedItem != null && labelGenerator != null) {
-                    displayField.setValue(labelGenerator.apply(this.selectedItem));
+                    String lbl = labelGenerator.apply(this.selectedItem);
+                    displayField.setValue((lbl != null && !lbl.isEmpty()) ? lbl : newPresentationValue.toString());
                 } else {
                     displayField.setValue(newPresentationValue.toString());
                 }
@@ -334,5 +354,24 @@ public class BandboxField<T, V> extends CustomField<V> {
                 displayField.setValue(newPresentationValue.toString());
             }
         }
+    }
+
+    @Override
+    public void setReadOnly(boolean readOnly) {
+        getElement().setProperty("readonly", readOnly);
+        dropdownBtn.setEnabled(!readOnly);
+        clearBtn.setEnabled(!readOnly);
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        dropdownBtn.setEnabled(enabled);
+        clearBtn.setEnabled(enabled);
+    }
+
+    @Override
+    public void focus() {
+        displayField.focus();
     }
 }

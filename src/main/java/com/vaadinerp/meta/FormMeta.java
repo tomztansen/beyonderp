@@ -6,7 +6,7 @@ import lombok.Data;
 import java.util.List;
 
 @Entity
-@Table(name = "meta_form")
+@Table(name = "meta_form", schema = "public")
 @Data
 public class FormMeta {
     @Id
@@ -19,11 +19,20 @@ public class FormMeta {
     @Column(name = "table_name", length = 100)
     private String tableName;
 
+    @Column(name = "view_table", length = 1000)
+    private String viewTable;
+
     @Column(name = "primary_key", length = 50)
     private String primaryKey;
 
     @Column(name = "label_width")
     private String labelWidth;
+
+    @Column(name = "default_sort_field", length = 50)
+    private String defaultSortField;
+
+    @Column(name = "default_sort_direction", length = 10)
+    private String defaultSortDirection; // "ASC" or "DESC"
 
     @Column(name = "form_type", length = 20)
     private String formType = "SINGLE"; // "SINGLE" or "MASTER_DETAIL"
