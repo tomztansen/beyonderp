@@ -73,7 +73,8 @@ public class StandardActionToolbar extends HorizontalLayout {
         setupButton(btnDelete, VaadinIcon.CLOSE_CIRCLE, "#ef4444");
 
         // 3. SIMPAN
-        setupButton(btnSave, VaadinIcon.DOWNLOAD, "#64748b");
+        setupButton(btnSave, VaadinIcon.DOWNLOAD, "#3b82f6");
+        btnSave.getStyle().set("color", "#3b82f6");
 
         // 4. BATAL
         setupButton(btnCancel, VaadinIcon.BAN, "#ef4444");

@@ -244,6 +244,7 @@
  ],
  "frontendHashes": {
   "index.html": "49a6fa3fd70a6c36f32cd5389611b54611413fd6f8c430745bd3e0dd8c5a86c9",
+  "themes/vaadinerp/components/vaadin-checkbox.css": "646e4102a027a9b0588c02e4d454635eaf3648eabbc47a9193851521e30616fb",
   "comboBoxConnector.js": "47e20bea2a62d9c1ef0225556e93bddf81ec8805905a4968311bb9c9353d8e2a",
   "contextMenuConnector.js": "be6d7deca7c2e73ad50d832af551941097b152556bfbf920afb3aec1d1f27c94",
   "contextMenuTargetConnector.js": "d7c61321430dcbc249c152d35dc4ad15ea6ca2c1538dd078fdef08531f687687",
@@ -268,12 +269,12 @@
   "vaadinerp": "{\n  \"lumoImports\" : [ \"typography\", \"color\", \"spacing\", \"badge\", \"utility\" ]\n}\n"
  },
  "entryScripts": [
-  "VAADIN/build/indexhtml-BHpaYxcl.js"
+  "VAADIN/build/indexhtml-BI40bzUZ.js"
  ],
  "webComponents": [],
  "cvdlModules": {},
  "packageJsonHash": "0c4487d44faa837123a494a4597699b2c73e2b923313e03b64f37ab276440ced",
  "indexHtmlGenerated": [
-  "  <script type=\"module\" crossorigin src=\"./VAADIN/build/indexhtml-BHpaYxcl.js\"></script>"
+  "  <script type=\"module\" crossorigin src=\"./VAADIN/build/indexhtml-BI40bzUZ.js\"></script>"
  ]
 }

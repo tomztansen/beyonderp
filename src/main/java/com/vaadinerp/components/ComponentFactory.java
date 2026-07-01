@@ -403,6 +403,22 @@ public class ComponentFactory {
         boolean hasCustomFormat = pattern != null && !pattern.trim().isEmpty() && !pattern.equalsIgnoreCase("NONE");
         pattern = hasCustomFormat ? pattern.trim() : null;
 
+        String compType = field != null && field.getComponentType() != null ? field.getComponentType().toUpperCase() : "";
+        if (!hasCustomFormat) {
+            if ("DATEBOX".equals(compType) || val instanceof java.time.LocalDate || val instanceof java.sql.Date) {
+                pattern = com.vaadinerp.service.StandardFormatService.getStandardFormat("DATEBOX", "dd/MM/yyyy");
+            } else if ("DATETIMEBOX".equals(compType) || val instanceof java.time.LocalDateTime || val instanceof java.sql.Timestamp) {
+                pattern = com.vaadinerp.service.StandardFormatService.getStandardFormat("DATETIMEBOX", "dd/MM/yyyy HH:mm");
+            } else if ("TIMEBOX".equals(compType) || val instanceof java.time.LocalTime || val instanceof java.sql.Time) {
+                pattern = com.vaadinerp.service.StandardFormatService.getStandardFormat("TIMEBOX", "HH:mm");
+            } else if ("INTBOX".equals(compType) || val instanceof Integer || val instanceof Long || val instanceof Short) {
+                pattern = com.vaadinerp.service.StandardFormatService.getStandardFormat("INTBOX", "#,##0");
+            } else if ("DECIMALBOX".equals(compType) || val instanceof Double || val instanceof Float || val instanceof java.math.BigDecimal) {
+                pattern = com.vaadinerp.service.StandardFormatService.getStandardFormat("DECIMALBOX", "#,##0.00");
+            }
+            hasCustomFormat = pattern != null && !pattern.isEmpty();
+        }
+
         // Date formatting
         if (val instanceof java.time.LocalDateTime ldt) {
             String fmt = hasCustomFormat ? pattern : "dd/MM/yyyy HH:mm";
@@ -580,25 +596,26 @@ public class ComponentFactory {
             case "INTBOX":
                 FormattedIntegerField intField = new FormattedIntegerField(label);
                 intField.setReadOnly(field.isReadonly());
-                intField.setDisplayFormat(fmt);
+                intField.setDisplayFormat(hasFmt ? fmt : com.vaadinerp.service.StandardFormatService.getStandardFormat("INTBOX", "#,##0"));
                 return intField;
             case "DECIMALBOX":
                 FormattedBigDecimalField decimalField = new FormattedBigDecimalField(label);
                 decimalField.setReadOnly(field.isReadonly());
-                decimalField.setDisplayFormat(fmt);
+                decimalField.setDisplayFormat(hasFmt ? fmt : com.vaadinerp.service.StandardFormatService.getStandardFormat("DECIMALBOX", "#,##0.00"));
                 return decimalField;
             case "DATEBOX":
                 DatePicker datePicker = new DatePicker(label);
                 datePicker.setReadOnly(field.isReadonly());
                 datePicker.setLocale(java.util.Locale.of("id", "ID"));
-                datePicker.setI18n(createIndonesianDatePickerI18n(hasFmt ? fmt : "dd/MM/yyyy"));
+                datePicker.setI18n(createIndonesianDatePickerI18n(hasFmt ? fmt : com.vaadinerp.service.StandardFormatService.getStandardFormat("DATEBOX", "dd/MM/yyyy")));
                 return datePicker;
             case "DATETIMEBOX":
+                String dtFmt = hasFmt ? fmt : com.vaadinerp.service.StandardFormatService.getStandardFormat("DATETIMEBOX", "dd/MM/yyyy HH:mm");
                 DateTimePicker dateTimePicker = new DateTimePicker(label);
                 dateTimePicker.setReadOnly(field.isReadonly());
                 dateTimePicker.setLocale(java.util.Locale.of("id", "ID"));
                 dateTimePicker.setDatePickerI18n(
-                        createIndonesianDatePickerI18n(hasFmt ? fmt.trim().split(" ")[0] : "dd/MM/yyyy"));
+                        createIndonesianDatePickerI18n(dtFmt.trim().split(" ")[0]));
                 return dateTimePicker;
             case "TIMEBOX":
                 TimePicker timePicker = new TimePicker(label);

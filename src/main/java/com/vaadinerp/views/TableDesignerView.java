@@ -37,6 +37,7 @@ public class TableDesignerView extends VerticalLayout {
 
     // Table Meta
     private final TextField tableNameField = new TextField("Nama Tabel (Schema: dynamic)");
+    private final Checkbox includeAuditColsCheckbox = new Checkbox("Sertakan Kolom Audit Default (inputby, inputdt, updateby, updatedt)", true);
 
     // Column Inputs
     private final TextField colNameInput = new TextField("Nama Kolom");
@@ -78,6 +79,14 @@ public class TableDesignerView extends VerticalLayout {
         tableNameField.setPlaceholder("e.g. salary_logs");
         tableNameField.addValueChangeListener(e -> updateTriggerTemplate());
 
+        includeAuditColsCheckbox.addValueChangeListener(e -> {
+            if (e.getValue()) {
+                addAuditColumnsToList();
+            } else {
+                removeAuditColumnsFromList();
+            }
+        });
+
         // Add default PK column initially
         ColumnDefinition idCol = new ColumnDefinition();
         idCol.setColumnName("id");
@@ -85,6 +94,10 @@ public class TableDesignerView extends VerticalLayout {
         idCol.setPrimaryKey(true);
         idCol.setNullable(false);
         columnsList.add(idCol);
+
+        if (includeAuditColsCheckbox.getValue()) {
+            addAuditColumnsToList();
+        }
 
         // Column Builder Layout
         FormLayout colInputLayout = new FormLayout();
@@ -129,7 +142,7 @@ public class TableDesignerView extends VerticalLayout {
         btnBuild.setWidthFull();
         btnBuild.addClickListener(e -> buildTableAndTrigger());
 
-        add(title, tableNameField, new H4("Rancang Kolom Tabel"), colInputLayout, columnsGrid, enableTriggerCheckbox, triggerPanel, btnBuild);
+        add(title, tableNameField, includeAuditColsCheckbox, new H4("Rancang Kolom Tabel"), colInputLayout, columnsGrid, enableTriggerCheckbox, triggerPanel, btnBuild);
     }
 
     private void setupGrid() {
@@ -299,9 +312,11 @@ public class TableDesignerView extends VerticalLayout {
             idCol.setDataType("SERIAL");
             idCol.setPrimaryKey(true);
             idCol.setNullable(false);
-            columnsList.add(idCol);
-            
-            if (columnsGridRefresher != null) columnsGridRefresher.run();
+            if (includeAuditColsCheckbox.getValue()) {
+                addAuditColumnsToList();
+            } else if (columnsGridRefresher != null) {
+                columnsGridRefresher.run();
+            }
             enableTriggerCheckbox.setValue(false);
             triggerPanel.setVisible(false);
             updateTriggerTemplate();
@@ -312,5 +327,47 @@ public class TableDesignerView extends VerticalLayout {
         } catch (Exception ex) {
             Notification.show("Gagal membuild Tabel/Trigger: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
         }
+    }
+
+    private void addAuditColumnsToList() {
+        removeAuditColumnsFromList();
+        ColumnDefinition col1 = new ColumnDefinition();
+        col1.setColumnName("inputby");
+        col1.setDataType("VARCHAR(255)");
+        col1.setNullable(true);
+        col1.setPrimaryKey(false);
+
+        ColumnDefinition col2 = new ColumnDefinition();
+        col2.setColumnName("inputdt");
+        col2.setDataType("TIMESTAMP");
+        col2.setNullable(true);
+        col2.setPrimaryKey(false);
+
+        ColumnDefinition col3 = new ColumnDefinition();
+        col3.setColumnName("updateby");
+        col3.setDataType("VARCHAR(255)");
+        col3.setNullable(true);
+        col3.setPrimaryKey(false);
+
+        ColumnDefinition col4 = new ColumnDefinition();
+        col4.setColumnName("updatedt");
+        col4.setDataType("TIMESTAMP");
+        col4.setNullable(true);
+        col4.setPrimaryKey(false);
+
+        columnsList.add(col1);
+        columnsList.add(col2);
+        columnsList.add(col3);
+        columnsList.add(col4);
+        if (columnsGridRefresher != null) columnsGridRefresher.run();
+    }
+
+    private void removeAuditColumnsFromList() {
+        columnsList.removeIf(col -> {
+            String name = col.getColumnName();
+            return name != null && (name.equalsIgnoreCase("inputby") || name.equalsIgnoreCase("inputdt") ||
+                                    name.equalsIgnoreCase("updateby") || name.equalsIgnoreCase("updatedt"));
+        });
+        if (columnsGridRefresher != null) columnsGridRefresher.run();
     }
 }

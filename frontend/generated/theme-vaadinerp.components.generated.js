@@ -1,8 +1,14 @@
+import { unsafeCSS, registerStyles } from '@vaadin/vaadin-themable-mixin/register-styles';
 
+import vaadinCheckboxCss from 'themes/vaadinerp/components/vaadin-checkbox.css?inline';
 
 
 if (!document['_vaadintheme_vaadinerp_componentCss']) {
-  
+  registerStyles(
+        'vaadin-checkbox',
+        unsafeCSS(vaadinCheckboxCss.toString())
+      );
+      
   document['_vaadintheme_vaadinerp_componentCss'] = true;
 }
 

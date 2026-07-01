@@ -13,6 +13,7 @@ com\vaadinerp\components\StandardActionToolbar$MenuAccessAuthority.class
 com\vaadinerp\meta\FieldFilterMetaRepository.class
 com\vaadinerp\views\GenericMasterDetailFormView.class
 com\vaadinerp\components\SubformGridField$FilterCriteria.class
+com\vaadinerp\meta\AppStandardFormatRepository.class
 com\vaadinerp\meta\FormMeta.class
 com\vaadinerp\components\StandardGridUtils.class
 com\vaadinerp\service\DynamicDataService.class
@@ -26,12 +27,14 @@ com\vaadinerp\meta\ReportMetaRepository.class
 com\vaadinerp\components\LovChosenBox.class
 com\vaadinerp\components\FormattedIntegerField.class
 com\vaadinerp\meta\ReportMeta.class
+com\vaadinerp\security\entity\AppUserFavoriteMenu.class
 com\vaadinerp\views\ReportViewerView$Row.class
 com\vaadinerp\security\entity\AppMenu.class
 com\vaadinerp\components\StandardActionToolbar.class
 com\vaadinerp\components\BandboxField.class
 com\vaadinerp\util\FormulaEvaluator$1.class
 com\vaadinerp\components\LovComboBox.class
+com\vaadinerp\views\FieldAuditLogView.class
 com\vaadinerp\Application.class
 com\vaadinerp\components\ComponentFactory$3.class
 com\vaadinerp\views\FormBuilderView$FieldLovTargetMetaTemp.class
@@ -42,6 +45,7 @@ com\vaadinerp\views\FormBuilderView$FilterCriteria.class
 com\vaadinerp\meta\FieldMetaRepository.class
 com\vaadinerp\views\TableDesignerView.class
 com\vaadinerp\components\BandboxField$ItemValueGenerator.class
+com\vaadinerp\security\repository\AppUserGridPreferenceRepository.class
 com\vaadinerp\DataInitializer.class
 com\vaadinerp\components\FilterCondition.class
 com\vaadinerp\components\ComponentFactory$2.class
@@ -58,6 +62,7 @@ com\vaadinerp\components\BandboxField$ItemFinderCallback.class
 com\vaadinerp\components\SubformGridField$1.class
 com\vaadinerp\views\ReportViewerView.class
 com\vaadinerp\security\service\SessionSecurityService.class
+com\vaadinerp\views\StandardFormatView.class
 com\vaadinerp\views\GenericFormView.class
 com\vaadinerp\views\ReportBuilderView$ReportElementMetaTemp.class
 com\vaadinerp\security\repository\AppUserRepository.class
@@ -65,10 +70,14 @@ com\vaadinerp\security\entity\RoleMenuPermission.class
 com\vaadinerp\views\GenericFormView$FilterCriteria.class
 com\vaadinerp\views\LoginView.class
 com\vaadinerp\security\entity\AppUser.class
+com\vaadinerp\service\StandardFormatService.class
 com\vaadinerp\views\FormBuilderView$FieldMetaTemp.class
 com\vaadinerp\components\BandboxField$DataFetchCallback.class
 com\vaadinerp\views\UserAuthorityAdminView$1.class
+com\vaadinerp\security\entity\AppUserGridPreference.class
+com\vaadinerp\security\repository\AppUserFavoriteMenuRepository.class
 com\vaadinerp\components\ComponentFactory.class
+com\vaadinerp\meta\AppStandardFormat.class
 com\vaadinerp\service\DynamicDataService$TriggerDefinition.class
 com\vaadinerp\service\DynamicDataService$ColumnDefinition.class
 com\vaadinerp\views\ReportViewerView$Cell.class

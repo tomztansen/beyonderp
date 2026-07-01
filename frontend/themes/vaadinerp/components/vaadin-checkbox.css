@@ -1,0 +1,55 @@
+/* Layout untuk Checkbox YANG MEMILIKI LABEL (Form Fields): Label di atas kotak centang */
+:host([has-label]) .vaadin-checkbox-container {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+    align-items: start !important;
+}
+
+:host([has-label]) [part='label'] {
+    grid-row: 1 !important;
+    grid-column: 1 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+:host([has-label]) [part='checkbox'],
+:host([has-label]) ::slotted(input) {
+    grid-row: 2 !important;
+    grid-column: 1 !important;
+    margin: 0 !important;
+}
+
+:host([has-label]) [part='helper-text'] {
+    grid-row: 3 !important;
+    grid-column: 1 !important;
+}
+
+:host([has-label]) [part='error-message'] {
+    grid-row: 4 !important;
+    grid-column: 1 !important;
+}
+
+/* Layout untuk Checkbox TANPA LABEL (seperti di dalam Grid / Tabel): Rata tengah vertikal & horizontal */
+:host(:not([has-label])) .vaadin-checkbox-container {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+:host(:not([has-label])) [part='label'] {
+    display: none !important;
+}
+
+:host(:not([has-label])) [part='checkbox'] {
+    margin: 0 !important;
+}
+
+::slotted([slot="label"]) {
+    font-size: var(--lumo-font-size-s);
+    font-weight: 500;
+    color: var(--lumo-secondary-text-color);
+}

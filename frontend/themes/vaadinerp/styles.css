@@ -17,6 +17,8 @@ vaadin-grid::part(cell) {
     -webkit-user-select: none;
     -ms-user-select: none;
     user-select: none;
+    display: flex;
+    align-items: center;
 }
 
 /* Sidebar Styling */
@@ -129,3 +131,18 @@ vaadin-button {
 vaadin-button:active {
     transform: scale(0.97) !important;
 }
+
+/* Custom Checkbox Alignment: Memastikan posisi label di atas komponen checkbox hanya pada form field yang memiliki label */
+vaadin-checkbox[has-label] {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+vaadin-checkbox:not([has-label]) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+}
+

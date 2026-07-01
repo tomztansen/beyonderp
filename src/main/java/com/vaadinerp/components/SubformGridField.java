@@ -70,8 +70,23 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         btnAdd.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
         
         btnDelete.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
-        
-        toolbar.add(btnAdd, btnDelete);
+
+        Button btnResetSubformGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        btnResetSubformGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        btnResetSubformGrid.addClickListener(e -> {
+            if (childFormDef != null) {
+                dataService.resetUserGridOrder(childFormDef.getFormCode(), "subformGrid");
+                grid.removeAllColumns();
+                grid.setSelectionMode(Grid.SelectionMode.MULTI);
+                columnToFieldNameMap.clear();
+                editorComponents.clear();
+                filterValues.clear();
+                buildGridColumns();
+                Notification.show("Layout grid subform dikembalikan ke default!", 2000, Notification.Position.BOTTOM_END);
+            }
+        });
+
+        toolbar.add(btnAdd, btnDelete, btnResetSubformGrid);
 
         // Setup Grid
         grid.setWidthFull();
@@ -302,7 +317,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             Grid.Column<Map<String, Object>> col = grid.addColumn(map -> ComponentFactory.formatFieldValueWithLov(field, map.get(fieldName), dataService))
                     .setHeader(field.getFieldLabel())
                     .setAutoWidth(true)
-                    .setFlexGrow(0)
+                    .setFlexGrow(1)
                     .setResizable(true)
                     .setKey(fieldName);
 
@@ -457,18 +472,24 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 }
             }
             try {
-                dataService.saveColumnOrder(childFormDef.getFormCode(), orderedFieldNames);
+                dataService.saveUserGridOrder(childFormDef.getFormCode(), "subformGrid", orderedFieldNames);
                 Notification.show("Urutan kolom detail disimpan", 1500, Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
                 Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
             }
         });
+
+        List<String> subformUserOrder = dataService.getUserGridOrder(childFormDef.getFormCode(), "subformGrid");
+        com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(grid, columnToFieldNameMap, subformUserOrder);
     }
 
     private Object convertToFieldValue(Object rawVal, Component comp) {
         if (rawVal == null) {
             if (comp instanceof TextField) {
                 return "";
+            }
+            if (comp instanceof com.vaadin.flow.component.checkbox.Checkbox) {
+                return Boolean.FALSE;
             }
             return null;
         }

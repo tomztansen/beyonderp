@@ -810,6 +810,11 @@ public class DataInitializer implements CommandLineRunner {
             } catch (Exception e) {}
         }
 
+        try {
+            jdbcTemplate.execute("UPDATE meta_form SET table_name = 'global_category' WHERE table_name = 'global_master'");
+            jdbcTemplate.execute("UPDATE meta_lov SET table_name = 'global_category' WHERE table_name = 'global_master'");
+        } catch (Exception ignored) {}
+
         // Create table global_category (Master)
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS dynamic.global_category (" +
                 "id SERIAL PRIMARY KEY, " +
@@ -826,6 +831,10 @@ public class DataInitializer implements CommandLineRunner {
                     "('CITY', 'City', 'Kota / Kabupaten', 'Active'), " +
                     "('POSTAL_CODE', 'Postal Code', 'Kodepos', 'Active')");
         }
+
+        try {
+            jdbcTemplate.execute("CREATE OR REPLACE VIEW dynamic.global_master AS SELECT * FROM dynamic.global_category");
+        } catch (Exception ignored) {}
 
         // Create table global_master_detail (Detail)
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS dynamic.global_master_detail (" +
@@ -1027,6 +1036,14 @@ public class DataInitializer implements CommandLineRunner {
                 "UNIQUE(role_code, menu_code)" +
                 ")");
 
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS public.app_user_favorite_menus (" +
+                "id SERIAL PRIMARY KEY, " +
+                "username VARCHAR(50) NOT NULL, " +
+                "menu_code VARCHAR(50) NOT NULL, " +
+                "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                "UNIQUE(username, menu_code)" +
+                ")");
+
         // Seed default Roles
         Integer rCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_roles", Integer.class);
         if (rCount == null || rCount == 0) {
@@ -1056,11 +1073,13 @@ public class DataInitializer implements CommandLineRunner {
                     "('FORM_BUILDER', 'Form Metadata Builder', 'builder', 'WRENCH', 'GRP_DEV_TOOLS', 10, 'ITEM'), " +
                     "('DB_EXPLORER', 'Database Manager', 'explorer', 'DATABASE', 'GRP_DEV_TOOLS', 20, 'ITEM'), " +
                     "('LOV_BUILDER', 'LOV Metadata Builder', 'lov-builder', 'LIST', 'GRP_DEV_TOOLS', 30, 'ITEM'), " +
+                    "('STANDARD_FORMAT', 'Konfigurasi Format Standar', 'standard-format', 'SLIDERS', 'GRP_DEV_TOOLS', 40, 'ITEM'), " +
                     // === Report children ===
                     "('REPORT_BUILDER', 'Report Designer', 'report-builder', 'EDIT', 'GRP_REPORTS', 10, 'ITEM'), " +
                     "('REPORT_VIEWER', 'Report Viewer', 'report-viewer', 'PRINT', 'GRP_REPORTS', 20, 'ITEM'), " +
                     // === Sistem & Keamanan children ===
-                    "('SECURITY_ADMIN', 'Security & Authority Admin', 'security-admin', 'SHIELD', 'GRP_SYSTEM', 10, 'ITEM')");
+                    "('SECURITY_ADMIN', 'Security & Authority Admin', 'security-admin', 'SHIELD', 'GRP_SYSTEM', 10, 'ITEM'), " +
+                    "('FIELD_AUDIT_LOG', 'Field Audit Log Viewer', 'field-audit-log', 'CLOCK', 'GRP_SYSTEM', 20, 'ITEM')");
         }
 
         // Seed permissions for STAFF role
@@ -1070,7 +1089,8 @@ public class DataInitializer implements CommandLineRunner {
         if (pCount == null || pCount == 0) {
             jdbcTemplate.execute("INSERT INTO public.app_role_menu_permissions (role_code, menu_code, can_add, can_edit, can_delete, can_print) VALUES " +
                     "('STAFF', 'DB_EXPLORER', FALSE, FALSE, FALSE, TRUE), " +
-                    "('STAFF', 'REPORT_VIEWER', FALSE, FALSE, FALSE, TRUE)");
+                    "('STAFF', 'REPORT_VIEWER', FALSE, FALSE, FALSE, TRUE), " +
+                    "('STAFF', 'FIELD_AUDIT_LOG', FALSE, FALSE, FALSE, TRUE)");
         }
     }
 }
