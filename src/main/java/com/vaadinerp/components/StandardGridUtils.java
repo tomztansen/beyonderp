@@ -10,9 +10,12 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.textfield.TextFieldVariant;
 import com.vaadin.flow.data.value.ValueChangeMode;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -168,5 +171,55 @@ public class StandardGridUtils {
         Map<Grid.Column<Map<String, Object>>, Function<Map<String, Object>, String>> getterMap = new HashMap<>();
         colKeyMap.forEach((col, key) -> getterMap.put(col, map -> map.get(key) != null ? map.get(key).toString() : ""));
         return attachGridFilters(grid, getterMap, dataSupplier);
+    }
+
+    /**
+     * Menerapkan urutan kolom tersimpan user ke Grid secara aman.
+     * Mengabaikan kolom yang sudah dihapus di metadata dan otomatis menaruh kolom baru di akhir urutan.
+     */
+    public static <T> void applySafeColumnOrder(
+            Grid<T> grid,
+            Map<Grid.Column<T>, String> columnToFieldNameMap,
+            List<String> savedUserFieldOrder) {
+        if (savedUserFieldOrder == null || savedUserFieldOrder.isEmpty()) {
+            return;
+        }
+
+        Map<String, Grid.Column<T>> fieldNameToColMap = new HashMap<>();
+        for (Map.Entry<Grid.Column<T>, String> entry : columnToFieldNameMap.entrySet()) {
+            fieldNameToColMap.put(entry.getValue(), entry.getKey());
+        }
+
+        List<Grid.Column<T>> reconciledOrder = new ArrayList<>();
+        Set<Grid.Column<T>> processedCols = new HashSet<>();
+
+        // 1. Identifikasi dan letakkan kolom non-metadata (seperti kolom seleksi checkbox internal) di depan
+        for (Grid.Column<T> col : grid.getColumns()) {
+            if (!columnToFieldNameMap.containsKey(col)) {
+                reconciledOrder.add(col);
+                processedCols.add(col);
+            }
+        }
+
+        // 2. Tambahkan kolom yang sesuai dengan urutan user
+        for (String fieldName : savedUserFieldOrder) {
+            Grid.Column<T> col = fieldNameToColMap.get(fieldName);
+            if (col != null && !processedCols.contains(col)) {
+                reconciledOrder.add(col);
+                processedCols.add(col);
+            }
+        }
+
+        // 3. Tambahkan kolom lain di Grid yang belum masuk (kolom baru dari metadata / kolom sistem)
+        for (Grid.Column<T> col : grid.getColumns()) {
+            if (!processedCols.contains(col)) {
+                reconciledOrder.add(col);
+            }
+        }
+
+        // 4. Terapkan ke Grid
+        if (!reconciledOrder.isEmpty() && reconciledOrder.size() == grid.getColumns().size()) {
+            grid.setColumnOrder(reconciledOrder);
+        }
     }
 }

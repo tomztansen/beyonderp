@@ -103,6 +103,7 @@ public class FormBuilderView extends VerticalLayout {
     private final TextField propDisplayFormat = new TextField("Kolom Format (misal dd/MM/yyyy atau #,##0.00)");
     private final Checkbox propSaveOnInsert = new Checkbox("Save on Insert");
     private final Checkbox propSaveOnUpdate = new Checkbox("Save on Edit/Update");
+    private final Checkbox propIsAuditLog = new Checkbox("Audit Log");
     private final Button propBtnFilters = new Button("Configure Filters", VaadinIcon.FILTER.create());
     private final Button propBtnLovTargets = new Button("Configure LOV Targets", VaadinIcon.LINK.create());
     private final Button propBtnCustomValidation = new Button("🛡️ Atur Validasi Dinamis", VaadinIcon.SHIELD.create());
@@ -125,25 +126,77 @@ public class FormBuilderView extends VerticalLayout {
         String displayFormat;
         boolean saveOnInsert = true;
         boolean saveOnUpdate = true;
+        boolean isAuditLog;
         List<FieldFilterMetaTemp> filters = new ArrayList<>();
         List<FieldLovTargetMetaTemp> lovTargets = new ArrayList<>();
 
-        public String getFieldName() { return fieldName; }
-        public String getFieldLabel() { return fieldLabel; }
-        public String getComponentType() { return componentType; }
-        public String getLovCode() { return lovCode; }
-        public int getRowGroup() { return rowGroup; }
-        public boolean isRequired() { return isRequired; }
-        public boolean isReadonly() { return isReadonly; }
-        public boolean isShowInGrid() { return showInGrid; }
-        public boolean isHideInForm() { return hideInForm; }
-        public boolean isDetail() { return isDetail; }
-        public boolean isSortable() { return isSortable; }
-        public String getFormula() { return formula; }
-        public String getValidationRule() { return validationRule; }
-        public String getDisplayFormat() { return displayFormat; }
-        public boolean isSaveOnInsert() { return saveOnInsert; }
-        public boolean isSaveOnUpdate() { return saveOnUpdate; }
+        public String getFieldName() {
+            return fieldName;
+        }
+
+        public String getFieldLabel() {
+            return fieldLabel;
+        }
+
+        public String getComponentType() {
+            return componentType;
+        }
+
+        public String getLovCode() {
+            return lovCode;
+        }
+
+        public int getRowGroup() {
+            return rowGroup;
+        }
+
+        public boolean isRequired() {
+            return isRequired;
+        }
+
+        public boolean isReadonly() {
+            return isReadonly;
+        }
+
+        public boolean isShowInGrid() {
+            return showInGrid;
+        }
+
+        public boolean isHideInForm() {
+            return hideInForm;
+        }
+
+        public boolean isDetail() {
+            return isDetail;
+        }
+
+        public boolean isSortable() {
+            return isSortable;
+        }
+
+        public String getFormula() {
+            return formula;
+        }
+
+        public String getValidationRule() {
+            return validationRule;
+        }
+
+        public String getDisplayFormat() {
+            return displayFormat;
+        }
+
+        public boolean isSaveOnInsert() {
+            return saveOnInsert;
+        }
+
+        public boolean isSaveOnUpdate() {
+            return saveOnUpdate;
+        }
+
+        public boolean isAuditLog() {
+            return isAuditLog;
+        }
     }
 
     public static class FieldFilterMetaTemp {
@@ -153,11 +206,25 @@ public class FormBuilderView extends VerticalLayout {
         String logicalOperator = "AND";
         String comparisonOperator = "=";
 
-        public String getFilterColumn() { return filterColumn; }
-        public String getSourceType() { return sourceType; }
-        public String getSourceName() { return sourceName; }
-        public String getLogicalOperator() { return logicalOperator; }
-        public String getComparisonOperator() { return comparisonOperator; }
+        public String getFilterColumn() {
+            return filterColumn;
+        }
+
+        public String getSourceType() {
+            return sourceType;
+        }
+
+        public String getSourceName() {
+            return sourceName;
+        }
+
+        public String getLogicalOperator() {
+            return logicalOperator;
+        }
+
+        public String getComparisonOperator() {
+            return comparisonOperator;
+        }
     }
 
     public static class FieldLovTargetMetaTemp {
@@ -166,64 +233,75 @@ public class FormBuilderView extends VerticalLayout {
         String actionType = "COPY";
         String lookupColumn;
 
-        public String getSourceColumn() { return sourceColumn; }
-        public String getTargetField() { return targetField; }
-        public String getActionType() { return actionType; }
-        public String getLookupColumn() { return lookupColumn; }
+        public String getSourceColumn() {
+            return sourceColumn;
+        }
+
+        public String getTargetField() {
+            return targetField;
+        }
+
+        public String getActionType() {
+            return actionType;
+        }
+
+        public String getLookupColumn() {
+            return lookupColumn;
+        }
     }
 
     private static class FilterCriteria {
         String operator = "Contains";
         String value = "";
     }
+
     private java.util.Map<String, FilterCriteria> filterValues = new java.util.HashMap<>();
     private java.util.List<FormMeta> allHistoryItems = new java.util.ArrayList<>();
 
     public FormBuilderView(FormMetaRepository formMetaRepository, LovMetaRepository lovMetaRepository,
-                           DynamicDataService dynamicDataService) {
+            DynamicDataService dynamicDataService) {
         this(formMetaRepository, lovMetaRepository, dynamicDataService, null);
     }
 
     public FormBuilderView(FormMetaRepository formMetaRepository, LovMetaRepository lovMetaRepository,
-                           DynamicDataService dynamicDataService, Runnable onFormSavedListener) {
+            DynamicDataService dynamicDataService, Runnable onFormSavedListener) {
         this.formMetaRepository = formMetaRepository;
         this.lovMetaRepository = lovMetaRepository;
         this.dynamicDataService = dynamicDataService;
         this.onFormSavedListener = onFormSavedListener;
 
         getElement().executeJs(
-            "const id = 'form-builder-drag-styles';" +
-            "if (!document.getElementById(id)) {" +
-            "  const style = document.createElement('style');" +
-            "  style.id = id;" +
-            "  style.innerHTML = `" +
-            "    .row-drop-zone {" +
-            "      height: 4px;" +
-            "      background-color: transparent;" +
-            "      border-radius: 3px;" +
-            "      transition: all 0.15s ease;" +
-            "      margin: 2px 0;" +
-            "    }" +
-            "    .dragging-active .row-drop-zone {" +
-            "      background-color: #e2e8f0;" +
-            "      border: 1px dashed #cbd5e1;" +
-            "      height: 8px;" +
-            "    }" +
-            "    .row-drop-zone.drag-over {" +
-            "      background-color: #6366f1 !important;" +
-            "      height: 16px !important;" +
-            "      border: none !important;" +
-            "    }" +
-            "  `;" +
-            "  document.head.appendChild(style);" +
-            "}"
-        );
+                "const id = 'form-builder-drag-styles';" +
+                        "if (!document.getElementById(id)) {" +
+                        "  const style = document.createElement('style');" +
+                        "  style.id = id;" +
+                        "  style.innerHTML = `" +
+                        "    .row-drop-zone {" +
+                        "      height: 4px;" +
+                        "      background-color: transparent;" +
+                        "      border-radius: 3px;" +
+                        "      transition: all 0.15s ease;" +
+                        "      margin: 2px 0;" +
+                        "    }" +
+                        "    .dragging-active .row-drop-zone {" +
+                        "      background-color: #e2e8f0;" +
+                        "      border: 1px dashed #cbd5e1;" +
+                        "      height: 8px;" +
+                        "    }" +
+                        "    .row-drop-zone.drag-over {" +
+                        "      background-color: #6366f1 !important;" +
+                        "      height: 16px !important;" +
+                        "      border: none !important;" +
+                        "    }" +
+                        "  `;" +
+                        "  document.head.appendChild(style);" +
+                        "}");
 
         setSizeFull();
         setPadding(true);
         setSpacing(true);
 
-        H3 title = new H3("Dynamic Form Builder");
+        H3 title = new H3("Form Builder");
         title.getStyle().set("margin-top", "0").set("margin-bottom", "5px");
 
         // 1. TOOLBAR SETUP
@@ -242,15 +320,20 @@ public class FormBuilderView extends VerticalLayout {
 
         H4 historyTitle = new H4("Daftar Definisi Form Terdaftar");
         historyTitle.getStyle().set("margin", "0");
-        
+
         historyGrid.setWidthFull();
         historyGrid.setSelectionMode(Grid.SelectionMode.MULTI);
         historyGrid.setAllRowsVisible(true);
-        Grid.Column<FormMeta> codeCol = historyGrid.addColumn(FormMeta::getFormCode).setHeader("Kode Form").setSortable(true).setAutoWidth(true).setKey("formCode");
-        Grid.Column<FormMeta> titleCol = historyGrid.addColumn(FormMeta::getFormTitle).setHeader("Judul Form").setSortable(true).setAutoWidth(true).setKey("formTitle");
-        Grid.Column<FormMeta> typeCol = historyGrid.addColumn(FormMeta::getFormType).setHeader("Tipe Form").setSortable(true).setAutoWidth(true).setKey("formType");
-        Grid.Column<FormMeta> tableCol = historyGrid.addColumn(FormMeta::getTableName).setHeader("Nama Tabel").setSortable(true).setAutoWidth(true).setKey("tableName");
-        Grid.Column<FormMeta> dtlTableCol = historyGrid.addColumn(FormMeta::getDetailTableName).setHeader("Tabel Detail").setSortable(true).setAutoWidth(true).setKey("detailTableName");
+        Grid.Column<FormMeta> codeCol = historyGrid.addColumn(FormMeta::getFormCode).setHeader("Kode Form")
+                .setSortable(true).setAutoWidth(true).setKey("formCode");
+        Grid.Column<FormMeta> titleCol = historyGrid.addColumn(FormMeta::getFormTitle).setHeader("Judul Form")
+                .setSortable(true).setAutoWidth(true).setKey("formTitle");
+        Grid.Column<FormMeta> typeCol = historyGrid.addColumn(FormMeta::getFormType).setHeader("Tipe Form")
+                .setSortable(true).setAutoWidth(true).setKey("formType");
+        Grid.Column<FormMeta> tableCol = historyGrid.addColumn(FormMeta::getTableName).setHeader("Nama Tabel")
+                .setSortable(true).setAutoWidth(true).setKey("tableName");
+        Grid.Column<FormMeta> dtlTableCol = historyGrid.addColumn(FormMeta::getDetailTableName)
+                .setHeader("Tabel Detail").setSortable(true).setAutoWidth(true).setKey("detailTableName");
 
         com.vaadin.flow.component.grid.HeaderRow filterRow = historyGrid.appendHeaderRow();
         java.util.Map<String, Grid.Column<FormMeta>> colsMap = new java.util.HashMap<>();
@@ -276,7 +359,8 @@ public class FormBuilderView extends VerticalLayout {
             filterButton.getElement().setProperty("title", "Contains");
             filterField.setPrefixComponent(filterButton);
 
-            com.vaadin.flow.component.contextmenu.ContextMenu contextMenu = new com.vaadin.flow.component.contextmenu.ContextMenu(filterButton);
+            com.vaadin.flow.component.contextmenu.ContextMenu contextMenu = new com.vaadin.flow.component.contextmenu.ContextMenu(
+                    filterButton);
             contextMenu.setOpenOnClick(true);
 
             Runnable applyOperatorUI = () -> {
@@ -310,7 +394,8 @@ public class FormBuilderView extends VerticalLayout {
             contextMenu.addItem("Blank", listener);
             contextMenu.addItem("Not blank", listener);
 
-            contextMenu.addItem(new com.vaadin.flow.component.html.Hr(), e -> {});
+            contextMenu.addItem(new com.vaadin.flow.component.html.Hr(), e -> {
+            });
             contextMenu.addItem(col.isFrozen() ? "Unfreeze Column" : "Freeze Column", event -> {
                 boolean nextFrozen = !col.isFrozen();
                 col.setFrozen(nextFrozen);
@@ -347,8 +432,7 @@ public class FormBuilderView extends VerticalLayout {
         formMetaLayout.setResponsiveSteps(
                 new FormLayout.ResponsiveStep("0", 1),
                 new FormLayout.ResponsiveStep("600px", 3),
-                new FormLayout.ResponsiveStep("900px", 6)
-        );
+                new FormLayout.ResponsiveStep("900px", 6));
         formMetaLayout.setWidthFull();
         pkField.setValue("id");
         labelWidthField.setValue("150px");
@@ -356,8 +440,9 @@ public class FormBuilderView extends VerticalLayout {
         defaultSortDirection.setItems("ASC", "DESC");
         defaultSortDirection.setValue("ASC");
 
-        formMetaLayout.add(formCodeField, formTitleField, formTypeCombo, tableNameField, viewTableField, pkField, labelWidthField,
-                           defaultSortField, defaultSortDirection, detailTableNameField, detailPkField, detailFkField);
+        formMetaLayout.add(formCodeField, formTitleField, formTypeCombo, tableNameField, viewTableField, pkField,
+                labelWidthField,
+                defaultSortField, defaultSortDirection, detailTableNameField, detailPkField, detailFkField);
 
         formTypeCombo.setItems("SINGLE", "MASTER_DETAIL");
         formTypeCombo.setValue("SINGLE");
@@ -391,20 +476,19 @@ public class FormBuilderView extends VerticalLayout {
         palettePanel.add(paletteTitle);
 
         palettePanel.add(
-            createPaletteButton("Text Box", VaadinIcon.INPUT, "TEXTBOX"),
-            createPaletteButton("Int Box", VaadinIcon.ELLIPSIS_H, "INTBOX"),
-            createPaletteButton("Decimal Box", VaadinIcon.MONEY, "DECIMALBOX"),
-            createPaletteButton("Date Box", VaadinIcon.CALENDAR, "DATEBOX"),
-            createPaletteButton("Date Time Box", VaadinIcon.CALENDAR_CLOCK, "DATETIMEBOX"),
-            createPaletteButton("Time Box", VaadinIcon.CLOCK, "TIMEBOX"),
-            createPaletteButton("Check Box", VaadinIcon.CHECK_SQUARE_O, "CHECKBOX"),
-            createPaletteButton("Text Area", VaadinIcon.ALIGN_LEFT, "TEXTAREA"),
-            createPaletteButton("Combo Box", VaadinIcon.COMBOBOX, "COMBOBOX"),
-            createPaletteButton("List Box", VaadinIcon.LIST_SELECT, "LISTBOX"),
-            createPaletteButton("Band Box", VaadinIcon.SEARCH, "BANDBOX"),
-            createPaletteButton("Chosen Box", VaadinIcon.TAGS, "CHOSENBOX"),
-            createPaletteButton("Subform Grid", VaadinIcon.GRID, "SUBFORM_GRID")
-        );
+                createPaletteButton("Text Box", VaadinIcon.INPUT, "TEXTBOX"),
+                createPaletteButton("Int Box", VaadinIcon.ELLIPSIS_H, "INTBOX"),
+                createPaletteButton("Decimal Box", VaadinIcon.MONEY, "DECIMALBOX"),
+                createPaletteButton("Date Box", VaadinIcon.CALENDAR, "DATEBOX"),
+                createPaletteButton("Date Time Box", VaadinIcon.CALENDAR_CLOCK, "DATETIMEBOX"),
+                createPaletteButton("Time Box", VaadinIcon.CLOCK, "TIMEBOX"),
+                createPaletteButton("Check Box", VaadinIcon.CHECK_SQUARE_O, "CHECKBOX"),
+                createPaletteButton("Text Area", VaadinIcon.ALIGN_LEFT, "TEXTAREA"),
+                createPaletteButton("Combo Box", VaadinIcon.COMBOBOX, "COMBOBOX"),
+                createPaletteButton("List Box", VaadinIcon.LIST_SELECT, "LISTBOX"),
+                createPaletteButton("Band Box", VaadinIcon.SEARCH, "BANDBOX"),
+                createPaletteButton("Chosen Box", VaadinIcon.TAGS, "CHOSENBOX"),
+                createPaletteButton("Subform Grid", VaadinIcon.GRID, "SUBFORM_GRID"));
 
         // COLUMN B: CANVAS PREVIEW
         VerticalLayout canvasPanel = new VerticalLayout();
@@ -495,16 +579,16 @@ public class FormBuilderView extends VerticalLayout {
         return fieldsList.stream().anyMatch(f -> f.fieldName.equalsIgnoreCase(name));
     }
 
-
     private List<Map<String, Object>> fetchLovItems(String keyword, boolean isSubform) {
         List<Map<String, Object>> items = new ArrayList<>();
         String lowerKeyword = keyword != null ? keyword.toLowerCase() : "";
-        
+
         if (isSubform) {
             formMetaRepository.findAll().forEach(form -> {
                 String code = form.getFormCode();
                 String title = form.getFormTitle();
-                if (code.toLowerCase().contains(lowerKeyword) || (title != null && title.toLowerCase().contains(lowerKeyword))) {
+                if (code.toLowerCase().contains(lowerKeyword)
+                        || (title != null && title.toLowerCase().contains(lowerKeyword))) {
                     Map<String, Object> map = new HashMap<>();
                     map.put("code", code);
                     map.put("name", title != null ? title : "");
@@ -516,7 +600,8 @@ public class FormBuilderView extends VerticalLayout {
             lovMetaRepository.findAll().forEach(lov -> {
                 String code = lov.getLovCode();
                 String name = lov.getLovName();
-                if (code.toLowerCase().contains(lowerKeyword) || (name != null && name.toLowerCase().contains(lowerKeyword))) {
+                if (code.toLowerCase().contains(lowerKeyword)
+                        || (name != null && name.toLowerCase().contains(lowerKeyword))) {
                     Map<String, Object> map = new HashMap<>();
                     map.put("code", code);
                     map.put("name", name != null ? name : "");
@@ -527,7 +612,8 @@ public class FormBuilderView extends VerticalLayout {
             formMetaRepository.findAll().forEach(form -> {
                 String code = form.getFormCode();
                 String title = form.getFormTitle();
-                if (code.toLowerCase().contains(lowerKeyword) || (title != null && title.toLowerCase().contains(lowerKeyword))) {
+                if (code.toLowerCase().contains(lowerKeyword)
+                        || (title != null && title.toLowerCase().contains(lowerKeyword))) {
                     Map<String, Object> map = new HashMap<>();
                     map.put("code", code);
                     map.put("name", title != null ? title : "");
@@ -543,21 +629,25 @@ public class FormBuilderView extends VerticalLayout {
         propertiesForm.setVisible(false);
         propertiesForm.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
 
-        propComponentType.setItems("TEXTBOX", "INTBOX", "DECIMALBOX", "DATEBOX", "DATETIMEBOX", "TIMEBOX", "CHECKBOX", "TEXTAREA", "COMBOBOX", "LISTBOX", "BANDBOX", "CHOSENBOX", "SUBFORM_GRID");
+        propComponentType.setItems("TEXTBOX", "INTBOX", "DECIMALBOX", "DATEBOX", "DATETIMEBOX", "TIMEBOX", "CHECKBOX",
+                "TEXTAREA", "COMBOBOX", "LISTBOX", "BANDBOX", "CHOSENBOX", "SUBFORM_GRID");
 
         // Configure propLovCode BandboxField
-        propLovCode.getGrid().addColumn(row -> row.get("code") != null ? row.get("code").toString() : "").setHeader("Kode").setWidth("150px");
-        propLovCode.getGrid().addColumn(row -> row.get("name") != null ? row.get("name").toString() : "").setHeader("Nama").setWidth("250px");
-        propLovCode.getGrid().addColumn(row -> row.get("type") != null ? row.get("type").toString() : "").setHeader("Tipe").setWidth("150px");
-        
+        propLovCode.getGrid().addColumn(row -> row.get("code") != null ? row.get("code").toString() : "")
+                .setHeader("Kode").setWidth("150px");
+        propLovCode.getGrid().addColumn(row -> row.get("name") != null ? row.get("name").toString() : "")
+                .setHeader("Nama").setWidth("250px");
+        propLovCode.getGrid().addColumn(row -> row.get("type") != null ? row.get("type").toString() : "")
+                .setHeader("Tipe").setWidth("150px");
+
         propLovCode.setItemLabelGenerator(row -> row.get("code") != null ? row.get("code").toString() : "");
         propLovCode.setItemValueGenerator(row -> row.get("code") != null ? row.get("code").toString() : "");
-        
+
         propLovCode.setDataFetchCallback(keyword -> {
             boolean isSubform = selectedField != null && "SUBFORM_GRID".equalsIgnoreCase(selectedField.componentType);
             return fetchLovItems(keyword, isSubform);
         });
-        
+
         propLovCode.setItemFinder(val -> {
             boolean isSubform = selectedField != null && "SUBFORM_GRID".equalsIgnoreCase(selectedField.componentType);
             List<Map<String, Object>> items = fetchLovItems(val != null ? val : "", isSubform);
@@ -566,7 +656,7 @@ public class FormBuilderView extends VerticalLayout {
                     .findFirst()
                     .orElse(null);
         });
-        
+
         propLovCode.setPlaceholder("Pilih LOV jika ada...");
 
         propBtnEditLov.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_CONTRAST);
@@ -584,7 +674,8 @@ public class FormBuilderView extends VerticalLayout {
         FormLayout checkBoxLayout = new FormLayout();
         checkBoxLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 2));
         propIsSortable.setValue(true);
-        checkBoxLayout.add(propIsRequired, propIsReadonly, propShowInGrid, propHideInForm, propIsDetail, propIsSortable, propSaveOnInsert, propSaveOnUpdate);
+        checkBoxLayout.add(propIsRequired, propIsReadonly, propShowInGrid, propHideInForm, propIsDetail, propIsSortable,
+                propSaveOnInsert, propSaveOnUpdate, propIsAuditLog);
 
         propBtnFilters.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_CONTRAST);
         propBtnFilters.setWidthFull();
@@ -593,7 +684,7 @@ public class FormBuilderView extends VerticalLayout {
                 openFilterConfigDialog(selectedField);
             }
         });
-        
+
         propBtnLovTargets.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_CONTRAST);
         propBtnLovTargets.setWidthFull();
         propBtnLovTargets.addClickListener(e -> {
@@ -614,7 +705,9 @@ public class FormBuilderView extends VerticalLayout {
             }
         });
 
-        propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov, propRowGroup, propFormula, propDisplayFormat, propValidationRule, propBtnCustomValidation, checkBoxLayout, propBtnFilters, propBtnLovTargets);
+        propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov, propRowGroup,
+                propFormula, propDisplayFormat, propValidationRule, propBtnCustomValidation, checkBoxLayout,
+                propBtnFilters, propBtnLovTargets);
 
         // Listeners for live sync
         setupPropertiesListeners();
@@ -642,16 +735,19 @@ public class FormBuilderView extends VerticalLayout {
         });
         propLovCode.addValueChangeListener(e -> {
             if (selectedField != null) {
-                if (e.getValue() == null && selectedField.lovCode == null) return;
-                if (e.getValue() != null && e.getValue().equals(selectedField.lovCode)) return;
+                if (e.getValue() == null && selectedField.lovCode == null)
+                    return;
+                if (e.getValue() != null && e.getValue().equals(selectedField.lovCode))
+                    return;
 
                 selectedField.lovCode = e.getValue();
                 if (!"SUBFORM_GRID".equalsIgnoreCase(selectedField.componentType)) {
                     boolean isSelection = "COMBOBOX".equalsIgnoreCase(selectedField.componentType) ||
-                                         "LISTBOX".equalsIgnoreCase(selectedField.componentType) ||
-                                         "BANDBOX".equalsIgnoreCase(selectedField.componentType) ||
-                                         "CHOSENBOX".equalsIgnoreCase(selectedField.componentType);
-                    propBtnFilters.setEnabled(isSelection && selectedField.lovCode != null && !selectedField.lovCode.trim().isEmpty());
+                            "LISTBOX".equalsIgnoreCase(selectedField.componentType) ||
+                            "BANDBOX".equalsIgnoreCase(selectedField.componentType) ||
+                            "CHOSENBOX".equalsIgnoreCase(selectedField.componentType);
+                    propBtnFilters.setEnabled(
+                            isSelection && selectedField.lovCode != null && !selectedField.lovCode.trim().isEmpty());
                 }
                 rebuildCanvas();
             }
@@ -722,14 +818,19 @@ public class FormBuilderView extends VerticalLayout {
                 selectedField.saveOnUpdate = e.getValue();
             }
         });
+        propIsAuditLog.addValueChangeListener(e -> {
+            if (selectedField != null && e.isFromClient()) {
+                selectedField.isAuditLog = e.getValue();
+            }
+        });
     }
 
     private void updatePropertyFieldsState(String componentType) {
         boolean isSubform = "SUBFORM_GRID".equalsIgnoreCase(componentType);
         boolean isSelection = "COMBOBOX".equalsIgnoreCase(componentType) ||
-                             "LISTBOX".equalsIgnoreCase(componentType) ||
-                             "BANDBOX".equalsIgnoreCase(componentType) ||
-                             "CHOSENBOX".equalsIgnoreCase(componentType);
+                "LISTBOX".equalsIgnoreCase(componentType) ||
+                "BANDBOX".equalsIgnoreCase(componentType) ||
+                "CHOSENBOX".equalsIgnoreCase(componentType);
 
         if (isSubform) {
             propLovCode.setLabel("Target Child Form");
@@ -744,7 +845,7 @@ public class FormBuilderView extends VerticalLayout {
 
             propBtnFilters.setEnabled(false);
             propBtnLovTargets.setEnabled(false);
-            
+
             propShowInGrid.setEnabled(false);
             propIsDetail.setEnabled(false);
             propIsSortable.setEnabled(false);
@@ -761,7 +862,8 @@ public class FormBuilderView extends VerticalLayout {
             propFormula.setPlaceholder("");
             propFormula.setEnabled(true);
 
-            propBtnFilters.setEnabled(isSelection && selectedField != null && selectedField.lovCode != null && !selectedField.lovCode.trim().isEmpty());
+            propBtnFilters.setEnabled(isSelection && selectedField != null && selectedField.lovCode != null
+                    && !selectedField.lovCode.trim().isEmpty());
             propBtnLovTargets.setEnabled(true);
 
             propShowInGrid.setEnabled(true);
@@ -775,7 +877,8 @@ public class FormBuilderView extends VerticalLayout {
             switch (componentType.toUpperCase()) {
                 case "TEXTBOX":
                 case "TEXTAREA":
-                    propValidationRule.setItems("NONE", "EMAIL", "ALPHANUMERIC", "MIN_LEN:3", "MIN_LEN:5", "MAX_LEN:20");
+                    propValidationRule.setItems("NONE", "EMAIL", "ALPHANUMERIC", "MIN_LEN:3", "MIN_LEN:5",
+                            "MAX_LEN:20");
                     break;
                 case "INTBOX":
                 case "DECIMALBOX":
@@ -783,7 +886,8 @@ public class FormBuilderView extends VerticalLayout {
                     break;
                 case "DATEBOX":
                 case "DATETIMEBOX":
-                    propValidationRule.setItems("NONE", "ONLY_SUNDAY", "NOT_SUNDAY", "WEEKDAYS", "WEEKEND", "PAST_DATE", "FUTURE_DATE");
+                    propValidationRule.setItems("NONE", "ONLY_SUNDAY", "NOT_SUNDAY", "WEEKDAYS", "WEEKEND", "PAST_DATE",
+                            "FUTURE_DATE");
                     break;
                 case "COMBOBOX":
                 case "LISTBOX":
@@ -826,25 +930,26 @@ public class FormBuilderView extends VerticalLayout {
             propValidationRule.setValue(temp.validationRule != null ? temp.validationRule : "NONE");
             propSaveOnInsert.setValue(temp.saveOnInsert);
             propSaveOnUpdate.setValue(temp.saveOnUpdate);
+            propIsAuditLog.setValue(temp.isAuditLog);
         }
         rebuildCanvas();
     }
 
     private void rebuildCanvas() {
         canvas.removeAll();
-        
+
         boolean isMD = "MASTER_DETAIL".equals(formTypeCombo.getValue());
-        
+
         if (isMD) {
             // Master / Header Fields Section
             List<FieldMetaTemp> masterFields = fieldsList.stream()
                     .filter(f -> !f.isDetail)
                     .collect(Collectors.toList());
-            
+
             H4 headerTitle = new H4("Master / Header Fields");
             headerTitle.getStyle().set("margin-top", "10px").set("color", "#4f46e5").set("font-weight", "600");
             canvas.add(headerTitle);
-            
+
             if (masterFields.isEmpty()) {
                 Span emptyMaster = new Span("[Seret/tambah field untuk Header Master di sini]");
                 emptyMaster.getStyle().set("color", "#94a3b8").set("font-style", "italic").set("font-size", "0.9rem");
@@ -852,18 +957,19 @@ public class FormBuilderView extends VerticalLayout {
             } else {
                 renderGroupedFields(masterFields);
             }
-            
+
             // Detail / Grid Fields Section
             List<FieldMetaTemp> detailFields = fieldsList.stream()
                     .filter(f -> f.isDetail)
                     .collect(Collectors.toList());
-            
+
             H4 detailTitle = new H4("Detail / Grid Columns");
             detailTitle.getStyle().set("margin-top", "25px").set("color", "#0891b2").set("font-weight", "600");
             canvas.add(detailTitle);
-            
+
             if (detailFields.isEmpty()) {
-                Span emptyDetail = new Span("[Tandai 'Is Detail Grid Column' pada properti field untuk memindahkan ke kolom Grid detail]");
+                Span emptyDetail = new Span(
+                        "[Tandai 'Is Detail Grid Column' pada properti field untuk memindahkan ke kolom Grid detail]");
                 emptyDetail.getStyle().set("color", "#94a3b8").set("font-style", "italic").set("font-size", "0.9rem");
                 canvas.add(emptyDetail);
             } else {
@@ -871,11 +977,10 @@ public class FormBuilderView extends VerticalLayout {
                 detailRowLayout.setWidthFull();
                 int cols = detailFields.size();
                 detailRowLayout.setResponsiveSteps(
-                    new FormLayout.ResponsiveStep("0", 1),
-                    new FormLayout.ResponsiveStep("500px", Math.max(1, cols / 2)),
-                    new FormLayout.ResponsiveStep("800px", cols)
-                );
-                
+                        new FormLayout.ResponsiveStep("0", 1),
+                        new FormLayout.ResponsiveStep("500px", Math.max(1, cols / 2)),
+                        new FormLayout.ResponsiveStep("800px", cols));
+
                 int seq = 1;
                 for (FieldMetaTemp temp : detailFields) {
                     Component card = buildFieldCard(temp, seq++);
@@ -893,18 +998,18 @@ public class FormBuilderView extends VerticalLayout {
         List<FieldMetaTemp> nonDetailFields = fieldsList.stream()
                 .filter(f -> !f.isDetail)
                 .collect(Collectors.toList());
-        
+
         List<Integer> uniqueGroups = nonDetailFields.stream()
                 .map(f -> f.rowGroup)
                 .distinct()
                 .sorted()
                 .collect(Collectors.toList());
-        
+
         Map<Integer, Integer> mapping = new HashMap<>();
         for (int i = 0; i < uniqueGroups.size(); i++) {
             mapping.put(uniqueGroups.get(i), i + 1);
         }
-        
+
         for (FieldMetaTemp f : fieldsList) {
             if (!f.isDetail) {
                 f.rowGroup = mapping.getOrDefault(f.rowGroup, 1);
@@ -919,11 +1024,11 @@ public class FormBuilderView extends VerticalLayout {
 
         DropTarget<Div> dropTarget = DropTarget.create(zone);
         dropTarget.setActive(true);
-        
+
         zone.getElement().addEventListener("dragenter", e -> {
             zone.addClassName("drag-over");
         });
-        
+
         zone.getElement().addEventListener("dragleave", e -> {
             zone.removeClassName("drag-over");
         });
@@ -936,23 +1041,24 @@ public class FormBuilderView extends VerticalLayout {
                     rebuildCanvas();
                     return;
                 }
-                
+
                 // Shift existing row groups
                 for (FieldMetaTemp f : fieldsList) {
                     if (!f.isDetail && f.rowGroup >= targetRowGroup) {
                         f.rowGroup = f.rowGroup + 1;
                     }
                 }
-                
+
                 draggedField.rowGroup = targetRowGroup;
-                
+
                 // Reorder in list
                 fieldsList.remove(draggedField);
-                
+
                 int insertIdx = 0;
                 for (int i = 0; i < fieldsList.size(); i++) {
                     FieldMetaTemp f = fieldsList.get(i);
-                    if (f.isDetail) continue;
+                    if (f.isDetail)
+                        continue;
                     if (f.rowGroup < targetRowGroup) {
                         insertIdx = i + 1;
                     }
@@ -965,7 +1071,8 @@ public class FormBuilderView extends VerticalLayout {
                 }
                 canvas.removeClassName("dragging-active");
                 rebuildCanvas();
-                Notification.show("Moved " + draggedField.fieldName + " to new row", 2000, Notification.Position.BOTTOM_END);
+                Notification.show("Moved " + draggedField.fieldName + " to new row", 2000,
+                        Notification.Position.BOTTOM_END);
             }
             draggedField = null;
         });
@@ -987,7 +1094,7 @@ public class FormBuilderView extends VerticalLayout {
         rowGroupsOrder.sort(Integer::compareTo);
 
         int numRows = rowGroupsOrder.size();
-        
+
         // Drop zone before the first row
         canvas.add(createRowDropZone(1));
 
@@ -999,10 +1106,9 @@ public class FormBuilderView extends VerticalLayout {
             rowLayout.setWidthFull();
             int cols = groupFields.size();
             rowLayout.setResponsiveSteps(
-                new FormLayout.ResponsiveStep("0", 1),
-                new FormLayout.ResponsiveStep("500px", Math.max(1, cols / 2)),
-                new FormLayout.ResponsiveStep("800px", cols)
-            );
+                    new FormLayout.ResponsiveStep("0", 1),
+                    new FormLayout.ResponsiveStep("500px", Math.max(1, cols / 2)),
+                    new FormLayout.ResponsiveStep("800px", cols));
 
             for (FieldMetaTemp temp : groupFields) {
                 Component card = buildFieldCard(temp, sequence++);
@@ -1012,7 +1118,7 @@ public class FormBuilderView extends VerticalLayout {
                 }
             }
             canvas.add(rowLayout);
-            
+
             // Drop zone after this row
             canvas.add(createRowDropZone(rg + 1));
         }
@@ -1022,18 +1128,18 @@ public class FormBuilderView extends VerticalLayout {
         VerticalLayout card = new VerticalLayout();
         card.setPadding(true);
         card.setSpacing(false);
-        
+
         boolean isSelected = (selectedField == temp);
-        
+
         card.getStyle()
-            .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
-            .set("border-radius", "8px")
-            .set("background-color", isSelected ? "#f8fafc" : "#ffffff")
-            .set("cursor", "grab")
-            .set("position", "relative")
-            .set("box-shadow", isSelected ? "0 4px 12px rgba(99, 102, 241, 0.1)" : "none")
-            .set("opacity", temp.hideInForm ? "0.65" : "1.0")
-            .set("transition", "all 0.2s ease");
+                .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
+                .set("border-radius", "8px")
+                .set("background-color", isSelected ? "#f8fafc" : "#ffffff")
+                .set("cursor", "grab")
+                .set("position", "relative")
+                .set("box-shadow", isSelected ? "0 4px 12px rgba(99, 102, 241, 0.1)" : "none")
+                .set("opacity", temp.hideInForm ? "0.65" : "1.0")
+                .set("transition", "all 0.2s ease");
 
         HorizontalLayout cardHeader = new HorizontalLayout();
         cardHeader.setWidthFull();
@@ -1043,31 +1149,31 @@ public class FormBuilderView extends VerticalLayout {
 
         Span orderBadge = new Span("#" + sequence);
         orderBadge.getStyle()
-            .set("font-size", "0.65rem")
-            .set("font-weight", "700")
-            .set("background-color", "#f1f5f9")
-            .set("color", "#475569")
-            .set("padding", "2px 6px")
-            .set("border-radius", "4px");
+                .set("font-size", "0.65rem")
+                .set("font-weight", "700")
+                .set("background-color", "#f1f5f9")
+                .set("color", "#475569")
+                .set("padding", "2px 6px")
+                .set("border-radius", "4px");
 
         Span typeBadge = new Span(temp.componentType);
         typeBadge.getStyle()
-            .set("font-size", "0.65rem")
-            .set("font-weight", "700")
-            .set("background-color", isSelected ? "#e0e7ff" : "#f1f5f9")
-            .set("color", isSelected ? "#4f46e5" : "#475569")
-            .set("padding", "2px 6px")
-            .set("border-radius", "4px")
-            .set("margin-right", "auto");
+                .set("font-size", "0.65rem")
+                .set("font-weight", "700")
+                .set("background-color", isSelected ? "#e0e7ff" : "#f1f5f9")
+                .set("color", isSelected ? "#4f46e5" : "#475569")
+                .set("padding", "2px 6px")
+                .set("border-radius", "4px")
+                .set("margin-right", "auto");
         if (temp.hideInForm) {
             Span hiddenBadge = new Span("Hidden");
             hiddenBadge.getStyle()
-                .set("font-size", "0.65rem")
-                .set("font-weight", "700")
-                .set("background-color", "#fee2e2")
-                .set("color", "#ef4444")
-                .set("padding", "2px 6px")
-                .set("border-radius", "4px");
+                    .set("font-size", "0.65rem")
+                    .set("font-weight", "700")
+                    .set("background-color", "#fee2e2")
+                    .set("color", "#ef4444")
+                    .set("padding", "2px 6px")
+                    .set("border-radius", "4px");
             cardHeader.add(hiddenBadge);
         }
         cardHeader.add(orderBadge, typeBadge);
@@ -1091,7 +1197,7 @@ public class FormBuilderView extends VerticalLayout {
 
         Component previewComp = createPreviewComponent(temp);
         card.add(cardHeader, previewComp);
-        
+
         card.getElement().addEventListener("click", e -> selectField(temp));
 
         // Enable Drag & Drop
@@ -1110,16 +1216,16 @@ public class FormBuilderView extends VerticalLayout {
 
         DropTarget<Component> dropTarget = DropTarget.create(card);
         dropTarget.setActive(true);
-        
+
         card.getElement().addEventListener("dragenter", e -> {
             card.getStyle().set("border", "2px dashed #6366f1");
             card.getStyle().set("background-color", "#e0e7ff");
         });
-        
+
         card.getElement().addEventListener("dragleave", e -> {
             card.getStyle()
-                .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
-                .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
+                    .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
+                    .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
         });
 
         dropTarget.addDropListener(e -> {
@@ -1134,7 +1240,9 @@ public class FormBuilderView extends VerticalLayout {
                         propRowGroup.setValue(selectedField.rowGroup);
                     }
                     rebuildCanvas();
-                    Notification.show("Field reordered: " + draggedField.fieldName + " moved to row group " + temp.rowGroup, 2000, Notification.Position.BOTTOM_END);
+                    Notification.show(
+                            "Field reordered: " + draggedField.fieldName + " moved to row group " + temp.rowGroup, 2000,
+                            Notification.Position.BOTTOM_END);
                 }
             }
             draggedField = null;
@@ -1227,7 +1335,8 @@ public class FormBuilderView extends VerticalLayout {
                 subformContainer.setWidthFull();
                 subformContainer.setPadding(false);
                 subformContainer.setSpacing(false);
-                Span sTitle = new Span(label + " (Subform Grid: " + (temp.lovCode != null ? temp.lovCode : "None") + ")");
+                Span sTitle = new Span(
+                        label + " (Subform Grid: " + (temp.lovCode != null ? temp.lovCode : "None") + ")");
                 sTitle.getStyle().set("font-weight", "600").set("color", "#4f46e5");
                 Grid<String> mockGrid = new Grid<>();
                 mockGrid.setWidthFull();
@@ -1251,7 +1360,10 @@ public class FormBuilderView extends VerticalLayout {
         layout.setPadding(false);
 
         ComboBox<String> typeCombo = new ComboBox<>("Tipe Validasi");
-        typeCombo.setItems("REGEX (Format Khusus / Pola Teks)", "MIN (Nilai Angka Minimal)", "MAX (Nilai Angka Maksimal)", "MIN_LEN (Panjang Karakter Minimal)", "MAX_LEN (Panjang Karakter Maksimal)", "EMAIL (Format Email)", "NOT_BLANK (Wajib Isi / Tidak Boleh Kosong)");
+        typeCombo.setItems("REGEX (Format Khusus / Pola Teks)", "MIN (Nilai Angka Minimal)",
+                "MAX (Nilai Angka Maksimal)", "MIN_LEN (Panjang Karakter Minimal)",
+                "MAX_LEN (Panjang Karakter Maksimal)", "EMAIL (Format Email)",
+                "NOT_BLANK (Wajib Isi / Tidak Boleh Kosong)");
         typeCombo.setWidthFull();
 
         TextField ruleField = new TextField("Rumus / Nilai / Pola Regex");
@@ -1301,13 +1413,17 @@ public class FormBuilderView extends VerticalLayout {
                     ruleField.setVisible(false);
                 } else {
                     ruleField.setVisible(true);
-                    if (val.startsWith("REGEX")) ruleField.setLabel("Pola Regex (e.g. ^[0-9]{15}$)");
-                    else if (val.startsWith("MIN_LEN") || val.startsWith("MAX_LEN")) ruleField.setLabel("Jumlah Karakter (e.g. 5)");
-                    else ruleField.setLabel("Nilai Angka (e.g. 1500000)");
+                    if (val.startsWith("REGEX"))
+                        ruleField.setLabel("Pola Regex (e.g. ^[0-9]{15}$)");
+                    else if (val.startsWith("MIN_LEN") || val.startsWith("MAX_LEN"))
+                        ruleField.setLabel("Jumlah Karakter (e.g. 5)");
+                    else
+                        ruleField.setLabel("Nilai Angka (e.g. 1500000)");
                 }
             }
         });
-        if (typeCombo.getValue() != null && (typeCombo.getValue().startsWith("EMAIL") || typeCombo.getValue().startsWith("NOT_BLANK"))) {
+        if (typeCombo.getValue() != null
+                && (typeCombo.getValue().startsWith("EMAIL") || typeCombo.getValue().startsWith("NOT_BLANK"))) {
             ruleField.setVisible(false);
         }
 
@@ -1320,13 +1436,20 @@ public class FormBuilderView extends VerticalLayout {
                 return;
             }
             String prefix = "";
-            if (selectedType.startsWith("REGEX")) prefix = "REGEX:";
-            else if (selectedType.startsWith("MIN_LEN")) prefix = "MIN_LEN:";
-            else if (selectedType.startsWith("MAX_LEN")) prefix = "MAX_LEN:";
-            else if (selectedType.startsWith("MIN")) prefix = "MIN:";
-            else if (selectedType.startsWith("MAX")) prefix = "MAX:";
-            else if (selectedType.startsWith("EMAIL")) prefix = "EMAIL";
-            else if (selectedType.startsWith("NOT_BLANK")) prefix = "NOT_BLANK";
+            if (selectedType.startsWith("REGEX"))
+                prefix = "REGEX:";
+            else if (selectedType.startsWith("MIN_LEN"))
+                prefix = "MIN_LEN:";
+            else if (selectedType.startsWith("MAX_LEN"))
+                prefix = "MAX_LEN:";
+            else if (selectedType.startsWith("MIN"))
+                prefix = "MIN:";
+            else if (selectedType.startsWith("MAX"))
+                prefix = "MAX:";
+            else if (selectedType.startsWith("EMAIL"))
+                prefix = "EMAIL";
+            else if (selectedType.startsWith("NOT_BLANK"))
+                prefix = "NOT_BLANK";
 
             String val = ruleField.getValue().trim();
             if (!prefix.equals("EMAIL") && !prefix.equals("NOT_BLANK") && val.isEmpty()) {
@@ -1395,10 +1518,13 @@ public class FormBuilderView extends VerticalLayout {
 
         Grid<FieldFilterMetaTemp> filtersGrid = new Grid<>();
         filtersGrid.setSizeFull();
-        filtersGrid.addColumn(FieldFilterMetaTemp::getLogicalOperator).setHeader("Logika").setWidth("80px").setFlexGrow(0);
+        filtersGrid.addColumn(FieldFilterMetaTemp::getLogicalOperator).setHeader("Logika").setWidth("80px")
+                .setFlexGrow(0);
         filtersGrid.addColumn(FieldFilterMetaTemp::getFilterColumn).setHeader("Target Kolom").setFlexGrow(1);
-        filtersGrid.addColumn(FieldFilterMetaTemp::getComparisonOperator).setHeader("Op").setWidth("80px").setFlexGrow(0);
-        filtersGrid.addColumn(FieldFilterMetaTemp::getSourceType).setHeader("Tipe Sumber").setWidth("100px").setFlexGrow(0);
+        filtersGrid.addColumn(FieldFilterMetaTemp::getComparisonOperator).setHeader("Op").setWidth("80px")
+                .setFlexGrow(0);
+        filtersGrid.addColumn(FieldFilterMetaTemp::getSourceType).setHeader("Tipe Sumber").setWidth("100px")
+                .setFlexGrow(0);
         filtersGrid.addColumn(FieldFilterMetaTemp::getSourceName).setHeader("Nama Sumber").setFlexGrow(1);
 
         final FieldFilterMetaTemp[] currentEditing = new FieldFilterMetaTemp[1];
@@ -1458,7 +1584,8 @@ public class FormBuilderView extends VerticalLayout {
             String compOp = comparisonOpField.getValue();
 
             if (col.isEmpty() || srcName.isEmpty()) {
-                Notification.show("Kolom target dan Nama sumber tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Kolom target dan Nama sumber tidak boleh kosong!", 3000,
+                        Notification.Position.MIDDLE);
                 return;
             }
 
@@ -1486,7 +1613,8 @@ public class FormBuilderView extends VerticalLayout {
         btnLayout.setSpacing(true);
         btnLayout.setPadding(false);
 
-        HorizontalLayout inputLayout = new HorizontalLayout(logicalOpField, filterColField, comparisonOpField, sourceTypeField, sourceNameField, btnLayout);
+        HorizontalLayout inputLayout = new HorizontalLayout(logicalOpField, filterColField, comparisonOpField,
+                sourceTypeField, sourceNameField, btnLayout);
         inputLayout.setAlignItems(Alignment.END);
         inputLayout.setSpacing(true);
         inputLayout.getStyle().set("flex-wrap", "wrap");
@@ -1510,7 +1638,8 @@ public class FormBuilderView extends VerticalLayout {
         String sortDir = defaultSortDirection.getValue();
 
         if (formCode.isEmpty() || formTitle.isEmpty() || tableName.isEmpty()) {
-            Notification.show("Form Code, Title, dan Table Name tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Form Code, Title, dan Table Name tidak boleh kosong!", 3000,
+                    Notification.Position.MIDDLE);
             return;
         }
 
@@ -1519,7 +1648,8 @@ public class FormBuilderView extends VerticalLayout {
             return;
         }
 
-        // Delete existing form metadata to perform clean overwrite (Hibernate cascade will clear fields and filters)
+        // Delete existing form metadata to perform clean overwrite (Hibernate cascade
+        // will clear fields and filters)
         if (formMetaRepository.existsById(formCode)) {
             formMetaRepository.deleteById(formCode);
         }
@@ -1541,7 +1671,8 @@ public class FormBuilderView extends VerticalLayout {
             String dtlPk = detailPkField.getValue().trim();
             String dtlFk = detailFkField.getValue().trim();
             if (dtlTable.isEmpty() || dtlFk.isEmpty()) {
-                Notification.show("Nama tabel detail dan foreign key tidak boleh kosong untuk Master-Detail form!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Nama tabel detail dan foreign key tidak boleh kosong untuk Master-Detail form!",
+                        3000, Notification.Position.MIDDLE);
                 return;
             }
             formMeta.setDetailTableName(dtlTable);
@@ -1570,6 +1701,7 @@ public class FormBuilderView extends VerticalLayout {
             field.setValidationRule(temp.validationRule);
             field.setSaveOnInsert(temp.saveOnInsert);
             field.setSaveOnUpdate(temp.saveOnUpdate);
+            field.setAuditLog(temp.isAuditLog);
             field.setRowGroup(temp.rowGroup);
             field.setColOrder(order);
             order += 10;
@@ -1611,8 +1743,10 @@ public class FormBuilderView extends VerticalLayout {
             // 2. Generate/Alter physical table under schema "dynamic" in PostgreSQL
             dynamicDataService.generatePhysicalTable(formMeta);
 
-            Notification.show("Form " + formTitle + " berhasil dibuat dan tabel dynamic." + tableName + " siap digunakan!", 4000, Notification.Position.TOP_CENTER);
-            
+            Notification.show(
+                    "Form " + formTitle + " berhasil dibuat dan tabel dynamic." + tableName + " siap digunakan!", 4000,
+                    Notification.Position.TOP_CENTER);
+
             // Clear inputs and reset read-only status
             formCodeField.clear();
             formCodeField.setReadOnly(false);
@@ -1645,14 +1779,17 @@ public class FormBuilderView extends VerticalLayout {
 
     private List<String> getLovColumns(String lovCode) {
         List<String> list = new ArrayList<>();
-        if (lovCode == null) return list;
-        
+        if (lovCode == null)
+            return list;
+
         // 1. Try standard LovMeta
         LovMeta lov = lovMetaRepository.findById(lovCode).orElse(null);
         if (lov != null) {
-            if (lov.getValueColumn() != null && !list.contains(lov.getValueColumn())) list.add(lov.getValueColumn());
-            if (lov.getLabelColumn() != null && !list.contains(lov.getLabelColumn())) list.add(lov.getLabelColumn());
-            
+            if (lov.getValueColumn() != null && !list.contains(lov.getValueColumn()))
+                list.add(lov.getValueColumn());
+            if (lov.getLabelColumn() != null && !list.contains(lov.getLabelColumn()))
+                list.add(lov.getLabelColumn());
+
             if (lov.getGridColumns() != null) {
                 for (String part : lov.getGridColumns().split(",")) {
                     String[] split = part.split(":");
@@ -1664,19 +1801,22 @@ public class FormBuilderView extends VerticalLayout {
                     }
                 }
             }
-            if (lov.getTableName() != null && !lov.getTableName().trim().isEmpty() && !lov.getTableName().trim().contains(" ")) {
+            if (lov.getTableName() != null && !lov.getTableName().trim().isEmpty()
+                    && !lov.getTableName().trim().contains(" ")) {
                 for (String col : dynamicDataService.fetchTableColumns(lov.getTableName().trim())) {
-                    if (!list.contains(col)) list.add(col);
+                    if (!list.contains(col))
+                        list.add(col);
                 }
             }
             return list;
         }
-        
+
         // 2. Try FormMeta fallback
         FormMeta form = formMetaRepository.findById(lovCode).orElse(null);
         if (form != null) {
             String pk = form.getPrimaryKey() != null ? form.getPrimaryKey() : "id";
-            if (!list.contains(pk)) list.add(pk);
+            if (!list.contains(pk))
+                list.add(pk);
             if (form.getFields() != null) {
                 for (FieldMeta field : form.getFields()) {
                     String fName = field.getFieldName();
@@ -1687,17 +1827,19 @@ public class FormBuilderView extends VerticalLayout {
             }
             if (form.getTableName() != null && !form.getTableName().trim().isEmpty()) {
                 for (String col : dynamicDataService.fetchTableColumns(form.getTableName().trim())) {
-                    if (!list.contains(col)) list.add(col);
+                    if (!list.contains(col))
+                        list.add(col);
                 }
             }
             return list;
         }
-        
+
         // 3. Try physical table fallback
         for (String col : dynamicDataService.fetchTableColumns(lovCode)) {
-            if (!list.contains(col)) list.add(col);
+            if (!list.contains(col))
+                list.add(col);
         }
-        
+
         return list;
     }
 
@@ -1721,21 +1863,24 @@ public class FormBuilderView extends VerticalLayout {
                 .filter(name -> !name.equalsIgnoreCase(fieldTemp.fieldName))
                 .collect(Collectors.toList());
 
-        if (tableNameField != null && tableNameField.getValue() != null && !tableNameField.getValue().trim().isEmpty()) {
+        if (tableNameField != null && tableNameField.getValue() != null
+                && !tableNameField.getValue().trim().isEmpty()) {
             for (String col : dynamicDataService.fetchTableColumns(tableNameField.getValue().trim())) {
                 if (!col.equalsIgnoreCase(fieldTemp.fieldName) && !formFields.contains(col)) {
                     formFields.add(col);
                 }
             }
         }
-        if (detailTableNameField != null && detailTableNameField.getValue() != null && !detailTableNameField.getValue().trim().isEmpty()) {
+        if (detailTableNameField != null && detailTableNameField.getValue() != null
+                && !detailTableNameField.getValue().trim().isEmpty()) {
             for (String col : dynamicDataService.fetchTableColumns(detailTableNameField.getValue().trim())) {
                 if (!col.equalsIgnoreCase(fieldTemp.fieldName) && !formFields.contains(col)) {
                     formFields.add(col);
                 }
             }
         }
-        if (viewTableField != null && viewTableField.getValue() != null && !viewTableField.getValue().trim().isEmpty()) {
+        if (viewTableField != null && viewTableField.getValue() != null
+                && !viewTableField.getValue().trim().isEmpty()) {
             for (String col : dynamicDataService.fetchTableColumns(viewTableField.getValue().trim())) {
                 if (!col.equalsIgnoreCase(fieldTemp.fieldName) && !formFields.contains(col)) {
                     formFields.add(col);
@@ -1768,7 +1913,8 @@ public class FormBuilderView extends VerticalLayout {
                 FieldMetaTemp targetFieldTemp = fieldsList.stream()
                         .filter(f -> f.fieldName.equalsIgnoreCase(targetFieldName))
                         .findFirst().orElse(null);
-                if (targetFieldTemp != null && targetFieldTemp.lovCode != null && !targetFieldTemp.lovCode.trim().isEmpty()) {
+                if (targetFieldTemp != null && targetFieldTemp.lovCode != null
+                        && !targetFieldTemp.lovCode.trim().isEmpty()) {
                     List<String> targetLovCols = getLovColumns(targetFieldTemp.lovCode);
                     lookupColCombo.setItems(targetLovCols);
                     lookupColCombo.setEnabled(true);
@@ -1858,7 +2004,8 @@ public class FormBuilderView extends VerticalLayout {
             }
 
             if ("QUERY_LOV".equalsIgnoreCase(actType) && lookupCol == null) {
-                Notification.show("Lookup Column harus dipilih jika Action Type = QUERY_LOV!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Lookup Column harus dipilih jika Action Type = QUERY_LOV!", 3000,
+                        Notification.Position.MIDDLE);
                 return;
             }
 
@@ -1884,7 +2031,8 @@ public class FormBuilderView extends VerticalLayout {
         btnLayout.setSpacing(true);
         btnLayout.setPadding(false);
 
-        HorizontalLayout inputLayout = new HorizontalLayout(sourceColCombo, targetFieldCombo, actionTypeSelect, lookupColCombo, btnLayout);
+        HorizontalLayout inputLayout = new HorizontalLayout(sourceColCombo, targetFieldCombo, actionTypeSelect,
+                lookupColCombo, btnLayout);
         inputLayout.setAlignItems(Alignment.END);
         inputLayout.setSpacing(true);
         inputLayout.getStyle().set("flex-wrap", "wrap");
@@ -1946,58 +2094,66 @@ public class FormBuilderView extends VerticalLayout {
             if (tabSheet.getSelectedTab() == historisTab) {
                 java.util.Set<FormMeta> selectedItems = historyGrid.getSelectedItems();
                 if (selectedItems != null && !selectedItems.isEmpty()) {
-                    showConfirmDialog("Konfirmasi Hapus", "Apakah Anda yakin ingin menghapus " + selectedItems.size() + " definisi form ini?", () -> {
-                        try {
-                            formMetaRepository.deleteAll(selectedItems);
-                            Notification.show("Definisi form berhasil dihapus!", 3000, Notification.Position.TOP_CENTER);
-                            refreshHistoryGrid();
-                            historyGrid.deselectAll();
-                            if (onFormSavedListener != null) {
-                                onFormSavedListener.run();
-                            }
-                        } catch (Exception ex) {
-                            Notification.show("Gagal menghapus: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
-                        }
-                    });
+                    showConfirmDialog("Konfirmasi Hapus",
+                            "Apakah Anda yakin ingin menghapus " + selectedItems.size() + " definisi form ini?", () -> {
+                                try {
+                                    formMetaRepository.deleteAll(selectedItems);
+                                    Notification.show("Definisi form berhasil dihapus!", 3000,
+                                            Notification.Position.TOP_CENTER);
+                                    refreshHistoryGrid();
+                                    historyGrid.deselectAll();
+                                    if (onFormSavedListener != null) {
+                                        onFormSavedListener.run();
+                                    }
+                                } catch (Exception ex) {
+                                    Notification.show("Gagal menghapus: " + ex.getMessage(), 5000,
+                                            Notification.Position.MIDDLE);
+                                }
+                            });
                 } else {
-                    Notification.show("Pilih baris form pada grid terlebih dahulu untuk dihapus.", 3000, Notification.Position.MIDDLE);
+                    Notification.show("Pilih baris form pada grid terlebih dahulu untuk dihapus.", 3000,
+                            Notification.Position.MIDDLE);
                 }
             } else {
                 String formCode = formCodeField.getValue().trim();
                 if (!formCode.isEmpty() && formMetaRepository.existsById(formCode)) {
-                    showConfirmDialog("Konfirmasi Hapus", "Apakah Anda yakin ingin menghapus definisi form ini?", () -> {
-                        try {
-                            formMetaRepository.deleteById(formCode);
-                            Notification.show("Definisi form berhasil dihapus!", 3000, Notification.Position.TOP_CENTER);
-                            
-                            // Reset builder
-                            formCodeField.clear();
-                            formCodeField.setReadOnly(false);
-                            formTitleField.clear();
-                            formTypeCombo.setValue("SINGLE");
-                            tableNameField.clear();
-                            pkField.setValue("id");
-                            labelWidthField.setValue("150px");
-                            defaultSortField.clear();
-                            defaultSortDirection.setValue("ASC");
-                            detailTableNameField.clear();
-                            detailPkField.setValue("id");
-                            detailFkField.clear();
-                            fieldsList.clear();
-                            selectField(null);
-                            rebuildCanvas();
-                            
-                            refreshHistoryGrid();
-                            tabSheet.setSelectedTab(historisTab);
-                            if (onFormSavedListener != null) {
-                                onFormSavedListener.run();
-                            }
-                        } catch (Exception ex) {
-                            Notification.show("Gagal menghapus: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
-                        }
-                    });
+                    showConfirmDialog("Konfirmasi Hapus", "Apakah Anda yakin ingin menghapus definisi form ini?",
+                            () -> {
+                                try {
+                                    formMetaRepository.deleteById(formCode);
+                                    Notification.show("Definisi form berhasil dihapus!", 3000,
+                                            Notification.Position.TOP_CENTER);
+
+                                    // Reset builder
+                                    formCodeField.clear();
+                                    formCodeField.setReadOnly(false);
+                                    formTitleField.clear();
+                                    formTypeCombo.setValue("SINGLE");
+                                    tableNameField.clear();
+                                    pkField.setValue("id");
+                                    labelWidthField.setValue("150px");
+                                    defaultSortField.clear();
+                                    defaultSortDirection.setValue("ASC");
+                                    detailTableNameField.clear();
+                                    detailPkField.setValue("id");
+                                    detailFkField.clear();
+                                    fieldsList.clear();
+                                    selectField(null);
+                                    rebuildCanvas();
+
+                                    refreshHistoryGrid();
+                                    tabSheet.setSelectedTab(historisTab);
+                                    if (onFormSavedListener != null) {
+                                        onFormSavedListener.run();
+                                    }
+                                } catch (Exception ex) {
+                                    Notification.show("Gagal menghapus: " + ex.getMessage(), 5000,
+                                            Notification.Position.MIDDLE);
+                                }
+                            });
                 } else {
-                    Notification.show("Tidak ada form tersimpan yang sedang dibuka untuk dihapus.", 3000, Notification.Position.MIDDLE);
+                    Notification.show("Tidak ada form tersimpan yang sedang dibuka untuk dihapus.", 3000,
+                            Notification.Position.MIDDLE);
                 }
             }
         });
@@ -2029,7 +2185,8 @@ public class FormBuilderView extends VerticalLayout {
                 formCodeField.setReadOnly(false);
                 String oldTitle = formTitleField.getValue();
                 formTitleField.setValue(oldTitle != null ? oldTitle + " - Copy" : "Copy");
-                Notification.show("Silakan masukkan Kode Form baru dan tekan Simpan.", 4000, Notification.Position.MIDDLE);
+                Notification.show("Silakan masukkan Kode Form baru dan tekan Simpan.", 4000,
+                        Notification.Position.MIDDLE);
                 formCodeField.focus();
             } else {
                 Notification.show("Pilih form yang sudah tersimpan untuk di-copy.", 3000, Notification.Position.MIDDLE);
@@ -2039,10 +2196,10 @@ public class FormBuilderView extends VerticalLayout {
         // 3. SIMPAN BUTTON
         Button btnSave = new Button("Simpan");
         Icon iconSave = VaadinIcon.DOWNLOAD.create();
-        iconSave.getStyle().set("color", "#64748b").set("font-size", "1.2rem");
+        iconSave.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnSave.setIcon(iconSave);
         btnSave.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        btnSave.getStyle().set("font-weight", "500").set("color", "#374151");
+        btnSave.getStyle().set("font-weight", "600").set("color", "#3b82f6");
         btnSave.addClickListener(e -> {
             saveFormDefinition();
         });
@@ -2091,10 +2248,12 @@ public class FormBuilderView extends VerticalLayout {
                     FormMeta fresh = formMetaRepository.findById(formCode).orElse(null);
                     if (fresh != null) {
                         loadFormDefinition(fresh);
-                        Notification.show("Definisi form direfresh dari database!", 1500, Notification.Position.BOTTOM_END);
+                        Notification.show("Definisi form direfresh dari database!", 1500,
+                                Notification.Position.BOTTOM_END);
                     }
                 } else {
-                    Notification.show("Form belum tersimpan. Kanvas dibersihkan!", 1500, Notification.Position.BOTTOM_END);
+                    Notification.show("Form belum tersimpan. Kanvas dibersihkan!", 1500,
+                            Notification.Position.BOTTOM_END);
                     fieldsList.clear();
                     selectField(null);
                     rebuildCanvas();
@@ -2116,44 +2275,69 @@ public class FormBuilderView extends VerticalLayout {
             for (java.util.Map.Entry<String, FilterCriteria> entry : filterValues.entrySet()) {
                 String fieldName = entry.getKey();
                 FilterCriteria criteria = entry.getValue();
-                
+
                 String op = criteria.operator;
                 String query = criteria.value;
-                
+
                 String strVal = "";
-                if ("formCode".equals(fieldName) && item.getFormCode() != null) strVal = item.getFormCode().toLowerCase();
-                if ("formTitle".equals(fieldName) && item.getFormTitle() != null) strVal = item.getFormTitle().toLowerCase();
-                if ("formType".equals(fieldName) && item.getFormType() != null) strVal = item.getFormType().toLowerCase();
-                if ("tableName".equals(fieldName) && item.getTableName() != null) strVal = item.getTableName().toLowerCase();
-                if ("detailTableName".equals(fieldName) && item.getDetailTableName() != null) strVal = item.getDetailTableName().toLowerCase();
-                
+                if ("formCode".equals(fieldName) && item.getFormCode() != null)
+                    strVal = item.getFormCode().toLowerCase();
+                if ("formTitle".equals(fieldName) && item.getFormTitle() != null)
+                    strVal = item.getFormTitle().toLowerCase();
+                if ("formType".equals(fieldName) && item.getFormType() != null)
+                    strVal = item.getFormType().toLowerCase();
+                if ("tableName".equals(fieldName) && item.getTableName() != null)
+                    strVal = item.getTableName().toLowerCase();
+                if ("detailTableName".equals(fieldName) && item.getDetailTableName() != null)
+                    strVal = item.getDetailTableName().toLowerCase();
+
                 if ("Blank".equals(op)) {
-                    if (!strVal.isEmpty()) return false;
+                    if (!strVal.isEmpty())
+                        return false;
                     continue;
                 }
                 if ("Not blank".equals(op)) {
-                    if (strVal.isEmpty()) return false;
+                    if (strVal.isEmpty())
+                        return false;
                     continue;
                 }
-                
+
                 if (query == null || query.trim().isEmpty()) {
                     continue;
                 }
-                
+
                 query = query.toLowerCase();
-                
+
                 switch (op) {
-                    case "Contains": if (!strVal.contains(query)) return false; break;
-                    case "Not contains": if (strVal.contains(query)) return false; break;
-                    case "Equals": if (!strVal.equals(query)) return false; break;
-                    case "Not equal": if (strVal.equals(query)) return false; break;
-                    case "Starts with": if (!strVal.startsWith(query)) return false; break;
-                    case "Ends with": if (!strVal.endsWith(query)) return false; break;
+                    case "Contains":
+                        if (!strVal.contains(query))
+                            return false;
+                        break;
+                    case "Not contains":
+                        if (strVal.contains(query))
+                            return false;
+                        break;
+                    case "Equals":
+                        if (!strVal.equals(query))
+                            return false;
+                        break;
+                    case "Not equal":
+                        if (strVal.equals(query))
+                            return false;
+                        break;
+                    case "Starts with":
+                        if (!strVal.startsWith(query))
+                            return false;
+                        break;
+                    case "Ends with":
+                        if (!strVal.endsWith(query))
+                            return false;
+                        break;
                 }
             }
             return true;
         }).collect(java.util.stream.Collectors.toList());
-        
+
         historyGrid.setItems(filtered);
     }
 
@@ -2186,11 +2370,16 @@ public class FormBuilderView extends VerticalLayout {
             viewTableField.setValue(selectedForm.getViewTable() != null ? selectedForm.getViewTable() : "");
             pkField.setValue(selectedForm.getPrimaryKey() != null ? selectedForm.getPrimaryKey() : "id");
             labelWidthField.setValue(selectedForm.getLabelWidth() != null ? selectedForm.getLabelWidth() : "150px");
-            defaultSortField.setValue(selectedForm.getDefaultSortField() != null ? selectedForm.getDefaultSortField() : "");
-            defaultSortDirection.setValue(selectedForm.getDefaultSortDirection() != null ? selectedForm.getDefaultSortDirection() : "ASC");
-            detailTableNameField.setValue(selectedForm.getDetailTableName() != null ? selectedForm.getDetailTableName() : "");
-            detailPkField.setValue(selectedForm.getDetailPrimaryKey() != null ? selectedForm.getDetailPrimaryKey() : "id");
-            detailFkField.setValue(selectedForm.getDetailForeignKey() != null ? selectedForm.getDetailForeignKey() : "");
+            defaultSortField
+                    .setValue(selectedForm.getDefaultSortField() != null ? selectedForm.getDefaultSortField() : "");
+            defaultSortDirection.setValue(
+                    selectedForm.getDefaultSortDirection() != null ? selectedForm.getDefaultSortDirection() : "ASC");
+            detailTableNameField
+                    .setValue(selectedForm.getDetailTableName() != null ? selectedForm.getDetailTableName() : "");
+            detailPkField
+                    .setValue(selectedForm.getDetailPrimaryKey() != null ? selectedForm.getDetailPrimaryKey() : "id");
+            detailFkField
+                    .setValue(selectedForm.getDetailForeignKey() != null ? selectedForm.getDetailForeignKey() : "");
 
             // Populate fields list
             fieldsList.clear();
@@ -2213,7 +2402,8 @@ public class FormBuilderView extends VerticalLayout {
                     temp.validationRule = field.getValidationRule();
                     temp.saveOnInsert = field.isSaveOnInsert();
                     temp.saveOnUpdate = field.isSaveOnUpdate();
-                    
+                    temp.isAuditLog = field.isAuditLog();
+
                     // Load filters
                     temp.filters = new ArrayList<>();
                     if (field.getFilters() != null) {
@@ -2222,8 +2412,11 @@ public class FormBuilderView extends VerticalLayout {
                             fTemp.filterColumn = filter.getFilterColumn();
                             fTemp.sourceType = filter.getSourceType();
                             fTemp.sourceName = filter.getSourceName();
-                            fTemp.logicalOperator = filter.getLogicalOperator() != null ? filter.getLogicalOperator() : "AND";
-                            fTemp.comparisonOperator = filter.getComparisonOperator() != null ? filter.getComparisonOperator() : "=";
+                            fTemp.logicalOperator = filter.getLogicalOperator() != null ? filter.getLogicalOperator()
+                                    : "AND";
+                            fTemp.comparisonOperator = filter.getComparisonOperator() != null
+                                    ? filter.getComparisonOperator()
+                                    : "=";
                             temp.filters.add(fTemp);
                         }
                     }
@@ -2283,11 +2476,13 @@ public class FormBuilderView extends VerticalLayout {
             if (e.isFromClient() && e.getValue() != null && !e.getValue().trim().isEmpty()) {
                 java.util.List<String> columns = dynamicDataService.getColumnsForQueryOrTable(e.getValue().trim());
                 if (!columns.isEmpty()) {
-                    if (valueColField.isEmpty()) valueColField.setValue(columns.get(0));
+                    if (valueColField.isEmpty())
+                        valueColField.setValue(columns.get(0));
                     if (labelColField.isEmpty()) {
                         String label = columns.get(0);
                         for (String col : columns) {
-                            if (col.toLowerCase().contains("name") || col.toLowerCase().contains("title") || col.toLowerCase().contains("desc")) {
+                            if (col.toLowerCase().contains("name") || col.toLowerCase().contains("title")
+                                    || col.toLowerCase().contains("desc")) {
                                 label = col;
                                 break;
                             }
@@ -2310,7 +2505,8 @@ public class FormBuilderView extends VerticalLayout {
             FormMeta formFallback = formMetaRepository.findById(lovCode).orElse(null);
             if (formFallback != null) {
                 nameField.setValue(formFallback.getFormTitle() != null ? formFallback.getFormTitle() : "");
-                tableField.setValue(formFallback.getViewTable() != null ? formFallback.getViewTable() : (formFallback.getTableName() != null ? formFallback.getTableName() : ""));
+                tableField.setValue(formFallback.getViewTable() != null ? formFallback.getViewTable()
+                        : (formFallback.getTableName() != null ? formFallback.getTableName() : ""));
                 String pk = formFallback.getPrimaryKey() != null ? formFallback.getPrimaryKey() : "id";
                 valueColField.setValue(pk);
                 labelColField.setValue(pk);
@@ -2319,7 +2515,11 @@ public class FormBuilderView extends VerticalLayout {
             }
         }
 
-        layout.add(codeField, nameField, tableField, new HorizontalLayout(valueColField, labelColField) {{ setWidthFull(); }}, searchColField, gridColsField);
+        layout.add(codeField, nameField, tableField, new HorizontalLayout(valueColField, labelColField) {
+            {
+                setWidthFull();
+            }
+        }, searchColField, gridColsField);
         dialog.add(layout);
 
         Button btnSave = new Button("Simpan", VaadinIcon.DOWNLOAD.create());

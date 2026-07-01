@@ -34,14 +34,24 @@ import com.vaadinerp.security.repository.AppMenuRepository;
 import com.vaadinerp.security.repository.AppRoleRepository;
 import com.vaadinerp.security.repository.AppUserRepository;
 import com.vaadinerp.security.repository.RoleMenuPermissionRepository;
+import com.vaadinerp.security.repository.AppUserFavoriteMenuRepository;
+import com.vaadinerp.security.entity.AppUserFavoriteMenu;
 import com.vaadinerp.security.service.SessionSecurityService;
 import com.vaadinerp.service.DynamicDataService;
+import com.vaadinerp.service.StandardFormatService;
+import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.contextmenu.ContextMenu;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.data.value.ValueChangeMode;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Route("")
 public class PortalView extends AppLayout {
@@ -55,6 +65,11 @@ public class PortalView extends AppLayout {
     private final AppRoleRepository appRoleRepository;
     private final AppMenuRepository appMenuRepository;
     private final RoleMenuPermissionRepository roleMenuPermissionRepository;
+    private final AppUserFavoriteMenuRepository appUserFavoriteMenuRepository;
+    private final StandardFormatService standardFormatService;
+
+    private String menuSearchText = "";
+    private boolean showFavoritesOnly = false;
 
     // Sidebar elements
     private final VerticalLayout sidebar = new VerticalLayout();
@@ -69,7 +84,9 @@ public class PortalView extends AppLayout {
             ReportMetaRepository reportMetaRepository, DynamicDataService dynamicDataService,
             SessionSecurityService securityService,
             AppUserRepository appUserRepository, AppRoleRepository appRoleRepository,
-            AppMenuRepository appMenuRepository, RoleMenuPermissionRepository roleMenuPermissionRepository) {
+            AppMenuRepository appMenuRepository, RoleMenuPermissionRepository roleMenuPermissionRepository,
+            AppUserFavoriteMenuRepository appUserFavoriteMenuRepository,
+            StandardFormatService standardFormatService) {
         this.formMetaRepository = formMetaRepository;
         this.lovMetaRepository = lovMetaRepository;
         this.reportMetaRepository = reportMetaRepository;
@@ -79,6 +96,8 @@ public class PortalView extends AppLayout {
         this.appRoleRepository = appRoleRepository;
         this.appMenuRepository = appMenuRepository;
         this.roleMenuPermissionRepository = roleMenuPermissionRepository;
+        this.appUserFavoriteMenuRepository = appUserFavoriteMenuRepository;
+        this.standardFormatService = standardFormatService;
 
         setPrimarySection(Section.DRAWER);
 
@@ -218,28 +237,31 @@ public class PortalView extends AppLayout {
         sidebar.setSpacing(false);
         sidebar.getStyle()
                 .set("overflow-y", "auto")
-                .set("background", "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)")
-                .set("border-right", "1px solid #334155");
+                .set("overflow-x", "hidden")
+                .set("box-sizing", "border-box")
+                .set("background", "linear-gradient(180deg, #1a233a 0%, #111827 50%, #0b0f17 100%)")
+                .set("border-right", "1px solid rgba(255, 255, 255, 0.08)");
 
         // === HEADER / LOGO ===
         Div logoDiv = new Div();
         logoDiv.setWidthFull();
         logoDiv.getStyle()
-                .set("padding", "20px 16px 12px 16px")
-                .set("border-bottom", "1px solid #334155");
+                .set("padding", "20px 16px 14px 16px")
+                .set("border-bottom", "1px solid rgba(255, 255, 255, 0.08)")
+                .set("box-sizing", "border-box");
 
         Span logoText = new Span("ERP");
         logoText.getStyle()
                 .set("font-size", "1.4rem")
                 .set("font-weight", "800")
-                .set("color", "#e2e8f0")
+                .set("color", "#f8fafc")
                 .set("letter-spacing", "0.5px")
                 .set("display", "block");
 
         Span subtitle = new Span("Enterprise Resource Planning");
         subtitle.getStyle()
                 .set("font-size", "0.7rem")
-                .set("color", "#64748b")
+                .set("color", "#94a3b8")
                 .set("letter-spacing", "1px")
                 .set("text-transform", "uppercase")
                 .set("display", "block")
@@ -247,6 +269,76 @@ public class PortalView extends AppLayout {
 
         logoDiv.add(logoText, subtitle);
         sidebar.add(logoDiv);
+
+        // === SEARCH & FAVORITE TOOLBAR ===
+        Div searchToolbar = new Div();
+        searchToolbar.setWidthFull();
+        searchToolbar.getStyle()
+                .set("display", "flex")
+                .set("align-items", "center")
+                .set("padding", "12px 12px")
+                .set("gap", "8px")
+                .set("background", "rgba(0, 0, 0, 0.15)")
+                .set("border-bottom", "1px solid rgba(255, 255, 255, 0.08)")
+                .set("box-sizing", "border-box")
+                .set("overflow", "hidden");
+
+        TextField searchField = new TextField();
+        searchField.setPlaceholder("Cari menu.....");
+        searchField.setWidth("75");
+        Icon searchIcon = VaadinIcon.SEARCH.create();
+        searchIcon.setSize("13px");
+        searchIcon.getStyle().set("color", "#475569");
+        searchField.setPrefixComponent(searchIcon);
+        searchField.getStyle()
+                .set("--vaadin-input-field-background", "#f8fafc")
+                .set("--vaadin-input-field-border-color", "#cbd5e1")
+                .set("border-radius", "6px")
+                .set("box-shadow", "0 1px 2px rgba(0,0,0,0.1)")
+                .set("min-width", "0");
+        searchField.setValueChangeMode(ValueChangeMode.LAZY);
+
+        Button favButton = new Button(VaadinIcon.STAR.create());
+        favButton.setTooltipText("Tampilkan Menu Favorit");
+        favButton.getStyle()
+                .set("background", "#f8fafc")
+                .set("color", "#64748b")
+                .set("border", "1px solid #cbd5e1")
+                .set("border-radius", "6px")
+                .set("box-shadow", "0 1px 2px rgba(0,0,0,0.1)")
+                .set("cursor", "pointer")
+                .set("height", "36px")
+                .set("width", "36px")
+                .set("min-width", "36px")
+                .set("padding", "0")
+                .set("flex", "0 0 36px")
+                .set("transition", "all 0.2s ease");
+
+        favButton.addClickListener(e -> {
+            showFavoritesOnly = !showFavoritesOnly;
+            if (showFavoritesOnly) {
+                favButton.getStyle()
+                        .set("color", "#d97706")
+                        .set("border", "1px solid #f59e0b")
+                        .set("background", "#fef3c7")
+                        .set("box-shadow", "0 0 8px rgba(245, 158, 11, 0.4)");
+            } else {
+                favButton.getStyle()
+                        .set("color", "#64748b")
+                        .set("border", "1px solid #cbd5e1")
+                        .set("background", "#f8fafc")
+                        .set("box-shadow", "0 1px 2px rgba(0,0,0,0.1)");
+            }
+            refreshFormMenu();
+        });
+
+        searchField.addValueChangeListener(e -> {
+            menuSearchText = e.getValue() != null ? e.getValue().trim().toLowerCase() : "";
+            refreshFormMenu();
+        });
+
+        searchToolbar.add(searchField, favButton);
+        sidebar.add(searchToolbar);
 
         // === CUSTOM TREE MENU (Pure Flexbox Divs - Presisi Matematik Rata Kiri
         // Sempurna) ===
@@ -288,6 +380,10 @@ public class PortalView extends AppLayout {
         String sysParent = appMenuRepository.existsById("SYS_FORM") ? "SYS_FORM"
                 : (appMenuRepository.existsById("GRP_DEV_TOOLS") ? "GRP_DEV_TOOLS" : null);
         ensureMenuExists("LOV_BUILDER", "LOV Metadata Builder", sysParent, "LIST", 30, "ITEM");
+        ensureMenuExists("STANDARD_FORMAT", "Konfigurasi Format Standar", sysParent, "SLIDERS", 40, "ITEM");
+
+        ensureMenuExists("GRP_SYSTEM", "Sistem & Keamanan", null, "COG", 30, "GROUP");
+        ensureMenuExists("FIELD_AUDIT_LOG", "Field Audit Log Viewer", "GRP_SYSTEM", "CLOCK", 20, "ITEM");
 
         List<FormMeta> forms = formMetaRepository.findAll();
         int order = 10;
@@ -348,6 +444,34 @@ public class PortalView extends AppLayout {
         }
     }
 
+    private boolean matchesSearchOrFav(AppMenu menu, Set<String> favMenuCodes) {
+        List<AppMenu> children = appMenuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(menu.getMenuCode());
+        List<AppMenu> accessibleChildren = children.stream()
+                .filter(c -> securityService.hasMenuAccess(c.getMenuCode()))
+                .toList();
+
+        boolean isGroup = "GROUP".equalsIgnoreCase(menu.getMenuType()) || !accessibleChildren.isEmpty();
+        if (isGroup) {
+            for (AppMenu child : accessibleChildren) {
+                if (matchesSearchOrFav(child, favMenuCodes)) {
+                    return true;
+                }
+            }
+            return false;
+        } else {
+            if (!securityService.hasMenuAccess(menu.getMenuCode()))
+                return false;
+            if (showFavoritesOnly && (favMenuCodes == null || !favMenuCodes.contains(menu.getMenuCode()))) {
+                return false;
+            }
+            if (!menuSearchText.isEmpty()
+                    && (menu.getMenuTitle() == null || !menu.getMenuTitle().toLowerCase().contains(menuSearchText))) {
+                return false;
+            }
+            return true;
+        }
+    }
+
     /**
      * Membangun Tree Sidebar murni menggunakan HTML Flexbox Div.
      * Menggantikan Vaadin Details agar bebas dari gangguan Shadow DOM browser.
@@ -361,7 +485,18 @@ public class PortalView extends AppLayout {
             menus = appMenuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(parentCode);
         }
 
+        AppUser currentUser = securityService.getCurrentUser();
+        Set<String> favMenuCodes = currentUser != null
+                ? appUserFavoriteMenuRepository.findByUsername(currentUser.getUsername()).stream()
+                        .map(AppUserFavoriteMenu::getMenuCode)
+                        .collect(Collectors.toSet())
+                : java.util.Collections.emptySet();
+
         for (AppMenu menu : menus) {
+            if (!matchesSearchOrFav(menu, favMenuCodes)) {
+                continue;
+            }
+
             List<AppMenu> children = appMenuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(menu.getMenuCode());
             List<AppMenu> accessibleChildren = children.stream()
                     .filter(c -> securityService.hasMenuAccess(c.getMenuCode()))
@@ -444,7 +579,8 @@ public class PortalView extends AppLayout {
                 childBox.setSpacing(false);
                 childBox.setWidthFull();
 
-                boolean isOpenByDefault = depth == 0;
+                boolean isFiltering = !menuSearchText.isEmpty() || showFavoritesOnly;
+                boolean isOpenByDefault = isFiltering;
                 childBox.setVisible(isOpenByDefault);
                 if (isOpenByDefault) {
                     chevron.getStyle().set("transform", "rotate(90deg)");
@@ -498,6 +634,40 @@ public class PortalView extends AppLayout {
 
                 leafRow.add(ic, t);
 
+                boolean isFav = favMenuCodes.contains(menu.getMenuCode());
+                if (isFav) {
+                    Icon starIc = VaadinIcon.STAR.create();
+                    starIc.setSize("12px");
+                    starIc.getStyle().set("color", "#f59e0b").set("margin-left", "auto");
+                    leafRow.add(starIc);
+                }
+
+                // Context Menu (Klik kanan pada menu yang ada routenya)
+                ContextMenu contextMenu = new ContextMenu(leafRow);
+                if (isFav) {
+                    contextMenu.addItem("❌ Hapus dari Favorit", ev -> {
+                        if (currentUser != null) {
+                            appUserFavoriteMenuRepository.deleteByUsernameAndMenuCode(currentUser.getUsername(),
+                                    menu.getMenuCode());
+                            Notification.show("Dihapus dari favorit: " + menu.getMenuTitle(), 2500,
+                                    Notification.Position.BOTTOM_END);
+                            refreshFormMenu();
+                        }
+                    });
+                } else {
+                    contextMenu.addItem("⭐ Add to Favorite", ev -> {
+                        if (currentUser != null) {
+                            AppUserFavoriteMenu fav = new AppUserFavoriteMenu();
+                            fav.setUsername(currentUser.getUsername());
+                            fav.setMenuCode(menu.getMenuCode());
+                            appUserFavoriteMenuRepository.save(fav);
+                            Notification.show("Ditambahkan ke favorit: " + menu.getMenuTitle(), 2500,
+                                    Notification.Position.BOTTOM_END);
+                            refreshFormMenu();
+                        }
+                    });
+                }
+
                 leafRow.addClickListener(e -> {
                     setActiveLeaf(leafRow);
                     openMenuTab(menu);
@@ -535,6 +705,8 @@ public class PortalView extends AppLayout {
             case "REPORT_BUILDER" -> new ReportBuilderView(reportMetaRepository, formMetaRepository);
             case "REPORT_VIEWER" -> new ReportViewerView(reportMetaRepository, dynamicDataService);
             case "LOV_BUILDER" -> new LovBuilderView(lovMetaRepository, dynamicDataService);
+            case "STANDARD_FORMAT" -> new StandardFormatView(standardFormatService);
+            case "FIELD_AUDIT_LOG" -> new FieldAuditLogView(dynamicDataService, securityService);
             case "SECURITY_ADMIN" -> new UserAuthorityAdminView(appUserRepository, appRoleRepository, appMenuRepository,
                     roleMenuPermissionRepository, securityService);
             default -> {
@@ -543,7 +715,7 @@ public class PortalView extends AppLayout {
                     FormMeta form = optForm.get();
                     if ("MASTER_DETAIL".equalsIgnoreCase(form.getFormType())) {
                         GenericMasterDetailFormView mdView = new GenericMasterDetailFormView(formMetaRepository,
-                                dynamicDataService);
+                                dynamicDataService, securityService);
                         mdView.setParameter(null, code);
                         mdView.getStyle().set("padding", "20px");
                         mdView.setCloseHandler(() -> {
@@ -559,7 +731,8 @@ public class PortalView extends AppLayout {
                         });
                         yield mdView;
                     } else {
-                        GenericFormView gView = new GenericFormView(formMetaRepository, dynamicDataService);
+                        GenericFormView gView = new GenericFormView(formMetaRepository, dynamicDataService,
+                                securityService);
                         gView.setParameter(null, code);
                         gView.getStyle().set("padding", "20px");
                         gView.setCloseHandler(() -> {
@@ -690,7 +863,7 @@ public class PortalView extends AppLayout {
         portalIcon.setSize("70px");
         portalIcon.setColor("#6366f1");
 
-        H1 mainTitle = new H1("Selamat Datang di VaadinERP");
+        H1 mainTitle = new H1("Selamat Datang");
         mainTitle.getStyle().set("margin", "10px 0").set("color", "#111827");
 
         Paragraph desc = new Paragraph(

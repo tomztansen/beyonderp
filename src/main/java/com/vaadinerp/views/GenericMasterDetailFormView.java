@@ -43,6 +43,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
     private final FormMetaRepository formMetaRepository;
     private final DynamicDataService dynamicDataService;
+    private com.vaadinerp.security.service.SessionSecurityService securityService;
     
     private Binder<Map<String, Object>> formBinder;
     private final VerticalLayout formLayout = new VerticalLayout();
@@ -141,8 +142,13 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     }
 
     public GenericMasterDetailFormView(FormMetaRepository formMetaRepository, DynamicDataService dynamicDataService) {
+        this(formMetaRepository, dynamicDataService, null);
+    }
+
+    public GenericMasterDetailFormView(FormMetaRepository formMetaRepository, DynamicDataService dynamicDataService, com.vaadinerp.security.service.SessionSecurityService securityService) {
         this.formMetaRepository = formMetaRepository;
         this.dynamicDataService = dynamicDataService;
+        this.securityService = securityService;
         
         setSizeFull();
         setPadding(true);
@@ -192,7 +198,17 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         Button btnDeleteRow = new Button("Hapus Baris", VaadinIcon.TRASH.create());
         btnDeleteRow.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
 
-        detailsToolbar.add(detailTitle, btnAddRow, btnDeleteRow);
+        Button btnResetDetailsGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        btnResetDetailsGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        btnResetDetailsGrid.addClickListener(e -> {
+            if (currentFormDef != null) {
+                dynamicDataService.resetUserGridOrder(currentFormCode, "detailsGrid");
+                buildDetailsGrid(currentFormDef);
+                Notification.show("Layout grid rincian dikembalikan ke default!", 2000, Notification.Position.BOTTOM_END);
+            }
+        });
+
+        detailsToolbar.add(detailTitle, btnAddRow, btnDeleteRow, btnResetDetailsGrid);
 
         detailsGrid.setWidthFull();
         detailsGrid.setSelectionMode(Grid.SelectionMode.MULTI);
@@ -383,10 +399,10 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         // 3. SIMPAN BUTTON
         Button btnSave = new Button("Simpan");
         Icon iconSave = VaadinIcon.DOWNLOAD.create();
-        iconSave.getStyle().set("color", "#64748b").set("font-size", "1.2rem");
+        iconSave.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnSave.setIcon(iconSave);
         btnSave.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        btnSave.getStyle().set("font-weight", "500").set("color", "#374151");
+        btnSave.getStyle().set("font-weight", "600").set("color", "#3b82f6");
         btnSave.setDisableOnClick(true);
         btnSave.addClickListener(e -> {
             toolbar.setEnabled(false);
@@ -589,6 +605,28 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
         });
 
+        com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority auth =
+                securityService != null && currentFormCode != null
+                        ? securityService.getAuthorityForMenu(currentFormCode)
+                        : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
+
+        if (!auth.canAdd) {
+            btnNew.setVisible(false);
+            btnNew.setEnabled(false);
+        }
+        if (!auth.canEdit) {
+            btnSave.setVisible(false);
+            btnSave.setEnabled(false);
+        }
+        if (!auth.canDelete) {
+            btnDelete.setVisible(false);
+            btnDelete.setEnabled(false);
+        }
+        if (!auth.canPrint) {
+            btnPrint.setVisible(false);
+            btnPrint.setEnabled(false);
+        }
+
         toolbar.add(btnNew, btnDelete, btnSave, btnCancel, btnRefresh, btnClose, btnPrint);
     }
 
@@ -656,6 +694,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
     private void buildMasterGrid(FormMeta formDef) {
         masterGrid.removeAllColumns();
+        masterGrid.setSelectionMode(Grid.SelectionMode.MULTI);
         columnToFieldNameMap.clear();
         filterValues.clear();
 
@@ -667,7 +706,18 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         H4 sectionTitle = new H4("Riwayat Data");
         sectionTitle.getStyle().set("margin", "0");
         sectionTitle.getStyle().set("flex-grow", "1");
-        masterGridToolbar.add(sectionTitle);
+
+        Button btnResetMasterGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        btnResetMasterGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        btnResetMasterGrid.addClickListener(e -> {
+            if (currentFormDef != null) {
+                dynamicDataService.resetUserGridOrder(currentFormCode, "masterGrid");
+                buildMasterGrid(currentFormDef);
+                Notification.show("Layout grid master dikembalikan ke default!", 2000, Notification.Position.BOTTOM_END);
+            }
+        });
+
+        masterGridToolbar.add(sectionTitle, btnResetMasterGrid);
 
         masterGrid.addItemDoubleClickListener(event -> {
             Map<String, Object> selectedMaster = event.getItem();
@@ -738,7 +788,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             })
                     .setHeader(field.getFieldLabel())
                     .setAutoWidth(true)
-                    .setFlexGrow(0)
+                    .setFlexGrow(1)
                     .setResizable(true)
                     .setKey(fieldName);
 
@@ -882,16 +932,20 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 }
             }
             try {
-                dynamicDataService.saveColumnOrder(currentFormCode, orderedFieldNames);
+                dynamicDataService.saveUserGridOrder(currentFormCode, "masterGrid", orderedFieldNames);
                 Notification.show("Urutan kolom disimpan", 1500, Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
                 Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
             }
         });
+
+        java.util.List<String> masterUserOrder = dynamicDataService.getUserGridOrder(currentFormCode, "masterGrid");
+        com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(masterGrid, columnToFieldNameMap, masterUserOrder);
     }
 
     private void buildDetailsGrid(FormMeta formDef) {
         detailsGrid.removeAllColumns();
+        detailsGrid.setSelectionMode(Grid.SelectionMode.MULTI);
         detailsColumnToFieldNameMap.clear();
         detailsFilterValues.clear();
         detailEditorComponents.clear();
@@ -947,7 +1001,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             })
                     .setHeader(field.getFieldLabel())
                     .setAutoWidth(true)
-                    .setFlexGrow(0)
+                    .setFlexGrow(1)
                     .setResizable(true)
                     .setKey(fieldName);
 
@@ -1205,12 +1259,15 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 }
             }
             try {
-                dynamicDataService.saveColumnOrder(currentFormCode, orderedFieldNames);
+                dynamicDataService.saveUserGridOrder(currentFormCode, "detailsGrid", orderedFieldNames);
                 Notification.show("Urutan kolom disimpan", 1500, Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
                 Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
             }
         });
+
+        java.util.List<String> detailsUserOrder = dynamicDataService.getUserGridOrder(currentFormCode, "detailsGrid");
+        com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(detailsGrid, detailsColumnToFieldNameMap, detailsUserOrder);
     }
 
     private void applyDetailsFilters() {

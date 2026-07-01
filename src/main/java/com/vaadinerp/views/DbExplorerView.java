@@ -36,8 +36,8 @@ import java.util.Map;
 public class DbExplorerView extends VerticalLayout {
 
     private final DynamicDataService dynamicDataService;
-    private final ComboBox<String> tableSelect = new ComboBox<>("Pilih Tabel Dinamis (Schema: dynamic)");
-    
+    private final ComboBox<String> tableSelect = new ComboBox<>("Pilih Tabel Dinamis");
+
     // Tab 1 Components (Data)
     private final Grid<Map<String, Object>> dataGrid = new Grid<>();
     private final Span recordCount = new Span("Pilih tabel untuk melihat data");
@@ -46,7 +46,7 @@ public class DbExplorerView extends VerticalLayout {
     private final Grid<Map<String, Object>> schemaGrid = new Grid<>();
     private final Grid<Map<String, Object>> triggersGrid = new Grid<>();
     private final Grid<Map<String, Object>> constraintsGrid = new Grid<>();
-    
+
     private final Span schemaInfo = new Span("Pilih tabel untuk melihat struktur kolom");
     private final Span triggerInfo = new Span("Belum ada trigger terdaftar");
     private final Span constraintInfo = new Span("Belum ada constraint terdaftar");
@@ -74,7 +74,7 @@ public class DbExplorerView extends VerticalLayout {
         setPadding(true);
         setSpacing(true);
 
-        H3 title = new H3("Database Manager (Schema: dynamic)");
+        H3 title = new H3("Database Manager");
         title.getStyle().set("margin-top", "0");
 
         tableSelect.setWidth("350px");
@@ -149,30 +149,32 @@ public class DbExplorerView extends VerticalLayout {
         triggerHeader.setSpacing(true);
 
         schemaLayout.add(
-            columnHeader, schemaGrid, 
-            new H4("Database Constraints"), constraintHeader, constraintsGrid,
-            new H4("Active Database Triggers"), triggerHeader, triggersGrid
-        );
+                columnHeader, schemaGrid,
+                new H4("Database Constraints"), constraintHeader, constraintsGrid,
+                new H4("Active Database Triggers"), triggerHeader, triggersGrid);
 
         explorerTabs.add("Data Tabel", dataLayout);
         explorerTabs.add("Struktur Skema, Constraints & Trigger", schemaLayout);
         explorerTabs.add("Buat Tabel & Trigger Baru", new TableDesignerView(dynamicDataService, this::refreshTables));
 
         StandardActionToolbar actionToolbar = new StandardActionToolbar()
-            .onRefresh(() -> {
-                if (currentTable != null) {
-                    loadTableData(currentTable);
-                    loadTableSchema(currentTable);
-                }
-                refreshTables();
-                Notification.show("Data & Skema diperbarui!", 1500, Notification.Position.BOTTOM_END);
-            })
-            .onNew(() -> openColumnDialog(null))
-            .onClose(() -> Notification.show("Menutup Explorer...", 1500, Notification.Position.MIDDLE))
-            .onPrint(() -> Notification.show("Mengekspor dokumentasi skema dynamic." + (currentTable != null ? currentTable : "") + "...", 3000, Notification.Position.BOTTOM_END));
+                .onRefresh(() -> {
+                    if (currentTable != null) {
+                        loadTableData(currentTable);
+                        loadTableSchema(currentTable);
+                    }
+                    refreshTables();
+                    Notification.show("Data & Skema diperbarui!", 1500, Notification.Position.BOTTOM_END);
+                })
+                .onNew(() -> openColumnDialog(null))
+                .onClose(() -> Notification.show("Menutup Explorer...", 1500, Notification.Position.MIDDLE))
+                .onPrint(() -> Notification.show(
+                        "Mengekspor dokumentasi skema dynamic." + (currentTable != null ? currentTable : "") + "...",
+                        3000, Notification.Position.BOTTOM_END));
 
         // Penerapan hak akses menu RBAC berdasarkan sesi user yang aktif
-        actionToolbar.applyAuthority(securityService != null ? securityService.getAuthorityForMenu("DB_EXPLORER") : StandardActionToolbar.MenuAccessAuthority.fullAccess());
+        actionToolbar.applyAuthority(securityService != null ? securityService.getAuthorityForMenu("DB_EXPLORER")
+                : StandardActionToolbar.MenuAccessAuthority.fullAccess());
 
         HorizontalLayout toolbar = new HorizontalLayout(tableSelect, actionToolbar);
         toolbar.setWidthFull();
@@ -187,7 +189,7 @@ public class DbExplorerView extends VerticalLayout {
             dataGrid.removeHeaderRow(dataGrid.getHeaderRows().get(dataGrid.getHeaderRows().size() - 1));
         }
         dataGrid.removeAllColumns();
-        
+
         List<String> columns = dynamicDataService.fetchTableColumns(tableName);
         if (columns.isEmpty()) {
             recordCount.setText("Tabel tidak memiliki kolom atau terjadi kesalahan");
@@ -198,10 +200,11 @@ public class DbExplorerView extends VerticalLayout {
 
         Map<Grid.Column<Map<String, Object>>, String> colKeyMap = new HashMap<>();
         for (String col : columns) {
-            Grid.Column<Map<String, Object>> gc = dataGrid.addColumn(row -> row.get(col) != null ? row.get(col).toString() : "")
-                .setHeader(col)
-                .setAutoWidth(true)
-                .setSortable(true);
+            Grid.Column<Map<String, Object>> gc = dataGrid
+                    .addColumn(row -> row.get(col) != null ? row.get(col).toString() : "")
+                    .setHeader(col)
+                    .setAutoWidth(true)
+                    .setSortable(true);
             colKeyMap.put(gc, col);
         }
 
@@ -222,7 +225,8 @@ public class DbExplorerView extends VerticalLayout {
         if (currentConstraintList.isEmpty()) {
             constraintInfo.setText("Tidak ada database constraint aktif pada tabel dynamic." + tableName);
         } else {
-            constraintInfo.setText("Menampilkan " + currentConstraintList.size() + " constraint aktif pada tabel dynamic." + tableName);
+            constraintInfo.setText("Menampilkan " + currentConstraintList.size()
+                    + " constraint aktif pada tabel dynamic." + tableName);
         }
         refreshConstraintsGrid();
 
@@ -231,17 +235,20 @@ public class DbExplorerView extends VerticalLayout {
         if (currentTriggerList.isEmpty()) {
             triggerInfo.setText("Tidak ada database trigger aktif pada tabel dynamic." + tableName);
         } else {
-            triggerInfo.setText("Menampilkan " + currentTriggerList.size() + " trigger aktif pada tabel dynamic." + tableName);
+            triggerInfo.setText(
+                    "Menampilkan " + currentTriggerList.size() + " trigger aktif pada tabel dynamic." + tableName);
         }
         refreshTriggersGrid();
     }
 
     private void openConstraintDialog(Map<String, Object> existingRow) {
-        if (this.currentTable == null) return;
+        if (this.currentTable == null)
+            return;
         boolean isEdit = existingRow != null;
 
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle(isEdit ? "Edit Constraint: dynamic." + this.currentTable : "Tambah Constraint Baru: dynamic." + this.currentTable);
+        dialog.setHeaderTitle(isEdit ? "Edit Constraint: dynamic." + this.currentTable
+                : "Tambah Constraint Baru: dynamic." + this.currentTable);
         dialog.setWidth("500px");
 
         VerticalLayout layout = new VerticalLayout();
@@ -275,7 +282,8 @@ public class DbExplorerView extends VerticalLayout {
             String type = typeField.getValue();
             String prefix = type != null ? type.toLowerCase().replace(" ", "_") : "uq";
             if (!isEdit) {
-                nameField.setValue(prefix + "_" + this.currentTable + "_" + (localColField.getValue() != null ? localColField.getValue() : "col"));
+                nameField.setValue(prefix + "_" + this.currentTable + "_"
+                        + (localColField.getValue() != null ? localColField.getValue() : "col"));
             }
 
             if ("FOREIGN KEY".equals(type)) {
@@ -314,12 +322,18 @@ public class DbExplorerView extends VerticalLayout {
         toggleFields.run();
 
         if (isEdit && existingRow != null) {
-            String oldName = existingRow.get("constraint_name") != null ? existingRow.get("constraint_name").toString() : "";
-            String oldType = existingRow.get("constraint_type") != null ? existingRow.get("constraint_type").toString() : "UNIQUE";
+            String oldName = existingRow.get("constraint_name") != null ? existingRow.get("constraint_name").toString()
+                    : "";
+            String oldType = existingRow.get("constraint_type") != null ? existingRow.get("constraint_type").toString()
+                    : "UNIQUE";
             String oldCol = existingRow.get("column_name") != null ? existingRow.get("column_name").toString() : "";
-            String oldRefTable = existingRow.get("foreign_table") != null ? existingRow.get("foreign_table").toString() : "";
-            String oldRefCol = existingRow.get("foreign_column") != null ? existingRow.get("foreign_column").toString() : "";
-            String oldExpr = existingRow.get("check_expression") != null ? existingRow.get("check_expression").toString() : "";
+            String oldRefTable = existingRow.get("foreign_table") != null ? existingRow.get("foreign_table").toString()
+                    : "";
+            String oldRefCol = existingRow.get("foreign_column") != null ? existingRow.get("foreign_column").toString()
+                    : "";
+            String oldExpr = existingRow.get("check_expression") != null
+                    ? existingRow.get("check_expression").toString()
+                    : "";
 
             typeField.setValue(oldType);
             nameField.setValue(oldName);
@@ -351,12 +365,18 @@ public class DbExplorerView extends VerticalLayout {
 
             try {
                 if (isEdit && existingRow != null) {
-                    String oldName = existingRow.get("constraint_name") != null ? existingRow.get("constraint_name").toString() : "";
-                    dynamicDataService.updateTableConstraint(this.currentTable, oldName, name, type, localCol, refTable, refCol, expr);
-                    Notification.show("Constraint " + name + " berhasil diperbarui secara fisik!", 3000, Notification.Position.TOP_CENTER);
+                    String oldName = existingRow.get("constraint_name") != null
+                            ? existingRow.get("constraint_name").toString()
+                            : "";
+                    dynamicDataService.updateTableConstraint(this.currentTable, oldName, name, type, localCol, refTable,
+                            refCol, expr);
+                    Notification.show("Constraint " + name + " berhasil diperbarui secara fisik!", 3000,
+                            Notification.Position.TOP_CENTER);
                 } else {
-                    dynamicDataService.addTableConstraint(this.currentTable, name, type, localCol, refTable, refCol, expr);
-                    Notification.show("Constraint " + name + " berhasil dibuat secara fisik!", 3000, Notification.Position.TOP_CENTER);
+                    dynamicDataService.addTableConstraint(this.currentTable, name, type, localCol, refTable, refCol,
+                            expr);
+                    Notification.show("Constraint " + name + " berhasil dibuat secara fisik!", 3000,
+                            Notification.Position.TOP_CENTER);
                 }
                 loadTableSchema(this.currentTable);
                 dialog.close();
@@ -374,10 +394,12 @@ public class DbExplorerView extends VerticalLayout {
     }
 
     private void dropConstraint(String constraintName) {
-        if (this.currentTable == null || constraintName.isEmpty()) return;
+        if (this.currentTable == null || constraintName.isEmpty())
+            return;
         try {
             dynamicDataService.dropTableConstraint(this.currentTable, constraintName);
-            Notification.show("Constraint " + constraintName + " berhasil dihapus secara fisik!", 3000, Notification.Position.TOP_CENTER);
+            Notification.show("Constraint " + constraintName + " berhasil dihapus secara fisik!", 3000,
+                    Notification.Position.TOP_CENTER);
             loadTableSchema(this.currentTable);
         } catch (Exception ex) {
             Notification.show("Gagal menghapus constraint: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
@@ -385,9 +407,11 @@ public class DbExplorerView extends VerticalLayout {
     }
 
     private void openTriggerDialog(Map<String, Object> existingRow) {
-        if (this.currentTable == null) return;
+        if (this.currentTable == null)
+            return;
         boolean isEdit = existingRow != null;
-        String trgTitle = isEdit ? "Edit Trigger: dynamic." + this.currentTable : "Tambah Trigger Baru: dynamic." + this.currentTable;
+        String trgTitle = isEdit ? "Edit Trigger: dynamic." + this.currentTable
+                : "Tambah Trigger Baru: dynamic." + this.currentTable;
 
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(trgTitle);
@@ -412,9 +436,14 @@ public class DbExplorerView extends VerticalLayout {
         bodyField.getStyle().set("font-family", "monospace");
 
         if (isEdit && existingRow != null) {
-            String existingName = existingRow.get("trigger_name") != null ? existingRow.get("trigger_name").toString() : "";
-            String existingTiming = existingRow.get("action_timing") != null ? existingRow.get("action_timing").toString() : "BEFORE";
-            String existingEvents = existingRow.get("event_manipulation") != null ? existingRow.get("event_manipulation").toString() : "";
+            String existingName = existingRow.get("trigger_name") != null ? existingRow.get("trigger_name").toString()
+                    : "";
+            String existingTiming = existingRow.get("action_timing") != null
+                    ? existingRow.get("action_timing").toString()
+                    : "BEFORE";
+            String existingEvents = existingRow.get("event_manipulation") != null
+                    ? existingRow.get("event_manipulation").toString()
+                    : "";
 
             nameField.setValue(existingName);
             nameField.setEnabled(false);
@@ -429,7 +458,8 @@ public class DbExplorerView extends VerticalLayout {
             bodyField.setValue(dynamicDataService.fetchTriggerBody(this.currentTable, existingName));
         } else {
             nameField.setValue("trg_" + this.currentTable + "_custom");
-            bodyField.setValue("-- Contoh: Validasi atau isi audit log sebelum simpan\nBEGIN\n    -- NEW.kolom = nilai;\n    RETURN NEW;\nEND;");
+            bodyField.setValue(
+                    "-- Contoh: Validasi atau isi audit log sebelum simpan\nBEGIN\n    -- NEW.kolom = nilai;\n    RETURN NEW;\nEND;");
         }
 
         FormLayout form = new FormLayout();
@@ -448,7 +478,8 @@ public class DbExplorerView extends VerticalLayout {
             String body = bodyField.getValue().trim();
 
             if (name.isEmpty() || evs == null || evs.isEmpty() || body.isEmpty()) {
-                Notification.show("Nama trigger, Event, dan Body tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Nama trigger, Event, dan Body tidak boleh kosong!", 3000,
+                        Notification.Position.MIDDLE);
                 return;
             }
 
@@ -460,7 +491,8 @@ public class DbExplorerView extends VerticalLayout {
 
             try {
                 dynamicDataService.addOrUpdateTableTrigger(this.currentTable, td);
-                Notification.show("Trigger " + name + " berhasil disimpan secara fisik!", 3000, Notification.Position.TOP_CENTER);
+                Notification.show("Trigger " + name + " berhasil disimpan secara fisik!", 3000,
+                        Notification.Position.TOP_CENTER);
                 loadTableSchema(this.currentTable);
                 dialog.close();
             } catch (Exception ex) {
@@ -476,10 +508,12 @@ public class DbExplorerView extends VerticalLayout {
     }
 
     private void dropTrigger(String triggerName) {
-        if (this.currentTable == null || triggerName.isEmpty()) return;
+        if (this.currentTable == null || triggerName.isEmpty())
+            return;
         try {
             dynamicDataService.dropTableTrigger(this.currentTable, triggerName);
-            Notification.show("Trigger " + triggerName + " berhasil dihapus secara fisik!", 3000, Notification.Position.TOP_CENTER);
+            Notification.show("Trigger " + triggerName + " berhasil dihapus secara fisik!", 3000,
+                    Notification.Position.TOP_CENTER);
             loadTableSchema(this.currentTable);
         } catch (Exception ex) {
             Notification.show("Gagal menghapus trigger: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
@@ -487,9 +521,11 @@ public class DbExplorerView extends VerticalLayout {
     }
 
     private void openColumnDialog(Map<String, Object> existingRow) {
-        if (this.currentTable == null) return;
+        if (this.currentTable == null)
+            return;
         boolean isEdit = existingRow != null;
-        String colTitle = isEdit ? "Edit Kolom: dynamic." + this.currentTable : "Tambah Kolom Baru: dynamic." + this.currentTable;
+        String colTitle = isEdit ? "Edit Kolom: dynamic." + this.currentTable
+                : "Tambah Kolom Baru: dynamic." + this.currentTable;
 
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(colTitle);
@@ -501,7 +537,8 @@ public class DbExplorerView extends VerticalLayout {
 
         TextField nameField = new TextField("Nama Kolom");
         ComboBox<String> typeField = new ComboBox<>("Tipe Data SQL");
-        typeField.setItems("VARCHAR(255)", "TEXT", "INTEGER", "BIGINT", "DECIMAL(19,2)", "DATE", "TIMESTAMP", "BOOLEAN");
+        typeField.setItems("VARCHAR(255)", "TEXT", "INTEGER", "BIGINT", "DECIMAL(19,2)", "DATE", "TIMESTAMP",
+                "BOOLEAN");
         typeField.setValue("VARCHAR(255)");
 
         Checkbox nullableField = new Checkbox("Nullable (Bolehkah Kosong?)");
@@ -512,9 +549,13 @@ public class DbExplorerView extends VerticalLayout {
 
         if (isEdit && existingRow != null) {
             String oldName = existingRow.get("column_name") != null ? existingRow.get("column_name").toString() : "";
-            String oldType = existingRow.get("data_type") != null ? existingRow.get("data_type").toString().toUpperCase() : "VARCHAR(255)";
-            boolean oldNull = "YES".equalsIgnoreCase(existingRow.get("is_nullable") != null ? existingRow.get("is_nullable").toString() : "YES");
-            String oldDef = existingRow.get("column_default") != null ? existingRow.get("column_default").toString() : "";
+            String oldType = existingRow.get("data_type") != null
+                    ? existingRow.get("data_type").toString().toUpperCase()
+                    : "VARCHAR(255)";
+            boolean oldNull = "YES".equalsIgnoreCase(
+                    existingRow.get("is_nullable") != null ? existingRow.get("is_nullable").toString() : "YES");
+            String oldDef = existingRow.get("column_default") != null ? existingRow.get("column_default").toString()
+                    : "";
 
             nameField.setValue(oldName);
             typeField.setValue(oldType);
@@ -541,12 +582,15 @@ public class DbExplorerView extends VerticalLayout {
 
             try {
                 if (isEdit && existingRow != null) {
-                    String oldCol = existingRow.get("column_name") != null ? existingRow.get("column_name").toString() : "";
+                    String oldCol = existingRow.get("column_name") != null ? existingRow.get("column_name").toString()
+                            : "";
                     dynamicDataService.alterTableColumn(this.currentTable, oldCol, name, type, isNull, defVal);
-                    Notification.show("Kolom " + name + " berhasil diperbarui secara fisik!", 3000, Notification.Position.TOP_CENTER);
+                    Notification.show("Kolom " + name + " berhasil diperbarui secara fisik!", 3000,
+                            Notification.Position.TOP_CENTER);
                 } else {
                     dynamicDataService.addTableColumn(this.currentTable, name, type, isNull, defVal);
-                    Notification.show("Kolom " + name + " berhasil ditambahkan secara fisik!", 3000, Notification.Position.TOP_CENTER);
+                    Notification.show("Kolom " + name + " berhasil ditambahkan secara fisik!", 3000,
+                            Notification.Position.TOP_CENTER);
                 }
                 loadTableData(this.currentTable);
                 loadTableSchema(this.currentTable);
@@ -569,10 +613,12 @@ public class DbExplorerView extends VerticalLayout {
     }
 
     private void dropColumn(String columnName) {
-        if (this.currentTable == null || columnName.isEmpty()) return;
+        if (this.currentTable == null || columnName.isEmpty())
+            return;
         try {
             dynamicDataService.dropTableColumn(this.currentTable, columnName);
-            Notification.show("Kolom " + columnName + " berhasil dihapus secara fisik!", 3000, Notification.Position.TOP_CENTER);
+            Notification.show("Kolom " + columnName + " berhasil dihapus secara fisik!", 3000,
+                    Notification.Position.TOP_CENTER);
             loadTableData(this.currentTable);
             loadTableSchema(this.currentTable);
         } catch (Exception ex) {
@@ -590,9 +636,18 @@ public class DbExplorerView extends VerticalLayout {
         }
         dataGrid.removeAllColumns();
         dataGrid.setItems(new ArrayList<>());
-        if (schemaFilterRefresher != null) schemaFilterRefresher.run(); else schemaGrid.setItems(new ArrayList<>());
-        if (constraintFilterRefresher != null) constraintFilterRefresher.run(); else constraintsGrid.setItems(new ArrayList<>());
-        if (triggerFilterRefresher != null) triggerFilterRefresher.run(); else triggersGrid.setItems(new ArrayList<>());
+        if (schemaFilterRefresher != null)
+            schemaFilterRefresher.run();
+        else
+            schemaGrid.setItems(new ArrayList<>());
+        if (constraintFilterRefresher != null)
+            constraintFilterRefresher.run();
+        else
+            constraintsGrid.setItems(new ArrayList<>());
+        if (triggerFilterRefresher != null)
+            triggerFilterRefresher.run();
+        else
+            triggersGrid.setItems(new ArrayList<>());
         recordCount.setText("Pilih tabel untuk melihat data");
         schemaInfo.setText("Pilih tabel untuk melihat struktur kolom");
         triggerInfo.setText("Belum ada trigger terdaftar");
@@ -601,10 +656,18 @@ public class DbExplorerView extends VerticalLayout {
 
     private void refreshSchemaGrid() {
         if (schemaGrid.getColumns().isEmpty()) {
-            Grid.Column<Map<String, Object>> c1 = schemaGrid.addColumn(row -> row.get("column_name") != null ? row.get("column_name").toString() : "").setHeader("Nama Kolom");
-            Grid.Column<Map<String, Object>> c2 = schemaGrid.addColumn(row -> row.get("data_type") != null ? row.get("data_type").toString() : "").setHeader("Tipe Data SQL");
-            Grid.Column<Map<String, Object>> c3 = schemaGrid.addColumn(row -> row.get("is_nullable") != null ? row.get("is_nullable").toString() : "").setHeader("Nullable");
-            Grid.Column<Map<String, Object>> c4 = schemaGrid.addColumn(row -> row.get("column_default") != null ? row.get("column_default").toString() : "").setHeader("Default Value");
+            Grid.Column<Map<String, Object>> c1 = schemaGrid
+                    .addColumn(row -> row.get("column_name") != null ? row.get("column_name").toString() : "")
+                    .setHeader("Nama Kolom");
+            Grid.Column<Map<String, Object>> c2 = schemaGrid
+                    .addColumn(row -> row.get("data_type") != null ? row.get("data_type").toString() : "")
+                    .setHeader("Tipe Data SQL");
+            Grid.Column<Map<String, Object>> c3 = schemaGrid
+                    .addColumn(row -> row.get("is_nullable") != null ? row.get("is_nullable").toString() : "")
+                    .setHeader("Nullable");
+            Grid.Column<Map<String, Object>> c4 = schemaGrid
+                    .addColumn(row -> row.get("column_default") != null ? row.get("column_default").toString() : "")
+                    .setHeader("Default Value");
 
             schemaGrid.addComponentColumn(row -> {
                 String colName = row.get("column_name") != null ? row.get("column_name").toString() : "";
@@ -637,9 +700,15 @@ public class DbExplorerView extends VerticalLayout {
 
     private void refreshTriggersGrid() {
         if (triggersGrid.getColumns().isEmpty()) {
-            Grid.Column<Map<String, Object>> c1 = triggersGrid.addColumn(row -> row.get("trigger_name") != null ? row.get("trigger_name").toString() : "").setHeader("Nama Trigger");
-            Grid.Column<Map<String, Object>> c2 = triggersGrid.addColumn(row -> row.get("action_timing") != null ? row.get("action_timing").toString() : "").setHeader("Timing");
-            Grid.Column<Map<String, Object>> c3 = triggersGrid.addColumn(row -> row.get("event_manipulation") != null ? row.get("event_manipulation").toString() : "").setHeader("Event");
+            Grid.Column<Map<String, Object>> c1 = triggersGrid
+                    .addColumn(row -> row.get("trigger_name") != null ? row.get("trigger_name").toString() : "")
+                    .setHeader("Nama Trigger");
+            Grid.Column<Map<String, Object>> c2 = triggersGrid
+                    .addColumn(row -> row.get("action_timing") != null ? row.get("action_timing").toString() : "")
+                    .setHeader("Timing");
+            Grid.Column<Map<String, Object>> c3 = triggersGrid.addColumn(
+                    row -> row.get("event_manipulation") != null ? row.get("event_manipulation").toString() : "")
+                    .setHeader("Event");
 
             triggersGrid.addComponentColumn(row -> {
                 String name = row.get("trigger_name") != null ? row.get("trigger_name").toString() : "";
@@ -660,7 +729,8 @@ public class DbExplorerView extends VerticalLayout {
             colMap.put(c1, "trigger_name");
             colMap.put(c2, "action_timing");
             colMap.put(c3, "event_manipulation");
-            triggerFilterRefresher = StandardGridUtils.attachMapGridFilters(triggersGrid, colMap, () -> currentTriggerList);
+            triggerFilterRefresher = StandardGridUtils.attachMapGridFilters(triggersGrid, colMap,
+                    () -> currentTriggerList);
         }
         if (triggerFilterRefresher != null) {
             triggerFilterRefresher.run();
@@ -671,16 +741,29 @@ public class DbExplorerView extends VerticalLayout {
 
     private void refreshConstraintsGrid() {
         if (constraintsGrid.getColumns().isEmpty()) {
-            Grid.Column<Map<String, Object>> c1 = constraintsGrid.addColumn(row -> row.get("constraint_name") != null ? row.get("constraint_name").toString() : "").setHeader("Nama Constraint");
-            Grid.Column<Map<String, Object>> c2 = constraintsGrid.addColumn(row -> row.get("constraint_type") != null ? row.get("constraint_type").toString() : "").setHeader("Tipe");
-            Grid.Column<Map<String, Object>> c3 = constraintsGrid.addColumn(row -> row.get("column_name") != null ? row.get("column_name").toString() : "").setHeader("Kolom Target");
-            Grid.Column<Map<String, Object>> c4 = constraintsGrid.addColumn(row -> row.get("foreign_table") != null ? row.get("foreign_table").toString() : "").setHeader("Tabel Relasi (FK)");
-            Grid.Column<Map<String, Object>> c5 = constraintsGrid.addColumn(row -> row.get("foreign_column") != null ? row.get("foreign_column").toString() : "").setHeader("Kolom Relasi (FK)");
-            Grid.Column<Map<String, Object>> c6 = constraintsGrid.addColumn(row -> row.get("check_expression") != null ? row.get("check_expression").toString() : "").setHeader("Ekspresi (Check)");
+            Grid.Column<Map<String, Object>> c1 = constraintsGrid
+                    .addColumn(row -> row.get("constraint_name") != null ? row.get("constraint_name").toString() : "")
+                    .setHeader("Nama Constraint");
+            Grid.Column<Map<String, Object>> c2 = constraintsGrid
+                    .addColumn(row -> row.get("constraint_type") != null ? row.get("constraint_type").toString() : "")
+                    .setHeader("Tipe");
+            Grid.Column<Map<String, Object>> c3 = constraintsGrid
+                    .addColumn(row -> row.get("column_name") != null ? row.get("column_name").toString() : "")
+                    .setHeader("Kolom Target");
+            Grid.Column<Map<String, Object>> c4 = constraintsGrid
+                    .addColumn(row -> row.get("foreign_table") != null ? row.get("foreign_table").toString() : "")
+                    .setHeader("Tabel Relasi (FK)");
+            Grid.Column<Map<String, Object>> c5 = constraintsGrid
+                    .addColumn(row -> row.get("foreign_column") != null ? row.get("foreign_column").toString() : "")
+                    .setHeader("Kolom Relasi (FK)");
+            Grid.Column<Map<String, Object>> c6 = constraintsGrid
+                    .addColumn(row -> row.get("check_expression") != null ? row.get("check_expression").toString() : "")
+                    .setHeader("Ekspresi (Check)");
 
             constraintsGrid.addComponentColumn(row -> {
                 String name = row.get("constraint_name") != null ? row.get("constraint_name").toString() : "";
-                boolean isPk = "PRIMARY KEY".equalsIgnoreCase(row.get("constraint_type") != null ? row.get("constraint_type").toString() : "");
+                boolean isPk = "PRIMARY KEY".equalsIgnoreCase(
+                        row.get("constraint_type") != null ? row.get("constraint_type").toString() : "");
 
                 Button btnEdit = new Button(VaadinIcon.EDIT.create());
                 btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
@@ -693,7 +776,7 @@ public class DbExplorerView extends VerticalLayout {
                 btnDel.setTooltipText("Hapus Constraint");
                 btnDel.setEnabled(!isPk);
                 btnDel.addClickListener(e -> dropConstraint(name));
-                
+
                 return new HorizontalLayout(btnEdit, btnDel);
             }).setHeader("Aksi").setWidth("110px").setFlexGrow(0);
 
@@ -704,7 +787,8 @@ public class DbExplorerView extends VerticalLayout {
             colMap.put(c4, "foreign_table");
             colMap.put(c5, "foreign_column");
             colMap.put(c6, "check_expression");
-            constraintFilterRefresher = StandardGridUtils.attachMapGridFilters(constraintsGrid, colMap, () -> currentConstraintList);
+            constraintFilterRefresher = StandardGridUtils.attachMapGridFilters(constraintsGrid, colMap,
+                    () -> currentConstraintList);
         }
         if (constraintFilterRefresher != null) {
             constraintFilterRefresher.run();

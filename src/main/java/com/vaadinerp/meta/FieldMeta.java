@@ -68,6 +68,9 @@ public class FieldMeta {
     @Column(name = "display_format", length = 50)
     private String displayFormat;
 
+    @Column(name = "is_audit_log")
+    private Boolean isAuditLog = false;
+
     public boolean isDetail() {
         return isDetail != null && isDetail;
     }
@@ -106,6 +109,14 @@ public class FieldMeta {
 
     public void setSaveOnUpdate(Boolean saveOnUpdate) {
         this.saveOnUpdate = saveOnUpdate;
+    }
+
+    public boolean isAuditLog() {
+        return isAuditLog != null && isAuditLog;
+    }
+
+    public void setAuditLog(Boolean auditLog) {
+        this.isAuditLog = auditLog;
     }
 
     @OneToMany(mappedBy = "fieldMeta", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
