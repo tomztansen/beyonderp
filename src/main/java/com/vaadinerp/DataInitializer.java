@@ -25,15 +25,18 @@ public class DataInitializer implements CommandLineRunner {
     private final ReportMetaRepository reportMetaRepository;
     private final JdbcTemplate jdbcTemplate;
     private final com.vaadinerp.service.DynamicDataService dynamicDataService;
+    private final com.vaadinerp.meta.FormActionMetaRepository formActionMetaRepository;
 
     public DataInitializer(FormMetaRepository formMetaRepository, LovMetaRepository lovMetaRepository,
             ReportMetaRepository reportMetaRepository, JdbcTemplate jdbcTemplate,
-            com.vaadinerp.service.DynamicDataService dynamicDataService) {
+            com.vaadinerp.service.DynamicDataService dynamicDataService,
+            com.vaadinerp.meta.FormActionMetaRepository formActionMetaRepository) {
         this.formMetaRepository = formMetaRepository;
         this.lovMetaRepository = lovMetaRepository;
         this.reportMetaRepository = reportMetaRepository;
         this.jdbcTemplate = jdbcTemplate;
         this.dynamicDataService = dynamicDataService;
+        this.formActionMetaRepository = formActionMetaRepository;
     }
 
     @Override
@@ -1073,6 +1076,7 @@ public class DataInitializer implements CommandLineRunner {
                     "('FORM_BUILDER', 'Form Metadata Builder', 'builder', 'WRENCH', 'GRP_DEV_TOOLS', 10, 'ITEM'), " +
                     "('DB_EXPLORER', 'Database Manager', 'explorer', 'DATABASE', 'GRP_DEV_TOOLS', 20, 'ITEM'), " +
                     "('LOV_BUILDER', 'LOV Metadata Builder', 'lov-builder', 'LIST', 'GRP_DEV_TOOLS', 30, 'ITEM'), " +
+                    "('FORM_ACTION_BUILDER', 'Extra Toolbar Builder', 'action-builder', 'BOLT', 'GRP_DEV_TOOLS', 35, 'ITEM'), " +
                     "('STANDARD_FORMAT', 'Konfigurasi Format Standar', 'standard-format', 'SLIDERS', 'GRP_DEV_TOOLS', 40, 'ITEM'), " +
                     // === Report children ===
                     "('REPORT_BUILDER', 'Report Designer', 'report-builder', 'EDIT', 'GRP_REPORTS', 10, 'ITEM'), " +
@@ -1081,6 +1085,14 @@ public class DataInitializer implements CommandLineRunner {
                     "('SECURITY_ADMIN', 'Security & Authority Admin', 'security-admin', 'SHIELD', 'GRP_SYSTEM', 10, 'ITEM'), " +
                     "('FIELD_AUDIT_LOG', 'Field Audit Log Viewer', 'field-audit-log', 'CLOCK', 'GRP_SYSTEM', 20, 'ITEM')");
         }
+
+        try {
+            Integer actionMenuExists = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_menus WHERE menu_code = 'FORM_ACTION_BUILDER'", Integer.class);
+            if (actionMenuExists == null || actionMenuExists == 0) {
+                jdbcTemplate.execute("INSERT INTO public.app_menus (menu_code, menu_title, route_path, icon_name, parent_menu_code, display_order, menu_type) " +
+                        "VALUES ('FORM_ACTION_BUILDER', 'Extra Toolbar Builder', 'action-builder', 'BOLT', 'GRP_DEV_TOOLS', 35, 'ITEM')");
+            }
+        } catch (Exception ignored) {}
 
         // Seed permissions for STAFF role
         // STAFF hanya melihat menu yang punya record di sini. Yang tidak ada = tidak muncul di sidebar.
@@ -1091,6 +1103,39 @@ public class DataInitializer implements CommandLineRunner {
                     "('STAFF', 'DB_EXPLORER', FALSE, FALSE, FALSE, TRUE), " +
                     "('STAFF', 'REPORT_VIEWER', FALSE, FALSE, FALSE, TRUE), " +
                     "('STAFF', 'FIELD_AUDIT_LOG', FALSE, FALSE, FALSE, TRUE)");
+        }
+
+        initFormActionMetadata();
+    }
+
+    private void initFormActionMetadata() {
+        if (formActionMetaRepository != null && formActionMetaRepository.count() == 0) {
+            System.out.println("Inserting sample FormActionMeta...");
+            FormMeta invForm = formMetaRepository.findById("INVOICE_MD").orElse(null);
+            if (invForm != null) {
+                com.vaadinerp.meta.FormActionMeta act1 = new com.vaadinerp.meta.FormActionMeta();
+                act1.setFormMeta(invForm);
+                act1.setActionCode("PICK_MASTER_ITEM");
+                act1.setActionLabel("Pick Master Item");
+                act1.setIconName("CHECK_SQUARE_O");
+                act1.setTargetScope("DETAIL_TOOLBAR");
+                act1.setSourceLovCode("lov_child");
+                act1.setTargetMapping("item_code:code,price:10000,qty:1");
+                formActionMetaRepository.save(act1);
+            }
+
+            FormMeta globalDtlForm = formMetaRepository.findById("GLOBAL_MASTER_DTL").orElse(null);
+            if (globalDtlForm != null) {
+                com.vaadinerp.meta.FormActionMeta act2 = new com.vaadinerp.meta.FormActionMeta();
+                act2.setFormMeta(globalDtlForm);
+                act2.setActionCode("PICK_GLOBAL_CATEGORY");
+                act2.setActionLabel("Pick Category Items");
+                act2.setIconName("LIST_SELECT");
+                act2.setTargetScope("DETAIL_TOOLBAR");
+                act2.setSourceLovCode("GLOBAL_MASTER");
+                act2.setTargetMapping("code:code,name:name");
+                formActionMetaRepository.save(act2);
+            }
         }
     }
 }

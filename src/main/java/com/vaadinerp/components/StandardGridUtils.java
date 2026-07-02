@@ -13,6 +13,7 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,6 +29,53 @@ public class StandardGridUtils {
     }
 
     /**
+     * Cleans up extra header rows (such as filter rows) and removes all columns.
+     * This prevents accumulating empty header rows whenever a Grid is rebuilt.
+     * 
+     * IMPORTANT: Always call this before rebuilding grid columns to prevent
+     * header row accumulation and memory leaks.
+     */
+    public static void cleanGridBeforeRebuild(Grid<?> grid) {
+        if (grid == null) return;
+        
+        // Save current grid configuration
+        Grid.SelectionMode selectionMode = grid.getSelectionMode();
+        
+        // Temporarily set selection mode to NONE to cleanly detach multi-selection RPC model
+        grid.setSelectionMode(Grid.SelectionMode.NONE);
+        
+        // Remove all header rows except the first one (default header)
+        List<HeaderRow> headerRows = new ArrayList<>(grid.getHeaderRows());
+        for (int i = headerRows.size() - 1; i >= 1; i--) {
+            grid.removeHeaderRow(headerRows.get(i));
+        }
+        
+        // Remove all columns
+        grid.removeAllColumns();
+        
+        // Restore selection mode
+        if (selectionMode != null) {
+            grid.setSelectionMode(selectionMode);
+        }
+    }
+
+    /**
+     * Safely appends a header row by ensuring no duplicate filter rows exist.
+     * Always call this instead of grid.appendHeaderRow() directly when adding filter rows.
+     */
+    public static HeaderRow safeAppendHeaderRow(Grid<?> grid) {
+        if (grid == null) return null;
+        
+        // Remove any extra header rows (keep only default)
+        while (grid.getHeaderRows().size() > 1) {
+            grid.removeHeaderRow(grid.getHeaderRows().get(grid.getHeaderRows().size() - 1));
+        }
+        
+        // Now it's safe to append a new header row
+        return grid.appendHeaderRow();
+    }
+
+    /**
      * Generic method to attach standard search filter header row, sorting, and column reordering to any Grid<T>.
      * Returns a Runnable that can be called to re-apply filtering and refresh grid items from dataSupplier.
      */
@@ -36,20 +84,53 @@ public class StandardGridUtils {
             Map<Grid.Column<T>, Function<T, String>> colGetterMap,
             Supplier<List<T>> dataSupplier) {
 
+        if (grid == null || colGetterMap == null || colGetterMap.isEmpty()) {
+            return () -> {};
+        }
+
+        // Enable column reordering and sorting
         grid.setColumnReorderingAllowed(true);
-        colGetterMap.keySet().forEach(col -> col.setSortable(true));
+        colGetterMap.keySet().forEach(col -> {
+            if (col != null) {
+                col.setSortable(true);
+                col.setResizable(true);
+            }
+        });
 
-        HeaderRow filterRow = grid.appendHeaderRow();
-        Map<Grid.Column<T>, FilterCriteria> filterValues = new HashMap<>();
+        // Safely add filter header row
+        HeaderRow filterRow = safeAppendHeaderRow(grid);
+        Map<Grid.Column<T>, FilterCriteria> filterValues = new LinkedHashMap<>();
 
+        // Create filter application logic
         Runnable applyFilters = () -> {
             List<T> masterList = dataSupplier.get();
-            if (masterList == null) return;
+            if (masterList == null) {
+                grid.setItems(new ArrayList<>());
+                return;
+            }
 
+            // Check if any filter is active
+            boolean hasActiveFilter = filterValues.values().stream().anyMatch(criteria -> {
+                if ("Blank".equals(criteria.operator) || "Not blank".equals(criteria.operator)) {
+                    return true;
+                }
+                return criteria.value != null && !criteria.value.trim().isEmpty();
+            });
+
+            if (!hasActiveFilter) {
+                // No active filters, show all items
+                grid.setItems(new ArrayList<>(masterList));
+                return;
+            }
+
+            // Apply filters
             List<T> filtered = masterList.stream().filter(item -> {
                 for (Map.Entry<Grid.Column<T>, FilterCriteria> entry : filterValues.entrySet()) {
                     Grid.Column<T> col = entry.getKey();
                     FilterCriteria criteria = entry.getValue();
+                    
+                    if (col == null) continue;
+                    
                     String op = criteria.operator;
                     String query = criteria.value != null ? criteria.value.trim().toLowerCase() : "";
 
@@ -59,6 +140,7 @@ public class StandardGridUtils {
                     String rawVal = getter.apply(item);
                     String strVal = rawVal != null ? rawVal.toLowerCase() : "";
 
+                    // Handle Blank/Not blank first
                     if ("Blank".equals(op)) {
                         if (!strVal.isEmpty()) return false;
                         continue;
@@ -68,8 +150,10 @@ public class StandardGridUtils {
                         continue;
                     }
 
+                    // Skip if no query value for other operators
                     if (query.isEmpty()) continue;
 
+                    // Apply operator
                     switch (op) {
                         case "Contains":
                             if (!strVal.contains(query)) return false;
@@ -89,6 +173,8 @@ public class StandardGridUtils {
                         case "Ends with":
                             if (!strVal.endsWith(query)) return false;
                             break;
+                        default:
+                            break;
                     }
                 }
                 return true;
@@ -99,6 +185,7 @@ public class StandardGridUtils {
 
         for (Map.Entry<Grid.Column<T>, Function<T, String>> entry : colGetterMap.entrySet()) {
             Grid.Column<T> col = entry.getKey();
+            if (col == null) continue;
             FilterCriteria criteria = new FilterCriteria();
             filterValues.put(col, criteria);
 
