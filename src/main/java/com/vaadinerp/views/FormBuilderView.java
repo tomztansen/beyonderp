@@ -59,6 +59,7 @@ public class FormBuilderView extends VerticalLayout {
     private TabSheet tabSheet;
     private Tab historisTab;
     private Tab transaksiTab;
+    private Tab actionTab;
     private final Grid<FormMeta> historyGrid = new Grid<>();
 
     private final TextField formCodeField = new TextField("Form Code (Unique)");
@@ -532,6 +533,25 @@ public class FormBuilderView extends VerticalLayout {
 
         transaksiLayout.add(formMetaLayout, workspace);
         transaksiTab = tabSheet.add("Desain Form", transaksiLayout);
+
+        VerticalLayout extraToolbarsLayout = new VerticalLayout();
+        extraToolbarsLayout.setSizeFull();
+        extraToolbarsLayout.setPadding(true);
+        extraToolbarsLayout.setSpacing(true);
+
+        com.vaadin.flow.component.html.H4 actionTitle = new com.vaadin.flow.component.html.H4("Kelola Extra Toolbar (Tombol Aksi Dinamis / Multi-Select Picker)");
+        actionTitle.getStyle().set("margin", "0");
+
+        com.vaadin.flow.component.html.Paragraph actionDesc = new com.vaadin.flow.component.html.Paragraph(
+                "Untuk mengonfigurasi tombol aksi tambahan pada form ini (maupun form detail/subform), gunakan menu khusus Extra Toolbar Builder. Karena 1 form dapat memiliki banyak tombol aksi dengan pemetaan filter dan target yang fleksibel, kami menyediakan menu UI terdedikasi.");
+
+        Button btnLaunchBuilder = new Button("Buka Menu Extra Toolbar Builder", VaadinIcon.BOLT.create(), e -> {
+            getUI().ifPresent(ui -> ui.navigate("action-builder"));
+        });
+        btnLaunchBuilder.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
+
+        extraToolbarsLayout.add(actionTitle, actionDesc, btnLaunchBuilder);
+        actionTab = tabSheet.add("Extra Toolbars", extraToolbarsLayout);
 
         add(title, toolbar, tabSheet);
         setFlexGrow(1, tabSheet);
@@ -2168,7 +2188,10 @@ public class FormBuilderView extends VerticalLayout {
         btnCopy.addClickListener(e -> {
             FormMeta selected = null;
             if (tabSheet.getSelectedTab() == historisTab) {
-                selected = historyGrid.asSingleSelect().getValue();
+                java.util.Set<FormMeta> sel = historyGrid.getSelectedItems();
+                if (sel != null && !sel.isEmpty()) {
+                    selected = sel.iterator().next();
+                }
             } else {
                 String formCode = formCodeField.getValue().trim();
                 if (!formCode.isEmpty() && formMetaRepository.existsById(formCode)) {

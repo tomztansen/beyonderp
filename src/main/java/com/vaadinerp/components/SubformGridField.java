@@ -42,6 +42,12 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private final Map<Grid.Column<Map<String, Object>>, String> columnToFieldNameMap = new HashMap<>();
     private Map<String, Object> draggedItem;
 
+    // Registrations for listener deduplication
+    private com.vaadin.flow.shared.Registration gridDragStartReg;
+    private com.vaadin.flow.shared.Registration gridDropReg;
+    private com.vaadin.flow.shared.Registration gridDragEndReg;
+    private com.vaadin.flow.shared.Registration gridColReorderReg;
+
     private static class FilterCriteria {
         String operator = "Contains";
         String value = "";
@@ -68,25 +74,55 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         toolbar.setSpacing(true);
 
         btnAdd.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
-        
+
         btnDelete.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
 
-        Button btnResetSubformGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        Button btnResetSubformGrid = new Button("Reset Layout Grid", VaadinIcon.ROTATE_LEFT.create());
         btnResetSubformGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         btnResetSubformGrid.addClickListener(e -> {
             if (childFormDef != null) {
                 dataService.resetUserGridOrder(childFormDef.getFormCode(), "subformGrid");
-                grid.removeAllColumns();
                 grid.setSelectionMode(Grid.SelectionMode.MULTI);
                 columnToFieldNameMap.clear();
                 editorComponents.clear();
                 filterValues.clear();
                 buildGridColumns();
-                Notification.show("Layout grid subform dikembalikan ke default!", 2000, Notification.Position.BOTTOM_END);
+                Notification.show("Layout grid subform dikembalikan ke default!", 2000,
+                        Notification.Position.BOTTOM_END);
             }
         });
 
         toolbar.add(btnAdd, btnDelete, btnResetSubformGrid);
+
+        if (fieldMeta.getLovCode() != null && dataService != null) {
+            List<com.vaadinerp.meta.FormActionMeta> actions = dataService.getFormActions(fieldMeta.getLovCode(), "DETAIL_TOOLBAR");
+            for (com.vaadinerp.meta.FormActionMeta act : actions) {
+                com.vaadin.flow.component.icon.Icon icon = null;
+                if (act.getIconName() != null && !act.getIconName().isBlank()) {
+                    try {
+                        icon = com.vaadin.flow.component.icon.VaadinIcon.valueOf(act.getIconName().toUpperCase()).create();
+                    } catch (Exception ignored) {}
+                }
+                Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
+                actBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
+                actBtn.addClickListener(e -> {
+                    if (grid.getEditor().isOpen()) {
+                        grid.getEditor().cancel();
+                    }
+                    DynamicPickerPopupDialog dlg = new DynamicPickerPopupDialog(act, dataService, null, selectedRecords -> {
+                        for (Map<String, Object> srcRec : selectedRecords) {
+                            Map<String, Object> newRow = new HashMap<>();
+                            newRow.put("_tempId", java.util.UUID.randomUUID().toString());
+                            applyTargetMapping(newRow, srcRec, act.getTargetMapping());
+                            items.add(newRow);
+                        }
+                        grid.getDataProvider().refreshAll();
+                    });
+                    dlg.open();
+                });
+                toolbar.add(actBtn);
+            }
+        }
 
         // Setup Grid
         grid.setWidthFull();
@@ -131,7 +167,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             Component firstCompToFocus = null;
             if (childFormDef != null && !childFormDef.getFields().isEmpty()) {
                 List<FieldMeta> childFields = childFormDef.getFields().stream()
-                        .filter(f -> f.isShowInGrid() && !f.isHideInForm() && !"HIDDEN".equalsIgnoreCase(f.getComponentType()))
+                        .filter(f -> f.isShowInGrid() && !f.isHideInForm()
+                                && !"HIDDEN".equalsIgnoreCase(f.getComponentType()))
                         .collect(Collectors.toList());
 
                 childFields.sort((f1, f2) -> {
@@ -147,32 +184,35 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
 
             UI.getCurrent().getPage().executeJs(
-                "var grid = $0; var targetIdx = $1; var firstEditor = $2; " +
-                "if (grid && typeof grid.scrollToIndex === 'function') { " +
-                "  grid.scrollToIndex(targetIdx); " +
-                "} " +
-                "if (firstEditor) { " +
-                "  function waitAndFocus(attempt) { " +
-                "    var isAttached = firstEditor.isConnected; " +
-                "    if (!isAttached && document.body.contains(firstEditor)) isAttached = true; " +
-                "    if (isAttached) { " +
-                "      setTimeout(function() { " +
-                "        try { " +
-                "          var focusable = firstEditor.querySelector('vaadin-text-field:not([readonly]), vaadin-combo-box:not([readonly]), vaadin-integer-field:not([readonly]), vaadin-big-decimal-field:not([readonly]), vaadin-button, input:not([readonly])'); " +
-                "          var target = focusable || firstEditor.focusElement || firstEditor.inputElement || " +
-                "             (firstEditor.shadowRoot && firstEditor.shadowRoot.querySelector('input:not([readonly]),textarea:not([readonly])')) || " +
-                "             firstEditor; " +
-                "          if (target && typeof target.focus === 'function') { target.focus(); } " +
-                "        } catch(e){} " +
-                "      }, 150); " +
-                "    } else { " +
-                "      if (attempt < 60) setTimeout(function(){ waitAndFocus(attempt + 1); }, 50); " +
-                "    } " +
-                "  } " +
-                "  waitAndFocus(0); " +
-                "}",
-                grid.getElement(), items.size() - 1, firstCompToFocus != null ? firstCompToFocus.getElement() : null
-            );
+                    "var grid = $0; var targetIdx = $1; var firstEditor = $2; " +
+                            "if (grid && typeof grid.scrollToIndex === 'function') { " +
+                            "  grid.scrollToIndex(targetIdx); " +
+                            "} " +
+                            "if (firstEditor) { " +
+                            "  function waitAndFocus(attempt) { " +
+                            "    var isAttached = firstEditor.isConnected; " +
+                            "    if (!isAttached && document.body.contains(firstEditor)) isAttached = true; " +
+                            "    if (isAttached) { " +
+                            "      setTimeout(function() { " +
+                            "        try { " +
+                            "          var focusable = firstEditor.querySelector('vaadin-text-field:not([readonly]), vaadin-combo-box:not([readonly]), vaadin-integer-field:not([readonly]), vaadin-big-decimal-field:not([readonly]), vaadin-button, input:not([readonly])'); "
+                            +
+                            "          var target = focusable || firstEditor.focusElement || firstEditor.inputElement || "
+                            +
+                            "             (firstEditor.shadowRoot && firstEditor.shadowRoot.querySelector('input:not([readonly]),textarea:not([readonly])')) || "
+                            +
+                            "             firstEditor; " +
+                            "          if (target && typeof target.focus === 'function') { target.focus(); } " +
+                            "        } catch(e){} " +
+                            "      }, 150); " +
+                            "    } else { " +
+                            "      if (attempt < 60) setTimeout(function(){ waitAndFocus(attempt + 1); }, 50); " +
+                            "    } " +
+                            "  } " +
+                            "  waitAndFocus(0); " +
+                            "}",
+                    grid.getElement(), items.size() - 1,
+                    firstCompToFocus != null ? firstCompToFocus.getElement() : null);
 
             updateValue();
         });
@@ -187,7 +227,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 if (childFormDef != null) {
                     String pk = childFormDef.getPrimaryKey() != null ? childFormDef.getPrimaryKey() : "id";
                     for (Map<String, Object> selected : selectedItems) {
-                        if (selected.containsKey(pk) && selected.get(pk) != null && !selected.get(pk).toString().trim().isEmpty()) {
+                        if (selected.containsKey(pk) && selected.get(pk) != null
+                                && !selected.get(pk).toString().trim().isEmpty()) {
                             deletedItems.add(selected);
                         }
                     }
@@ -207,51 +248,59 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         }
         @SuppressWarnings("unchecked")
         ListDataProvider<Map<String, Object>> dp = (ListDataProvider<Map<String, Object>>) grid.getDataProvider();
-        
+
         dp.setFilter(item -> {
             for (Map.Entry<String, FilterCriteria> entry : filterValues.entrySet()) {
                 String fieldName = entry.getKey();
                 FilterCriteria criteria = entry.getValue();
-                
+
                 String op = criteria.operator;
                 String query = criteria.value;
-                
+
                 Object val = item.get(fieldName);
                 String strVal = val != null ? val.toString().toLowerCase() : "";
-                
+
                 if ("Blank".equals(op)) {
-                    if (!strVal.isEmpty()) return false;
+                    if (!strVal.isEmpty())
+                        return false;
                     continue;
                 }
                 if ("Not blank".equals(op)) {
-                    if (strVal.isEmpty()) return false;
+                    if (strVal.isEmpty())
+                        return false;
                     continue;
                 }
-                
+
                 if (query == null || query.trim().isEmpty()) {
                     continue;
                 }
-                
+
                 query = query.toLowerCase();
-                
+
                 switch (op) {
                     case "Contains":
-                        if (!strVal.contains(query)) return false;
+                        if (!strVal.contains(query))
+                            return false;
                         break;
                     case "Not contains":
-                        if (strVal.contains(query)) return false;
+                        if (strVal.contains(query))
+                            return false;
                         break;
                     case "Equals":
-                        if (!strVal.equals(query)) return false;
+                        if (!strVal.equals(query))
+                            return false;
                         break;
                     case "Not equal":
-                        if (strVal.equals(query)) return false;
+                        if (strVal.equals(query))
+                            return false;
                         break;
                     case "Starts with":
-                        if (!strVal.startsWith(query)) return false;
+                        if (!strVal.startsWith(query))
+                            return false;
                         break;
                     case "Ends with":
-                        if (!strVal.endsWith(query)) return false;
+                        if (!strVal.endsWith(query))
+                            return false;
                         break;
                 }
             }
@@ -269,6 +318,18 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     private void buildGridColumns() {
+        if (gridDragStartReg != null)
+            gridDragStartReg.remove();
+        if (gridDropReg != null)
+            gridDropReg.remove();
+        if (gridDragEndReg != null)
+            gridDragEndReg.remove();
+        if (gridColReorderReg != null)
+            gridColReorderReg.remove();
+
+        com.vaadinerp.components.StandardGridUtils.cleanGridBeforeRebuild(grid);
+        grid.setSelectionMode(Grid.SelectionMode.MULTI);
+
         List<FieldMeta> childFields = childFormDef.getFields().stream()
                 .filter(FieldMeta::isShowInGrid)
                 .collect(Collectors.toList());
@@ -301,7 +362,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 @SuppressWarnings("unchecked")
                 HasValue<?, Object> hv = (HasValue<?, Object>) targetComp;
                 Object convertedVal = convertToFieldValue(val, targetComp);
-                if (convertedVal != null && !convertedVal.equals(hv.getValue()) || (convertedVal == null && hv.getValue() != null)) {
+                if (convertedVal != null && !convertedVal.equals(hv.getValue())
+                        || (convertedVal == null && hv.getValue() != null)) {
                     hv.setValue(convertedVal);
                 }
             }
@@ -314,7 +376,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         for (FieldMeta field : childFields) {
             String fieldName = field.getFieldName();
-            Grid.Column<Map<String, Object>> col = grid.addColumn(map -> ComponentFactory.formatFieldValueWithLov(field, map.get(fieldName), dataService))
+            Grid.Column<Map<String, Object>> col = grid
+                    .addColumn(map -> ComponentFactory.formatFieldValueWithLov(field, map.get(fieldName), dataService))
                     .setHeader(field.getFieldLabel())
                     .setAutoWidth(true)
                     .setFlexGrow(1)
@@ -340,16 +403,17 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 builder.asRequired(field.getFieldLabel() + " wajib diisi");
             }
             builder.bind(map -> convertToFieldValue(map.get(fieldName), editorComp),
-                         (map, val) -> {
-                             map.put(fieldName, val);
-                             evaluateRowFormulas(map);
-                             if (grid.getDataProvider() instanceof ListDataProvider) {
-                                 @SuppressWarnings("unchecked")
-                                 ListDataProvider<Map<String, Object>> dp = (ListDataProvider<Map<String, Object>>) grid.getDataProvider();
-                                 dp.refreshItem(map);
-                             }
-                             updateValue();
-                         });
+                    (map, val) -> {
+                        map.put(fieldName, val);
+                        evaluateRowFormulas(map);
+                        if (grid.getDataProvider() instanceof ListDataProvider) {
+                            @SuppressWarnings("unchecked")
+                            ListDataProvider<Map<String, Object>> dp = (ListDataProvider<Map<String, Object>>) grid
+                                    .getDataProvider();
+                            dp.refreshItem(map);
+                        }
+                        updateValue();
+                    });
         }
 
         // 2. Setup Header Filter Row
@@ -404,14 +468,15 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             contextMenu.addItem("Blank", listener);
             contextMenu.addItem("Not blank", listener);
 
-            contextMenu.addItem(new com.vaadin.flow.component.html.Hr(), e -> {});
+            contextMenu.addItem(new com.vaadin.flow.component.html.Hr(), e -> {
+            });
             contextMenu.addItem(col.isFrozen() ? "Unfreeze Column" : "Freeze Column", event -> {
                 boolean nextFrozen = !col.isFrozen();
                 col.setFrozen(nextFrozen);
                 event.getSource().setText(nextFrozen ? "Unfreeze Column" : "Freeze Column");
                 com.vaadin.flow.component.notification.Notification.show(
-                    nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END
-                );
+                        nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000,
+                        com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
             });
 
             filterField.addValueChangeListener(e -> {
@@ -427,19 +492,19 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         // 3. Row Drag and Drop
         grid.setRowsDraggable(true);
-        grid.addDragStartListener(event -> {
+        gridDragStartReg = grid.addDragStartListener(event -> {
             if (!event.getDraggedItems().isEmpty()) {
                 draggedItem = event.getDraggedItems().get(0);
                 grid.setDropMode(com.vaadin.flow.component.grid.dnd.GridDropMode.BETWEEN);
             }
         });
 
-        grid.addDropListener(event -> {
+        gridDropReg = grid.addDropListener(event -> {
             Map<String, Object> targetItem = event.getDropTargetItem().orElse(null);
             if (targetItem != null && draggedItem != null && targetItem != draggedItem) {
                 int indexDragged = findIndexByReference(items, draggedItem);
                 int indexTarget = findIndexByReference(items, targetItem);
-                
+
                 if (indexDragged >= 0 && indexTarget >= 0) {
                     items.remove(indexDragged);
                     int newIndex = findIndexByReference(items, targetItem);
@@ -455,14 +520,14 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             draggedItem = null;
         });
 
-        grid.addDragEndListener(event -> {
+        gridDragEndReg = grid.addDragEndListener(event -> {
             draggedItem = null;
             grid.setDropMode(null);
         });
 
         // 4. Column Reordering
         grid.setColumnReorderingAllowed(true);
-        grid.addColumnReorderListener(event -> {
+        gridColReorderReg = grid.addColumnReorderListener(event -> {
             List<Grid.Column<Map<String, Object>>> newOrder = event.getColumns();
             List<String> orderedFieldNames = new ArrayList<>();
             for (Grid.Column<Map<String, Object>> col : newOrder) {
@@ -475,12 +540,16 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 dataService.saveUserGridOrder(childFormDef.getFormCode(), "subformGrid", orderedFieldNames);
                 Notification.show("Urutan kolom detail disimpan", 1500, Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
-                Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
+                Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000,
+                        Notification.Position.MIDDLE);
             }
         });
 
         List<String> subformUserOrder = dataService.getUserGridOrder(childFormDef.getFormCode(), "subformGrid");
         com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(grid, columnToFieldNameMap, subformUserOrder);
+        if (grid.getDataProvider() != null) {
+            grid.getDataProvider().refreshAll();
+        }
     }
 
     private Object convertToFieldValue(Object rawVal, Component comp) {
@@ -496,7 +565,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         if (comp instanceof TextField) {
             return rawVal.toString();
         }
-        if (comp instanceof com.vaadin.flow.component.textfield.IntegerField || comp instanceof com.vaadinerp.components.FormattedIntegerField) {
+        if (comp instanceof com.vaadin.flow.component.textfield.IntegerField
+                || comp instanceof com.vaadinerp.components.FormattedIntegerField) {
             if (rawVal instanceof Number) {
                 return ((Number) rawVal).intValue();
             }
@@ -506,7 +576,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 return null;
             }
         }
-        if (comp instanceof com.vaadin.flow.component.textfield.BigDecimalField || comp instanceof com.vaadinerp.components.FormattedBigDecimalField) {
+        if (comp instanceof com.vaadin.flow.component.textfield.BigDecimalField
+                || comp instanceof com.vaadinerp.components.FormattedBigDecimalField) {
             if (rawVal instanceof java.math.BigDecimal) {
                 return rawVal;
             }
@@ -540,14 +611,18 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     public void setParentFieldValue(String parentFieldName, Object value) {
-        if (childFormDef == null) return;
+        if (childFormDef == null)
+            return;
         for (FieldMeta field : childFormDef.getFields()) {
             if (field.getFilters() != null) {
                 for (com.vaadinerp.meta.FieldFilterMeta filter : field.getFilters()) {
-                    if ("FIELD".equalsIgnoreCase(filter.getSourceType()) && parentFieldName.equalsIgnoreCase(filter.getSourceName())) {
+                    if ("FIELD".equalsIgnoreCase(filter.getSourceType())
+                            && parentFieldName.equalsIgnoreCase(filter.getSourceName())) {
                         Component editorComp = editorComponents.get(field.getFieldName());
                         if (editorComp != null) {
-                            FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), value, filter.getLogicalOperator(), filter.getComparisonOperator());
+                            FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
+                                    filter.getFilterColumn(), value, filter.getLogicalOperator(),
+                                    filter.getComparisonOperator());
                             if (editorComp instanceof BandboxField) {
                                 ((BandboxField<?, ?>) editorComp).setFilterValue(condition);
                             } else if (editorComp instanceof LovComboBox) {
@@ -569,9 +644,11 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     public boolean validateRows() {
         if (grid.getEditor().isOpen()) {
             boolean ok = grid.getEditor().getBinder().validate().isOk();
-            if (!ok) return false;
+            if (!ok)
+                return false;
         }
-        if (childFormDef == null) return true;
+        if (childFormDef == null)
+            return true;
         for (Map<String, Object> row : items) {
             for (FieldMeta field : childFormDef.getFields()) {
                 if (field.isRequired()) {
@@ -591,13 +668,14 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     private void evaluateRowFormulas(Map<String, Object> row) {
-        if (childFormDef == null) return;
+        if (childFormDef == null)
+            return;
         for (FieldMeta field : childFormDef.getFields()) {
             if (field.getFormula() != null && !field.getFormula().trim().isEmpty()) {
                 try {
                     double calculated = com.vaadinerp.util.FormulaEvaluator.evaluate(field.getFormula(), row);
                     row.put(field.getFieldName(), calculated);
-                    
+
                     Component editorComp = editorComponents.get(field.getFieldName());
                     if (editorComp instanceof com.vaadin.flow.component.HasValue) {
                         @SuppressWarnings("unchecked")
@@ -607,7 +685,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                             hasValue.setValue(converted);
                         }
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         }
     }
@@ -649,5 +728,36 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         if (readOnly && grid.getEditor().isOpen()) {
             grid.getEditor().cancel();
         }
+    }
+
+    private void applyTargetMapping(Map<String, Object> destRow, Map<String, Object> srcRecord, String targetMapping) {
+        if (targetMapping == null || targetMapping.trim().isEmpty()) return;
+        String clean = targetMapping.trim();
+        if (clean.startsWith("{") && clean.endsWith("}")) {
+            clean = clean.substring(1, clean.length() - 1).trim();
+        }
+        String[] pairs = clean.split(",");
+        for (String pair : pairs) {
+            String[] kv = pair.split(":");
+            if (kv.length < 2) kv = pair.split("=");
+            if (kv.length == 2) {
+                String destCol = kv[0].replaceAll("[\"']", "").trim();
+                String srcCol = kv[1].replaceAll("[\"']", "").trim();
+                Object val = null;
+                if (srcRecord != null) {
+                    val = getCaseInsensitiveVal(srcRecord, srcCol);
+                }
+                destRow.put(destCol, val);
+            }
+        }
+    }
+
+    private Object getCaseInsensitiveVal(Map<String, Object> map, String key) {
+        if (map == null || key == null) return null;
+        if (map.containsKey(key)) return map.get(key);
+        for (Map.Entry<String, Object> e : map.entrySet()) {
+            if (e.getKey().equalsIgnoreCase(key)) return e.getValue();
+        }
+        return null;
     }
 }

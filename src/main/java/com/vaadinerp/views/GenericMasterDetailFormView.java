@@ -78,6 +78,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     private final Map<Grid.Column<Map<String, Object>>, String> columnToFieldNameMap = new HashMap<>();
 
     private final HorizontalLayout masterGridToolbar = new HorizontalLayout();
+    private final HorizontalLayout dynamicDetailsActionsLayout = new HorizontalLayout();
 
     // Details Grid Filters and Reordering State
     private final List<Map<String, Object>> filteredDetailsList = new ArrayList<>();
@@ -92,6 +93,18 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
     // Flag to prevent cascading filter listeners from clearing child LOV values during data loading
     private boolean isLoadingExistingData = false;
+
+    // Registrations for listener deduplication
+    private com.vaadin.flow.shared.Registration masterDoubleClickReg;
+    private com.vaadin.flow.shared.Registration masterDragStartReg;
+    private com.vaadin.flow.shared.Registration masterDropReg;
+    private com.vaadin.flow.shared.Registration masterDragEndReg;
+    private com.vaadin.flow.shared.Registration masterColReorderReg;
+
+    private com.vaadin.flow.shared.Registration detailDragStartReg;
+    private com.vaadin.flow.shared.Registration detailDropReg;
+    private com.vaadin.flow.shared.Registration detailDragEndReg;
+    private com.vaadin.flow.shared.Registration detailColReorderReg;
 
     private Object getMapValIgnoreCase(Map<String, Object> rec, String col) {
         if (col == null || rec == null) return null;
@@ -198,7 +211,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         Button btnDeleteRow = new Button("Hapus Baris", VaadinIcon.TRASH.create());
         btnDeleteRow.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
 
-        Button btnResetDetailsGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        Button btnResetDetailsGrid = new Button("Reset Layout Grid", VaadinIcon.ROTATE_LEFT.create());
         btnResetDetailsGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         btnResetDetailsGrid.addClickListener(e -> {
             if (currentFormDef != null) {
@@ -208,7 +221,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
         });
 
-        detailsToolbar.add(detailTitle, btnAddRow, btnDeleteRow, btnResetDetailsGrid);
+        detailsToolbar.add(detailTitle, btnAddRow, btnDeleteRow, btnResetDetailsGrid, dynamicDetailsActionsLayout);
 
         detailsGrid.setWidthFull();
         detailsGrid.setSelectionMode(Grid.SelectionMode.MULTI);
@@ -317,7 +330,65 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         buildMasterForm(formDef);
         buildMasterGrid(formDef);
         buildDetailsGrid(formDef);
+        buildDetailsActions(formDef);
         refreshMasterGridData();
+    }
+
+    private void buildDetailsActions(FormMeta formDef) {
+        dynamicDetailsActionsLayout.removeAll();
+        if (formDef == null || dynamicDataService == null) return;
+        List<com.vaadinerp.meta.FormActionMeta> actions = dynamicDataService.getFormActions(formDef.getFormCode(), "DETAIL_TOOLBAR");
+        for (com.vaadinerp.meta.FormActionMeta act : actions) {
+            Icon icon = null;
+            if (act.getIconName() != null && !act.getIconName().isBlank()) {
+                try {
+                    icon = VaadinIcon.valueOf(act.getIconName().toUpperCase()).create();
+                } catch (Exception ignored) {}
+            }
+            Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
+            actBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
+            actBtn.addClickListener(e -> {
+                Editor<Map<String, Object>> editor = detailsGrid.getEditor();
+                if (editor.isOpen()) {
+                    editor.cancel();
+                }
+                Map<String, Object> headerBean = formBinder.getBean();
+                com.vaadinerp.components.DynamicPickerPopupDialog dlg = new com.vaadinerp.components.DynamicPickerPopupDialog(act, dynamicDataService, headerBean, selectedRecords -> {
+                    for (Map<String, Object> srcRec : selectedRecords) {
+                        Map<String, Object> newRow = new HashMap<>();
+                        newRow.put("_tempId", java.util.UUID.randomUUID().toString());
+                        applyTargetMapping(newRow, srcRec, act.getTargetMapping());
+                        detailsList.add(newRow);
+                    }
+                    applyDetailsFilters();
+                    applyMasterFiltersToDetailEditors(currentFormDef);
+                });
+                dlg.open();
+            });
+            dynamicDetailsActionsLayout.add(actBtn);
+        }
+    }
+
+    private void applyTargetMapping(Map<String, Object> destRow, Map<String, Object> srcRecord, String targetMapping) {
+        if (targetMapping == null || targetMapping.trim().isEmpty()) return;
+        String clean = targetMapping.trim();
+        if (clean.startsWith("{") && clean.endsWith("}")) {
+            clean = clean.substring(1, clean.length() - 1).trim();
+        }
+        String[] pairs = clean.split(",");
+        for (String pair : pairs) {
+            String[] kv = pair.split(":");
+            if (kv.length < 2) kv = pair.split("=");
+            if (kv.length == 2) {
+                String destCol = kv[0].replaceAll("[\"']", "").trim();
+                String srcCol = kv[1].replaceAll("[\"']", "").trim();
+                Object val = null;
+                if (srcRecord != null) {
+                    val = getValueCaseInsensitive(srcRecord, srcCol);
+                }
+                putValueCaseInsensitive(destRow, destCol, val);
+            }
+        }
     }
 
     private void buildToolbar(FormMeta formDef) {
@@ -693,7 +764,13 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     }
 
     private void buildMasterGrid(FormMeta formDef) {
-        masterGrid.removeAllColumns();
+        if (masterDoubleClickReg != null) masterDoubleClickReg.remove();
+        if (masterDragStartReg != null) masterDragStartReg.remove();
+        if (masterDropReg != null) masterDropReg.remove();
+        if (masterDragEndReg != null) masterDragEndReg.remove();
+        if (masterColReorderReg != null) masterColReorderReg.remove();
+
+        com.vaadinerp.components.StandardGridUtils.cleanGridBeforeRebuild(masterGrid);
         masterGrid.setSelectionMode(Grid.SelectionMode.MULTI);
         columnToFieldNameMap.clear();
         filterValues.clear();
@@ -707,7 +784,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         sectionTitle.getStyle().set("margin", "0");
         sectionTitle.getStyle().set("flex-grow", "1");
 
-        Button btnResetMasterGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        Button btnResetMasterGrid = new Button("Reset Layout Grid", VaadinIcon.ROTATE_LEFT.create());
         btnResetMasterGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         btnResetMasterGrid.addClickListener(e -> {
             if (currentFormDef != null) {
@@ -719,7 +796,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         masterGridToolbar.add(sectionTitle, btnResetMasterGrid);
 
-        masterGrid.addItemDoubleClickListener(event -> {
+        masterDoubleClickReg = masterGrid.addItemDoubleClickListener(event -> {
             Map<String, Object> selectedMaster = event.getItem();
             if (selectedMaster != null) {
                 String pk = formDef.getPrimaryKey() != null ? formDef.getPrimaryKey() : "id";
@@ -888,14 +965,14 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         // 3. Row Drag and Drop
         masterGrid.setRowsDraggable(true);
-        masterGrid.addDragStartListener(event -> {
+        masterDragStartReg = masterGrid.addDragStartListener(event -> {
             if (!event.getDraggedItems().isEmpty()) {
                 draggedItem = event.getDraggedItems().get(0);
                 masterGrid.setDropMode(com.vaadin.flow.component.grid.dnd.GridDropMode.BETWEEN);
             }
         });
 
-        masterGrid.addDropListener(event -> {
+        masterDropReg = masterGrid.addDropListener(event -> {
             Map<String, Object> targetItem = event.getDropTargetItem().orElse(null);
             if (targetItem != null && draggedItem != null && targetItem != draggedItem) {
                 int indexDragged = findIndexByReference(allMasterGridItems, draggedItem);
@@ -915,14 +992,14 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             draggedItem = null;
         });
 
-        masterGrid.addDragEndListener(event -> {
+        masterDragEndReg = masterGrid.addDragEndListener(event -> {
             draggedItem = null;
             masterGrid.setDropMode(null);
         });
 
         // 4. Column Reordering
         masterGrid.setColumnReorderingAllowed(true);
-        masterGrid.addColumnReorderListener(event -> {
+        masterColReorderReg = masterGrid.addColumnReorderListener(event -> {
             java.util.List<Grid.Column<Map<String, Object>>> newOrder = event.getColumns();
             java.util.List<String> orderedFieldNames = new java.util.ArrayList<>();
             for (Grid.Column<Map<String, Object>> col : newOrder) {
@@ -941,10 +1018,16 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         java.util.List<String> masterUserOrder = dynamicDataService.getUserGridOrder(currentFormCode, "masterGrid");
         com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(masterGrid, columnToFieldNameMap, masterUserOrder);
+        applyFilters();
     }
 
     private void buildDetailsGrid(FormMeta formDef) {
-        detailsGrid.removeAllColumns();
+        if (detailDragStartReg != null) detailDragStartReg.remove();
+        if (detailDropReg != null) detailDropReg.remove();
+        if (detailDragEndReg != null) detailDragEndReg.remove();
+        if (detailColReorderReg != null) detailColReorderReg.remove();
+
+        com.vaadinerp.components.StandardGridUtils.cleanGridBeforeRebuild(detailsGrid);
         detailsGrid.setSelectionMode(Grid.SelectionMode.MULTI);
         detailsColumnToFieldNameMap.clear();
         detailsFilterValues.clear();
@@ -1215,14 +1298,14 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         // 3. Row Drag and Drop for Details Grid
         detailsGrid.setRowsDraggable(true);
-        detailsGrid.addDragStartListener(event -> {
+        detailDragStartReg = detailsGrid.addDragStartListener(event -> {
             if (!event.getDraggedItems().isEmpty()) {
                 draggedDetailItem = event.getDraggedItems().get(0);
                 detailsGrid.setDropMode(com.vaadin.flow.component.grid.dnd.GridDropMode.BETWEEN);
             }
         });
 
-        detailsGrid.addDropListener(event -> {
+        detailDropReg = detailsGrid.addDropListener(event -> {
             Map<String, Object> targetItem = event.getDropTargetItem().orElse(null);
             if (targetItem != null && draggedDetailItem != null && targetItem != draggedDetailItem) {
                 int indexDragged = findIndexByReference(detailsList, draggedDetailItem);
@@ -1242,14 +1325,14 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             draggedDetailItem = null;
         });
 
-        detailsGrid.addDragEndListener(event -> {
+        detailDragEndReg = detailsGrid.addDragEndListener(event -> {
             draggedDetailItem = null;
             detailsGrid.setDropMode(null);
         });
 
         // 4. Column Reordering for Details Grid
         detailsGrid.setColumnReorderingAllowed(true);
-        detailsGrid.addColumnReorderListener(event -> {
+        detailColReorderReg = detailsGrid.addColumnReorderListener(event -> {
             java.util.List<Grid.Column<Map<String, Object>>> newOrder = event.getColumns();
             java.util.List<String> orderedFieldNames = new java.util.ArrayList<>();
             for (Grid.Column<Map<String, Object>> col : newOrder) {
@@ -1268,6 +1351,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         java.util.List<String> detailsUserOrder = dynamicDataService.getUserGridOrder(currentFormCode, "detailsGrid");
         com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(detailsGrid, detailsColumnToFieldNameMap, detailsUserOrder);
+        applyDetailsFilters();
     }
 
     private void applyDetailsFilters() {

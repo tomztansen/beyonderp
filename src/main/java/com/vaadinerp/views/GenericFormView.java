@@ -1,6 +1,7 @@
 package com.vaadinerp.views;
 
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
@@ -90,6 +91,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     // Flag to prevent cascading filter listeners from clearing child LOV values
     // during data loading
     private boolean isLoadingExistingData = false;
+
+    // Registrations for listener deduplication
+    private com.vaadin.flow.shared.Registration gridDoubleClickReg;
+    private com.vaadin.flow.shared.Registration gridDragStartReg;
+    private com.vaadin.flow.shared.Registration gridDropReg;
+    private com.vaadin.flow.shared.Registration gridDragEndReg;
+    private com.vaadin.flow.shared.Registration gridColReorderReg;
 
     private Object getMapValIgnoreCase(Map<String, Object> rec, String col) {
         if (col == null || rec == null)
@@ -770,8 +778,23 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     }
 
     private void buildInlineEditingGrid(FormMeta formDef) {
-        grid.removeAllColumns();
-        grid.setSelectionMode(Grid.SelectionMode.MULTI);
+        if (gridDoubleClickReg != null)
+            gridDoubleClickReg.remove();
+        if (gridDragStartReg != null)
+            gridDragStartReg.remove();
+        if (gridDropReg != null)
+            gridDropReg.remove();
+        if (gridDragEndReg != null)
+            gridDragEndReg.remove();
+        if (gridColReorderReg != null)
+            gridColReorderReg.remove();
+
+        com.vaadinerp.components.StandardGridUtils.cleanGridBeforeRebuild(grid);
+        grid.addSelectionListener(e -> {
+            System.out.println(">>> SELECTION EVENT DITERIMA SERVER: " + e.getAllSelectedItems().size());
+        });
+        // grid.setSelectionMode(Grid.SelectionMode.MULTI);
+
         columnToFieldNameMap.clear(); // reset mapping setiap kali grid dibangun ulang
 
         // 1. Konfigurasi Toolbar Grid
@@ -795,7 +818,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         gridToolbar.add(sectionTitle, btnResetGridToolbar);
 
         // Double Click Listener to load data into form and switch tab
-        grid.addItemDoubleClickListener(event -> {
+        gridDoubleClickReg = grid.addItemDoubleClickListener(event -> {
             Map<String, Object> selectedRow = event.getItem();
             if (selectedRow != null) {
                 String pk = formDef.getPrimaryKey() != null ? formDef.getPrimaryKey() : "id";
@@ -965,14 +988,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // 3. Konfigurasi Drag and Drop untuk Row Reordering
         grid.setRowsDraggable(true);
 
-        grid.addDragStartListener(event -> {
+        gridDragStartReg = grid.addDragStartListener(event -> {
             if (!event.getDraggedItems().isEmpty()) {
                 draggedItem = event.getDraggedItems().get(0);
                 grid.setDropMode(GridDropMode.BETWEEN);
             }
         });
 
-        grid.addDropListener(event -> {
+        gridDropReg = grid.addDropListener(event -> {
             Map<String, Object> targetItem = event.getDropTargetItem().orElse(null);
             if (targetItem != null && draggedItem != null && targetItem != draggedItem) {
                 int indexDragged = findIndexByReference(allGridItems, draggedItem);
@@ -992,7 +1015,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             draggedItem = null;
         });
 
-        grid.addDragEndListener(event -> {
+        gridDragEndReg = grid.addDragEndListener(event -> {
             draggedItem = null;
             grid.setDropMode(null);
         });
@@ -1000,7 +1023,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // ====== 4. AKTIFKAN COLUMN REORDERING (Drag-and-drop GESER KOLOM) ======
         grid.setColumnReorderingAllowed(true);
 
-        grid.addColumnReorderListener(event -> {
+        gridColReorderReg = grid.addColumnReorderListener(event -> {
             java.util.List<Grid.Column<Map<String, Object>>> newOrder = event.getColumns();
 
             // Terjemahkan urutan Column baru menjadi daftar nama field, sesuai urutan
@@ -1131,7 +1154,19 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         gridItems.clear();
         gridItems.addAll(filtered);
-        grid.setItems(new java.util.ArrayList<>(gridItems));
+        grid.setDataProvider(new com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>(
+                new java.util.ArrayList<>(gridItems)) {
+            @Override
+            public Object getId(Map<String, Object> item) {
+                if (item == null)
+                    return 0;
+                String pk = currentFormDef != null && currentFormDef.getPrimaryKey() != null
+                        ? currentFormDef.getPrimaryKey()
+                        : "id";
+                Object pkVal = item.get(pk);
+                return pkVal != null ? pkVal : System.identityHashCode(item);
+            }
+        });
     }
 
     private void evaluateFormulas() {

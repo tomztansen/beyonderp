@@ -29,6 +29,9 @@ public class DynamicDataService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.vaadinerp.security.service.SessionSecurityService securityService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.vaadinerp.meta.FormActionMetaRepository formActionMetaRepository;
+
     public DynamicDataService(JdbcTemplate jdbcTemplate, LovMetaRepository lovMetaRepository, FormMetaRepository formMetaRepository) {
         this.jdbcTemplate = jdbcTemplate;
         this.lovMetaRepository = lovMetaRepository;
@@ -358,15 +361,16 @@ public class DynamicDataService {
 
     public Optional<LovMeta> getLovMeta(String lovCode) {
         if (lovCode == null) return Optional.empty();
-        Optional<LovMeta> existing = lovMetaRepository.findById(lovCode);
-        if (existing.isPresent()) {
-            return existing;
-        }
-        
-        // Fallback to FormMeta if the code matches a Form definition
         Optional<FormMeta> formOpt = formMetaRepository.findById(lovCode);
+        Optional<LovMeta> existing = lovMetaRepository.findById(lovCode);
         if (formOpt.isPresent()) {
             FormMeta form = formOpt.get();
+            String historicalGridCols = buildHistoricalGridCols(form);
+            if (existing.isPresent()) {
+                LovMeta lov = existing.get();
+                lov.setGridColumns(historicalGridCols);
+                return Optional.of(lov);
+            }
             LovMeta lov = new LovMeta();
             lov.setLovCode(form.getFormCode());
             lov.setLovName(form.getFormTitle());
@@ -422,35 +426,51 @@ public class DynamicDataService {
             } else {
                 lov.setSearchColumn(String.join(",", searchCols));
             }
-            
-            // Build default grid columns config dynamically from form fields
-            StringBuilder gridCols = new StringBuilder();
+            lov.setGridColumns(historicalGridCols);
+            return Optional.of(lov);
+        }
+        return existing;
+    }
+
+    private String buildHistoricalGridCols(FormMeta form) {
+        List<FieldMeta> sortedFields = form.getFields() != null ? new ArrayList<>(form.getFields()) : new ArrayList<>();
+        sortedFields = sortedFields.stream()
+                .filter(f -> !f.isDetail() && f.isShowInGrid())
+                .collect(java.util.stream.Collectors.toList());
+        sortedFields.sort((f1, f2) -> {
+            Integer o1 = f1.getColOrder() != null ? f1.getColOrder() : Integer.MAX_VALUE;
+            Integer o2 = f2.getColOrder() != null ? f2.getColOrder() : Integer.MAX_VALUE;
+            return o1.compareTo(o2);
+        });
+
+        StringBuilder gridCols = new StringBuilder();
+        if (!sortedFields.isEmpty()) {
+            for (int i = 0; i < sortedFields.size(); i++) {
+                FieldMeta field = sortedFields.get(i);
+                if (i > 0) gridCols.append(",");
+                String fName = field.getFieldName();
+                String label = (field.getFieldLabel() != null && !field.getFieldLabel().trim().isEmpty())
+                               ? field.getFieldLabel().trim() : fName;
+                gridCols.append(fName).append(":").append(label).append(":150px");
+            }
+        } else {
+            String pk = form.getPrimaryKey() != null ? form.getPrimaryKey() : "id";
             gridCols.append(pk).append(":").append(pk.toUpperCase()).append(":100px");
-            boolean hasOther = false;
+            String labelCol = pk;
             if (form.getFields() != null) {
                 for (FieldMeta field : form.getFields()) {
                     if (field.isDetail()) continue;
-                    String fName = field.getFieldName();
-                    if (fName.equalsIgnoreCase(pk)) continue;
-                    if (field.isShowInGrid()) {
-                        gridCols.append(",")
-                                .append(fName)
-                                .append(":")
-                                .append(field.getFieldLabel() != null ? field.getFieldLabel() : fName)
-                                .append(":150px");
-                        hasOther = true;
+                    if (!field.getFieldName().equalsIgnoreCase(pk)) {
+                        labelCol = field.getFieldName();
+                        break;
                     }
                 }
             }
-            if (!hasOther && !labelCol.equalsIgnoreCase(pk)) {
+            if (!labelCol.equalsIgnoreCase(pk)) {
                 gridCols.append(",").append(labelCol).append(":").append(labelCol.toUpperCase()).append(":250px");
             }
-            lov.setGridColumns(gridCols.toString());
-            
-            return Optional.of(lov);
         }
-        
-        return Optional.empty();
+        return gridCols.toString();
     }
 
     @Transactional
@@ -1661,6 +1681,97 @@ public class DynamicDataService {
                 } catch (Exception ignored) {}
             }
             ensureAuditColumnsExist(detailTableName);
+        }
+    }
+
+    public List<com.vaadinerp.meta.FormActionMeta> getFormActions(String formCode, String targetScope) {
+        if (formActionMetaRepository == null || formCode == null) return java.util.Collections.emptyList();
+        if (targetScope == null) {
+            return formActionMetaRepository.findByFormMeta_FormCode(formCode);
+        }
+        return formActionMetaRepository.findByFormMeta_FormCodeAndTargetScope(formCode, targetScope);
+    }
+
+    public List<Map<String, Object>> fetchLovDataWithActionFilters(String sourceLovCode, String filterMapping, Map<String, Object> headerRecord, String searchTerm) {
+        if (sourceLovCode == null || sourceLovCode.trim().isEmpty()) return new ArrayList<>();
+        LovMeta lovMeta = getLovMeta(sourceLovCode).orElse(null);
+        String srcTable = lovMeta != null ? lovMeta.getTableName() : sourceLovCode;
+        String searchCol = lovMeta != null ? lovMeta.getSearchColumn() : null;
+
+        StringBuilder sql = new StringBuilder();
+        String trimmed = srcTable.trim();
+        if (trimmed.toLowerCase().startsWith("select")) {
+            sql.append("SELECT * FROM ( ").append(trimmed).append(" ) AS subquery");
+        } else {
+            sql.append("SELECT * FROM ").append(getLovQualifiedTableName(trimmed));
+        }
+
+        List<Object> params = new ArrayList<>();
+        List<String> conditions = new ArrayList<>();
+
+        if (filterMapping != null && !filterMapping.trim().isEmpty()) {
+            String cleanMapping = filterMapping.trim();
+            if (cleanMapping.startsWith("{") && cleanMapping.endsWith("}")) {
+                cleanMapping = cleanMapping.substring(1, cleanMapping.length() - 1).trim();
+            }
+            String[] pairs = cleanMapping.split(",");
+            for (String pair : pairs) {
+                String[] kv = pair.split(":");
+                if (kv.length < 2) kv = pair.split("=");
+                if (kv.length == 2) {
+                    String col = kv[0].replaceAll("[\"']", "").trim();
+                    String valSpec = kv[1].trim();
+                    Object paramVal = null;
+                    if (valSpec.startsWith("header.") || valSpec.startsWith("\"header.")) {
+                        String headerKey = valSpec.replaceAll("[\"']", "").substring(valSpec.indexOf("header.") + "header.".length()).trim();
+                        if (headerRecord != null) {
+                            paramVal = getCaseInsensitiveValue(headerRecord, headerKey);
+                        }
+                    } else if (valSpec.startsWith("'") && valSpec.endsWith("'")) {
+                        paramVal = valSpec.substring(1, valSpec.length() - 1);
+                    } else if (valSpec.startsWith("\"") && valSpec.endsWith("\"")) {
+                        paramVal = valSpec.substring(1, valSpec.length() - 1);
+                    } else {
+                        try {
+                            paramVal = Double.parseDouble(valSpec);
+                        } catch (Exception e) {
+                            paramVal = valSpec;
+                        }
+                    }
+                    if (paramVal != null) {
+                        conditions.add(col + " = ?");
+                        params.add(paramVal);
+                    }
+                }
+            }
+        }
+
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            if (searchCol == null || searchCol.trim().isEmpty()) {
+                List<String> allCols = getColumnsForQueryOrTable(trimmed);
+                if (!allCols.isEmpty()) searchCol = String.join(",", allCols);
+            }
+            if (searchCol != null && !searchCol.trim().isEmpty()) {
+                String[] cols = searchCol.split(",");
+                java.util.StringJoiner orJoiner = new java.util.StringJoiner(" OR ");
+                for (String col : cols) {
+                    orJoiner.add("CAST(" + col.trim() + " AS text) ILIKE ?");
+                    params.add("%" + searchTerm + "%");
+                }
+                conditions.add("(" + orJoiner.toString() + ")");
+            }
+        }
+
+        if (!conditions.isEmpty()) {
+            sql.append(" WHERE ").append(String.join(" AND ", conditions));
+        }
+        sql.append(" LIMIT 100");
+
+        try {
+            return jdbcTemplate.queryForList(sql.toString(), params.toArray());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ArrayList<>();
         }
     }
 }

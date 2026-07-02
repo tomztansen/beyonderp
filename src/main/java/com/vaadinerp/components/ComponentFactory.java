@@ -730,6 +730,7 @@ public class ComponentFactory {
 
                 com.vaadinerp.meta.LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
                 if (lovMeta != null) {
+                    com.vaadinerp.meta.FormMeta targetForm = dataService.getFormMetaRepository().findById(lovCode).orElse(null);
                     // 1. Dinamis menambahkan kolom ke Grid berdasarkan gridColumns (misal:
                     // "dept_code:Kode:100px,dept_name:Nama:200px")
                     String gridColsStr = lovMeta.getGridColumns();
@@ -741,32 +742,75 @@ public class ComponentFactory {
                             String colHeader = parts.length > 1 ? parts[1] : colName;
                             String colWidth = parts.length > 2 ? parts[2] : "150px";
 
-                            bandbox.getGrid()
-                                    .addColumn(row -> row.get(colName) != null ? row.get(colName).toString() : "")
+                            com.vaadinerp.meta.FieldMeta targetField = (targetForm != null && targetForm.getFields() != null)
+                                    ? targetForm.getFields().stream()
+                                            .filter(f -> f.getFieldName().equalsIgnoreCase(colName))
+                                            .findFirst().orElse(null)
+                                    : null;
+
+                            com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col = bandbox.getGrid()
+                                    .addColumn(row -> {
+                                        Object valObj = getCaseInsensitiveVal(row, colName);
+                                        return formatFieldValueWithLov(targetField, valObj, dataService);
+                                    })
                                     .setHeader(colHeader)
-                                    .setWidth(colWidth);
+                                    .setAutoWidth(true)
+                                    .setFlexGrow(1)
+                                    .setResizable(true);
+
+                            if (targetField != null) {
+                                col.setSortable(targetField.isSortable());
+                                col.setComparator((map1, map2) -> {
+                                    Object val1 = getCaseInsensitiveVal(map1, colName);
+                                    Object val2 = getCaseInsensitiveVal(map2, colName);
+                                    if (val1 == null && val2 == null) return 0;
+                                    if (val1 == null) return -1;
+                                    if (val2 == null) return 1;
+                                    String fLovCode = targetField.getLovCode();
+                                    if (fLovCode != null && !fLovCode.trim().isEmpty()) {
+                                        String s1 = formatFieldValueWithLov(targetField, val1, dataService);
+                                        String s2 = formatFieldValueWithLov(targetField, val2, dataService);
+                                        return s1.compareToIgnoreCase(s2);
+                                    }
+                                    if (val1 instanceof Comparable && val2 instanceof Comparable) {
+                                        @SuppressWarnings("unchecked")
+                                        Comparable<Object> comp1 = (Comparable<Object>) val1;
+                                        return comp1.compareTo(val2);
+                                    }
+                                    return val1.toString().compareTo(val2.toString());
+                                });
+                            } else {
+                                col.setWidth(colWidth);
+                            }
                         }
                     } else {
                         List<String> allCols = dataService.getColumnsForQueryOrTable(lovMeta.getTableName());
                         if (allCols.isEmpty()) {
                             bandbox.getGrid()
-                                    .addColumn(row -> row.get(lovMeta.getValueColumn()) != null
-                                            ? row.get(lovMeta.getValueColumn()).toString()
-                                            : "")
-                                    .setHeader("Kode");
+                                    .addColumn(row -> {
+                                        Object valObj = getCaseInsensitiveVal(row, lovMeta.getValueColumn());
+                                        return valObj != null ? valObj.toString() : "";
+                                    })
+                                    .setHeader("Kode")
+                                    .setAutoWidth(true).setResizable(true);
                             bandbox.getGrid()
-                                    .addColumn(row -> row.get(lovMeta.getLabelColumn()) != null
-                                            ? row.get(lovMeta.getLabelColumn()).toString()
-                                            : "")
-                                    .setHeader("Nama");
+                                    .addColumn(row -> {
+                                        Object valObj = getCaseInsensitiveVal(row, lovMeta.getLabelColumn());
+                                        return valObj != null ? valObj.toString() : "";
+                                    })
+                                    .setHeader("Nama")
+                                    .setAutoWidth(true).setResizable(true);
                         } else {
                             for (String colName : allCols) {
                                 String header = colName.substring(0, 1).toUpperCase()
                                         + colName.substring(1).replace("_", " ");
                                 bandbox.getGrid()
-                                        .addColumn(row -> row.get(colName) != null ? row.get(colName).toString() : "")
+                                        .addColumn(row -> {
+                                            Object valObj = getCaseInsensitiveVal(row, colName);
+                                            return valObj != null ? valObj.toString() : "";
+                                        })
                                         .setHeader(header)
-                                        .setWidth("150px");
+                                        .setAutoWidth(true).setResizable(true);
                             }
                         }
                     }

@@ -30,22 +30,9 @@
     grid-column: 1 !important;
 }
 
-/* Layout untuk Checkbox TANPA LABEL (seperti di dalam Grid / Tabel): Rata tengah vertikal & horizontal */
-:host(:not([has-label])) .vaadin-checkbox-container {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
+/* Layout untuk Checkbox TANPA LABEL (seperti di dalam Grid / Tabel): Sembunyikan label kosong tanpa merusak hit-box native input */
 :host(:not([has-label])) [part='label'] {
     display: none !important;
-}
-
-:host(:not([has-label])) [part='checkbox'] {
-    margin: 0 !important;
 }
 
 ::slotted([slot="label"]) {
