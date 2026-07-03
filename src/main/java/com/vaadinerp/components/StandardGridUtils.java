@@ -8,8 +8,12 @@ import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.textfield.TextFieldVariant;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.data.value.ValueChangeMode;
+import com.vaadin.flow.server.StreamResource;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -308,5 +312,131 @@ public class StandardGridUtils {
         if (!reconciledOrder.isEmpty() && reconciledOrder.size() == grid.getColumns().size()) {
             grid.setColumnOrder(reconciledOrder);
         }
+    }
+
+    /**
+     * Membuat tombol Export Excel (berupa Anchor yang mengemas Button) untuk Grid apapun.
+     * Mengunduh isi Grid beserta header dalam format Excel CSV (UTF-8 BOM) yang siap dibuka di Microsoft Excel.
+     */
+    public static <T> Anchor createExportExcelButton(Grid<T> grid, String fileNamePrefix) {
+        return createExportExcelButton(grid, fileNamePrefix, null);
+    }
+
+    public static <T> Anchor createExportExcelButton(Grid<T> grid, String fileNamePrefix, Map<Grid.Column<T>, Function<T, String>> colGetterMap) {
+        Button btnExport = new Button("Export Excel", VaadinIcon.FILE_TABLE.create());
+        btnExport.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        btnExport.getStyle().set("cursor", "pointer");
+
+        StreamResource resource = new StreamResource(fileNamePrefix + "_" + System.currentTimeMillis() + ".csv", () -> {
+            try {
+                StringBuilder sb = new StringBuilder();
+                // Sep directive for Excel recognition of comma delimiter across locales
+                sb.append("sep=,\r\n");
+
+                List<Grid.Column<T>> columns = new ArrayList<>();
+                List<String> headers = new ArrayList<>();
+
+                for (Grid.Column<T> col : grid.getColumns()) {
+                    if (!col.isVisible()) continue;
+                    String headerText = col.getHeaderText();
+                    String key = col.getKey();
+                    if ((headerText == null || headerText.trim().isEmpty()) && (key == null || key.trim().isEmpty())) {
+                        continue;
+                    }
+                    columns.add(col);
+                    headers.add(headerText != null && !headerText.trim().isEmpty() ? headerText.trim() : key);
+                }
+
+                // Header Row
+                for (int i = 0; i < headers.size(); i++) {
+                    sb.append(escapeCsv(headers.get(i)));
+                    if (i < headers.size() - 1) sb.append(",");
+                }
+                sb.append("\r\n");
+
+                // Data Rows
+                List<T> items = new ArrayList<>();
+                try {
+                    grid.getListDataView().getItems().forEach(items::add);
+                } catch (Exception ignored) {
+                    if (grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
+                        items.addAll(((com.vaadin.flow.data.provider.ListDataProvider<T>) grid.getDataProvider()).getItems());
+                    }
+                }
+
+                for (T item : items) {
+                    if (item == null) continue;
+                    for (int i = 0; i < columns.size(); i++) {
+                        Grid.Column<T> col = columns.get(i);
+                        String val = extractCellValue(item, col, colGetterMap);
+                        sb.append(escapeCsv(val));
+                        if (i < columns.size() - 1) sb.append(",");
+                    }
+                    sb.append("\r\n");
+                }
+
+                byte[] bytes = sb.toString().getBytes(StandardCharsets.UTF_8);
+                byte[] bom = new byte[] { (byte)0xEF, (byte)0xBB, (byte)0xBF };
+                byte[] finalBytes = new byte[bom.length + bytes.length];
+                System.arraycopy(bom, 0, finalBytes, 0, bom.length);
+                System.arraycopy(bytes, 0, finalBytes, bom.length, bytes.length);
+
+                return new ByteArrayInputStream(finalBytes);
+            } catch (Exception e) {
+                return new ByteArrayInputStream("Error exporting data".getBytes(StandardCharsets.UTF_8));
+            }
+        });
+
+        Anchor anchor = new Anchor(resource, "");
+        anchor.getElement().setAttribute("download", true);
+        anchor.add(btnExport);
+        return anchor;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> String extractCellValue(T item, Grid.Column<T> col, Map<Grid.Column<T>, Function<T, String>> colGetterMap) {
+        if (colGetterMap != null && colGetterMap.containsKey(col) && colGetterMap.get(col) != null) {
+            String res = colGetterMap.get(col).apply(item);
+            return res != null ? res : "";
+        }
+        if (item instanceof Map) {
+            String key = col.getKey();
+            if (key != null) {
+                Object val = ((Map<String, Object>) item).get(key);
+                if (val == null) {
+                    for (Map.Entry<String, Object> entry : ((Map<String, Object>) item).entrySet()) {
+                        if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(key)) {
+                            val = entry.getValue();
+                            break;
+                        }
+                    }
+                }
+                return val != null ? val.toString() : "";
+            }
+        } else {
+            String key = col.getKey();
+            if (key != null && !key.trim().isEmpty()) {
+                try {
+                    String getterName = "get" + key.substring(0, 1).toUpperCase() + key.substring(1);
+                    java.lang.reflect.Method method = item.getClass().getMethod(getterName);
+                    Object val = method.invoke(item);
+                    return val != null ? val.toString() : "";
+                } catch (Exception ignored) {
+                    try {
+                        java.lang.reflect.Field field = item.getClass().getDeclaredField(key);
+                        field.setAccessible(true);
+                        Object val = field.get(item);
+                        return val != null ? val.toString() : "";
+                    } catch (Exception ignored2) {}
+                }
+            }
+        }
+        return "";
+    }
+
+    private static String escapeCsv(String str) {
+        if (str == null) return "";
+        String s = str.replace("\"", "\"\"");
+        return "\"" + s + "\"";
     }
 }

@@ -29,6 +29,7 @@ import com.vaadinerp.meta.FieldMeta;
 import com.vaadinerp.meta.FormMeta;
 import com.vaadinerp.meta.FormMetaRepository;
 import com.vaadinerp.service.DynamicDataService;
+import com.vaadinerp.util.FormulaEvaluator;
 import com.vaadin.flow.component.notification.Notification;
 
 
@@ -180,9 +181,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 .set("align-items", "center")
                 .set("gap", "15px");
 
-        masterGrid.setWidthFull();
+        masterGrid.setSizeFull();
+        masterGrid.setMinHeight("580px");
         masterGrid.setSelectionMode(Grid.SelectionMode.MULTI);
-        masterGrid.setAllRowsVisible(true);
 
         // Setup Tab Sheet layouts
         VerticalLayout historisLayout = new VerticalLayout();
@@ -190,6 +191,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         historisLayout.setPadding(true);
         historisLayout.setSpacing(true);
         historisLayout.add(masterGridToolbar, masterGrid);
+        historisLayout.expand(masterGrid);
         
         VerticalLayout transaksiLayout = new VerticalLayout();
         transaksiLayout.setWidthFull();
@@ -213,7 +215,6 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         Button btnResetDetailsGrid = new Button("Reset Layout Grid", VaadinIcon.ROTATE_LEFT.create());
         btnResetDetailsGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        btnResetDetailsGrid.getStyle().set("margin-left", "auto");
         btnResetDetailsGrid.addClickListener(e -> {
             if (currentFormDef != null) {
                 dynamicDataService.resetUserGridOrder(currentFormCode, "detailsGrid");
@@ -222,11 +223,13 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
         });
 
-        detailsToolbar.add(detailTitle, btnAddRow, btnDeleteRow, dynamicDetailsActionsLayout, btnResetDetailsGrid);
+        com.vaadin.flow.component.html.Anchor btnExportDetailsExcel = com.vaadinerp.components.StandardGridUtils.createExportExcelButton(detailsGrid, "details_export");
+        btnExportDetailsExcel.getStyle().set("margin-left", "auto");
+        detailsToolbar.add(detailTitle, btnAddRow, btnDeleteRow, dynamicDetailsActionsLayout, btnExportDetailsExcel, btnResetDetailsGrid);
 
         detailsGrid.setWidthFull();
+        detailsGrid.setMinHeight("300px");
         detailsGrid.setSelectionMode(Grid.SelectionMode.MULTI);
-        detailsGrid.setAllRowsVisible(true);
         
         transaksiLayout.add(formLayout, detailsToolbar, detailsGrid);
 
@@ -251,6 +254,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         });
 
         add(title, toolbar, tabSheet);
+        expand(tabSheet);
 
         // Bind Details Row Add/Delete Action
          btnAddRow.addClickListener(e -> {
@@ -831,7 +835,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
         });
 
-        masterGridToolbar.add(sectionTitle, btnResetMasterGrid);
+        com.vaadin.flow.component.html.Anchor btnExportMasterExcel = com.vaadinerp.components.StandardGridUtils.createExportExcelButton(masterGrid, currentFormCode != null ? currentFormCode + "_master_export" : "master_export");
+        masterGridToolbar.add(sectionTitle, btnExportMasterExcel, btnResetMasterGrid);
 
         masterDoubleClickReg = masterGrid.addItemDoubleClickListener(event -> {
             Map<String, Object> selectedMaster = event.getItem();
@@ -1217,7 +1222,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 for (FieldMeta field : detailFields) {
                     if (field.getFormula() != null && !field.getFormula().trim().isEmpty()) {
                         try {
-                            double calculated = com.vaadinerp.util.FormulaEvaluator.evaluate(field.getFormula(), tempRow);
+                            double calculated = FormulaEvaluator.evaluate(field.getFormula(), tempRow);
                             Component comp = detailEditorComponents.get(field.getFieldName());
                             if (comp instanceof HasValue) {
                                 @SuppressWarnings("unchecked")
@@ -1475,7 +1480,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         for (FieldMeta field : currentFormDef.getFields()) {
             if (field.isDetail() && field.getFormula() != null && !field.getFormula().trim().isEmpty()) {
                 try {
-                    double calculated = com.vaadinerp.util.FormulaEvaluator.evaluate(field.getFormula(), row);
+                    double calculated = FormulaEvaluator.evaluate(field.getFormula(), row);
                     row.put(field.getFieldName(), calculated);
                 } catch (Exception ignored) {}
             }
@@ -1503,7 +1508,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     continue;
                 }
                 if (!field.isDetail() && field.getFormula() != null && !field.getFormula().trim().isEmpty()) {
-                    double calculated = com.vaadinerp.util.FormulaEvaluator.evaluate(field.getFormula(), bean);
+                    double calculated = FormulaEvaluator.evaluate(field.getFormula(), bean);
                     bean.put(field.getFieldName(), calculated);
                     Component comp = formComponents.get(field.getFieldName());
                     if (comp instanceof com.vaadin.flow.component.HasValue) {

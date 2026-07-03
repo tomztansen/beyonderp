@@ -778,13 +778,29 @@ public class DataInitializer implements CommandLineRunner {
 
         try {
             Integer custCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dynamic.master_customer", Integer.class);
-            if (custCount == null || custCount == 0) {
-                jdbcTemplate.execute("INSERT INTO dynamic.master_customer (customer_code, customer_name, contact_person, phone, email, credit_limit, address, status) VALUES " +
-                        "('CUST-001', 'PT. Maju Mundur Sentosa', 'Budi Santoso', '081234567890', 'budi@majumundur.com', 50000000, 'Jl. Sudirman No. 123, Jakarta', 'Active'), " +
-                        "('CUST-002', 'CV. Karya Makmur Abadi', 'Siti Aminah', '081987654321', 'siti@karyamakmur.com', 25000000, 'Jl. Ahmad Yani No. 45, Surabaya', 'Active'), " +
-                        "('CUST-003', 'Toko Rejeki Lancar', 'Hendra Wijaya', '081555666777', 'rejeki@lancar.com', 10000000, 'Jl. Asia Afrika No. 88, Bandung', 'Active')");
+            if (custCount == null || custCount < 1000) {
+                jdbcTemplate.execute("DELETE FROM dynamic.master_customer");
+                List<Object[]> batchArgs = new ArrayList<>();
+                String[] cities = {"Jakarta", "Surabaya", "Bandung", "Medan", "Semarang", "Makassar", "Palembang", "Denpasar", "Yogyakarta", "Balikpapan"};
+                String[] companyTypes = {"PT. ", "CV. ", "Toko ", "UD. ", "Fa. "};
+                String[] names = {"Sinar Makmur", "Maju Bersama", "Karya Abadi", "Nusantara Jaya", "Mitra Sejati", "Sukses Selalu", "Bintang Harapan", "Citra Mandiri", "Giri Prima", "Buana Tunggal"};
+                String[] contacts = {"Budi Santoso", "Siti Aminah", "Hendra Wijaya", "Agus Pratama", "Dewi Lestari", "Rudi Hartono", "Maya Sari", "Andi Saputra", "Rina Marlina", "Joko Surono"};
+                for (int i = 1; i <= 1000; i++) {
+                    String code = String.format("CUST-%04d", i);
+                    String name = companyTypes[i % companyTypes.length] + names[i % names.length] + " " + i;
+                    String contact = contacts[i % contacts.length];
+                    String phone = String.format("0812%08d", 10000000 + i);
+                    String email = "cust" + i + "@example.com";
+                    double limit = (10 + (i % 50)) * 1000000.0;
+                    String address = "Jl. Sudirman No. " + i + ", " + cities[i % cities.length];
+                    String status = (i % 20 == 0) ? "Inactive" : "Active";
+                    batchArgs.add(new Object[]{code, name, contact, phone, email, limit, address, status});
+                }
+                jdbcTemplate.batchUpdate("INSERT INTO dynamic.master_customer (customer_code, customer_name, contact_person, phone, email, credit_limit, address, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", batchArgs);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         // Check if GLOBAL_MASTER needs to be re-initialized for Subform Grid
         FormMeta existingGlobal = formMetaRepository.findById("GLOBAL_MASTER").orElse(null);

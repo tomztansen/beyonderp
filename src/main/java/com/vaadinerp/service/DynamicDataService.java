@@ -54,6 +54,44 @@ public class DynamicDataService {
         }
     }
 
+    /**
+     * Validasi keamanan query SQL read-only dinamis untuk mencegah SQL Injection, stacked queries, dan DoS.
+     */
+    public static String validateAndSanitizeSelectQuery(String sql) {
+        if (sql == null || sql.trim().isEmpty()) {
+            throw new IllegalArgumentException("Query SQL tidak boleh kosong.");
+        }
+        String trimmed = sql.trim();
+        String lower = trimmed.toLowerCase();
+
+        // 1. Wajib berawal dari SELECT atau WITH (CTE)
+        if (!lower.startsWith("select ") && !lower.startsWith("with ")) {
+            throw new SecurityException("Akses ditolak: Hanya perintah SELECT read-only yang diizinkan!");
+        }
+
+        // 2. Tolak multi-statement / stacked query (semicolon di pertengahan atau akhir)
+        while (trimmed.endsWith(";")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
+        }
+        if (trimmed.contains(";")) {
+            throw new SecurityException("Akses ditolak: Multi-statement / stacked query tidak diizinkan!");
+        }
+
+        // 3. Blacklist kata kunci DML/DDL dan tabel sistem internal
+        String[] prohibitedTokens = {
+            "insert ", "update ", "delete ", "drop ", "alter ", "truncate ", "grant ", "revoke ",
+            "create ", "replace ", "execute ", "exec ", "pg_sleep", "pg_terminate_backend",
+            "pg_reload_conf", "pg_shadow", "pg_authid", "app_user", "role_menu_permission"
+        };
+        String padded = " " + lower.replaceAll("[\\(\\)\\[\\]\\{\\},\\+\\-\\*/=]", " ") + " ";
+        for (String token : prohibitedTokens) {
+            if (padded.contains(" " + token.trim() + " ") || lower.contains(token.trim() + "(")) {
+                throw new SecurityException("Akses ditolak: Perintah SQL mengandung kata kunci atau tabel terlarang (" + token.trim() + ")!");
+            }
+        }
+        return trimmed;
+    }
+
     public String getQualifiedTableName(String tableName) {
         if (tableName == null) return null;
         String clean = tableName.trim();
@@ -67,7 +105,7 @@ public class DynamicDataService {
         if (tableName == null) return null;
         String clean = tableName.trim();
         if ("global_master".equalsIgnoreCase(clean)) return "dynamic.global_category";
-        if (clean.toLowerCase().startsWith("select")) return clean;
+        if (clean.toLowerCase().startsWith("select")) return validateAndSanitizeSelectQuery(clean);
         validateSqlIdentifier(clean, "lov table name");
         if (clean.contains(".")) return clean;
         try {
@@ -117,7 +155,8 @@ public class DynamicDataService {
         String trimmed = tableNameOrQuery.trim();
         if (trimmed.toLowerCase().startsWith("select")) {
             try {
-                String sql = "SELECT * FROM ( " + trimmed + " ) AS subquery LIMIT 1";
+                String safeQuery = validateAndSanitizeSelectQuery(trimmed);
+                String sql = "SELECT * FROM ( " + safeQuery + " ) AS subquery LIMIT 1";
                 return jdbcTemplate.query(sql, rs -> {
                     List<String> cols = new ArrayList<>();
                     if (rs != null) {
@@ -503,7 +542,7 @@ public class DynamicDataService {
         saveData(formMeta, data, null, null);
     }
 
-    private void executeAndLogSql(String sql, List<Object> args) {
+    private int executeAndLogSql(String sql, List<Object> args) {
         System.out.println("=================================================");
         System.out.println("EXECUTING SQL: " + sql);
         System.out.println("PARAMETERS: " + args);
@@ -513,11 +552,13 @@ public class DynamicDataService {
         }
         System.out.println("=================================================");
         try {
+            int rowsAffected;
             if (args != null) {
-                jdbcTemplate.update(sql, args.toArray());
+                rowsAffected = jdbcTemplate.update(sql, args.toArray());
             } else {
-                jdbcTemplate.update(sql);
+                rowsAffected = jdbcTemplate.update(sql);
             }
+            return rowsAffected;
         } catch (Exception e) {
             System.err.println(">>> SQL ERROR EXECUTING: " + sql);
             System.err.println(">>> WITH PARAMS: " + args);
@@ -574,7 +615,8 @@ public class DynamicDataService {
                 validateSqlIdentifier(fieldName, "column name");
                 if (fieldName.equalsIgnoreCase(pk)) continue;
                 if (fieldName.equalsIgnoreCase("inputby") || fieldName.equalsIgnoreCase("inputdt") ||
-                    fieldName.equalsIgnoreCase("updateby") || fieldName.equalsIgnoreCase("updatedt")) continue;
+                    fieldName.equalsIgnoreCase("updateby") || fieldName.equalsIgnoreCase("updatedt") ||
+                    fieldName.equalsIgnoreCase("version")) continue;
                 if (!field.isSaveOnUpdate()) continue;
                 if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) continue; // Skip subform grid columns
                 if (data.containsKey(fieldName)) {
@@ -594,13 +636,38 @@ public class DynamicDataService {
             args.add(currentUser);
             setClause.add("updatedt = ?");
             args.add(nowTs);
+            setClause.add("version = COALESCE(version, 0) + 1");
             data.put("updateby", currentUser);
             data.put("updatedt", nowTs);
 
             if (!args.isEmpty()) {
-                String sql = "UPDATE " + getQualifiedTableName(formMeta.getTableName()) + " SET " + setClause.toString() + " WHERE CAST(" + pk + " AS text) = ?";
-                args.add(data.get(pk) != null ? data.get(pk).toString().trim() : ""); // Parameter untuk WHERE PK
-                executeAndLogSql(sql, args);
+                StringBuilder whereClause = new StringBuilder(" WHERE CAST(" + pk + " AS text) = ?");
+                args.add(data.get(pk) != null ? data.get(pk).toString().trim() : "");
+
+                Object oldVersion = data.get("version");
+                if (oldVersion != null && !oldVersion.toString().trim().isEmpty()) {
+                    try {
+                        int vNum = Integer.parseInt(oldVersion.toString().trim());
+                        whereClause.append(" AND COALESCE(version, 0) = ?");
+                        args.add(vNum);
+                    } catch (NumberFormatException ignored) {}
+                }
+
+                String sql = "UPDATE " + getQualifiedTableName(formMeta.getTableName()) + " SET " + setClause.toString() + whereClause.toString();
+                int updatedRows = executeAndLogSql(sql, args);
+                if (updatedRows == 0) {
+                    throw new org.springframework.dao.OptimisticLockingFailureException("Konflik Data: Data ini telah diubah oleh pengguna lain beberapa saat lalu. Silakan muat ulang (refresh) data terbaru sebelum melakukan perubahan.");
+                }
+
+                if (oldVersion != null) {
+                    try {
+                        data.put("version", Integer.parseInt(oldVersion.toString().trim()) + 1);
+                    } catch (Exception ignored) {
+                        data.put("version", 1);
+                    }
+                } else {
+                    data.put("version", 1);
+                }
             }
 
             if (oldRecord != null) {
@@ -648,8 +715,11 @@ public class DynamicDataService {
             columns.add("inputdt");
             valuesParam.add("?");
             args.add(nowTs);
+            columns.add("version");
+            valuesParam.add("0");
             data.put("inputby", currentUser);
             data.put("inputdt", nowTs);
+            data.put("version", 0);
 
             if (args.isEmpty()) {
                 throw new IllegalArgumentException("Tidak ada field data valid untuk disimpan.");
@@ -883,6 +953,7 @@ public class DynamicDataService {
             jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS inputdt TIMESTAMP");
             jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS updateby VARCHAR(255)");
             jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS updatedt TIMESTAMP");
+            jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 0");
         } catch (Exception ignored) {}
     }
 
@@ -1025,7 +1096,7 @@ public class DynamicDataService {
         StringBuilder sql = new StringBuilder();
         String trimmed = lovCode.trim();
         if (trimmed.toLowerCase().startsWith("select")) {
-            sql.append("SELECT * FROM ( ").append(trimmed).append(" ) AS subquery");
+            sql.append("SELECT * FROM ( ").append(validateAndSanitizeSelectQuery(trimmed)).append(" ) AS subquery");
         } else {
             sql.append("SELECT * FROM ").append(getLovQualifiedTableName(trimmed));
         }
@@ -1070,7 +1141,7 @@ public class DynamicDataService {
         StringBuilder sql = new StringBuilder();
         String trimmed = tableName.trim();
         if (trimmed.toLowerCase().startsWith("select")) {
-            sql.append("SELECT * FROM ( ").append(trimmed).append(" ) AS subquery");
+            sql.append("SELECT * FROM ( ").append(validateAndSanitizeSelectQuery(trimmed)).append(" ) AS subquery");
         } else {
             sql.append("SELECT * FROM ").append(getLovQualifiedTableName(trimmed));
         }
@@ -1166,7 +1237,7 @@ public class DynamicDataService {
         String trimmed = tableName.trim();
         String sVal = value.toString().trim();
         if (trimmed.toLowerCase().startsWith("select")) {
-            sql.append("SELECT * FROM ( ").append(trimmed).append(" ) AS subquery WHERE CAST(").append(valueColumn).append(" AS text) = ? LIMIT 1");
+            sql.append("SELECT * FROM ( ").append(validateAndSanitizeSelectQuery(trimmed)).append(" ) AS subquery WHERE CAST(").append(valueColumn).append(" AS text) = ? LIMIT 1");
         } else {
             sql.append("SELECT * FROM ").append(getLovQualifiedTableName(trimmed)).append(" WHERE CAST(").append(valueColumn).append(" AS text) = ? LIMIT 1");
         }
@@ -1189,7 +1260,7 @@ public class DynamicDataService {
         String trimmed = lovMeta.getTableName().trim();
         String sql;
         if (trimmed.toLowerCase().startsWith("select")) {
-            sql = "SELECT * FROM ( " + trimmed + " ) AS subquery LIMIT 3000";
+            sql = "SELECT * FROM ( " + validateAndSanitizeSelectQuery(trimmed) + " ) AS subquery LIMIT 3000";
         } else {
             sql = "SELECT * FROM " + getLovQualifiedTableName(trimmed) + " LIMIT 3000";
         }
@@ -1222,7 +1293,7 @@ public class DynamicDataService {
             String trimmed = viewTable.trim();
             if (trimmed.toLowerCase().startsWith("select")) {
                 try {
-                    return jdbcTemplate.queryForList(trimmed);
+                    return jdbcTemplate.queryForList(validateAndSanitizeSelectQuery(trimmed));
                 } catch (Exception e) {
                     e.printStackTrace();
                     return new ArrayList<>();
@@ -1466,7 +1537,8 @@ public class DynamicDataService {
                 String fieldName = field.getFieldName();
                 if (fieldName.equalsIgnoreCase(masterPk)) continue;
                 if (fieldName.equalsIgnoreCase("inputby") || fieldName.equalsIgnoreCase("inputdt") ||
-                    fieldName.equalsIgnoreCase("updateby") || fieldName.equalsIgnoreCase("updatedt")) continue;
+                    fieldName.equalsIgnoreCase("updateby") || fieldName.equalsIgnoreCase("updatedt") ||
+                    fieldName.equalsIgnoreCase("version")) continue;
                 if (!field.isSaveOnUpdate()) continue;
                 if (masterData.containsKey(fieldName)) {
                     setClause.add(fieldName + " = ?");
@@ -1480,13 +1552,38 @@ public class DynamicDataService {
             args.add(currentUser);
             setClause.add("updatedt = ?");
             args.add(nowTs);
+            setClause.add("version = COALESCE(version, 0) + 1");
             masterData.put("updateby", currentUser);
             masterData.put("updatedt", nowTs);
 
             if (!args.isEmpty()) {
-                String sql = "UPDATE " + getQualifiedTableName(formMeta.getTableName()) + " SET " + setClause.toString() + " WHERE CAST(" + masterPk + " AS text) = ?";
+                StringBuilder whereClause = new StringBuilder(" WHERE CAST(" + masterPk + " AS text) = ?");
                 args.add(masterId != null ? masterId.toString().trim() : "");
-                executeAndLogSql(sql, args);
+
+                Object oldVersion = masterData.get("version");
+                if (oldVersion != null && !oldVersion.toString().trim().isEmpty()) {
+                    try {
+                        int vNum = Integer.parseInt(oldVersion.toString().trim());
+                        whereClause.append(" AND COALESCE(version, 0) = ?");
+                        args.add(vNum);
+                    } catch (NumberFormatException ignored) {}
+                }
+
+                String sql = "UPDATE " + getQualifiedTableName(formMeta.getTableName()) + " SET " + setClause.toString() + whereClause.toString();
+                int updatedRows = executeAndLogSql(sql, args);
+                if (updatedRows == 0) {
+                    throw new org.springframework.dao.OptimisticLockingFailureException("Konflik Data Master: Data master telah diubah oleh pengguna lain. Silakan muat ulang (refresh) data terbaru.");
+                }
+
+                if (oldVersion != null) {
+                    try {
+                        masterData.put("version", Integer.parseInt(oldVersion.toString().trim()) + 1);
+                    } catch (Exception ignored) {
+                        masterData.put("version", 1);
+                    }
+                } else {
+                    masterData.put("version", 1);
+                }
             }
 
             if (oldMasterRecord != null) {
@@ -1527,8 +1624,11 @@ public class DynamicDataService {
             columns.add("inputdt");
             valuesParam.add("?");
             args.add(nowTs);
+            columns.add("version");
+            valuesParam.add("0");
             masterData.put("inputby", currentUser);
             masterData.put("inputdt", nowTs);
+            masterData.put("version", 0);
 
             String qMasterTable = getQualifiedTableName(formMeta.getTableName());
             String sql = "INSERT INTO " + qMasterTable + " (" + columns.toString() + ") VALUES (" + valuesParam.toString() + ")";
@@ -1601,7 +1701,8 @@ public class DynamicDataService {
                         String fieldName = field.getFieldName();
                         if (fieldName.equalsIgnoreCase(detailPk)) continue;
                         if (fieldName.equalsIgnoreCase("inputby") || fieldName.equalsIgnoreCase("inputdt") ||
-                            fieldName.equalsIgnoreCase("updateby") || fieldName.equalsIgnoreCase("updatedt")) continue;
+                            fieldName.equalsIgnoreCase("updateby") || fieldName.equalsIgnoreCase("updatedt") ||
+                            fieldName.equalsIgnoreCase("version")) continue;
                         if (!field.isSaveOnUpdate()) continue;
                         if (row.containsKey(fieldName)) {
                             setClause.add(fieldName + " = ?");
@@ -1615,6 +1716,7 @@ public class DynamicDataService {
                     args.add(currentUser);
                     setClause.add("updatedt = ?");
                     args.add(nowTs);
+                    setClause.add("version = COALESCE(version, 0) + 1");
                     row.put("updateby", currentUser);
                     row.put("updatedt", nowTs);
 
@@ -1622,9 +1724,33 @@ public class DynamicDataService {
                     args.add(sanitizeJdbcValue(detailTableName, detailFk, masterId));
 
                     if (!args.isEmpty()) {
-                        String sql = "UPDATE " + qDetailTable + " SET " + setClause.toString() + " WHERE CAST(" + detailPk + " AS text) = ?";
+                        StringBuilder whereClause = new StringBuilder(" WHERE CAST(" + detailPk + " AS text) = ?");
                         args.add(row.get(detailPk) != null ? row.get(detailPk).toString().trim() : "");
-                        executeAndLogSql(sql, args);
+
+                        Object oldVersion = row.get("version");
+                        if (oldVersion != null && !oldVersion.toString().trim().isEmpty()) {
+                            try {
+                                int vNum = Integer.parseInt(oldVersion.toString().trim());
+                                whereClause.append(" AND COALESCE(version, 0) = ?");
+                                args.add(vNum);
+                            } catch (NumberFormatException ignored) {}
+                        }
+
+                        String sql = "UPDATE " + qDetailTable + " SET " + setClause.toString() + whereClause.toString();
+                        int updatedRows = executeAndLogSql(sql, args);
+                        if (updatedRows == 0) {
+                            throw new org.springframework.dao.OptimisticLockingFailureException("Konflik Data Rincian: Baris rincian telah diubah oleh pengguna lain. Silakan muat ulang (refresh) data terbaru.");
+                        }
+
+                        if (oldVersion != null) {
+                            try {
+                                row.put("version", Integer.parseInt(oldVersion.toString().trim()) + 1);
+                            } catch (Exception ignored) {
+                                row.put("version", 1);
+                            }
+                        } else {
+                            row.put("version", 1);
+                        }
                     }
 
                     if (oldDetailRecord != null) {
@@ -1665,8 +1791,11 @@ public class DynamicDataService {
                     columns.add("inputdt");
                     valuesParam.add("?");
                     args.add(nowTs);
+                    columns.add("version");
+                    valuesParam.add("0");
                     row.put("inputby", currentUser);
                     row.put("inputdt", nowTs);
+                    row.put("version", 0);
 
                     columns.add(detailFk);
                     valuesParam.add("?");
@@ -1848,7 +1977,7 @@ public class DynamicDataService {
         StringBuilder sql = new StringBuilder();
         String trimmed = srcTable.trim();
         if (trimmed.toLowerCase().startsWith("select")) {
-            sql.append("SELECT * FROM ( ").append(trimmed).append(" ) AS subquery");
+            sql.append("SELECT * FROM ( ").append(validateAndSanitizeSelectQuery(trimmed)).append(" ) AS subquery");
         } else {
             sql.append("SELECT * FROM ").append(getLovQualifiedTableName(trimmed));
         }

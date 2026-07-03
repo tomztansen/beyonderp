@@ -142,7 +142,9 @@ public class TableDesignerView extends VerticalLayout {
         btnBuild.setWidthFull();
         btnBuild.addClickListener(e -> buildTableAndTrigger());
 
-        add(title, tableNameField, includeAuditColsCheckbox, new H4("Rancang Kolom Tabel"), colInputLayout, columnsGrid, enableTriggerCheckbox, triggerPanel, btnBuild);
+        HorizontalLayout colHdr = new HorizontalLayout(new H4("Rancang Kolom Tabel"), StandardGridUtils.createExportExcelButton(columnsGrid, "designer_columns_export"));
+        colHdr.setAlignItems(Alignment.CENTER);
+        add(title, tableNameField, includeAuditColsCheckbox, colHdr, colInputLayout, columnsGrid, enableTriggerCheckbox, triggerPanel, btnBuild);
     }
 
     private void setupGrid() {
