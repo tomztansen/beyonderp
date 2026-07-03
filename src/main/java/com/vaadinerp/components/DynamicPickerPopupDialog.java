@@ -61,7 +61,18 @@ public class DynamicPickerPopupDialog extends Dialog {
 
         setupColumns();
 
-        VerticalLayout content = new VerticalLayout(searchToolbar, grid);
+        VerticalLayout content = new VerticalLayout();
+        if (actionMeta.getFilterMapping() != null && !actionMeta.getFilterMapping().isBlank() && dataService != null && dataService.isCurrentUserSuperAdmin()) {
+            com.vaadin.flow.component.details.Details diagDetails = new com.vaadin.flow.component.details.Details();
+            diagDetails.setSummaryText("🔍 Diagnostik Filter Aktif: " + actionMeta.getFilterMapping());
+            com.vaadin.flow.component.html.Pre diagText = new com.vaadin.flow.component.html.Pre(dataService.evaluateFilterMappingDiagnostic(actionMeta.getFilterMapping(), headerRecord));
+            diagText.getStyle().set("font-size", "12px").set("color", "#4b5563").set("background", "#f3f4f6").set("padding", "8px").set("border-radius", "4px").set("white-space", "pre-wrap").set("margin", "0");
+            diagDetails.add(diagText);
+            diagDetails.setOpened(true);
+            diagDetails.setWidthFull();
+            content.add(diagDetails);
+        }
+        content.add(searchToolbar, grid);
         content.setSizeFull();
         content.setPadding(false);
         content.setSpacing(true);

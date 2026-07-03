@@ -8,4 +8,5 @@ import java.util.Optional;
 public interface RoleMenuPermissionRepository extends JpaRepository<RoleMenuPermission, Long> {
     Optional<RoleMenuPermission> findByRoleCodeAndMenuCode(String roleCode, String menuCode);
     List<RoleMenuPermission> findByRoleCode(String roleCode);
+    List<RoleMenuPermission> findByMenuCode(String menuCode);
 }

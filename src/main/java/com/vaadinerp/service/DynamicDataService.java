@@ -42,28 +42,45 @@ public class DynamicDataService {
         return formMetaRepository;
     }
 
+    public com.vaadinerp.meta.FormActionMetaRepository getFormActionMetaRepository() {
+        return formActionMetaRepository;
+    }
+
+    public static void validateSqlIdentifier(String identifier, String type) {
+        if (identifier == null || identifier.trim().isEmpty()) return;
+        String clean = identifier.trim();
+        if (!clean.matches("^[a-zA-Z0-9_.*]+$")) {
+            throw new IllegalArgumentException("Invalid SQL identifier (" + type + "): " + identifier);
+        }
+    }
+
     public String getQualifiedTableName(String tableName) {
         if (tableName == null) return null;
-        if ("global_master".equalsIgnoreCase(tableName.trim())) return "dynamic.global_category";
-        if (tableName.contains(".")) return tableName;
-        return "dynamic." + tableName;
+        String clean = tableName.trim();
+        validateSqlIdentifier(clean, "table name");
+        if ("global_master".equalsIgnoreCase(clean)) return "dynamic.global_category";
+        if (clean.contains(".")) return clean;
+        return "dynamic." + clean;
     }
 
     public String getLovQualifiedTableName(String tableName) {
         if (tableName == null) return null;
-        if ("global_master".equalsIgnoreCase(tableName.trim())) return "dynamic.global_category";
-        if (tableName.contains(".")) return tableName;
+        String clean = tableName.trim();
+        if ("global_master".equalsIgnoreCase(clean)) return "dynamic.global_category";
+        if (clean.toLowerCase().startsWith("select")) return clean;
+        validateSqlIdentifier(clean, "lov table name");
+        if (clean.contains(".")) return clean;
         try {
             Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'dynamic' AND table_name = ?",
                 Integer.class,
-                tableName.toLowerCase()
+                clean.toLowerCase()
             );
             if (count != null && count > 0) {
-                return "dynamic." + tableName;
+                return "dynamic." + clean;
             }
         } catch (Exception ignored) {}
-        return tableName;
+        return clean;
     }
 
     public List<String> fetchDynamicTables() {
@@ -282,10 +299,13 @@ public class DynamicDataService {
 
     @Transactional
     public void addTableConstraint(String tableName, String constraintName, String type, String col, String refTable, String refCol, String expr) {
+        validateSqlIdentifier(constraintName, "constraint name");
+        validateSqlIdentifier(col, "column name");
         String qTableName = getQualifiedTableName(tableName);
         StringBuilder sql = new StringBuilder("ALTER TABLE ").append(qTableName).append(" ADD CONSTRAINT ").append(constraintName).append(" ");
         
         if ("FOREIGN KEY".equalsIgnoreCase(type)) {
+            validateSqlIdentifier(refCol, "reference column name");
             String qRefTable = getQualifiedTableName(refTable);
             sql.append("FOREIGN KEY (").append(col).append(") REFERENCES ").append(qRefTable).append(" (").append(refCol).append(") ON DELETE CASCADE");
         } else if ("UNIQUE".equalsIgnoreCase(type)) {
@@ -301,6 +321,7 @@ public class DynamicDataService {
 
     @Transactional
     public void dropTableConstraint(String tableName, String constraintName) {
+        validateSqlIdentifier(constraintName, "constraint name");
         String qTableName = getQualifiedTableName(tableName);
         String sql = "ALTER TABLE " + qTableName + " DROP CONSTRAINT " + constraintName;
         jdbcTemplate.execute(sql);
@@ -308,6 +329,7 @@ public class DynamicDataService {
 
     @Transactional
     public void addTableColumn(String tableName, String columnName, String dataType, boolean nullable, String defaultVal) {
+        validateSqlIdentifier(columnName, "column name");
         String qTable = getQualifiedTableName(tableName);
         StringBuilder sql = new StringBuilder("ALTER TABLE ").append(qTable)
                 .append(" ADD COLUMN ").append(columnName).append(" ").append(dataType);
@@ -322,6 +344,8 @@ public class DynamicDataService {
 
     @Transactional
     public void alterTableColumn(String tableName, String oldColName, String newColName, String newType, boolean nullable, String defaultVal) {
+        validateSqlIdentifier(oldColName, "old column name");
+        validateSqlIdentifier(newColName, "new column name");
         String qTable = getQualifiedTableName(tableName);
 
         if (!oldColName.equalsIgnoreCase(newColName)) {
@@ -349,6 +373,7 @@ public class DynamicDataService {
 
     @Transactional
     public void dropTableColumn(String tableName, String columnName) {
+        validateSqlIdentifier(columnName, "column name");
         String qTable = getQualifiedTableName(tableName);
         jdbcTemplate.execute("ALTER TABLE " + qTable + " DROP COLUMN " + columnName + " CASCADE");
     }
@@ -520,6 +545,8 @@ public class DynamicDataService {
 
         String pk = formMeta.getPrimaryKey() != null ? formMeta.getPrimaryKey() : "id";
         pk = resolveExistingColumn(formMeta.getTableName(), pk);
+        validateSqlIdentifier(pk, "primary key");
+        if (fkColumn != null) validateSqlIdentifier(fkColumn, "foreign key column");
         final String finalPk = pk;
         boolean isUpdate = data.containsKey(pk) && data.get(pk) != null && !data.get(pk).toString().trim().isEmpty();
 
@@ -544,6 +571,7 @@ public class DynamicDataService {
 
             for (FieldMeta field : formMeta.getFields()) {
                 String fieldName = field.getFieldName();
+                validateSqlIdentifier(fieldName, "column name");
                 if (fieldName.equalsIgnoreCase(pk)) continue;
                 if (fieldName.equalsIgnoreCase("inputby") || fieldName.equalsIgnoreCase("inputdt") ||
                     fieldName.equalsIgnoreCase("updateby") || fieldName.equalsIgnoreCase("updatedt")) continue;
@@ -593,6 +621,7 @@ public class DynamicDataService {
 
             for (FieldMeta field : formMeta.getFields()) {
                 String fieldName = field.getFieldName();
+                validateSqlIdentifier(fieldName, "column name");
                 if (fieldName.equalsIgnoreCase(pk)) continue;
                 if (fieldName.equalsIgnoreCase("inputby") || fieldName.equalsIgnoreCase("inputdt") ||
                     fieldName.equalsIgnoreCase("updateby") || fieldName.equalsIgnoreCase("updatedt")) continue;
@@ -872,6 +901,22 @@ public class DynamicDataService {
         return "SYSTEM";
     }
 
+    public boolean isCurrentUserSuperAdmin() {
+        if (securityService != null && securityService.isSuperAdmin()) {
+            return true;
+        }
+        try {
+            if (com.vaadin.flow.server.VaadinSession.getCurrent() != null) {
+                Object obj = com.vaadin.flow.server.VaadinSession.getCurrent().getAttribute(com.vaadinerp.security.service.SessionSecurityService.SESSION_USER_KEY);
+                if (obj instanceof com.vaadinerp.security.entity.AppUser) {
+                    com.vaadinerp.security.entity.AppUser user = (com.vaadinerp.security.entity.AppUser) obj;
+                    return "SUPER_ADMIN".equalsIgnoreCase(user.getRoleCode());
+                }
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
     public void ensureFieldAuditTableExists() {
         try {
             jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS sys_field_audit (" +
@@ -948,6 +993,25 @@ public class DynamicDataService {
         for (Map.Entry<String, Object> entry : map.entrySet()) {
             if (key.equalsIgnoreCase(entry.getKey())) {
                 return entry.getValue();
+            }
+        }
+        if (key.contains(".")) {
+            String[] parts = key.split("\\.", 2);
+            Object sub = getCaseInsensitiveValue(map, parts[0] + "_record");
+            if (!(sub instanceof Map)) {
+                sub = getCaseInsensitiveValue(map, parts[0]);
+            }
+            if (sub instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> subMap = (Map<String, Object>) sub;
+                Object val = getCaseInsensitiveValue(subMap, parts[1]);
+                if (val != null) return val;
+            }
+            Object scalarVal = getCaseInsensitiveValue(map, parts[0]);
+            if (scalarVal != null && !(scalarVal instanceof Map)) {
+                if ("id".equalsIgnoreCase(parts[1]) || "value".equalsIgnoreCase(parts[1]) || parts[0].equalsIgnoreCase(parts[1])) {
+                    return scalarVal;
+                }
             }
         }
         return null;
@@ -1686,14 +1750,97 @@ public class DynamicDataService {
 
     public List<com.vaadinerp.meta.FormActionMeta> getFormActions(String formCode, String targetScope) {
         if (formActionMetaRepository == null || formCode == null) return java.util.Collections.emptyList();
+        List<com.vaadinerp.meta.FormActionMeta> result = new ArrayList<>();
+
+        // 1. First check direct actions attached to formCode
         if (targetScope == null) {
-            return formActionMetaRepository.findByFormMeta_FormCode(formCode);
+            result.addAll(formActionMetaRepository.findByFormMeta_FormCode(formCode));
+        } else {
+            result.addAll(formActionMetaRepository.findByFormMeta_FormCodeAndTargetScope(formCode, targetScope));
         }
-        return formActionMetaRepository.findByFormMeta_FormCodeAndTargetScope(formCode, targetScope);
+
+        // 2. Then check if formMeta has assigned actions via extraToolbars catalog selection
+        com.vaadinerp.meta.FormMeta formMeta = formMetaRepository.findById(formCode).orElse(null);
+        if (formMeta != null && formMeta.getExtraToolbars() != null && !formMeta.getExtraToolbars().trim().isEmpty()) {
+            String[] codes = formMeta.getExtraToolbars().split(",");
+            for (String c : codes) {
+                String cleanCode = c.trim();
+                if (!cleanCode.isEmpty()) {
+                    com.vaadinerp.meta.FormActionMeta act = formActionMetaRepository.findByActionCode(cleanCode);
+                    if (act != null) {
+                        if (targetScope == null || targetScope.equalsIgnoreCase(act.getTargetScope())) {
+                            if (result.stream().noneMatch(a -> a.getActionCode() != null && a.getActionCode().equalsIgnoreCase(cleanCode))) {
+                                result.add(act);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    public String evaluateFilterMappingDiagnostic(String filterMapping, Map<String, Object> headerRecord) {
+        if (filterMapping == null || filterMapping.trim().isEmpty()) {
+            return "Tidak ada filter mapping aktif.";
+        }
+        StringBuilder sb = new StringBuilder();
+        String cleanMapping = filterMapping.trim();
+        if (cleanMapping.startsWith("{") && cleanMapping.endsWith("}")) {
+            cleanMapping = cleanMapping.substring(1, cleanMapping.length() - 1).trim();
+        }
+        String[] pairs = cleanMapping.split(",");
+        for (String pair : pairs) {
+            String[] kv = pair.split(":");
+            if (kv.length < 2) kv = pair.split("=");
+            if (kv.length == 2) {
+                String col = kv[0].replaceAll("[\"']", "").trim();
+                String valSpec = kv[1].trim();
+                Object paramVal = null;
+                boolean isHeader = false;
+                String headerKey = "";
+                if (valSpec.startsWith("header.") || valSpec.startsWith("\"header.")) {
+                    isHeader = true;
+                    headerKey = valSpec.replaceAll("[\"']", "").substring(valSpec.indexOf("header.") + "header.".length()).trim();
+                    if (headerRecord != null) {
+                        paramVal = getCaseInsensitiveValue(headerRecord, headerKey);
+                    }
+                } else if (valSpec.startsWith("'") && valSpec.endsWith("'")) {
+                    paramVal = valSpec.substring(1, valSpec.length() - 1);
+                } else if (valSpec.startsWith("\"") && valSpec.endsWith("\"")) {
+                    paramVal = valSpec.substring(1, valSpec.length() - 1);
+                } else {
+                    try {
+                        paramVal = Double.parseDouble(valSpec);
+                    } catch (Exception e) {
+                        paramVal = valSpec;
+                    }
+                }
+                sb.append("• ").append(col).append(" ➔ ");
+                if (isHeader) {
+                    if (paramVal != null) {
+                        sb.append("OK (ekspresi 'header.").append(headerKey).append("' bernilai: ").append(paramVal).append(")");
+                    } else {
+                        sb.append("⚠️ KOSONG/NULL (ekspresi 'header.").append(headerKey).append("' tidak ditemukan atau null di form)");
+                    }
+                } else {
+                    sb.append("Literal '").append(paramVal).append("'");
+                }
+                sb.append("\n");
+            }
+        }
+        if (headerRecord != null && !headerRecord.isEmpty()) {
+            sb.append("💡 Field form aktif saat ini: ").append(headerRecord.keySet());
+        } else {
+            sb.append("💡 Data form saat ini kosong.");
+        }
+        return sb.toString().trim();
     }
 
     public List<Map<String, Object>> fetchLovDataWithActionFilters(String sourceLovCode, String filterMapping, Map<String, Object> headerRecord, String searchTerm) {
         if (sourceLovCode == null || sourceLovCode.trim().isEmpty()) return new ArrayList<>();
+        System.out.println("=== DEBUG FETCH LOV ACTION FILTERS [" + sourceLovCode + "] ===");
+        System.out.println(evaluateFilterMappingDiagnostic(filterMapping, headerRecord));
         LovMeta lovMeta = getLovMeta(sourceLovCode).orElse(null);
         String srcTable = lovMeta != null ? lovMeta.getTableName() : sourceLovCode;
         String searchCol = lovMeta != null ? lovMeta.getSearchColumn() : null;
@@ -1739,8 +1886,20 @@ public class DynamicDataService {
                         }
                     }
                     if (paramVal != null) {
-                        conditions.add(col + " = ?");
-                        params.add(paramVal);
+                        if (paramVal instanceof java.util.Collection<?> colVal) {
+                            if (colVal.isEmpty()) {
+                                conditions.add("1 = 0");
+                            } else {
+                                String placeholders = colVal.stream().map(v -> "?").collect(java.util.stream.Collectors.joining(", "));
+                                conditions.add(col + " IN (" + placeholders + ")");
+                                params.addAll(colVal);
+                            }
+                        } else {
+                            conditions.add(col + " = ?");
+                            params.add(paramVal);
+                        }
+                    } else if (valSpec.startsWith("header.") || valSpec.startsWith("\"header.")) {
+                        conditions.add("1 = 0");
                     }
                 }
             }

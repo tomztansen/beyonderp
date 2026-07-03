@@ -4,9 +4,12 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.ToString;
 
+import lombok.EqualsAndHashCode;
+
 @Entity
 @Table(name = "meta_form_action", schema = "public")
 @Data
+@EqualsAndHashCode(of = {"id", "actionCode"})
 @ToString(exclude = "formMeta")
 public class FormActionMeta {
 
@@ -15,7 +18,7 @@ public class FormActionMeta {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "form_code", nullable = false)
+    @JoinColumn(name = "form_code", nullable = true)
     private FormMeta formMeta;
 
     @Column(name = "action_code", length = 50, nullable = false)

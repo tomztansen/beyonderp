@@ -59,7 +59,6 @@ public class FormBuilderView extends VerticalLayout {
     private TabSheet tabSheet;
     private Tab historisTab;
     private Tab transaksiTab;
-    private Tab actionTab;
     private final Grid<FormMeta> historyGrid = new Grid<>();
 
     private final TextField formCodeField = new TextField("Form Code (Unique)");
@@ -74,6 +73,7 @@ public class FormBuilderView extends VerticalLayout {
     private final TextField detailFkField = new TextField("Detail Foreign Key Column");
     private final TextField defaultSortField = new TextField("Default Sort Field");
     private final ComboBox<String> defaultSortDirection = new ComboBox<>("Default Sort Direction");
+    private final MultiSelectComboBox<com.vaadinerp.meta.FormActionMeta> assignedActionsCombo = new MultiSelectComboBox<>("Pilih & Pasangkan Extra Toolbar dari Katalog (Chosenbox)");
 
     // Selected Field State
     private FieldMetaTemp selectedField = null;
@@ -441,9 +441,16 @@ public class FormBuilderView extends VerticalLayout {
         defaultSortDirection.setItems("ASC", "DESC");
         defaultSortDirection.setValue("ASC");
 
+        assignedActionsCombo.setWidthFull();
+        assignedActionsCombo.setItemLabelGenerator(act -> act.getActionLabel() + " (" + act.getActionCode() + ") " + (act.getFormMeta() != null ? "[" + act.getFormMeta().getFormCode() + "]" : "[Katalog Global]"));
+        if (dynamicDataService != null && dynamicDataService.getFormActionMetaRepository() != null) {
+            assignedActionsCombo.setItems(dynamicDataService.getFormActionMetaRepository().findAll());
+        }
+
         formMetaLayout.add(formCodeField, formTitleField, formTypeCombo, tableNameField, viewTableField, pkField,
                 labelWidthField,
-                defaultSortField, defaultSortDirection, detailTableNameField, detailPkField, detailFkField);
+                defaultSortField, defaultSortDirection, assignedActionsCombo, detailTableNameField, detailPkField, detailFkField);
+        formMetaLayout.setColspan(assignedActionsCombo, 2);
 
         formTypeCombo.setItems("SINGLE", "MASTER_DETAIL");
         formTypeCombo.setValue("SINGLE");
@@ -533,25 +540,6 @@ public class FormBuilderView extends VerticalLayout {
 
         transaksiLayout.add(formMetaLayout, workspace);
         transaksiTab = tabSheet.add("Desain Form", transaksiLayout);
-
-        VerticalLayout extraToolbarsLayout = new VerticalLayout();
-        extraToolbarsLayout.setSizeFull();
-        extraToolbarsLayout.setPadding(true);
-        extraToolbarsLayout.setSpacing(true);
-
-        com.vaadin.flow.component.html.H4 actionTitle = new com.vaadin.flow.component.html.H4("Kelola Extra Toolbar (Tombol Aksi Dinamis / Multi-Select Picker)");
-        actionTitle.getStyle().set("margin", "0");
-
-        com.vaadin.flow.component.html.Paragraph actionDesc = new com.vaadin.flow.component.html.Paragraph(
-                "Untuk mengonfigurasi tombol aksi tambahan pada form ini (maupun form detail/subform), gunakan menu khusus Extra Toolbar Builder. Karena 1 form dapat memiliki banyak tombol aksi dengan pemetaan filter dan target yang fleksibel, kami menyediakan menu UI terdedikasi.");
-
-        Button btnLaunchBuilder = new Button("Buka Menu Extra Toolbar Builder", VaadinIcon.BOLT.create(), e -> {
-            getUI().ifPresent(ui -> ui.navigate("action-builder"));
-        });
-        btnLaunchBuilder.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
-
-        extraToolbarsLayout.add(actionTitle, actionDesc, btnLaunchBuilder);
-        actionTab = tabSheet.add("Extra Toolbars", extraToolbarsLayout);
 
         add(title, toolbar, tabSheet);
         setFlexGrow(1, tabSheet);
@@ -1668,13 +1656,7 @@ public class FormBuilderView extends VerticalLayout {
             return;
         }
 
-        // Delete existing form metadata to perform clean overwrite (Hibernate cascade
-        // will clear fields and filters)
-        if (formMetaRepository.existsById(formCode)) {
-            formMetaRepository.deleteById(formCode);
-        }
-
-        FormMeta formMeta = new FormMeta();
+        FormMeta formMeta = formMetaRepository.findById(formCode).orElseGet(FormMeta::new);
         formMeta.setFormCode(formCode);
         formMeta.setFormTitle(formTitle);
         formMeta.setFormType(formTypeCombo.getValue());
@@ -1685,6 +1667,17 @@ public class FormBuilderView extends VerticalLayout {
         formMeta.setLabelWidth(labelWidth.isEmpty() ? "150px" : labelWidth);
         formMeta.setDefaultSortField(sortField.isEmpty() ? null : sortField);
         formMeta.setDefaultSortDirection(sortDir);
+
+        java.util.Set<com.vaadinerp.meta.FormActionMeta> chosenActions = assignedActionsCombo.getValue();
+        if (chosenActions != null && !chosenActions.isEmpty()) {
+            String joined = chosenActions.stream()
+                    .map(com.vaadinerp.meta.FormActionMeta::getActionCode)
+                    .filter(c -> c != null && !c.trim().isEmpty())
+                    .collect(java.util.stream.Collectors.joining(","));
+            formMeta.setExtraToolbars(joined);
+        } else {
+            formMeta.setExtraToolbars(null);
+        }
 
         if ("MASTER_DETAIL".equals(formTypeCombo.getValue())) {
             String dtlTable = detailTableNameField.getValue().trim();
@@ -1698,9 +1691,17 @@ public class FormBuilderView extends VerticalLayout {
             formMeta.setDetailTableName(dtlTable);
             formMeta.setDetailPrimaryKey(dtlPk.isEmpty() ? "id" : dtlPk);
             formMeta.setDetailForeignKey(dtlFk);
+        } else {
+            formMeta.setDetailTableName(null);
+            formMeta.setDetailPrimaryKey(null);
+            formMeta.setDetailForeignKey(null);
         }
 
-        formMeta.setFields(new ArrayList<>());
+        if (formMeta.getFields() == null) {
+            formMeta.setFields(new ArrayList<>());
+        } else {
+            formMeta.getFields().clear();
+        }
 
         int order = 10;
         for (FieldMetaTemp temp : fieldsList) {
@@ -1778,6 +1779,7 @@ public class FormBuilderView extends VerticalLayout {
             labelWidthField.setValue("150px");
             defaultSortField.clear();
             defaultSortDirection.setValue("ASC");
+            assignedActionsCombo.clear();
             detailTableNameField.clear();
             detailPkField.setValue("id");
             detailFkField.clear();
@@ -2403,6 +2405,21 @@ public class FormBuilderView extends VerticalLayout {
                     .setValue(selectedForm.getDetailPrimaryKey() != null ? selectedForm.getDetailPrimaryKey() : "id");
             detailFkField
                     .setValue(selectedForm.getDetailForeignKey() != null ? selectedForm.getDetailForeignKey() : "");
+
+            if (dynamicDataService != null && dynamicDataService.getFormActionMetaRepository() != null) {
+                assignedActionsCombo.setItems(dynamicDataService.getFormActionMetaRepository().findAll());
+                if (selectedForm.getExtraToolbars() != null && !selectedForm.getExtraToolbars().trim().isEmpty()) {
+                    java.util.Set<com.vaadinerp.meta.FormActionMeta> selectedSet = new java.util.HashSet<>();
+                    for (String code : selectedForm.getExtraToolbars().split(",")) {
+                        String clean = code.trim();
+                        com.vaadinerp.meta.FormActionMeta act = dynamicDataService.getFormActionMetaRepository().findByActionCode(clean);
+                        if (act != null) selectedSet.add(act);
+                    }
+                    assignedActionsCombo.setValue(selectedSet);
+                } else {
+                    assignedActionsCombo.clear();
+                }
+            }
 
             // Populate fields list
             fieldsList.clear();

@@ -4,10 +4,13 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.ToString;
 
+import lombok.EqualsAndHashCode;
+
 @Entity
 @Table(name = "meta_field", schema = "public")
 @Data
-@ToString(exclude = "formMeta")
+@EqualsAndHashCode(of = {"id", "fieldName"})
+@ToString(exclude = {"formMeta", "lovTargets"})
 public class FieldMeta {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -115,6 +115,11 @@ public class SessionSecurityService {
         return getCurrentUser() != null;
     }
 
+    public boolean isSuperAdmin() {
+        AppUser user = getCurrentUser();
+        return user != null && "SUPER_ADMIN".equalsIgnoreCase(user.getRoleCode());
+    }
+
     public boolean hasMenuAccess(String menuCode) {
         AppUser user = getCurrentUser();
         if (user == null) return false;

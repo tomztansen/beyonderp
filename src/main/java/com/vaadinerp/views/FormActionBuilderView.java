@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Route("action-builder")
+@com.vaadin.flow.router.RouteAlias("form-action-builder")
 public class FormActionBuilderView extends VerticalLayout {
 
     private final FormActionMetaRepository actionRepository;
@@ -103,18 +104,24 @@ public class FormActionBuilderView extends VerticalLayout {
     }
 
     private void setupFilterAndCombos() {
-        List<String> formCodes = formRepository.findAll().stream()
+        List<String> formCodes = new ArrayList<>(formRepository.findAll().stream()
                 .map(FormMeta::getFormCode)
                 .sorted()
-                .toList();
+                .toList());
 
-        formFilter.setItems(formCodes);
+        List<String> filterItems = new ArrayList<>();
+        filterItems.add("[Katalog Global Reusable]");
+        filterItems.addAll(formCodes);
+
+        formFilter.setItems(filterItems);
         formFilter.setClearButtonVisible(true);
-        formFilter.setPlaceholder("Tampilkan Semua Form...");
+        formFilter.setPlaceholder("Tampilkan Semua Aksi...");
         formFilter.setWidthFull();
         formFilter.addValueChangeListener(e -> refreshGrid());
 
+        formCodeCombo.setLabel("Form Code Target (Kosongkan = Katalog Reusable)");
         formCodeCombo.setItems(formCodes);
+        formCodeCombo.setClearButtonVisible(true);
 
         targetScopeCombo.setItems("DETAIL_TOOLBAR", "MASTER_TOOLBAR");
         targetScopeCombo.setValue("DETAIL_TOOLBAR");
@@ -137,8 +144,8 @@ public class FormActionBuilderView extends VerticalLayout {
 
     private void setupGrid() {
         grid.setSizeFull();
-        grid.addColumn(a -> a.getFormMeta() != null ? a.getFormMeta().getFormCode() : "-")
-                .setHeader("Form Code").setSortable(true).setAutoWidth(true);
+        grid.addColumn(a -> a.getFormMeta() != null ? a.getFormMeta().getFormCode() : "[Katalog Global]")
+                .setHeader("Form Target").setSortable(true).setAutoWidth(true);
         grid.addColumn(FormActionMeta::getActionCode).setHeader("Action Code").setSortable(true).setAutoWidth(true);
         grid.addColumn(FormActionMeta::getActionLabel).setHeader("Label Tombol").setAutoWidth(true);
         grid.addColumn(FormActionMeta::getTargetScope).setHeader("Posisi").setAutoWidth(true);
@@ -187,7 +194,11 @@ public class FormActionBuilderView extends VerticalLayout {
         List<FormActionMeta> items;
         String filterVal = formFilter.getValue();
         if (filterVal != null && !filterVal.isBlank()) {
-            items = actionRepository.findByFormMeta_FormCode(filterVal);
+            if ("[Katalog Global Reusable]".equals(filterVal)) {
+                items = actionRepository.findByFormMetaIsNull();
+            } else {
+                items = actionRepository.findByFormMeta_FormCode(filterVal);
+            }
         } else {
             items = actionRepository.findAll();
         }
@@ -222,15 +233,18 @@ public class FormActionBuilderView extends VerticalLayout {
     }
 
     private void saveAction() {
-        if (formCodeCombo.getValue() == null || actionCodeField.getValue().isBlank() || actionLabelField.getValue().isBlank()) {
-            Notification.show("Form Code, Action Code, dan Label Tombol wajib diisi!", 3000, Notification.Position.MIDDLE);
+        if (actionCodeField.getValue().isBlank() || actionLabelField.getValue().isBlank()) {
+            Notification.show("Action Code dan Label Tombol wajib diisi!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
-        FormMeta targetForm = formRepository.findById(formCodeCombo.getValue()).orElse(null);
-        if (targetForm == null) {
-            Notification.show("Form Code tidak ditemukan!", 3000, Notification.Position.MIDDLE);
-            return;
+        FormMeta targetForm = null;
+        if (formCodeCombo.getValue() != null && !formCodeCombo.getValue().isBlank()) {
+            targetForm = formRepository.findById(formCodeCombo.getValue()).orElse(null);
+            if (targetForm == null) {
+                Notification.show("Form Code Target tidak ditemukan!", 3000, Notification.Position.MIDDLE);
+                return;
+            }
         }
 
         if (currentAction == null) {
@@ -249,7 +263,7 @@ public class FormActionBuilderView extends VerticalLayout {
 
         try {
             actionRepository.save(currentAction);
-            Notification.show("Extra Toolbar berhasil disimpan!", 3000, Notification.Position.BOTTOM_END);
+            Notification.show("Extra Toolbar berhasil disimpan" + (targetForm == null ? " sebagai Katalog Global!" : "!"), 3000, Notification.Position.BOTTOM_END);
             refreshGrid();
         } catch (Exception e) {
             Notification.show("Gagal menyimpan: " + e.getMessage(), 4000, Notification.Position.MIDDLE);

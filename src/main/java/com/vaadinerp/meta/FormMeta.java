@@ -5,9 +5,14 @@ import lombok.Data;
 
 import java.util.List;
 
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
 @Entity
 @Table(name = "meta_form", schema = "public")
 @Data
+@EqualsAndHashCode(of = "formCode")
+@ToString(exclude = "fields")
 public class FormMeta {
     @Id
     @Column(name = "form_code", length = 50)
@@ -46,7 +51,10 @@ public class FormMeta {
     @Column(name = "detail_foreign_key", length = 50)
     private String detailForeignKey;
 
-    @OneToMany(mappedBy = "formMeta", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @Column(name = "extra_toolbars", length = 500)
+    private String extraToolbars;
+
+    @OneToMany(mappedBy = "formMeta", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @OrderBy("rowGroup ASC, colOrder ASC")
     private List<FieldMeta> fields;
 }

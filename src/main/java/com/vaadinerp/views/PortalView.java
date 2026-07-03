@@ -382,6 +382,48 @@ public class PortalView extends AppLayout {
         ensureMenuExists("LOV_BUILDER", "LOV Metadata Builder", sysParent, "LIST", 30, "ITEM");
         ensureMenuExists("STANDARD_FORMAT", "Konfigurasi Format Standar", sysParent, "SLIDERS", 40, "ITEM");
 
+        AppMenu lov = appMenuRepository.findById("LOV_BUILDER").orElse(null);
+        String targetParent = (lov != null && lov.getParentMenuCode() != null) ? lov.getParentMenuCode() : sysParent;
+        
+        AppMenu actionMenu = appMenuRepository.findById("FORM_ACTION_BUILDER").orElseGet(AppMenu::new);
+        actionMenu.setMenuCode("FORM_ACTION_BUILDER");
+        actionMenu.setMenuTitle("Extra Toolbar Builder");
+        actionMenu.setParentMenuCode(targetParent);
+        actionMenu.setIconName("BOLT");
+        actionMenu.setDisplayOrder(35);
+        actionMenu.setMenuType("ITEM");
+        actionMenu.setRoutePath("action-builder");
+        appMenuRepository.save(actionMenu);
+
+        if (roleMenuPermissionRepository != null) {
+            for (String rCode : java.util.List.of("STAFF", "ADMIN", "SUPER_ADMIN")) {
+                if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, "FORM_ACTION_BUILDER").isEmpty()) {
+                    RoleMenuPermission p = new RoleMenuPermission();
+                    p.setRoleCode(rCode);
+                    p.setMenuCode("FORM_ACTION_BUILDER");
+                    p.setCanAdd(true);
+                    p.setCanEdit(true);
+                    p.setCanDelete(true);
+                    p.setCanPrint(true);
+                    roleMenuPermissionRepository.save(p);
+                }
+            }
+            if (appRoleRepository != null) {
+                for (com.vaadinerp.security.entity.AppRole r : appRoleRepository.findAll()) {
+                    if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), "FORM_ACTION_BUILDER").isEmpty()) {
+                        RoleMenuPermission p = new RoleMenuPermission();
+                        p.setRoleCode(r.getRoleCode());
+                        p.setMenuCode("FORM_ACTION_BUILDER");
+                        p.setCanAdd(true);
+                        p.setCanEdit(true);
+                        p.setCanDelete(true);
+                        p.setCanPrint(true);
+                        roleMenuPermissionRepository.save(p);
+                    }
+                }
+            }
+        }
+
         ensureMenuExists("GRP_SYSTEM", "Sistem & Keamanan", null, "COG", 30, "GROUP");
         ensureMenuExists("FIELD_AUDIT_LOG", "Field Audit Log Viewer", "GRP_SYSTEM", "CLOCK", 20, "ITEM");
 
@@ -441,6 +483,16 @@ public class PortalView extends AppLayout {
             m.setMenuType(type);
             m.setRoutePath(code.toLowerCase().replace('_', '-'));
             appMenuRepository.save(m);
+        }
+        if (!"GROUP".equals(type) && roleMenuPermissionRepository != null && roleMenuPermissionRepository.findByRoleCodeAndMenuCode("STAFF", code).isEmpty()) {
+            RoleMenuPermission perm = new RoleMenuPermission();
+            perm.setRoleCode("STAFF");
+            perm.setMenuCode(code);
+            perm.setCanAdd(true);
+            perm.setCanEdit(true);
+            perm.setCanDelete(true);
+            perm.setCanPrint(true);
+            roleMenuPermissionRepository.save(perm);
         }
     }
 
@@ -705,6 +757,7 @@ public class PortalView extends AppLayout {
             case "REPORT_BUILDER" -> new ReportBuilderView(reportMetaRepository, formMetaRepository);
             case "REPORT_VIEWER" -> new ReportViewerView(reportMetaRepository, dynamicDataService);
             case "LOV_BUILDER" -> new LovBuilderView(lovMetaRepository, dynamicDataService);
+            case "FORM_ACTION_BUILDER" -> new FormActionBuilderView(dynamicDataService.getFormActionMetaRepository(), formMetaRepository, lovMetaRepository);
             case "STANDARD_FORMAT" -> new StandardFormatView(standardFormatService);
             case "FIELD_AUDIT_LOG" -> new FieldAuditLogView(dynamicDataService, securityService);
             case "SECURITY_ADMIN" -> new UserAuthorityAdminView(appUserRepository, appRoleRepository, appMenuRepository,

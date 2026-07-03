@@ -150,10 +150,8 @@ public class ComponentFactory {
             }
         }
 
-        // === APPLY METADATA VALIDATION RULES ===
-        String rawRule = field.getValidationRule();
-        if (rawRule != null && !rawRule.trim().isEmpty() && !rawRule.equalsIgnoreCase("NONE")
-                && component instanceof com.vaadin.flow.component.HasValue<?, ?>) {
+        // === APPLY METADATA VALIDATION RULES & DEFAULT SAFEGUARDS ===
+        if (component instanceof com.vaadin.flow.component.HasValue<?, ?>) {
             @SuppressWarnings("unchecked")
             com.vaadin.flow.component.HasValue<?, Object> valComp = (com.vaadin.flow.component.HasValue<?, Object>) component;
             valComp.addValueChangeListener(ev -> validateFieldRule(field, component));
@@ -163,52 +161,77 @@ public class ComponentFactory {
     }
 
     public static boolean validateFieldRule(FieldMeta field, Component component) {
-        String rawRule = field.getValidationRule();
-        if (rawRule == null || rawRule.trim().isEmpty() || rawRule.equalsIgnoreCase("NONE")
-                || !(component instanceof com.vaadin.flow.component.HasValue<?, ?> valComp)) {
+        if (!(component instanceof com.vaadin.flow.component.HasValue<?, ?> valComp)) {
             return true;
         }
         Object val = valComp.getValue();
+        String rawRule = field.getValidationRule();
+        boolean hasExplicitRule = (rawRule != null && !rawRule.trim().isEmpty() && !rawRule.equalsIgnoreCase("NONE"));
+
         boolean isInvalid = false;
         String errMsg = "";
-
-        String rule = rawRule;
         String customErrMsg = null;
-        int pipeIdx = rule.indexOf('|');
-        if (pipeIdx > 0) {
-            customErrMsg = rule.substring(pipeIdx + 1).trim();
-            rule = rule.substring(0, pipeIdx).trim();
+
+        // Default Security Safeguard: Prevent Buffer/Memory Overflow if input string exceeds default limit
+        if (val != null) {
+            String strVal = val.toString();
+            boolean hasMaxLenRule = (hasExplicitRule && rawRule.toUpperCase().contains("MAX_LEN:"));
+            if (!hasMaxLenRule && strVal.length() > 4000) {
+                isInvalid = true;
+                errMsg = "Panjang teks maksimal adalah 4000 karakter (batas default sistem)!";
+            }
         }
 
-        if (val == null || val.toString().trim().isEmpty()) {
-            if ("NOT_BLANK".equalsIgnoreCase(rule)) {
-                isInvalid = true;
-                errMsg = "Kolom ini tidak boleh kosong!";
+        if (!hasExplicitRule && !isInvalid) {
+            if (component instanceof com.vaadin.flow.component.HasValidation hv && hv.isInvalid()) {
+                hv.setInvalid(false);
             }
-        } else {
-            String strVal = val.toString().trim();
+            return true;
+        }
 
-            // STRING / TEXT RULES
-            if (rule.equalsIgnoreCase("EMAIL")) {
-                if (!strVal.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+        if (!isInvalid && hasExplicitRule) {
+            String rule = rawRule;
+            int pipeIdx = rule.indexOf('|');
+            if (pipeIdx > 0) {
+                customErrMsg = rule.substring(pipeIdx + 1).trim();
+                rule = rule.substring(0, pipeIdx).trim();
+            }
+
+            if (val == null || val.toString().trim().isEmpty()) {
+                if ("NOT_BLANK".equalsIgnoreCase(rule)) {
                     isInvalid = true;
-                    errMsg = "Format alamat email tidak valid!";
+                    errMsg = "Kolom ini tidak boleh kosong!";
                 }
-            } else if (rule.equalsIgnoreCase("ALPHANUMERIC")) {
-                if (!strVal.matches("^[a-zA-Z0-9 ]+$")) {
-                    isInvalid = true;
-                    errMsg = "Hanya boleh huruf dan angka!";
-                }
-            } else if (rule.toUpperCase().startsWith("REGEX:")) {
-                String regex = rule.substring(6).trim();
-                try {
-                    if (!strVal.matches(regex)) {
+            } else {
+                String strVal = val.toString().trim();
+
+                // STRING / TEXT RULES
+                if (rule.equalsIgnoreCase("EMAIL")) {
+                    if (!strVal.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
                         isInvalid = true;
-                        errMsg = "Format input tidak sesuai!";
+                        errMsg = "Format alamat email tidak valid!";
                     }
-                } catch (Exception ignored) {
-                }
-            } else if (rule.toUpperCase().startsWith("MIN_LEN:")) {
+                } else if (rule.equalsIgnoreCase("ALPHANUMERIC")) {
+                    if (!strVal.matches("^[a-zA-Z0-9 ]+$")) {
+                        isInvalid = true;
+                        errMsg = "Hanya boleh huruf dan angka!";
+                    }
+                } else if (rule.toUpperCase().startsWith("REGEX:")) {
+                    String regex = rule.substring(6).trim();
+                    try {
+                        if (strVal.length() > 2000) {
+                            isInvalid = true;
+                            errMsg = "Input terlalu panjang untuk dievaluasi pola regex (maksimal 2000 karakter)!";
+                        } else if (!strVal.matches(regex)) {
+                            isInvalid = true;
+                            errMsg = "Format input tidak sesuai!";
+                        }
+                    } catch (java.util.regex.PatternSyntaxException e) {
+                        System.err.println(">>> REGEX SYNTAX ERROR in field [" + field.getFieldName() + "]: " + regex);
+                    } catch (Exception e) {
+                        System.err.println(">>> ERROR EVALUATING REGEX in field [" + field.getFieldName() + "]: " + e.getMessage());
+                    }
+                } else if (rule.toUpperCase().startsWith("MIN_LEN:")) {
                 try {
                     int min = Integer.parseInt(rule.substring(8).trim());
                     if (strVal.length() < min) {
@@ -304,6 +327,7 @@ public class ComponentFactory {
                     errMsg = "Tanggal harus di masa depan!";
                 }
             }
+        }
         }
 
         if (isInvalid && customErrMsg != null && !customErrMsg.isEmpty()) {
