@@ -323,6 +323,10 @@ public class BandboxField<T, V> extends CustomField<V> {
         return selectedItem;
     }
 
+    public String getDisplayLabel() {
+        return displayField.getValue();
+    }
+
     @Override
     protected V generateModelValue() {
         return selectedValue;

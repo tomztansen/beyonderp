@@ -1087,11 +1087,23 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         try {
+            String targetParent = "GRP_DEV_TOOLS";
+            try {
+                String lovParent = jdbcTemplate.queryForObject("SELECT parent_menu_code FROM public.app_menus WHERE menu_code = 'LOV_BUILDER'", String.class);
+                if (lovParent != null) targetParent = lovParent;
+            } catch (Exception ignored) {}
+
             Integer actionMenuExists = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_menus WHERE menu_code = 'FORM_ACTION_BUILDER'", Integer.class);
             if (actionMenuExists == null || actionMenuExists == 0) {
                 jdbcTemplate.execute("INSERT INTO public.app_menus (menu_code, menu_title, route_path, icon_name, parent_menu_code, display_order, menu_type) " +
-                        "VALUES ('FORM_ACTION_BUILDER', 'Extra Toolbar Builder', 'action-builder', 'BOLT', 'GRP_DEV_TOOLS', 35, 'ITEM')");
+                        "VALUES ('FORM_ACTION_BUILDER', 'Extra Toolbar Builder', 'action-builder', 'BOLT', '" + targetParent + "', 35, 'ITEM')");
+            } else {
+                jdbcTemplate.execute("UPDATE public.app_menus SET parent_menu_code = '" + targetParent + "', display_order = 35 WHERE menu_code = 'FORM_ACTION_BUILDER'");
             }
+        } catch (Exception ignored) {}
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE public.meta_form_action ALTER COLUMN form_code DROP NOT NULL");
         } catch (Exception ignored) {}
 
         // Seed permissions for STAFF role
@@ -1104,6 +1116,10 @@ public class DataInitializer implements CommandLineRunner {
                     "('STAFF', 'REPORT_VIEWER', FALSE, FALSE, FALSE, TRUE), " +
                     "('STAFF', 'FIELD_AUDIT_LOG', FALSE, FALSE, FALSE, TRUE)");
         }
+        try {
+            jdbcTemplate.execute("INSERT INTO public.app_role_menu_permissions (role_code, menu_code, can_add, can_edit, can_delete, can_print) " +
+                    "SELECT DISTINCT role_code, 'FORM_ACTION_BUILDER', TRUE, TRUE, TRUE, TRUE FROM public.app_role_menu_permissions WHERE role_code NOT IN (SELECT role_code FROM public.app_role_menu_permissions WHERE menu_code = 'FORM_ACTION_BUILDER')");
+        } catch (Exception ignored) {}
 
         initFormActionMetadata();
     }

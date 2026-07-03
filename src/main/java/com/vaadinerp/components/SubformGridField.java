@@ -47,6 +47,11 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private com.vaadin.flow.shared.Registration gridDropReg;
     private com.vaadin.flow.shared.Registration gridDragEndReg;
     private com.vaadin.flow.shared.Registration gridColReorderReg;
+    private java.util.function.Supplier<Map<String, Object>> headerRecordSupplier;
+
+    public void setHeaderRecordSupplier(java.util.function.Supplier<Map<String, Object>> supplier) {
+        this.headerRecordSupplier = supplier;
+    }
 
     private static class FilterCriteria {
         String operator = "Contains";
@@ -79,6 +84,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         Button btnResetSubformGrid = new Button("Reset Layout Grid", VaadinIcon.ROTATE_LEFT.create());
         btnResetSubformGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        btnResetSubformGrid.getStyle().set("margin-left", "auto");
         btnResetSubformGrid.addClickListener(e -> {
             if (childFormDef != null) {
                 dataService.resetUserGridOrder(childFormDef.getFormCode(), "subformGrid");
@@ -92,7 +98,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
         });
 
-        toolbar.add(btnAdd, btnDelete, btnResetSubformGrid);
+        toolbar.add(btnAdd, btnDelete);
 
         if (fieldMeta.getLovCode() != null && dataService != null) {
             List<com.vaadinerp.meta.FormActionMeta> actions = dataService.getFormActions(fieldMeta.getLovCode(), "DETAIL_TOOLBAR");
@@ -109,7 +115,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     if (grid.getEditor().isOpen()) {
                         grid.getEditor().cancel();
                     }
-                    DynamicPickerPopupDialog dlg = new DynamicPickerPopupDialog(act, dataService, null, selectedRecords -> {
+                    Map<String, Object> headerBean = headerRecordSupplier != null && headerRecordSupplier.get() != null ? headerRecordSupplier.get() : new HashMap<>();
+                    DynamicPickerPopupDialog dlg = new DynamicPickerPopupDialog(act, dataService, headerBean, selectedRecords -> {
                         for (Map<String, Object> srcRec : selectedRecords) {
                             Map<String, Object> newRow = new HashMap<>();
                             newRow.put("_tempId", java.util.UUID.randomUUID().toString());
@@ -123,6 +130,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 toolbar.add(actBtn);
             }
         }
+
+        toolbar.add(btnResetSubformGrid);
 
         // Setup Grid
         grid.setWidthFull();

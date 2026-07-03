@@ -203,7 +203,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         detailsToolbar.setWidthFull();
         detailsToolbar.setAlignItems(Alignment.CENTER);
         H4 detailTitle = new H4("Rincian / Details");
-        detailTitle.getStyle().set("margin", "0").set("flex-grow", "1");
+        detailTitle.getStyle().set("margin", "0");
         
         Button btnAddRow = new Button("Tambah Baris", VaadinIcon.PLUS.create());
         btnAddRow.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
@@ -213,6 +213,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         Button btnResetDetailsGrid = new Button("Reset Layout Grid", VaadinIcon.ROTATE_LEFT.create());
         btnResetDetailsGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        btnResetDetailsGrid.getStyle().set("margin-left", "auto");
         btnResetDetailsGrid.addClickListener(e -> {
             if (currentFormDef != null) {
                 dynamicDataService.resetUserGridOrder(currentFormCode, "detailsGrid");
@@ -221,7 +222,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
         });
 
-        detailsToolbar.add(detailTitle, btnAddRow, btnDeleteRow, btnResetDetailsGrid, dynamicDetailsActionsLayout);
+        detailsToolbar.add(detailTitle, btnAddRow, btnDeleteRow, dynamicDetailsActionsLayout, btnResetDetailsGrid);
 
         detailsGrid.setWidthFull();
         detailsGrid.setSelectionMode(Grid.SelectionMode.MULTI);
@@ -698,7 +699,43 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             btnPrint.setEnabled(false);
         }
 
-        toolbar.add(btnNew, btnDelete, btnSave, btnCancel, btnRefresh, btnClose, btnPrint);
+        // 8. DEBUG CONTEXT BUTTON
+        Button btnDebug = new Button("Debug Context");
+        Icon iconDebug = VaadinIcon.BUG.create();
+        iconDebug.getStyle().set("color", "#8b5cf6").set("font-size", "1.2rem");
+        btnDebug.setIcon(iconDebug);
+        btnDebug.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btnDebug.getStyle().set("font-weight", "500").set("color", "#6b7280");
+        btnDebug.setVisible(securityService != null && securityService.isSuperAdmin());
+        btnDebug.addClickListener(e -> {
+            Map<String, Object> bean = formBinder != null ? formBinder.getBean() : null;
+            com.vaadinerp.components.FormDebugUtils.showDebugDialog(bean);
+        });
+
+        toolbar.add(btnNew, btnDelete, btnSave, btnCancel, btnRefresh, btnClose, btnPrint, btnDebug);
+
+        List<com.vaadinerp.meta.FormActionMeta> masterActions = dynamicDataService.getFormActions(formDef.getFormCode(), "MASTER_TOOLBAR");
+        for (com.vaadinerp.meta.FormActionMeta act : masterActions) {
+            Icon icon = null;
+            if (act.getIconName() != null && !act.getIconName().isBlank()) {
+                try {
+                    icon = VaadinIcon.valueOf(act.getIconName().toUpperCase()).create();
+                } catch (Exception ignored) {}
+            }
+            Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
+            actBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            actBtn.addClickListener(e -> {
+                Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : new HashMap<>();
+                com.vaadinerp.components.DynamicPickerPopupDialog dlg = new com.vaadinerp.components.DynamicPickerPopupDialog(act, dynamicDataService, headerBean, selectedRecords -> {
+                    for (Map<String, Object> srcRec : selectedRecords) {
+                        applyTargetMapping(headerBean, srcRec, act.getTargetMapping());
+                    }
+                    if (formBinder != null) formBinder.readBean(headerBean);
+                });
+                dlg.open();
+            });
+            toolbar.add(actBtn);
+        }
     }
 
     private void buildMasterForm(FormMeta formDef) {
@@ -1617,6 +1654,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
     @SuppressWarnings("unchecked")
     private <V> void bindComponent(Binder<Map<String, Object>> binder, Component editComponent, FieldMeta field) {
+        if (editComponent instanceof com.vaadinerp.components.SubformGridField subformGrid) {
+            subformGrid.setHeaderRecordSupplier(() -> binder.getBean());
+        }
         HasValue<?, V> hasValue = (HasValue<?, V>) editComponent;
         Binder.BindingBuilder<Map<String, Object>, V> builder = binder.forField(hasValue);
         if (field.isRequired()) {
@@ -1624,7 +1664,47 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         }
         builder.bind(
                 map -> convertToFieldValue(getValueCaseInsensitive(map, field.getFieldName()), editComponent),
-                (map, value) -> putValueCaseInsensitive(map, field.getFieldName(), value));
+                (map, value) -> {
+                    putValueCaseInsensitive(map, field.getFieldName(), value);
+                    if (value != null && !(value instanceof Map)) {
+                        putValueCaseInsensitive(map, field.getFieldName() + ".id", value);
+                    }
+                    if (editComponent instanceof com.vaadinerp.components.BandboxField<?, ?> bandbox) {
+                        putValueCaseInsensitive(map, field.getFieldName() + "_label", bandbox.getDisplayLabel());
+                        Object selItem = bandbox.getSelectedItem();
+                        if (selItem instanceof Map) {
+                            Map<String, Object> selMap = (Map<String, Object>) selItem;
+                            putValueCaseInsensitive(map, field.getFieldName() + "_record", selMap);
+                            for (Map.Entry<String, Object> entry : selMap.entrySet()) {
+                                if (entry.getKey() != null && entry.getValue() != null) {
+                                    putValueCaseInsensitive(map, field.getFieldName() + "." + entry.getKey(), entry.getValue());
+                                }
+                            }
+                        }
+                    }
+                });
+        hasValue.addValueChangeListener(e -> {
+            Map<String, Object> bean = binder.getBean();
+            if (bean != null) {
+                putValueCaseInsensitive(bean, field.getFieldName(), e.getValue());
+                if (e.getValue() != null && !(e.getValue() instanceof Map)) {
+                    putValueCaseInsensitive(bean, field.getFieldName() + ".id", e.getValue());
+                }
+                if (editComponent instanceof com.vaadinerp.components.BandboxField<?, ?> bandbox) {
+                    putValueCaseInsensitive(bean, field.getFieldName() + "_label", bandbox.getDisplayLabel());
+                    Object selItem = bandbox.getSelectedItem();
+                    if (selItem instanceof Map) {
+                        Map<String, Object> selMap = (Map<String, Object>) selItem;
+                        putValueCaseInsensitive(bean, field.getFieldName() + "_record", selMap);
+                        for (Map.Entry<String, Object> entry : selMap.entrySet()) {
+                            if (entry.getKey() != null && entry.getValue() != null) {
+                                putValueCaseInsensitive(bean, field.getFieldName() + "." + entry.getKey(), entry.getValue());
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     private Object getValueCaseInsensitive(Map<String, Object> map, String key) {
