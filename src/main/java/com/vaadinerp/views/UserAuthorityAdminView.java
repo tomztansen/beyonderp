@@ -154,6 +154,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 colStatus, u -> Boolean.TRUE.equals(u.getIsActive()) ? "Aktif" : "Non-Aktif"
         );
         userFilterRefresher = StandardGridUtils.attachGridFilters(userGrid, getterMap, userRepository::findAll);
+        toolbar.add(StandardGridUtils.createExportExcelButton(userGrid, "users_export", getterMap));
 
         l.add(toolbar, userGrid);
         l.setFlexGrow(1, userGrid);
@@ -282,6 +283,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 colDesc, r -> r.getDescription() != null ? r.getDescription() : ""
         );
         roleFilterRefresher = StandardGridUtils.attachGridFilters(roleGrid, getterMap, roleRepository::findAll);
+        toolbar.add(StandardGridUtils.createExportExcelButton(roleGrid, "roles_export", getterMap));
 
         l.add(toolbar, roleGrid);
         l.setFlexGrow(1, roleGrid);
@@ -423,6 +425,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         Paragraph hint = new Paragraph("💡 Struktur menu hierarkis: Buat GROUP terlebih dahulu, lalu tambahkan ITEM di bawahnya. Gunakan tombol ⊕ pada baris GROUP untuk menambah child.");
         hint.getStyle().set("font-size", "0.8rem").set("color", "#64748b").set("margin", "0");
 
+        toolbar.add(StandardGridUtils.createExportExcelButton(menuTreeGrid, "menus_export"));
         l.add(toolbar, hint, menuTreeGrid);
         l.setFlexGrow(1, menuTreeGrid);
         return l;
@@ -600,6 +603,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 colMenu, p -> p.getMenuCode() != null ? p.getMenuCode() : ""
         );
         matrixFilterRefresher = StandardGridUtils.attachGridFilters(matrixGrid, getterMap, permissionRepository::findAll);
+        toolbar.add(StandardGridUtils.createExportExcelButton(matrixGrid, "matrix_export", getterMap));
 
         l.add(toolbar, hint, matrixGrid);
         l.setFlexGrow(1, matrixGrid);

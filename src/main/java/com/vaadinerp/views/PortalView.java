@@ -40,9 +40,7 @@ import com.vaadinerp.security.service.SessionSecurityService;
 import com.vaadinerp.service.DynamicDataService;
 import com.vaadinerp.service.StandardFormatService;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.contextmenu.ContextMenu;
-import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.data.value.ValueChangeMode;
 
 import java.util.ArrayList;
@@ -384,7 +382,7 @@ public class PortalView extends AppLayout {
 
         AppMenu lov = appMenuRepository.findById("LOV_BUILDER").orElse(null);
         String targetParent = (lov != null && lov.getParentMenuCode() != null) ? lov.getParentMenuCode() : sysParent;
-        
+
         AppMenu actionMenu = appMenuRepository.findById("FORM_ACTION_BUILDER").orElseGet(AppMenu::new);
         actionMenu.setMenuCode("FORM_ACTION_BUILDER");
         actionMenu.setMenuTitle("Extra Toolbar Builder");
@@ -410,7 +408,8 @@ public class PortalView extends AppLayout {
             }
             if (appRoleRepository != null) {
                 for (com.vaadinerp.security.entity.AppRole r : appRoleRepository.findAll()) {
-                    if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), "FORM_ACTION_BUILDER").isEmpty()) {
+                    if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), "FORM_ACTION_BUILDER")
+                            .isEmpty()) {
                         RoleMenuPermission p = new RoleMenuPermission();
                         p.setRoleCode(r.getRoleCode());
                         p.setMenuCode("FORM_ACTION_BUILDER");
@@ -484,7 +483,8 @@ public class PortalView extends AppLayout {
             m.setRoutePath(code.toLowerCase().replace('_', '-'));
             appMenuRepository.save(m);
         }
-        if (!"GROUP".equals(type) && roleMenuPermissionRepository != null && roleMenuPermissionRepository.findByRoleCodeAndMenuCode("STAFF", code).isEmpty()) {
+        if (!"GROUP".equals(type) && roleMenuPermissionRepository != null
+                && roleMenuPermissionRepository.findByRoleCodeAndMenuCode("STAFF", code).isEmpty()) {
             RoleMenuPermission perm = new RoleMenuPermission();
             perm.setRoleCode("STAFF");
             perm.setMenuCode(code);
@@ -757,7 +757,8 @@ public class PortalView extends AppLayout {
             case "REPORT_BUILDER" -> new ReportBuilderView(reportMetaRepository, formMetaRepository);
             case "REPORT_VIEWER" -> new ReportViewerView(reportMetaRepository, dynamicDataService);
             case "LOV_BUILDER" -> new LovBuilderView(lovMetaRepository, dynamicDataService);
-            case "FORM_ACTION_BUILDER" -> new FormActionBuilderView(dynamicDataService.getFormActionMetaRepository(), formMetaRepository, lovMetaRepository);
+            case "FORM_ACTION_BUILDER" -> new FormActionBuilderView(dynamicDataService.getFormActionMetaRepository(),
+                    formMetaRepository, lovMetaRepository);
             case "STANDARD_FORMAT" -> new StandardFormatView(standardFormatService);
             case "FIELD_AUDIT_LOG" -> new FieldAuditLogView(dynamicDataService, securityService);
             case "SECURITY_ADMIN" -> new UserAuthorityAdminView(appUserRepository, appRoleRepository, appMenuRepository,

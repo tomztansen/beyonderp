@@ -1,7 +1,6 @@
 package com.vaadinerp.views;
 
 import com.vaadin.flow.component.Component;
-import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
@@ -25,6 +24,7 @@ import com.vaadinerp.meta.FormMetaRepository;
 import com.vaadinerp.meta.FieldFilterMeta;
 
 import com.vaadinerp.service.DynamicDataService;
+import com.vaadinerp.util.FormulaEvaluator;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.grid.dnd.GridDropLocation;
@@ -166,7 +166,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         this.formMetaRepository = formMetaRepository;
         this.dynamicDataService = dynamicDataService;
         this.securityService = securityService;
-        setWidthFull();
+        setSizeFull();
         setPadding(true);
         setSpacing(true);
 
@@ -183,9 +183,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         gridToolbar = new HorizontalLayout();
 
         grid = new Grid<>();
-        grid.setWidthFull();
+        grid.setSizeFull();
+        grid.setMinHeight("580px");
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
-        grid.setAllRowsVisible(true); // Memuat seluruh baris secara vertikal tanpa terpotong
 
         // Setup TabSheet layouts
         historisLayout = new VerticalLayout();
@@ -193,6 +193,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         historisLayout.setPadding(true);
         historisLayout.setSpacing(true);
         historisLayout.add(gridToolbar, grid);
+        historisLayout.expand(grid);
 
         transaksiLayout = new VerticalLayout();
         transaksiLayout.setWidthFull();
@@ -222,6 +223,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         add(title, toolbar, tabSheet);
+        expand(tabSheet);
     }
 
     @Override
@@ -563,24 +565,28 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         toolbar.add(btnNew, btnDelete, btnSave, btnCancel, btnRefresh, btnClose, btnPrint, btnDebug);
 
-        List<com.vaadinerp.meta.FormActionMeta> masterActions = dynamicDataService.getFormActions(formDef.getFormCode(), "MASTER_TOOLBAR");
+        List<com.vaadinerp.meta.FormActionMeta> masterActions = dynamicDataService.getFormActions(formDef.getFormCode(),
+                "MASTER_TOOLBAR");
         for (com.vaadinerp.meta.FormActionMeta act : masterActions) {
             com.vaadin.flow.component.icon.Icon icon = null;
             if (act.getIconName() != null && !act.getIconName().isBlank()) {
                 try {
                     icon = VaadinIcon.valueOf(act.getIconName().toUpperCase()).create();
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
             Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
             actBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
             actBtn.addClickListener(e -> {
                 Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : new HashMap<>();
-                com.vaadinerp.components.DynamicPickerPopupDialog dlg = new com.vaadinerp.components.DynamicPickerPopupDialog(act, dynamicDataService, headerBean, selectedRecords -> {
-                    for (Map<String, Object> srcRec : selectedRecords) {
-                        applyTargetMapping(headerBean, srcRec, act.getTargetMapping());
-                    }
-                    if (formBinder != null) formBinder.readBean(headerBean);
-                });
+                com.vaadinerp.components.DynamicPickerPopupDialog dlg = new com.vaadinerp.components.DynamicPickerPopupDialog(
+                        act, dynamicDataService, headerBean, selectedRecords -> {
+                            for (Map<String, Object> srcRec : selectedRecords) {
+                                applyTargetMapping(headerBean, srcRec, act.getTargetMapping());
+                            }
+                            if (formBinder != null)
+                                formBinder.readBean(headerBean);
+                        });
                 dlg.open();
             });
             toolbar.add(actBtn);
@@ -588,7 +594,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     }
 
     private void applyTargetMapping(Map<String, Object> destRow, Map<String, Object> srcRecord, String targetMapping) {
-        if (targetMapping == null || targetMapping.trim().isEmpty()) return;
+        if (targetMapping == null || targetMapping.trim().isEmpty())
+            return;
         String clean = targetMapping.trim();
         if (clean.startsWith("{") && clean.endsWith("}")) {
             clean = clean.substring(1, clean.length() - 1).trim();
@@ -596,7 +603,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         String[] pairs = clean.split(",");
         for (String pair : pairs) {
             String[] kv = pair.split(":");
-            if (kv.length < 2) kv = pair.split("=");
+            if (kv.length < 2)
+                kv = pair.split("=");
             if (kv.length == 2) {
                 String destCol = kv[0].replaceAll("[\"']", "").trim();
                 String srcCol = kv[1].replaceAll("[\"']", "").trim();
@@ -873,7 +881,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             Notification.show("Layout grid dikembalikan ke default!", 2000, Notification.Position.BOTTOM_END);
         });
 
-        gridToolbar.add(sectionTitle, btnResetGridToolbar);
+        com.vaadin.flow.component.html.Anchor btnExportExcel = com.vaadinerp.components.StandardGridUtils
+                .createExportExcelButton(grid, currentFormCode != null ? currentFormCode + "_export" : "data_export");
+        gridToolbar.add(sectionTitle, btnExportExcel, btnResetGridToolbar);
 
         // Double Click Listener to load data into form and switch tab
         gridDoubleClickReg = grid.addItemDoubleClickListener(event -> {
@@ -1248,7 +1258,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     continue;
                 }
                 if (field.getFormula() != null && !field.getFormula().trim().isEmpty()) {
-                    double calculated = com.vaadinerp.util.FormulaEvaluator.evaluate(field.getFormula(), bean);
+                    double calculated = FormulaEvaluator.evaluate(field.getFormula(), bean);
                     bean.put(field.getFieldName(), calculated);
                     Component comp = formComponents.get(field.getFieldName());
                     if (comp instanceof com.vaadin.flow.component.HasValue) {
@@ -1423,7 +1433,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             putValueCaseInsensitive(map, field.getFieldName() + "_record", selMap);
                             for (Map.Entry<String, Object> entry : selMap.entrySet()) {
                                 if (entry.getKey() != null && entry.getValue() != null) {
-                                    putValueCaseInsensitive(map, field.getFieldName() + "." + entry.getKey(), entry.getValue());
+                                    putValueCaseInsensitive(map, field.getFieldName() + "." + entry.getKey(),
+                                            entry.getValue());
                                 }
                             }
                         }
@@ -1444,7 +1455,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         putValueCaseInsensitive(bean, field.getFieldName() + "_record", selMap);
                         for (Map.Entry<String, Object> entry : selMap.entrySet()) {
                             if (entry.getKey() != null && entry.getValue() != null) {
-                                putValueCaseInsensitive(bean, field.getFieldName() + "." + entry.getKey(), entry.getValue());
+                                putValueCaseInsensitive(bean, field.getFieldName() + "." + entry.getKey(),
+                                        entry.getValue());
                             }
                         }
                     }

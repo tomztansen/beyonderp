@@ -23,10 +23,15 @@
     </properties>
 
     <dependencies>
-        <!-- Vaadin -->
+        <!-- Vaadin Core (100% Free / Open Source Components) -->
         <dependency>
             <groupId>com.vaadin</groupId>
-            <artifactId>vaadin-spring-boot-starter</artifactId>
+            <artifactId>vaadin-core</artifactId>
+            <version>${vaadin.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.vaadin</groupId>
+            <artifactId>vaadin-spring</artifactId>
             <version>${vaadin.version}</version>
         </dependency>
 

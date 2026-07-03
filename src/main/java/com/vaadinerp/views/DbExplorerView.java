@@ -103,7 +103,9 @@ public class DbExplorerView extends VerticalLayout {
         explorerTabs.setSizeFull();
 
         // 1. Data Tab
-        VerticalLayout dataLayout = new VerticalLayout(recordCount, dataGrid);
+        HorizontalLayout dataHeader = new HorizontalLayout(recordCount, StandardGridUtils.createExportExcelButton(dataGrid, "db_data_export"));
+        dataHeader.setAlignItems(Alignment.CENTER);
+        VerticalLayout dataLayout = new VerticalLayout(dataHeader, dataGrid);
         dataLayout.setSizeFull();
         dataLayout.setPadding(false);
         dataGrid.setSizeFull();
@@ -128,7 +130,7 @@ public class DbExplorerView extends VerticalLayout {
         btnAddColumn.setEnabled(false);
         btnAddColumn.addClickListener(e -> openColumnDialog(null));
 
-        HorizontalLayout columnHeader = new HorizontalLayout(schemaInfo, btnAddColumn);
+        HorizontalLayout columnHeader = new HorizontalLayout(schemaInfo, btnAddColumn, StandardGridUtils.createExportExcelButton(schemaGrid, "schema_export"));
         columnHeader.setAlignItems(Alignment.CENTER);
         columnHeader.setSpacing(true);
 
@@ -136,7 +138,7 @@ public class DbExplorerView extends VerticalLayout {
         btnAddConstraint.setEnabled(false);
         btnAddConstraint.addClickListener(e -> openConstraintDialog(null));
 
-        HorizontalLayout constraintHeader = new HorizontalLayout(constraintInfo, btnAddConstraint);
+        HorizontalLayout constraintHeader = new HorizontalLayout(constraintInfo, btnAddConstraint, StandardGridUtils.createExportExcelButton(constraintsGrid, "constraints_export"));
         constraintHeader.setAlignItems(Alignment.CENTER);
         constraintHeader.setSpacing(true);
 
@@ -144,7 +146,7 @@ public class DbExplorerView extends VerticalLayout {
         btnAddTrigger.setEnabled(false);
         btnAddTrigger.addClickListener(e -> openTriggerDialog(null));
 
-        HorizontalLayout triggerHeader = new HorizontalLayout(triggerInfo, btnAddTrigger);
+        HorizontalLayout triggerHeader = new HorizontalLayout(triggerInfo, btnAddTrigger, StandardGridUtils.createExportExcelButton(triggersGrid, "triggers_export"));
         triggerHeader.setAlignItems(Alignment.CENTER);
         triggerHeader.setSpacing(true);
 

@@ -21,6 +21,7 @@ import com.vaadin.flow.component.contextmenu.MenuItem;
 import com.vaadinerp.meta.FieldMeta;
 import com.vaadinerp.meta.FormMeta;
 import com.vaadinerp.service.DynamicDataService;
+import com.vaadinerp.util.FormulaEvaluator;
 import com.vaadin.flow.data.provider.ListDataProvider;
 
 import java.util.*;
@@ -84,7 +85,6 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         Button btnResetSubformGrid = new Button("Reset Layout Grid", VaadinIcon.ROTATE_LEFT.create());
         btnResetSubformGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        btnResetSubformGrid.getStyle().set("margin-left", "auto");
         btnResetSubformGrid.addClickListener(e -> {
             if (childFormDef != null) {
                 dataService.resetUserGridOrder(childFormDef.getFormCode(), "subformGrid");
@@ -131,7 +131,9 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
         }
 
-        toolbar.add(btnResetSubformGrid);
+        com.vaadin.flow.component.html.Anchor btnExportSubformExcel = com.vaadinerp.components.StandardGridUtils.createExportExcelButton(grid, fieldMeta != null && fieldMeta.getFieldName() != null ? fieldMeta.getFieldName() + "_export" : "subform_export");
+        btnExportSubformExcel.getStyle().set("margin-left", "auto");
+        toolbar.add(btnExportSubformExcel, btnResetSubformGrid);
 
         // Setup Grid
         grid.setWidthFull();
@@ -682,7 +684,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         for (FieldMeta field : childFormDef.getFields()) {
             if (field.getFormula() != null && !field.getFormula().trim().isEmpty()) {
                 try {
-                    double calculated = com.vaadinerp.util.FormulaEvaluator.evaluate(field.getFormula(), row);
+                    double calculated = FormulaEvaluator.evaluate(field.getFormula(), row);
                     row.put(field.getFieldName(), calculated);
 
                     Component editorComp = editorComponents.get(field.getFieldName());
