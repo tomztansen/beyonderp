@@ -11,7 +11,6 @@ import com.vaadin.flow.component.textfield.TextFieldVariant;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.server.StreamResource;
-
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -40,23 +39,25 @@ public class StandardGridUtils {
      * header row accumulation and memory leaks.
      */
     public static void cleanGridBeforeRebuild(Grid<?> grid) {
-        if (grid == null) return;
-        
+        if (grid == null)
+            return;
+
         // Save current grid configuration
         Grid.SelectionMode selectionMode = grid.getSelectionMode();
-        
-        // Temporarily set selection mode to NONE to cleanly detach multi-selection RPC model
+
+        // Temporarily set selection mode to NONE to cleanly detach multi-selection RPC
+        // model
         grid.setSelectionMode(Grid.SelectionMode.NONE);
-        
+
         // Remove all header rows except the first one (default header)
         List<HeaderRow> headerRows = new ArrayList<>(grid.getHeaderRows());
         for (int i = headerRows.size() - 1; i >= 1; i--) {
             grid.removeHeaderRow(headerRows.get(i));
         }
-        
+
         // Remove all columns
         grid.removeAllColumns();
-        
+
         // Restore selection mode
         if (selectionMode != null) {
             grid.setSelectionMode(selectionMode);
@@ -65,23 +66,27 @@ public class StandardGridUtils {
 
     /**
      * Safely appends a header row by ensuring no duplicate filter rows exist.
-     * Always call this instead of grid.appendHeaderRow() directly when adding filter rows.
+     * Always call this instead of grid.appendHeaderRow() directly when adding
+     * filter rows.
      */
     public static HeaderRow safeAppendHeaderRow(Grid<?> grid) {
-        if (grid == null) return null;
-        
+        if (grid == null)
+            return null;
+
         // Remove any extra header rows (keep only default)
         while (grid.getHeaderRows().size() > 1) {
             grid.removeHeaderRow(grid.getHeaderRows().get(grid.getHeaderRows().size() - 1));
         }
-        
+
         // Now it's safe to append a new header row
         return grid.appendHeaderRow();
     }
 
     /**
-     * Generic method to attach standard search filter header row, sorting, and column reordering to any Grid<T>.
-     * Returns a Runnable that can be called to re-apply filtering and refresh grid items from dataSupplier.
+     * Generic method to attach standard search filter header row, sorting, and
+     * column reordering to any Grid<T>.
+     * Returns a Runnable that can be called to re-apply filtering and refresh grid
+     * items from dataSupplier.
      */
     public static <T> Runnable attachGridFilters(
             Grid<T> grid,
@@ -89,7 +94,8 @@ public class StandardGridUtils {
             Supplier<List<T>> dataSupplier) {
 
         if (grid == null || colGetterMap == null || colGetterMap.isEmpty()) {
-            return () -> {};
+            return () -> {
+            };
         }
 
         // Enable column reordering and sorting
@@ -132,50 +138,61 @@ public class StandardGridUtils {
                 for (Map.Entry<Grid.Column<T>, FilterCriteria> entry : filterValues.entrySet()) {
                     Grid.Column<T> col = entry.getKey();
                     FilterCriteria criteria = entry.getValue();
-                    
-                    if (col == null) continue;
-                    
+
+                    if (col == null)
+                        continue;
+
                     String op = criteria.operator;
                     String query = criteria.value != null ? criteria.value.trim().toLowerCase() : "";
 
                     Function<T, String> getter = colGetterMap.get(col);
-                    if (getter == null) continue;
+                    if (getter == null)
+                        continue;
 
                     String rawVal = getter.apply(item);
                     String strVal = rawVal != null ? rawVal.toLowerCase() : "";
 
                     // Handle Blank/Not blank first
                     if ("Blank".equals(op)) {
-                        if (!strVal.isEmpty()) return false;
+                        if (!strVal.isEmpty())
+                            return false;
                         continue;
                     }
                     if ("Not blank".equals(op)) {
-                        if (strVal.isEmpty()) return false;
+                        if (strVal.isEmpty())
+                            return false;
                         continue;
                     }
 
                     // Skip if no query value for other operators
-                    if (query.isEmpty()) continue;
+                    if (query.isEmpty())
+                        continue;
 
                     // Apply operator
                     switch (op) {
                         case "Contains":
-                            if (!strVal.contains(query)) return false;
+                            if (!strVal.contains(query))
+                                return false;
                             break;
                         case "Not contains":
-                            if (strVal.contains(query)) return false;
+                            if (strVal.contains(query))
+                                return false;
                             break;
                         case "Equals":
-                            if (!strVal.equals(query)) return false;
+                            if (!strVal.equals(query))
+                                return false;
                             break;
                         case "Not equal":
-                            if (strVal.equals(query)) return false;
+                            if (strVal.equals(query))
+                                return false;
                             break;
                         case "Starts with":
-                            if (!strVal.startsWith(query)) return false;
+                            if (!strVal.startsWith(query))
+                                return false;
                             break;
                         case "Ends with":
-                            if (!strVal.endsWith(query)) return false;
+                            if (!strVal.endsWith(query))
+                                return false;
                             break;
                         default:
                             break;
@@ -189,7 +206,8 @@ public class StandardGridUtils {
 
         for (Map.Entry<Grid.Column<T>, Function<T, String>> entry : colGetterMap.entrySet()) {
             Grid.Column<T> col = entry.getKey();
-            if (col == null) continue;
+            if (col == null)
+                continue;
             FilterCriteria criteria = new FilterCriteria();
             filterValues.put(col, criteria);
 
@@ -251,7 +269,8 @@ public class StandardGridUtils {
     }
 
     /**
-     * Attaches standard search filters in header row, column sorting, and column reordering
+     * Attaches standard search filters in header row, column sorting, and column
+     * reordering
      * to a Grid<Map<String, Object>>. Returns a Runnable to refresh grid items.
      */
     public static Runnable attachMapGridFilters(
@@ -266,7 +285,8 @@ public class StandardGridUtils {
 
     /**
      * Menerapkan urutan kolom tersimpan user ke Grid secara aman.
-     * Mengabaikan kolom yang sudah dihapus di metadata dan otomatis menaruh kolom baru di akhir urutan.
+     * Mengabaikan kolom yang sudah dihapus di metadata dan otomatis menaruh kolom
+     * baru di akhir urutan.
      */
     public static <T> void applySafeColumnOrder(
             Grid<T> grid,
@@ -284,7 +304,8 @@ public class StandardGridUtils {
         List<Grid.Column<T>> reconciledOrder = new ArrayList<>();
         Set<Grid.Column<T>> processedCols = new HashSet<>();
 
-        // 1. Identifikasi dan letakkan kolom non-metadata (seperti kolom seleksi checkbox internal) di depan
+        // 1. Identifikasi dan letakkan kolom non-metadata (seperti kolom seleksi
+        // checkbox internal) di depan
         for (Grid.Column<T> col : grid.getColumns()) {
             if (!columnToFieldNameMap.containsKey(col)) {
                 reconciledOrder.add(col);
@@ -301,7 +322,8 @@ public class StandardGridUtils {
             }
         }
 
-        // 3. Tambahkan kolom lain di Grid yang belum masuk (kolom baru dari metadata / kolom sistem)
+        // 3. Tambahkan kolom lain di Grid yang belum masuk (kolom baru dari metadata /
+        // kolom sistem)
         for (Grid.Column<T> col : grid.getColumns()) {
             if (!processedCols.contains(col)) {
                 reconciledOrder.add(col);
@@ -315,14 +337,17 @@ public class StandardGridUtils {
     }
 
     /**
-     * Membuat tombol Export Excel (berupa Anchor yang mengemas Button) untuk Grid apapun.
-     * Mengunduh isi Grid beserta header dalam format Excel CSV (UTF-8 BOM) yang siap dibuka di Microsoft Excel.
+     * Membuat tombol Export Excel (berupa Anchor yang mengemas Button) untuk Grid
+     * apapun.
+     * Mengunduh isi Grid beserta header dalam format Excel CSV (UTF-8 BOM) yang
+     * siap dibuka di Microsoft Excel.
      */
     public static <T> Anchor createExportExcelButton(Grid<T> grid, String fileNamePrefix) {
         return createExportExcelButton(grid, fileNamePrefix, null);
     }
 
-    public static <T> Anchor createExportExcelButton(Grid<T> grid, String fileNamePrefix, Map<Grid.Column<T>, Function<T, String>> colGetterMap) {
+    public static <T> Anchor createExportExcelButton(Grid<T> grid, String fileNamePrefix,
+            Map<Grid.Column<T>, Function<T, String>> colGetterMap) {
         Button btnExport = new Button("Export Excel", VaadinIcon.FILE_TABLE.create());
         btnExport.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         btnExport.getStyle().set("cursor", "pointer");
@@ -337,7 +362,8 @@ public class StandardGridUtils {
                 List<String> headers = new ArrayList<>();
 
                 for (Grid.Column<T> col : grid.getColumns()) {
-                    if (!col.isVisible()) continue;
+                    if (!col.isVisible())
+                        continue;
                     String headerText = col.getHeaderText();
                     String key = col.getKey();
                     if ((headerText == null || headerText.trim().isEmpty()) && (key == null || key.trim().isEmpty())) {
@@ -350,17 +376,23 @@ public class StandardGridUtils {
                 // Header Row
                 for (int i = 0; i < headers.size(); i++) {
                     sb.append(escapeCsv(headers.get(i)));
-                    if (i < headers.size() - 1) sb.append(",");
+                    if (i < headers.size() - 1)
+                        sb.append(",");
                 }
                 sb.append("\r\n");
 
                 // Data Rows
                 List<T> items = new ArrayList<>();
-                try {
-                    grid.getListDataView().getItems().forEach(items::add);
-                } catch (Exception ignored) {
-                    if (grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
-                        items.addAll(((com.vaadin.flow.data.provider.ListDataProvider<T>) grid.getDataProvider()).getItems());
+                Set<T> selected = grid.getSelectedItems();
+                if (selected != null && !selected.isEmpty()) {
+                    items.addAll(selected);
+                } else {
+                    try {
+                        grid.getListDataView().getItems().forEach(items::add);
+                    } catch (Exception ignored) {
+                        if (grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
+                            items.addAll(((com.vaadin.flow.data.provider.ListDataProvider<T>) grid.getDataProvider()).getItems());
+                        }
                     }
                 }
 
@@ -376,7 +408,7 @@ public class StandardGridUtils {
                 }
 
                 byte[] bytes = sb.toString().getBytes(StandardCharsets.UTF_8);
-                byte[] bom = new byte[] { (byte)0xEF, (byte)0xBB, (byte)0xBF };
+                byte[] bom = new byte[] { (byte) 0xEF, (byte) 0xBB, (byte) 0xBF };
                 byte[] finalBytes = new byte[bom.length + bytes.length];
                 System.arraycopy(bom, 0, finalBytes, 0, bom.length);
                 System.arraycopy(bytes, 0, finalBytes, bom.length, bytes.length);
@@ -387,6 +419,15 @@ public class StandardGridUtils {
             }
         });
 
+        btnExport.addClickListener(e -> {
+            Set<T> sel = grid.getSelectedItems();
+            if (sel != null && !sel.isEmpty()) {
+                com.vaadin.flow.component.notification.Notification.show("Mengekspor " + sel.size() + " baris terpilih ke Excel...", 2500, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
+            } else {
+                com.vaadin.flow.component.notification.Notification.show("Mengekspor seluruh data yang tampil ke Excel...", 2000, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
+            }
+        });
+
         Anchor anchor = new Anchor(resource, "");
         anchor.getElement().setAttribute("download", true);
         anchor.add(btnExport);
@@ -394,7 +435,8 @@ public class StandardGridUtils {
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> String extractCellValue(T item, Grid.Column<T> col, Map<Grid.Column<T>, Function<T, String>> colGetterMap) {
+    private static <T> String extractCellValue(T item, Grid.Column<T> col,
+            Map<Grid.Column<T>, Function<T, String>> colGetterMap) {
         if (colGetterMap != null && colGetterMap.containsKey(col) && colGetterMap.get(col) != null) {
             String res = colGetterMap.get(col).apply(item);
             return res != null ? res : "";
@@ -427,7 +469,8 @@ public class StandardGridUtils {
                         field.setAccessible(true);
                         Object val = field.get(item);
                         return val != null ? val.toString() : "";
-                    } catch (Exception ignored2) {}
+                    } catch (Exception ignored2) {
+                    }
                 }
             }
         }
@@ -435,7 +478,8 @@ public class StandardGridUtils {
     }
 
     private static String escapeCsv(String str) {
-        if (str == null) return "";
+        if (str == null)
+            return "";
         String s = str.replace("\"", "\"\"");
         return "\"" + s + "\"";
     }
