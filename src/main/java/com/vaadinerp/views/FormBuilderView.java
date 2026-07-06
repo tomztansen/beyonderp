@@ -39,6 +39,7 @@ import com.vaadinerp.meta.LovMeta;
 import com.vaadinerp.meta.LovMetaRepository;
 import com.vaadinerp.service.DynamicDataService;
 import com.vaadinerp.components.BandboxField;
+import com.vaadinerp.components.FileUploadField;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -73,7 +74,8 @@ public class FormBuilderView extends VerticalLayout {
     private final TextField detailFkField = new TextField("Detail Foreign Key Column");
     private final TextField defaultSortField = new TextField("Default Sort Field");
     private final ComboBox<String> defaultSortDirection = new ComboBox<>("Default Sort Direction");
-    private final MultiSelectComboBox<com.vaadinerp.meta.FormActionMeta> assignedActionsCombo = new MultiSelectComboBox<>("Pilih & Pasangkan Extra Toolbar dari Katalog (Chosenbox)");
+    private final MultiSelectComboBox<com.vaadinerp.meta.FormActionMeta> assignedActionsCombo = new MultiSelectComboBox<>(
+            "Pilih & Pasangkan Extra Toolbar dari Katalog (Chosenbox)");
 
     // Selected Field State
     private FieldMetaTemp selectedField = null;
@@ -442,14 +444,16 @@ public class FormBuilderView extends VerticalLayout {
         defaultSortDirection.setValue("ASC");
 
         assignedActionsCombo.setWidthFull();
-        assignedActionsCombo.setItemLabelGenerator(act -> act.getActionLabel() + " (" + act.getActionCode() + ") " + (act.getFormMeta() != null ? "[" + act.getFormMeta().getFormCode() + "]" : "[Katalog Global]"));
+        assignedActionsCombo.setItemLabelGenerator(act -> act.getActionLabel() + " (" + act.getActionCode() + ") "
+                + (act.getFormMeta() != null ? "[" + act.getFormMeta().getFormCode() + "]" : "[Katalog Global]"));
         if (dynamicDataService != null && dynamicDataService.getFormActionMetaRepository() != null) {
             assignedActionsCombo.setItems(dynamicDataService.getFormActionMetaRepository().findAll());
         }
 
         formMetaLayout.add(formCodeField, formTitleField, formTypeCombo, tableNameField, viewTableField, pkField,
                 labelWidthField,
-                defaultSortField, defaultSortDirection, assignedActionsCombo, detailTableNameField, detailPkField, detailFkField);
+                defaultSortField, defaultSortDirection, assignedActionsCombo, detailTableNameField, detailPkField,
+                detailFkField);
         formMetaLayout.setColspan(assignedActionsCombo, 2);
 
         formTypeCombo.setItems("SINGLE", "MASTER_DETAIL");
@@ -496,7 +500,9 @@ public class FormBuilderView extends VerticalLayout {
                 createPaletteButton("List Box", VaadinIcon.LIST_SELECT, "LISTBOX"),
                 createPaletteButton("Band Box", VaadinIcon.SEARCH, "BANDBOX"),
                 createPaletteButton("Chosen Box", VaadinIcon.TAGS, "CHOSENBOX"),
-                createPaletteButton("Subform Grid", VaadinIcon.GRID, "SUBFORM_GRID"));
+                createPaletteButton("Subform Grid", VaadinIcon.GRID, "SUBFORM_GRID"),
+                createPaletteButton("File Upload", VaadinIcon.UPLOAD, "FILE_UPLOAD"),
+                createPaletteButton("Image Upload", VaadinIcon.PICTURE, "IMAGE_UPLOAD"));
 
         // COLUMN B: CANVAS PREVIEW
         VerticalLayout canvasPanel = new VerticalLayout();
@@ -638,7 +644,8 @@ public class FormBuilderView extends VerticalLayout {
         propertiesForm.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
 
         propComponentType.setItems("TEXTBOX", "INTBOX", "DECIMALBOX", "DATEBOX", "DATETIMEBOX", "TIMEBOX", "CHECKBOX",
-                "TEXTAREA", "COMBOBOX", "LISTBOX", "BANDBOX", "CHOSENBOX", "SUBFORM_GRID");
+                "TEXTAREA", "COMBOBOX", "LISTBOX", "BANDBOX", "CHOSENBOX", "SUBFORM_GRID", "FILE_UPLOAD",
+                "IMAGE_UPLOAD");
 
         // Configure propLovCode BandboxField
         propLovCode.getGrid().addColumn(row -> row.get("code") != null ? row.get("code").toString() : "")
@@ -1353,6 +1360,12 @@ public class FormBuilderView extends VerticalLayout {
                 mockGrid.setItems(java.util.Collections.singletonList("Data detail akan dimuat di sini..."));
                 subformContainer.add(sTitle, mockGrid);
                 return subformContainer;
+            case "FILE_UPLOAD":
+                return new FileUploadField(label,
+                        dynamicDataService != null ? dynamicDataService.getFileStorageService() : null, false);
+            case "IMAGE_UPLOAD":
+                return new FileUploadField(label,
+                        dynamicDataService != null ? dynamicDataService.getFileStorageService() : null, true);
             default:
                 return new TextField(label);
         }
@@ -2412,8 +2425,10 @@ public class FormBuilderView extends VerticalLayout {
                     java.util.Set<com.vaadinerp.meta.FormActionMeta> selectedSet = new java.util.HashSet<>();
                     for (String code : selectedForm.getExtraToolbars().split(",")) {
                         String clean = code.trim();
-                        com.vaadinerp.meta.FormActionMeta act = dynamicDataService.getFormActionMetaRepository().findByActionCode(clean);
-                        if (act != null) selectedSet.add(act);
+                        com.vaadinerp.meta.FormActionMeta act = dynamicDataService.getFormActionMetaRepository()
+                                .findByActionCode(clean);
+                        if (act != null)
+                            selectedSet.add(act);
                     }
                     assignedActionsCombo.setValue(selectedSet);
                 } else {

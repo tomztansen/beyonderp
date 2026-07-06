@@ -77,6 +77,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     private final Map<String, FilterCriteria> filterValues = new HashMap<>();
     private Map<String, Object> draggedItem;
     private final Map<Grid.Column<Map<String, Object>>, String> columnToFieldNameMap = new HashMap<>();
+    private com.vaadinerp.components.PaginationBar paginationBar;
+    private String currentSortField;
+    private String currentSortDir;
 
     private final HorizontalLayout masterGridToolbar = new HorizontalLayout();
     private final HorizontalLayout dynamicDetailsActionsLayout = new HorizontalLayout();
@@ -155,6 +158,14 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         this.closeHandler = closeHandler;
     }
 
+    /**
+     * Menyembunyikan judul H3 di dalam view.
+     * Dipanggil ketika view di-embed di dalam tab portal yang sudah menampilkan judul.
+     */
+    public void hideTitle() {
+        title.setVisible(false);
+    }
+
     public GenericMasterDetailFormView(FormMetaRepository formMetaRepository, DynamicDataService dynamicDataService) {
         this(formMetaRepository, dynamicDataService, null);
     }
@@ -165,10 +176,12 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         this.securityService = securityService;
         
         setSizeFull();
-        setPadding(true);
-        setSpacing(true);
+        setPadding(false);
+        setSpacing(false);
+        getStyle().set("gap", "4px").set("padding", "8px 12px");
 
         title = new H3("Loading Master-Detail...");
+        title.getStyle().set("margin", "0").set("padding", "0");
         
         // Setup Toolbar
         toolbar = new HorizontalLayout();
@@ -182,23 +195,29 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 .set("gap", "15px");
 
         masterGrid.setSizeFull();
-        masterGrid.setMinHeight("580px");
+        masterGrid.setMinHeight("300px");
         masterGrid.setSelectionMode(Grid.SelectionMode.MULTI);
 
         // Setup Tab Sheet layouts
         VerticalLayout historisLayout = new VerticalLayout();
         historisLayout.setSizeFull();
-        historisLayout.setPadding(true);
-        historisLayout.setSpacing(true);
-        historisLayout.add(masterGridToolbar, masterGrid);
+        historisLayout.setPadding(false);
+        historisLayout.setSpacing(false);
+        historisLayout.getStyle().set("gap", "4px");
+        paginationBar = new com.vaadinerp.components.PaginationBar(e -> applyFilters());
+        historisLayout.add(masterGridToolbar, masterGrid, paginationBar);
         historisLayout.expand(masterGrid);
         
         VerticalLayout transaksiLayout = new VerticalLayout();
         transaksiLayout.setWidthFull();
-        
+        transaksiLayout.setPadding(false);
+        transaksiLayout.setSpacing(false);
+        transaksiLayout.getStyle().set("gap", "6px");
+
         formLayout.setWidthFull();
         formLayout.setPadding(false);
-        formLayout.setSpacing(true);
+        formLayout.setSpacing(false);
+        formLayout.getStyle().set("gap", "6px");
         
         // Details Toolbar
         HorizontalLayout detailsToolbar = new HorizontalLayout();
@@ -269,6 +288,36 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
             Map<String, Object> newRow = new HashMap<>();
             newRow.put("_tempId", java.util.UUID.randomUUID().toString());
+
+            // Populate cross-scope LOV target mappings from Header to new Detail row
+            Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : null;
+            if (headerBean != null && currentFormDef != null && currentFormDef.getFields() != null) {
+                for (FieldMeta field : currentFormDef.getFields()) {
+                    if (!field.isDetail() && field.getLovTargets() != null) {
+                        Object selRecord = getValueCaseInsensitive(headerBean, field.getFieldName() + "_record");
+                        for (com.vaadinerp.meta.FieldLovTargetMeta target : field.getLovTargets()) {
+                            if (target.getTargetField() != null && target.getTargetField().toLowerCase().startsWith("detail.")) {
+                                String dCol = target.getTargetField().substring(7);
+                                Object val = null;
+                                if (selRecord instanceof Map) {
+                                    @SuppressWarnings("unchecked")
+                                    Map<String, Object> selMap = (Map<String, Object>) selRecord;
+                                    val = getValueCaseInsensitive(selMap, target.getSourceColumn());
+                                }
+                                if (val == null) {
+                                    val = getValueCaseInsensitive(headerBean, field.getFieldName() + "." + target.getSourceColumn());
+                                }
+                                if (val != null) {
+                                    putValueCaseInsensitive(newRow, dCol, val);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            executeOnLoadActions("ON_DETAIL_ADD", newRow);
+            calculateRowTotal(newRow);
+
             detailsList.add(newRow);
             applyDetailsFilters();
             applyMasterFiltersToDetailEditors(currentFormDef);
@@ -337,6 +386,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         buildDetailsGrid(formDef);
         buildDetailsActions(formDef);
         refreshMasterGridData();
+        executeOnLoadActions("ON_LOAD_NEW");
     }
 
     private void buildDetailsActions(FormMeta formDef) {
@@ -374,6 +424,52 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private void executeOnLoadActions(String scope, Map<String, Object>... targetRows) {
+        if (currentFormDef == null || dynamicDataService == null) return;
+        List<com.vaadinerp.meta.FormActionMeta> actions = dynamicDataService.getFormActions(currentFormCode, scope);
+        if (actions == null || actions.isEmpty()) return;
+
+        Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : new HashMap<>();
+        for (com.vaadinerp.meta.FormActionMeta act : actions) {
+            try {
+                List<Map<String, Object>> fetchedRecords = dynamicDataService.fetchLovDataWithActionFilters(
+                        act.getSourceLovCode(),
+                        act.getFilterMapping(),
+                        headerBean,
+                        ""
+                );
+                if (fetchedRecords != null && !fetchedRecords.isEmpty()) {
+                    Map<String, Object> srcRec = fetchedRecords.get(0);
+                    if ("ON_DETAIL_ADD".equalsIgnoreCase(scope)) {
+                        for (Map<String, Object> targetRow : targetRows) {
+                            if (targetRow != null) {
+                                applyTargetMapping(targetRow, srcRec, act.getTargetMapping());
+                                calculateRowTotal(targetRow);
+                            }
+                        }
+                    } else {
+                        // ON_LOAD_NEW, ON_LOAD_EDIT
+                        if (headerBean != null) {
+                            applyTargetMapping(headerBean, srcRec, act.getTargetMapping());
+                            if (formBinder != null) {
+                                isLoadingExistingData = true;
+                                try {
+                                    formBinder.readBean(headerBean);
+                                } finally {
+                                    isLoadingExistingData = false;
+                                }
+                            }
+                            evaluateFormulas();
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                System.err.println("Error executing OnLoad action [" + act.getActionCode() + "] in scope [" + scope + "]: " + ex.getMessage());
+            }
+        }
+    }
+
     private void applyTargetMapping(Map<String, Object> destRow, Map<String, Object> srcRecord, String targetMapping) {
         if (targetMapping == null || targetMapping.trim().isEmpty()) return;
         String clean = targetMapping.trim();
@@ -391,7 +487,16 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 if (srcRecord != null) {
                     val = getValueCaseInsensitive(srcRecord, srcCol);
                 }
-                putValueCaseInsensitive(destRow, destCol, val);
+                if (destCol.toLowerCase().startsWith("detail.")) {
+                    String dCol = destCol.substring(7);
+                    for (Map<String, Object> row : detailsList) {
+                        putValueCaseInsensitive(row, dCol, val);
+                        calculateRowTotal(row);
+                    }
+                    applyDetailsFilters();
+                } else {
+                    putValueCaseInsensitive(destRow, destCol, val);
+                }
             }
         }
     }
@@ -413,6 +518,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             deletedDetailsList.clear();
             applyDetailsFilters();
             tabSheet.setSelectedTab(transaksiTab);
+            executeOnLoadActions("ON_LOAD_NEW");
         });
 
         // 2. HAPUS BUTTON
@@ -748,6 +854,15 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         java.util.function.BiConsumer<String, Object> updateFieldValue = (targetFieldName, value) -> {
             if (isLoadingExistingData) return;
+            if (targetFieldName != null && targetFieldName.toLowerCase().startsWith("detail.")) {
+                String detailCol = targetFieldName.substring(7);
+                for (Map<String, Object> row : detailsList) {
+                    putValueCaseInsensitive(row, detailCol, value);
+                    calculateRowTotal(row);
+                }
+                applyDetailsFilters();
+                return;
+            }
             Component targetComponent = formComponents.get(targetFieldName);
             if (targetComponent instanceof HasValue) {
                 @SuppressWarnings("unchecked")
@@ -878,6 +993,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 
                 applyDetailsFilters();
                 tabSheet.setSelectedTab(transaksiTab);
+                executeOnLoadActions("ON_LOAD_EDIT");
             }
         });
 
@@ -974,6 +1090,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 if (event.getSource().getText() != null) {
                     criteria.operator = event.getSource().getText();
                     applyOperatorUI.run();
+                    if (paginationBar != null) paginationBar.resetPage();
                     applyFilters();
                 }
             };
@@ -999,6 +1116,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
             filterField.addValueChangeListener(e -> {
                 criteria.value = e.getValue();
+                if (paginationBar != null) paginationBar.resetPage();
                 applyFilters();
             });
 
@@ -1028,7 +1146,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     } else {
                         allMasterGridItems.add(newIndex, draggedItem);
                     }
-                    applyFilters();
+                    updateMasterGridDataProvider();
                 }
             }
             draggedItem = null;
@@ -1037,6 +1155,23 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         masterDragEndReg = masterGrid.addDragEndListener(event -> {
             draggedItem = null;
             masterGrid.setDropMode(null);
+        });
+
+        masterGrid.addSortListener(event -> {
+            if (!event.getSortOrder().isEmpty()) {
+                com.vaadin.flow.component.grid.GridSortOrder<Map<String, Object>> order = event.getSortOrder().get(0);
+                if (order.getSorted().getKey() != null) {
+                    currentSortField = order.getSorted().getKey();
+                    currentSortDir = order.getDirection() == com.vaadin.flow.data.provider.SortDirection.DESCENDING ? "DESC" : "ASC";
+                    if (paginationBar != null) paginationBar.resetPage();
+                    applyFilters();
+                }
+            } else {
+                currentSortField = null;
+                currentSortDir = null;
+                if (paginationBar != null) paginationBar.resetPage();
+                applyFilters();
+            }
         });
 
         // 4. Column Reordering
@@ -1058,9 +1193,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
         });
 
+        applyFilters();
         java.util.List<String> masterUserOrder = dynamicDataService.getUserGridOrder(currentFormCode, "masterGrid");
         com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(masterGrid, columnToFieldNameMap, masterUserOrder);
-        applyFilters();
     }
 
     private void buildDetailsGrid(FormMeta formDef) {
@@ -1391,9 +1526,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
         });
 
+        applyDetailsFilters();
         java.util.List<String> detailsUserOrder = dynamicDataService.getUserGridOrder(currentFormCode, "detailsGrid");
         com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(detailsGrid, detailsColumnToFieldNameMap, detailsUserOrder);
-        applyDetailsFilters();
     }
 
     private void applyDetailsFilters() {
@@ -1408,12 +1543,23 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 Object val = item.get(fieldName);
                 String strVal = val != null ? val.toString().toLowerCase() : "";
                 
+                String lovLabelVal = "";
+                if (currentFormDef != null && currentFormDef.getFields() != null) {
+                    for (FieldMeta f : currentFormDef.getFields()) {
+                        if (fieldName.equalsIgnoreCase(f.getFieldName()) && f.getLovCode() != null && !f.getLovCode().trim().isEmpty()) {
+                            String lbl = com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(f, val, dynamicDataService);
+                            if (lbl != null) lovLabelVal = lbl.toLowerCase();
+                            break;
+                        }
+                    }
+                }
+                
                 if ("Blank".equals(op)) {
-                    if (!strVal.isEmpty()) return false;
+                    if (!strVal.isEmpty() && !lovLabelVal.isEmpty()) return false;
                     continue;
                 }
                 if ("Not blank".equals(op)) {
-                    if (strVal.isEmpty()) return false;
+                    if (strVal.isEmpty() && lovLabelVal.isEmpty()) return false;
                     continue;
                 }
                 
@@ -1425,22 +1571,22 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 
                 switch (op) {
                     case "Contains":
-                        if (!strVal.contains(query)) return false;
+                        if (!strVal.contains(query) && !lovLabelVal.contains(query)) return false;
                         break;
                     case "Not contains":
-                        if (strVal.contains(query)) return false;
+                        if (strVal.contains(query) || lovLabelVal.contains(query)) return false;
                         break;
                     case "Equals":
-                        if (!strVal.equals(query)) return false;
+                        if (!strVal.equals(query) && !lovLabelVal.equals(query)) return false;
                         break;
                     case "Not equal":
-                        if (strVal.equals(query)) return false;
+                        if (strVal.equals(query) || lovLabelVal.equals(query)) return false;
                         break;
                     case "Starts with":
-                        if (!strVal.startsWith(query)) return false;
+                        if (!strVal.startsWith(query) && !lovLabelVal.startsWith(query)) return false;
                         break;
                     case "Ends with":
-                        if (!strVal.endsWith(query)) return false;
+                        if (!strVal.endsWith(query) && !lovLabelVal.endsWith(query)) return false;
                         break;
                 }
             }
@@ -1529,70 +1675,35 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     private void refreshMasterGridData() {
         if (currentFormDef != null) {
             lovLabelMapCache.clear();
-            allMasterGridItems.clear();
-            allMasterGridItems.addAll(dynamicDataService.fetchGridData(currentFormDef));
+            com.vaadinerp.components.ComponentFactory.clearLovCache(null);
+            if (currentSortField == null) {
+                currentSortField = currentFormDef.getDefaultSortField();
+                currentSortDir = currentFormDef.getDefaultSortDirection();
+            }
             applyFilters();
         }
     }
 
     private void applyFilters() {
-        List<Map<String, Object>> filtered = allMasterGridItems.stream().filter(item -> {
-            for (Map.Entry<String, FilterCriteria> entry : filterValues.entrySet()) {
-                String fieldName = entry.getKey();
-                FilterCriteria criteria = entry.getValue();
-                
-                String op = criteria.operator;
-                String query = criteria.value;
-                
-                Object val = item.get(fieldName);
-                String strVal = val != null ? val.toString() : "";
-                String lovCode = fieldNameToLovCodeMap.get(fieldName);
-                if (lovCode != null && !strVal.isEmpty()) {
-                    strVal = getLovDisplayLabel(lovCode, strVal);
-                }
-                strVal = strVal.toLowerCase();
-                
-                if ("Blank".equals(op)) {
-                    if (!strVal.isEmpty()) return false;
-                    continue;
-                }
-                if ("Not blank".equals(op)) {
-                    if (strVal.isEmpty()) return false;
-                    continue;
-                }
-                
-                if (query == null || query.trim().isEmpty()) {
-                    continue;
-                }
-                
-                query = query.toLowerCase();
-                
-                switch (op) {
-                    case "Contains":
-                        if (!strVal.contains(query)) return false;
-                        break;
-                    case "Not contains":
-                        if (strVal.contains(query)) return false;
-                        break;
-                    case "Equals":
-                        if (!strVal.equals(query)) return false;
-                        break;
-                    case "Not equal":
-                        if (strVal.equals(query)) return false;
-                        break;
-                    case "Starts with":
-                        if (!strVal.startsWith(query)) return false;
-                        break;
-                    case "Ends with":
-                        if (!strVal.endsWith(query)) return false;
-                        break;
-                }
-            }
-            return true;
-        }).collect(Collectors.toList());
+        if (currentFormDef == null) return;
+        long totalRecords = dynamicDataService.countGridData(currentFormDef, filterValues);
+        if (paginationBar != null) {
+            paginationBar.setTotalRecords(totalRecords);
+        }
+        int offset = paginationBar != null ? paginationBar.getOffset() : 0;
+        int limit = paginationBar != null ? paginationBar.getLimit() : 50;
         
+        java.util.List<Map<String, Object>> pagedData = dynamicDataService.fetchGridDataPaged(
+                currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
+
+        allMasterGridItems.clear();
+        allMasterGridItems.addAll(pagedData);
+        updateMasterGridDataProvider();
+    }
+
+    private void updateMasterGridDataProvider() {
         masterGridItems.clear();
-        masterGridItems.addAll(filtered);
+        masterGridItems.addAll(allMasterGridItems);
         masterGrid.setItems(new ArrayList<>(masterGridItems));
     }
 

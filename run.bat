@@ -3,4 +3,4 @@ set JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot
 set PATH=%JAVA_HOME%\bin;%PATH%
 echo Using Java isolated runtime: %JAVA_HOME%
 java -version
-mvn -U spring-boot:run
+mvn -U spring-boot:run -Dspring-boot.run.profiles=dev

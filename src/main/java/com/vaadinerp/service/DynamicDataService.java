@@ -5,6 +5,8 @@ import com.vaadinerp.meta.FormMeta;
 import com.vaadinerp.meta.FormMetaRepository;
 import com.vaadinerp.meta.LovMeta;
 import com.vaadinerp.meta.LovMetaRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,8 @@ import java.util.StringJoiner;
 @Service
 public class DynamicDataService {
 
+    private static final Logger log = LoggerFactory.getLogger(DynamicDataService.class);
+
     private final JdbcTemplate jdbcTemplate;
     private final LovMetaRepository lovMetaRepository;
     private final FormMetaRepository formMetaRepository;
@@ -31,6 +35,13 @@ public class DynamicDataService {
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.vaadinerp.meta.FormActionMetaRepository formActionMetaRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private FileStorageService fileStorageService;
+
+    public FileStorageService getFileStorageService() {
+        return fileStorageService;
+    }
 
     public DynamicDataService(JdbcTemplate jdbcTemplate, LovMetaRepository lovMetaRepository, FormMetaRepository formMetaRepository) {
         this.jdbcTemplate = jdbcTemplate;
@@ -77,11 +88,18 @@ public class DynamicDataService {
             throw new SecurityException("Akses ditolak: Multi-statement / stacked query tidak diizinkan!");
         }
 
-        // 3. Blacklist kata kunci DML/DDL dan tabel sistem internal
+        // 3. Tolak SQL comment injection (-- dan /* */)
+        if (trimmed.contains("--") || trimmed.contains("/*")) {
+            throw new SecurityException("Akses ditolak: Komentar SQL (-- atau /* */) tidak diizinkan dalam query dinamis!");
+        }
+
+        // 4. Blacklist kata kunci DML/DDL dan tabel sistem internal
         String[] prohibitedTokens = {
             "insert ", "update ", "delete ", "drop ", "alter ", "truncate ", "grant ", "revoke ",
             "create ", "replace ", "execute ", "exec ", "pg_sleep", "pg_terminate_backend",
-            "pg_reload_conf", "pg_shadow", "pg_authid", "app_user", "role_menu_permission"
+            "pg_reload_conf", "pg_shadow", "pg_authid", "app_user", "role_menu_permission",
+            "copy ", "lo_export", "lo_import", "pg_read_file", "pg_read_binary_file",
+            "pg_ls_dir", "set role", "set session"
         };
         String padded = " " + lower.replaceAll("[\\(\\)\\[\\]\\{\\},\\+\\-\\*/=]", " ") + " ";
         for (String token : prohibitedTokens) {
@@ -90,6 +108,103 @@ public class DynamicDataService {
             }
         }
         return trimmed;
+    }
+
+    /**
+     * Validasi keamanan body PL/pgSQL trigger untuk mencegah injeksi kode berbahaya.
+     * Trigger body hanya boleh berisi logika bisnis PL/pgSQL yang aman.
+     */
+    public static void validateTriggerBody(String body) {
+        if (body == null || body.trim().isEmpty()) return;
+        String lower = body.toLowerCase();
+
+        // Tolak multi-statement escape via dollar-quote termination
+        if (lower.contains("$$ ") || lower.contains("$$;") || lower.contains("$body$")
+                || lower.contains("$func$") || lower.contains("$tag$")) {
+            throw new SecurityException("Akses ditolak: Trigger body mengandung dollar-quote escape yang tidak diizinkan!");
+        }
+
+        // Blacklist perintah DDL/sistem berbahaya dalam trigger body
+        String[] prohibited = {
+            "drop table", "drop schema", "drop database", "drop function", "drop trigger",
+            "drop role", "drop user", "drop owned",
+            "alter table", "alter schema", "alter database", "alter role", "alter user",
+            "truncate ", "grant ", "revoke ",
+            "create role", "create user", "create database",
+            "pg_sleep", "pg_terminate_backend", "pg_cancel_backend",
+            "pg_reload_conf", "pg_shadow", "pg_authid",
+            "pg_read_file", "pg_read_binary_file", "pg_ls_dir",
+            "lo_export", "lo_import",
+            "copy ", "set role", "set session",
+            "execute format", "execute '", "execute \"",
+            "dblink", "pg_extension"
+        };
+
+        // Normalisasi: hapus extra whitespace untuk deteksi yang lebih ketat
+        String normalized = lower.replaceAll("\\s+", " ").trim();
+
+        for (String token : prohibited) {
+            if (normalized.contains(token)) {
+                throw new SecurityException("Akses ditolak: Trigger body mengandung perintah terlarang (" + token.trim() + ")!");
+            }
+        }
+    }
+
+    /**
+     * Validasi bahwa comparison operator hanya berisi operator SQL yang aman (whitelist).
+     */
+    private static final java.util.Set<String> ALLOWED_COMPARISON_OPS = java.util.Set.of(
+        "=", "!=", "<>", "<", ">", "<=", ">=", "LIKE", "ILIKE", "NOT LIKE", "NOT ILIKE", "IS NULL", "IS NOT NULL"
+    );
+
+    public static String validateComparisonOperator(String op) {
+        if (op == null || op.trim().isEmpty()) return "=";
+        String upper = op.trim().toUpperCase();
+        if (!ALLOWED_COMPARISON_OPS.contains(upper)) {
+            throw new SecurityException("Operator perbandingan tidak diizinkan: " + op);
+        }
+        return upper;
+    }
+
+    /**
+     * Validasi bahwa logical operator hanya AND atau OR.
+     */
+    public static String validateLogicalOperator(String op) {
+        if (op == null || op.trim().isEmpty()) return "AND";
+        String upper = op.trim().toUpperCase();
+        if (!"AND".equals(upper) && !"OR".equals(upper)) {
+            throw new SecurityException("Operator logika tidak diizinkan: " + op);
+        }
+        return upper;
+    }
+
+    /**
+     * Validasi bahwa trigger timing hanya BEFORE atau AFTER.
+     */
+    public static String validateTriggerTiming(String timing) {
+        if (timing == null || timing.trim().isEmpty()) {
+            throw new IllegalArgumentException("Trigger timing tidak boleh kosong!");
+        }
+        String upper = timing.trim().toUpperCase();
+        if (!"BEFORE".equals(upper) && !"AFTER".equals(upper) && !"INSTEAD OF".equals(upper)) {
+            throw new SecurityException("Trigger timing tidak diizinkan: " + timing);
+        }
+        return upper;
+    }
+
+    /**
+     * Validasi bahwa trigger event hanya INSERT, UPDATE, atau DELETE.
+     */
+    public static void validateTriggerEvents(List<String> events) {
+        if (events == null || events.isEmpty()) {
+            throw new IllegalArgumentException("Trigger events tidak boleh kosong!");
+        }
+        java.util.Set<String> allowed = java.util.Set.of("INSERT", "UPDATE", "DELETE");
+        for (String event : events) {
+            if (event == null || !allowed.contains(event.trim().toUpperCase())) {
+                throw new SecurityException("Trigger event tidak diizinkan: " + event);
+            }
+        }
     }
 
     public String getQualifiedTableName(String tableName) {
@@ -117,7 +232,9 @@ public class DynamicDataService {
             if (count != null && count > 0) {
                 return "dynamic." + clean;
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.debug("Schema lookup fallback untuk tabel '{}': {}", clean, ex.getMessage());
+        }
         return clean;
     }
 
@@ -221,7 +338,9 @@ public class DynamicDataService {
             if (body != null && !body.trim().isEmpty()) {
                 return body;
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.debug("Gagal membaca trigger body via information_schema untuk '{}': {}", funcName, ex.getMessage());
+        }
 
         try {
             String sqlProc = "SELECT pg_get_functiondef(p.oid) FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = 'dynamic' AND p.proname = ?";
@@ -240,7 +359,9 @@ public class DynamicDataService {
                 }
                 return def;
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.debug("Gagal membaca trigger body via pg_proc untuk '{}': {}", funcName, ex.getMessage());
+        }
 
         return "-- Tulis kode PL/pgSQL trigger di sini\nBEGIN\n    RETURN NEW;\nEND;";
     }
@@ -250,9 +371,23 @@ public class DynamicDataService {
         if (trigger == null || trigger.getTriggerName() == null || trigger.getTriggerName().trim().isEmpty()) {
             throw new IllegalArgumentException("Nama trigger tidak boleh kosong");
         }
+
+        // Keamanan: hanya SUPER_ADMIN yang boleh membuat/mengubah trigger
+        if (!isCurrentUserSuperAdmin()) {
+            throw new SecurityException("Akses ditolak: Hanya SUPER_ADMIN yang boleh membuat atau mengubah database trigger!");
+        }
+
         String qTableName = getQualifiedTableName(tableName);
         String rawTableName = tableName.contains(".") ? tableName.substring(tableName.indexOf(".") + 1) : tableName;
         String triggerName = trigger.getTriggerName().trim();
+
+        // Validasi nama trigger sebagai SQL identifier yang aman
+        validateSqlIdentifier(triggerName, "trigger name");
+        validateSqlIdentifier(rawTableName, "table name");
+
+        // Validasi trigger body terhadap kode berbahaya
+        validateTriggerBody(trigger.getTriggerBody());
+
         String functionName = "fn_" + rawTableName + "_" + triggerName;
 
         StringBuilder funcSql = new StringBuilder();
@@ -266,10 +401,14 @@ public class DynamicDataService {
         jdbcTemplate.execute("DROP TRIGGER IF EXISTS " + triggerName + " ON " + qTableName);
 
         if (trigger.getEvents() != null && !trigger.getEvents().isEmpty()) {
+            // Validasi timing dan events sebagai whitelist
+            String safeTiming = validateTriggerTiming(trigger.getTiming());
+            validateTriggerEvents(trigger.getEvents());
             String eventStr = String.join(" OR ", trigger.getEvents());
+
             StringBuilder triggerSql = new StringBuilder();
             triggerSql.append("CREATE TRIGGER ").append(triggerName).append("\n");
-            triggerSql.append(trigger.getTiming()).append(" ").append(eventStr).append("\n");
+            triggerSql.append(safeTiming).append(" ").append(eventStr).append("\n");
             triggerSql.append("ON ").append(qTableName).append("\n");
             triggerSql.append("FOR EACH ROW EXECUTE FUNCTION dynamic.").append(functionName).append("();");
 
@@ -279,8 +418,17 @@ public class DynamicDataService {
 
     @Transactional
     public void dropTableTrigger(String tableName, String triggerName) {
+        // Keamanan: hanya SUPER_ADMIN yang boleh menghapus trigger
+        if (!isCurrentUserSuperAdmin()) {
+            throw new SecurityException("Akses ditolak: Hanya SUPER_ADMIN yang boleh menghapus database trigger!");
+        }
+        // Validasi nama trigger sebagai SQL identifier yang aman
+        validateSqlIdentifier(triggerName, "trigger name");
+
         String qTableName = getQualifiedTableName(tableName);
         String rawTableName = tableName.contains(".") ? tableName.substring(tableName.indexOf(".") + 1) : tableName;
+        validateSqlIdentifier(rawTableName, "table name");
+
         jdbcTemplate.execute("DROP TRIGGER IF EXISTS " + triggerName + " ON " + qTableName);
         jdbcTemplate.execute("DROP FUNCTION IF EXISTS dynamic.fn_" + rawTableName + "_" + triggerName + " CASCADE");
     }
@@ -581,7 +729,9 @@ public class DynamicDataService {
             String tableName = getQualifiedTableName(formMeta.getTableName());
             try {
                 jdbcTemplate.execute("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS " + fkColumn + " INTEGER");
-            } catch (Exception ignored) {}
+            } catch (Exception ex) {
+                log.warn("Gagal menambah kolom FK '{}' ke tabel '{}': {}", fkColumn, tableName, ex.getMessage());
+            }
         }
 
         String pk = formMeta.getPrimaryKey() != null ? formMeta.getPrimaryKey() : "id";
@@ -604,7 +754,9 @@ public class DynamicDataService {
                 if (!rows.isEmpty()) {
                     oldRecord = rows.get(0);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ex) {
+                log.warn("Gagal mengambil record lama untuk audit (tabel: {}, pk: {}): {}", formMeta.getTableName(), masterId, ex.getMessage());
+            }
 
             // UPDATE: Jika kolom primary key ada nilainya
             StringJoiner setClause = new StringJoiner(", ");
@@ -650,7 +802,9 @@ public class DynamicDataService {
                         int vNum = Integer.parseInt(oldVersion.toString().trim());
                         whereClause.append(" AND COALESCE(version, 0) = ?");
                         args.add(vNum);
-                    } catch (NumberFormatException ignored) {}
+                    } catch (NumberFormatException ex) {
+                        log.trace("Version bukan angka valid, skip optimistic lock check: {}", oldVersion);
+                    }
                 }
 
                 String sql = "UPDATE " + getQualifiedTableName(formMeta.getTableName()) + " SET " + setClause.toString() + whereClause.toString();
@@ -662,7 +816,8 @@ public class DynamicDataService {
                 if (oldVersion != null) {
                     try {
                         data.put("version", Integer.parseInt(oldVersion.toString().trim()) + 1);
-                    } catch (Exception ignored) {
+                    } catch (Exception ex) {
+                        log.trace("Gagal increment version, reset ke 1: {}", ex.getMessage());
                         data.put("version", 1);
                     }
                 } else {
@@ -804,7 +959,9 @@ public class DynamicDataService {
                         map.put(cName.toString().toLowerCase(), dType.toString().toLowerCase());
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ex) {
+                log.warn("Gagal mengambil schema kolom untuk tabel '{}': {}", t, ex.getMessage());
+            }
             return map;
         });
         return colTypes.getOrDefault(columnName.toLowerCase(), "");
@@ -842,11 +999,11 @@ public class DynamicDataService {
             if (!trimmedStr.isEmpty()) {
                 String colType = getColumnDataType(tableName, columnName);
                 if ("integer".equals(colType) || "smallint".equals(colType) || "serial".equals(colType)) {
-                    try { return Integer.valueOf(trimmedStr); } catch (Exception ignored) {}
+                    try { return Integer.valueOf(trimmedStr); } catch (Exception ex) { log.trace("Konversi ke Integer gagal untuk '{}': {}", trimmedStr, ex.getMessage()); }
                 } else if ("bigint".equals(colType) || "bigserial".equals(colType)) {
-                    try { return Long.valueOf(trimmedStr); } catch (Exception ignored) {}
+                    try { return Long.valueOf(trimmedStr); } catch (Exception ex) { log.trace("Konversi ke Long gagal untuk '{}': {}", trimmedStr, ex.getMessage()); }
                 } else if ("numeric".equals(colType) || "decimal".equals(colType) || "real".equals(colType) || "double precision".equals(colType)) {
-                    try { return new java.math.BigDecimal(trimmedStr); } catch (Exception ignored) {}
+                    try { return new java.math.BigDecimal(trimmedStr); } catch (Exception ex) { log.trace("Konversi ke BigDecimal gagal untuk '{}': {}", trimmedStr, ex.getMessage()); }
                 }
             }
         }
@@ -868,7 +1025,9 @@ public class DynamicDataService {
                     try {
                         String sqlDtl = "DELETE FROM " + getQualifiedTableName(detailTable) + " WHERE CAST(" + detailFk + " AS text) = ?";
                         jdbcTemplate.update(sqlDtl, data.get(pk) != null ? data.get(pk).toString().trim() : "");
-                    } catch (Exception ignored) {}
+                    } catch (Exception ex) {
+                        log.warn("Gagal cascade delete detail (tabel: {}, fk: {}, pk: {}): {}", detailTable, detailFk, data.get(pk), ex.getMessage());
+                    }
                 }
             }
             
@@ -883,7 +1042,20 @@ public class DynamicDataService {
                             try {
                                 String sqlDtl = "DELETE FROM " + getQualifiedTableName(childTable) + " WHERE CAST(" + childFk + " AS text) = ?";
                                 jdbcTemplate.update(sqlDtl, data.get(pk) != null ? data.get(pk).toString().trim() : "");
-                            } catch (Exception ignored) {}
+                            } catch (Exception ex) {
+                                log.warn("Gagal cascade delete subform (tabel: {}, fk: {}, pk: {}): {}", childTable, childFk, data.get(pk), ex.getMessage());
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (fileStorageService != null && formMeta.getFields() != null) {
+                for (FieldMeta field : formMeta.getFields()) {
+                    if ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType()) || "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType())) {
+                        Object val = data.get(field.getFieldName());
+                        if (val != null && !val.toString().trim().isEmpty()) {
+                            fileStorageService.deleteFilesByDelimitedString(val.toString());
                         }
                     }
                 }
@@ -931,6 +1103,8 @@ public class DynamicDataService {
                 typeDef = "TIMESTAMP";
             } else if ("TIMEBOX".equalsIgnoreCase(field.getComponentType())) {
                 typeDef = "TIME";
+            } else if ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType()) || "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType()) || "TEXTAREA".equalsIgnoreCase(field.getComponentType())) {
+                typeDef = "TEXT";
             } else {
                 typeDef = "VARCHAR(255)";
             }
@@ -954,7 +1128,9 @@ public class DynamicDataService {
             jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS updateby VARCHAR(255)");
             jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS updatedt TIMESTAMP");
             jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 0");
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.warn("Gagal menambahkan kolom audit ke tabel '{}': {}", qTable, ex.getMessage());
+        }
     }
 
     private String getCurrentLoggedUser() {
@@ -968,7 +1144,9 @@ public class DynamicDataService {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.debug("Tidak dapat mengambil user dari VaadinSession (mungkin konteks background): {}", ex.getMessage());
+        }
         return "SYSTEM";
     }
 
@@ -984,7 +1162,9 @@ public class DynamicDataService {
                     return "SUPER_ADMIN".equalsIgnoreCase(user.getRoleCode());
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.debug("Tidak dapat cek role SUPER_ADMIN dari VaadinSession: {}", ex.getMessage());
+        }
         return false;
     }
 
@@ -1001,7 +1181,9 @@ public class DynamicDataService {
                 "new_value TEXT, " +
                 "action_by VARCHAR(100), " +
                 "action_dt TIMESTAMP)");
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.warn("Gagal membuat tabel sys_field_audit: {}", ex.getMessage());
+        }
     }
 
     public void recordFieldAuditLog(String formCode, String tableName, Object recordId, String actionType, String fieldName, Object oldValue, Object newValue, String actionBy) {
@@ -1012,7 +1194,9 @@ public class DynamicDataService {
         try {
             String sql = "INSERT INTO sys_field_audit (form_code, table_name, record_id, action_type, field_name, old_value, new_value, action_by, action_dt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             jdbcTemplate.update(sql, formCode, tableName, recordId != null ? recordId.toString() : "", actionType, fieldName, oldStr, newStr, actionBy, java.sql.Timestamp.valueOf(java.time.LocalDateTime.now()));
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.warn("Gagal mencatat audit log (form: {}, tabel: {}, field: {}, recordId: {}): {}", formCode, tableName, fieldName, recordId, ex.getMessage());
+        }
     }
 
     public org.springframework.jdbc.core.JdbcTemplate getJdbcTemplate() {
@@ -1117,7 +1301,9 @@ public class DynamicDataService {
             String[] cols = searchBy.split(",");
             java.util.StringJoiner orJoiner = new java.util.StringJoiner(" OR ");
             for (String col : cols) {
-                orJoiner.add("CAST(" + col.trim() + " AS text) ILIKE ?");
+                String safeCol = col.trim();
+                validateSqlIdentifier(safeCol, "search column");
+                orJoiner.add("CAST(" + safeCol + " AS text) ILIKE ?");
                 params.add("%" + searchTerm + "%");
             }
             sql.append(orJoiner.toString());
@@ -1155,18 +1341,21 @@ public class DynamicDataService {
             for (com.vaadinerp.components.FilterCondition condition : filters) {
                 if (condition.getValue() != null && !condition.getValue().toString().trim().isEmpty()) {
                     if (!isFirst) {
-                        String logOp = condition.getLogicalOperator() != null ? condition.getLogicalOperator().toUpperCase() : "AND";
+                        String logOp = validateLogicalOperator(condition.getLogicalOperator());
                         filterBuilder.append(" ").append(logOp).append(" ");
                     }
                     isFirst = false;
                     
-                    String compOp = condition.getComparisonOperator() != null ? condition.getComparisonOperator().toUpperCase() : "=";
+                    // Validasi column name dan operator sebelum concat ke SQL
+                    String safeFilterCol = condition.getFilterColumn() != null ? condition.getFilterColumn().trim() : "";
+                    validateSqlIdentifier(safeFilterCol, "filter column");
+                    String compOp = validateComparisonOperator(condition.getComparisonOperator());
                     
                     if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
-                        filterBuilder.append("CAST(").append(condition.getFilterColumn()).append(" AS text) ").append(compOp).append(" ?");
+                        filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
                         params.add("%" + condition.getValue() + "%");
                     } else {
-                        filterBuilder.append("CAST(").append(condition.getFilterColumn()).append(" AS text) ").append(compOp).append(" ?");
+                        filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
                         params.add(condition.getValue() != null ? condition.getValue().toString().trim() : "");
                     }
                 }
@@ -1196,7 +1385,9 @@ public class DynamicDataService {
             String[] cols = searchBy.split(",");
             java.util.StringJoiner orJoiner = new java.util.StringJoiner(" OR ");
             for (String col : cols) {
-                orJoiner.add("CAST(" + col.trim() + " AS text) ILIKE ?");
+                String safeCol = col.trim();
+                validateSqlIdentifier(safeCol, "search column");
+                orJoiner.add("CAST(" + safeCol + " AS text) ILIKE ?");
                 params.add("%" + searchTerm + "%");
             }
             sql.append(orJoiner.toString()).append(")");
@@ -1309,6 +1500,242 @@ public class DynamicDataService {
             }
         }
         return fetchTableData(formMeta.getTableName());
+    }
+
+    private String getBaseFromClause(FormMeta formMeta) {
+        if (formMeta == null) return "FROM (SELECT 1) AS dummy_t ";
+        String viewTable = formMeta.getViewTable();
+        if (viewTable != null && !viewTable.trim().isEmpty()) {
+            String trimmed = viewTable.trim();
+            if (trimmed.toLowerCase().startsWith("select")) {
+                try {
+                    return "FROM (" + validateAndSanitizeSelectQuery(trimmed) + ") AS subquery ";
+                } catch (Exception e) {
+                    return "FROM (SELECT 1) AS dummy_t ";
+                }
+            } else {
+                return "FROM " + getQualifiedTableName(trimmed) + " ";
+            }
+        }
+        return "FROM " + getQualifiedTableName(formMeta.getTableName()) + " ";
+    }
+
+    private void buildWhereClause(StringBuilder where, List<Object> args, Map<String, ?> filterValues, FormMeta formMeta) {
+        if (filterValues == null || filterValues.isEmpty()) return;
+        for (Map.Entry<String, ?> entry : filterValues.entrySet()) {
+            String colName = entry.getKey();
+            Object criteriaObj = entry.getValue();
+            if (colName == null || criteriaObj == null) continue;
+            if (!colName.matches("^[a-zA-Z0-9_]+$")) continue; // SQL injection protection
+            
+            String op = "Contains";
+            String val = "";
+            try {
+                java.lang.reflect.Field opField = criteriaObj.getClass().getField("operator");
+                java.lang.reflect.Field valField = criteriaObj.getClass().getField("value");
+                op = (String) opField.get(criteriaObj);
+                val = (String) valField.get(criteriaObj);
+            } catch (Exception e) {
+                try {
+                    java.lang.reflect.Field opField = criteriaObj.getClass().getDeclaredField("operator");
+                    java.lang.reflect.Field valField = criteriaObj.getClass().getDeclaredField("value");
+                    opField.setAccessible(true);
+                    valField.setAccessible(true);
+                    op = (String) opField.get(criteriaObj);
+                    val = (String) valField.get(criteriaObj);
+                } catch (Exception ex) {
+                    continue;
+                }
+            }
+            
+            if ("Blank".equals(op)) {
+                where.append(" AND (" + colName + " IS NULL OR TRIM(CAST(" + colName + " AS TEXT)) = '') ");
+            } else if ("Not blank".equals(op)) {
+                where.append(" AND (" + colName + " IS NOT NULL AND TRIM(CAST(" + colName + " AS TEXT)) != '') ");
+            } else if (val != null && !val.trim().isEmpty()) {
+                val = val.trim();
+                appendConditionWithLov(where, args, colName, op, val, formMeta);
+            }
+        }
+    }
+
+    private void appendConditionWithLov(StringBuilder where, List<Object> args, String colName, String op, String val, FormMeta formMeta) {
+        com.vaadinerp.meta.LovMeta lovMeta = null;
+        if (formMeta != null && formMeta.getFields() != null) {
+            for (com.vaadinerp.meta.FieldMeta f : formMeta.getFields()) {
+                if (colName.equalsIgnoreCase(f.getFieldName()) && f.getLovCode() != null && !f.getLovCode().trim().isEmpty()) {
+                    lovMeta = getLovMeta(f.getLovCode().trim()).orElse(null);
+                    break;
+                }
+            }
+        }
+
+        if (lovMeta == null || lovMeta.getTableName() == null || lovMeta.getTableName().isBlank()) {
+            switch (op) {
+                case "Contains":
+                    where.append(" AND CAST(" + colName + " AS TEXT) ILIKE ? ");
+                    args.add("%" + val + "%");
+                    break;
+                case "Not contains":
+                    where.append(" AND CAST(" + colName + " AS TEXT) NOT ILIKE ? ");
+                    args.add("%" + val + "%");
+                    break;
+                case "Equals":
+                    where.append(" AND CAST(" + colName + " AS TEXT) ILIKE ? ");
+                    args.add(val);
+                    break;
+                case "Not equal":
+                    where.append(" AND CAST(" + colName + " AS TEXT) NOT ILIKE ? ");
+                    args.add(val);
+                    break;
+                case "Starts with":
+                    where.append(" AND CAST(" + colName + " AS TEXT) ILIKE ? ");
+                    args.add(val + "%");
+                    break;
+                case "Ends with":
+                    where.append(" AND CAST(" + colName + " AS TEXT) ILIKE ? ");
+                    args.add("%" + val);
+                    break;
+                default:
+                    where.append(" AND CAST(" + colName + " AS TEXT) ILIKE ? ");
+                    args.add("%" + val + "%");
+                    break;
+            }
+            return;
+        }
+
+        String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank() ? lovMeta.getValueColumn().trim() : "id";
+        if (!valCol.matches("^[a-zA-Z0-9_]+$")) valCol = "id";
+
+        String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank() ? lovMeta.getLabelColumn().trim() : valCol;
+        String searchCol = lovMeta.getSearchColumn() != null && !lovMeta.getSearchColumn().isBlank() ? lovMeta.getSearchColumn().trim() : lblCol;
+
+        java.util.Set<String> lovSearchCols = new java.util.LinkedHashSet<>();
+        if (valCol.matches("^[a-zA-Z0-9_]+$")) lovSearchCols.add(valCol);
+        if (lblCol.matches("^[a-zA-Z0-9_]+$")) lovSearchCols.add(lblCol);
+        for (String sc : searchCol.split(",")) {
+            String trimmedSc = sc.trim();
+            if (trimmedSc.matches("^[a-zA-Z0-9_]+$")) {
+                lovSearchCols.add(trimmedSc);
+            }
+        }
+
+        String trimmedTable = lovMeta.getTableName().trim();
+        String lovTableSql;
+        if (trimmedTable.toLowerCase().startsWith("select")) {
+            lovTableSql = " (" + validateAndSanitizeSelectQuery(trimmedTable) + ") AS lov_sub ";
+        } else {
+            lovTableSql = getLovQualifiedTableName(trimmedTable);
+        }
+
+        String directOp = "ILIKE";
+        String subqueryOp = "ILIKE";
+        String sqlVal = "%" + val + "%";
+        boolean isNegative = false;
+        switch (op) {
+            case "Equals":
+                directOp = "ILIKE";
+                subqueryOp = "ILIKE";
+                sqlVal = val;
+                break;
+            case "Not equal":
+                directOp = "NOT ILIKE";
+                subqueryOp = "ILIKE";
+                sqlVal = val;
+                isNegative = true;
+                break;
+            case "Starts with":
+                directOp = "ILIKE";
+                subqueryOp = "ILIKE";
+                sqlVal = val + "%";
+                break;
+            case "Ends with":
+                directOp = "ILIKE";
+                subqueryOp = "ILIKE";
+                sqlVal = "%" + val;
+                break;
+            case "Not contains":
+                directOp = "NOT ILIKE";
+                subqueryOp = "ILIKE";
+                sqlVal = "%" + val + "%";
+                isNegative = true;
+                break;
+            default: // Contains
+                directOp = "ILIKE";
+                subqueryOp = "ILIKE";
+                sqlVal = "%" + val + "%";
+                break;
+        }
+
+        StringBuilder lovWhere = new StringBuilder();
+        for (String sc : lovSearchCols) {
+            if (lovWhere.length() > 0) {
+                lovWhere.append(" OR ");
+            }
+            lovWhere.append("CAST(").append(sc).append(" AS TEXT) ").append(subqueryOp).append(" ?");
+        }
+
+        if (isNegative) {
+            where.append(" AND (CAST(").append(colName).append(" AS TEXT) ").append(directOp).append(" ? AND CAST(").append(colName)
+                 .append(" AS TEXT) NOT IN (SELECT CAST(").append(valCol).append(" AS TEXT) FROM ").append(lovTableSql)
+                 .append(" WHERE ").append(lovWhere).append(")) ");
+        } else {
+            where.append(" AND (CAST(").append(colName).append(" AS TEXT) ").append(directOp).append(" ? OR CAST(").append(colName)
+                 .append(" AS TEXT) IN (SELECT CAST(").append(valCol).append(" AS TEXT) FROM ").append(lovTableSql)
+                 .append(" WHERE ").append(lovWhere).append(")) ");
+        }
+
+        args.add(sqlVal);
+        for (int i = 0; i < lovSearchCols.size(); i++) {
+            args.add(sqlVal);
+        }
+    }
+
+    public long countGridData(FormMeta formMeta, Map<String, ?> filterValues) {
+        if (formMeta == null) return 0;
+        String baseFrom = getBaseFromClause(formMeta);
+        StringBuilder where = new StringBuilder(" WHERE 1=1 ");
+        List<Object> args = new ArrayList<>();
+        buildWhereClause(where, args, filterValues, formMeta);
+        
+        String sql = "SELECT COUNT(*) " + baseFrom + where.toString();
+        try {
+            Long count = jdbcTemplate.queryForObject(sql, Long.class, args.toArray());
+            return count != null ? count : 0L;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0L;
+        }
+    }
+
+    public List<Map<String, Object>> fetchGridDataPaged(FormMeta formMeta, int offset, int limit, Map<String, ?> filterValues, String sortField, String sortDir) {
+        if (formMeta == null) return new ArrayList<>();
+        String baseFrom = getBaseFromClause(formMeta);
+        StringBuilder where = new StringBuilder(" WHERE 1=1 ");
+        List<Object> args = new ArrayList<>();
+        buildWhereClause(where, args, filterValues, formMeta);
+        
+        StringBuilder sql = new StringBuilder("SELECT * " + baseFrom + where.toString());
+        
+        if (sortField != null && !sortField.trim().isEmpty() && sortField.matches("^[a-zA-Z0-9_]+$")) {
+            String dir = "DESC".equalsIgnoreCase(sortDir) ? "DESC" : "ASC";
+            sql.append(" ORDER BY ").append(sortField).append(" ").append(dir);
+        } else if (formMeta.getPrimaryKey() != null && !formMeta.getPrimaryKey().trim().isEmpty() && formMeta.getPrimaryKey().matches("^[a-zA-Z0-9_]+$")) {
+            sql.append(" ORDER BY ").append(formMeta.getPrimaryKey()).append(" DESC");
+        } else {
+            sql.append(" ORDER BY 1 DESC");
+        }
+        
+        sql.append(" LIMIT ? OFFSET ?");
+        args.add(limit);
+        args.add(offset);
+        
+        try {
+            return jdbcTemplate.queryForList(sql.toString(), args.toArray());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
     }
 
     /**
@@ -1446,6 +1873,11 @@ public class DynamicDataService {
         // 3. Handle Trigger Function and Trigger
         if (trigger != null && trigger.getTriggerName() != null && !trigger.getTriggerName().trim().isEmpty()) {
             String triggerName = trigger.getTriggerName().trim();
+
+            // Keamanan: validasi nama trigger, body, timing, dan events
+            validateSqlIdentifier(triggerName, "trigger name");
+            validateTriggerBody(trigger.getTriggerBody());
+
             String functionName = "fn_" + rawTableName + "_" + triggerName;
             
             // Build Function DDL
@@ -1460,12 +1892,14 @@ public class DynamicDataService {
             // Drop existing trigger to avoid duplicate error
             jdbcTemplate.execute("DROP TRIGGER IF EXISTS " + triggerName + " ON " + qTableName);
 
-            // Build CREATE TRIGGER SQL
+            // Build CREATE TRIGGER SQL — validasi timing dan events
+            String safeTiming = validateTriggerTiming(trigger.getTiming());
+            validateTriggerEvents(trigger.getEvents());
             String eventStr = String.join(" OR ", trigger.getEvents());
             
             StringBuilder triggerSql = new StringBuilder();
             triggerSql.append("CREATE TRIGGER ").append(triggerName).append("\n");
-            triggerSql.append(trigger.getTiming()).append(" ").append(eventStr).append("\n");
+            triggerSql.append(safeTiming).append(" ").append(eventStr).append("\n");
             triggerSql.append("ON ").append(qTableName).append("\n");
             triggerSql.append("FOR EACH ROW EXECUTE FUNCTION dynamic.").append(functionName).append("();");
 
@@ -1864,6 +2298,8 @@ public class DynamicDataService {
                     typeDef = "TIMESTAMP";
                 } else if ("TIMEBOX".equalsIgnoreCase(field.getComponentType())) {
                     typeDef = "TIME";
+                } else if ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType()) || "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType()) || "TEXTAREA".equalsIgnoreCase(field.getComponentType())) {
+                    typeDef = "TEXT";
                 } else {
                     typeDef = "VARCHAR(255)";
                 }
@@ -1996,6 +2432,7 @@ public class DynamicDataService {
                 if (kv.length < 2) kv = pair.split("=");
                 if (kv.length == 2) {
                     String col = kv[0].replaceAll("[\"']", "").trim();
+                    validateSqlIdentifier(col, "action filter column");
                     String valSpec = kv[1].trim();
                     Object paramVal = null;
                     if (valSpec.startsWith("header.") || valSpec.startsWith("\"header.")) {
@@ -2043,7 +2480,9 @@ public class DynamicDataService {
                 String[] cols = searchCol.split(",");
                 java.util.StringJoiner orJoiner = new java.util.StringJoiner(" OR ");
                 for (String col : cols) {
-                    orJoiner.add("CAST(" + col.trim() + " AS text) ILIKE ?");
+                    String safeCol = col.trim();
+                    validateSqlIdentifier(safeCol, "search column");
+                    orJoiner.add("CAST(" + safeCol + " AS text) ILIKE ?");
                     params.add("%" + searchTerm + "%");
                 }
                 conditions.add("(" + orJoiner.toString() + ")");

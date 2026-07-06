@@ -142,7 +142,15 @@ public class TableDesignerView extends VerticalLayout {
         btnBuild.setWidthFull();
         btnBuild.addClickListener(e -> buildTableAndTrigger());
 
-        HorizontalLayout colHdr = new HorizontalLayout(new H4("Rancang Kolom Tabel"), StandardGridUtils.createExportExcelButton(columnsGrid, "designer_columns_export"));
+        Button btnResetColGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        btnResetColGrid.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+        btnResetColGrid.addClickListener(e -> {
+            dynamicDataService.resetUserGridOrder("TABLE_DESIGNER", "columnsGrid");
+            columnsGrid.removeAllColumns();
+            setupGrid();
+            Notification.show("Layout grid kolom di-reset", 2000, Notification.Position.BOTTOM_END);
+        });
+        HorizontalLayout colHdr = new HorizontalLayout(new H4("Rancang Kolom Tabel"), btnResetColGrid, StandardGridUtils.createExportExcelButton(columnsGrid, "designer_columns_export"));
         colHdr.setAlignItems(Alignment.CENTER);
         add(title, tableNameField, includeAuditColsCheckbox, colHdr, colInputLayout, columnsGrid, enableTriggerCheckbox, triggerPanel, btnBuild);
     }
@@ -174,8 +182,33 @@ public class TableDesignerView extends VerticalLayout {
         getterMap.put(c3, col -> col.isPrimaryKey() ? "YES" : "NO");
         getterMap.put(c4, col -> col.isNullable() ? "YES" : "NO");
         getterMap.put(c5, col -> col.getDefaultValue() != null ? col.getDefaultValue() : "");
+
+        Map<Grid.Column<ColumnDefinition>, String> colNameMap = new HashMap<>();
+        colNameMap.put(c1, "column_name");
+        colNameMap.put(c2, "data_type");
+        colNameMap.put(c3, "is_pk");
+        colNameMap.put(c4, "is_nullable");
+        colNameMap.put(c5, "default_value");
+
+        columnsGrid.setColumnReorderingAllowed(true);
+        columnsGrid.addColumnReorderListener(event -> {
+            List<String> orderedFieldNames = new ArrayList<>();
+            for (Grid.Column<ColumnDefinition> col : event.getColumns()) {
+                String fieldName = colNameMap.get(col);
+                if (fieldName != null) orderedFieldNames.add(fieldName);
+            }
+            try {
+                dynamicDataService.saveUserGridOrder("TABLE_DESIGNER", "columnsGrid", orderedFieldNames);
+                Notification.show("Urutan kolom desain disimpan", 1500, Notification.Position.BOTTOM_END);
+            } catch (Exception ex) {
+                Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
+            }
+        });
         this.columnsGridRefresher = StandardGridUtils.attachGridFilters(columnsGrid, getterMap, () -> columnsList);
         columnsGridRefresher.run();
+
+        List<String> userOrder = dynamicDataService.getUserGridOrder("TABLE_DESIGNER", "columnsGrid");
+        StandardGridUtils.applySafeColumnOrder(columnsGrid, colNameMap, userOrder);
     }
 
     private void setupTriggerPanel() {

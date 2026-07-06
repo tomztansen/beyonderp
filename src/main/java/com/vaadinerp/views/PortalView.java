@@ -771,7 +771,8 @@ public class PortalView extends AppLayout {
                         GenericMasterDetailFormView mdView = new GenericMasterDetailFormView(formMetaRepository,
                                 dynamicDataService, securityService);
                         mdView.setParameter(null, code);
-                        mdView.getStyle().set("padding", "20px");
+                        mdView.hideTitle();
+                        mdView.getStyle().set("padding", "4px");
                         mdView.setCloseHandler(() -> {
                             Tab tab = openTabs.get(code);
                             if (tab != null) {
@@ -788,7 +789,8 @@ public class PortalView extends AppLayout {
                         GenericFormView gView = new GenericFormView(formMetaRepository, dynamicDataService,
                                 securityService);
                         gView.setParameter(null, code);
-                        gView.getStyle().set("padding", "20px");
+                        gView.hideTitle();
+                        gView.getStyle().set("padding", "4px");
                         gView.setCloseHandler(() -> {
                             Tab tab = openTabs.get(code);
                             if (tab != null) {

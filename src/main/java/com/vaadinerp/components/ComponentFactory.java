@@ -1,6 +1,5 @@
 package com.vaadinerp.components;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -99,7 +98,8 @@ public class ComponentFactory {
                         }
 
                         if (row == null && lovMeta != null) {
-                            row = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), selectedVal);
+                            row = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(),
+                                    selectedVal);
                         }
 
                         for (com.vaadinerp.meta.FieldLovTargetMeta target : lovTargets) {
@@ -173,7 +173,8 @@ public class ComponentFactory {
         String errMsg = "";
         String customErrMsg = null;
 
-        // Default Security Safeguard: Prevent Buffer/Memory Overflow if input string exceeds default limit
+        // Default Security Safeguard: Prevent Buffer/Memory Overflow if input string
+        // exceeds default limit
         if (val != null) {
             String strVal = val.toString();
             boolean hasMaxLenRule = (hasExplicitRule && rawRule != null && rawRule.toUpperCase().contains("MAX_LEN:"));
@@ -230,105 +231,106 @@ public class ComponentFactory {
                     } catch (java.util.regex.PatternSyntaxException e) {
                         System.err.println(">>> REGEX SYNTAX ERROR in field [" + field.getFieldName() + "]: " + regex);
                     } catch (Exception e) {
-                        System.err.println(">>> ERROR EVALUATING REGEX in field [" + field.getFieldName() + "]: " + e.getMessage());
+                        System.err.println(">>> ERROR EVALUATING REGEX in field [" + field.getFieldName() + "]: "
+                                + e.getMessage());
                     }
                 } else if (rule.toUpperCase().startsWith("MIN_LEN:")) {
-                try {
-                    int min = Integer.parseInt(rule.substring(8).trim());
-                    if (strVal.length() < min) {
-                        isInvalid = true;
-                        errMsg = "Minimal " + min + " karakter!";
-                    }
-                } catch (Exception ignored) {
-                }
-            } else if (rule.toUpperCase().startsWith("MAX_LEN:")) {
-                try {
-                    int max = Integer.parseInt(rule.substring(8).trim());
-                    if (strVal.length() > max) {
-                        isInvalid = true;
-                        errMsg = "Maksimal " + max + " karakter!";
-                    }
-                } catch (Exception ignored) {
-                }
-            } else if (rule.toUpperCase().startsWith("DISALLOW:")) {
-                String disallowed = rule.substring(9).trim();
-                if (strVal.equalsIgnoreCase(disallowed)) {
-                    isInvalid = true;
-                    errMsg = "Pilihan '" + disallowed + "' tidak diperbolehkan!";
-                }
-            }
-
-            // NUMBER RULES
-            double d = Double.NaN;
-            if (val instanceof Number num) {
-                d = num.doubleValue();
-            } else {
-                try {
-                    d = Double.parseDouble(strVal.replace(".", "").replace(",", "."));
-                } catch (Exception ignored) {
-                }
-            }
-
-            if (!Double.isNaN(d)) {
-                if (rule.equalsIgnoreCase("POSITIVE_NUM") && d <= 0) {
-                    isInvalid = true;
-                    errMsg = "Angka harus lebih besar dari 0!";
-                } else if (rule.equalsIgnoreCase("NON_NEGATIVE") && d < 0) {
-                    isInvalid = true;
-                    errMsg = "Angka tidak boleh negatif!";
-                } else if (rule.toUpperCase().startsWith("MIN:")) {
                     try {
-                        double min = Double.parseDouble(rule.substring(4).trim());
-                        if (d < min) {
+                        int min = Integer.parseInt(rule.substring(8).trim());
+                        if (strVal.length() < min) {
                             isInvalid = true;
-                            errMsg = "Nilai minimal adalah " + (long) min;
+                            errMsg = "Minimal " + min + " karakter!";
                         }
                     } catch (Exception ignored) {
                     }
-                } else if (rule.toUpperCase().startsWith("MAX:")) {
+                } else if (rule.toUpperCase().startsWith("MAX_LEN:")) {
                     try {
-                        double max = Double.parseDouble(rule.substring(4).trim());
-                        if (d > max) {
+                        int max = Integer.parseInt(rule.substring(8).trim());
+                        if (strVal.length() > max) {
                             isInvalid = true;
-                            errMsg = "Nilai maksimal adalah " + (long) max;
+                            errMsg = "Maksimal " + max + " karakter!";
                         }
                     } catch (Exception ignored) {
                     }
+                } else if (rule.toUpperCase().startsWith("DISALLOW:")) {
+                    String disallowed = rule.substring(9).trim();
+                    if (strVal.equalsIgnoreCase(disallowed)) {
+                        isInvalid = true;
+                        errMsg = "Pilihan '" + disallowed + "' tidak diperbolehkan!";
+                    }
+                }
+
+                // NUMBER RULES
+                double d = Double.NaN;
+                if (val instanceof Number num) {
+                    d = num.doubleValue();
+                } else {
+                    try {
+                        d = Double.parseDouble(strVal.replace(".", "").replace(",", "."));
+                    } catch (Exception ignored) {
+                    }
+                }
+
+                if (!Double.isNaN(d)) {
+                    if (rule.equalsIgnoreCase("POSITIVE_NUM") && d <= 0) {
+                        isInvalid = true;
+                        errMsg = "Angka harus lebih besar dari 0!";
+                    } else if (rule.equalsIgnoreCase("NON_NEGATIVE") && d < 0) {
+                        isInvalid = true;
+                        errMsg = "Angka tidak boleh negatif!";
+                    } else if (rule.toUpperCase().startsWith("MIN:")) {
+                        try {
+                            double min = Double.parseDouble(rule.substring(4).trim());
+                            if (d < min) {
+                                isInvalid = true;
+                                errMsg = "Nilai minimal adalah " + (long) min;
+                            }
+                        } catch (Exception ignored) {
+                        }
+                    } else if (rule.toUpperCase().startsWith("MAX:")) {
+                        try {
+                            double max = Double.parseDouble(rule.substring(4).trim());
+                            if (d > max) {
+                                isInvalid = true;
+                                errMsg = "Nilai maksimal adalah " + (long) max;
+                            }
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+
+                // DATE RULES
+                java.time.LocalDate date = null;
+                if (val instanceof java.time.LocalDate ld)
+                    date = ld;
+                else if (val instanceof java.time.LocalDateTime ldt)
+                    date = ldt.toLocalDate();
+
+                if (date != null) {
+                    java.time.DayOfWeek dow = date.getDayOfWeek();
+                    if (rule.equalsIgnoreCase("ONLY_SUNDAY") && dow != java.time.DayOfWeek.SUNDAY) {
+                        isInvalid = true;
+                        errMsg = "Tanggal wajib jatuh pada hari Minggu!";
+                    } else if (rule.equalsIgnoreCase("NOT_SUNDAY") && dow == java.time.DayOfWeek.SUNDAY) {
+                        isInvalid = true;
+                        errMsg = "Tanggal tidak boleh jatuh pada hari Minggu!";
+                    } else if (rule.equalsIgnoreCase("WEEKDAYS")
+                            && (dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY)) {
+                        isInvalid = true;
+                        errMsg = "Tanggal wajib hari kerja (Senin-Jumat)!";
+                    } else if (rule.equalsIgnoreCase("WEEKEND")
+                            && (dow != java.time.DayOfWeek.SATURDAY && dow != java.time.DayOfWeek.SUNDAY)) {
+                        isInvalid = true;
+                        errMsg = "Tanggal wajib akhir pekan (Sabtu/Minggu)!";
+                    } else if (rule.equalsIgnoreCase("PAST_DATE") && date.isAfter(java.time.LocalDate.now())) {
+                        isInvalid = true;
+                        errMsg = "Tanggal tidak boleh mendahului hari ini!";
+                    } else if (rule.equalsIgnoreCase("FUTURE_DATE") && date.isBefore(java.time.LocalDate.now())) {
+                        isInvalid = true;
+                        errMsg = "Tanggal harus di masa depan!";
+                    }
                 }
             }
-
-            // DATE RULES
-            java.time.LocalDate date = null;
-            if (val instanceof java.time.LocalDate ld)
-                date = ld;
-            else if (val instanceof java.time.LocalDateTime ldt)
-                date = ldt.toLocalDate();
-
-            if (date != null) {
-                java.time.DayOfWeek dow = date.getDayOfWeek();
-                if (rule.equalsIgnoreCase("ONLY_SUNDAY") && dow != java.time.DayOfWeek.SUNDAY) {
-                    isInvalid = true;
-                    errMsg = "Tanggal wajib jatuh pada hari Minggu!";
-                } else if (rule.equalsIgnoreCase("NOT_SUNDAY") && dow == java.time.DayOfWeek.SUNDAY) {
-                    isInvalid = true;
-                    errMsg = "Tanggal tidak boleh jatuh pada hari Minggu!";
-                } else if (rule.equalsIgnoreCase("WEEKDAYS")
-                        && (dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY)) {
-                    isInvalid = true;
-                    errMsg = "Tanggal wajib hari kerja (Senin-Jumat)!";
-                } else if (rule.equalsIgnoreCase("WEEKEND")
-                        && (dow != java.time.DayOfWeek.SATURDAY && dow != java.time.DayOfWeek.SUNDAY)) {
-                    isInvalid = true;
-                    errMsg = "Tanggal wajib akhir pekan (Sabtu/Minggu)!";
-                } else if (rule.equalsIgnoreCase("PAST_DATE") && date.isAfter(java.time.LocalDate.now())) {
-                    isInvalid = true;
-                    errMsg = "Tanggal tidak boleh mendahului hari ini!";
-                } else if (rule.equalsIgnoreCase("FUTURE_DATE") && date.isBefore(java.time.LocalDate.now())) {
-                    isInvalid = true;
-                    errMsg = "Tanggal harus di masa depan!";
-                }
-            }
-        }
         }
 
         if (isInvalid && customErrMsg != null && !customErrMsg.isEmpty()) {
@@ -344,27 +346,47 @@ public class ComponentFactory {
 
     private static final java.util.Map<String, java.util.Map<String, String>> lovLabelCache = new java.util.concurrent.ConcurrentHashMap<>();
 
-    public static String formatFieldValueWithLov(FieldMeta field, Object val, com.vaadinerp.service.DynamicDataService dataService) {
-        if (val == null) return "";
+    public static void clearLovCache(String lovCode) {
+        if (lovCode != null && !lovCode.trim().isEmpty()) {
+            lovLabelCache.remove(lovCode.trim());
+        } else {
+            lovLabelCache.clear();
+        }
+    }
+
+    public static String formatFieldValueWithLov(FieldMeta field, Object val,
+            com.vaadinerp.service.DynamicDataService dataService) {
+        if (val == null)
+            return "";
         String strVal = val.toString().trim();
-        if (strVal.isEmpty()) return "";
-        if (field != null && field.getLovCode() != null && !field.getLovCode().trim().isEmpty() && dataService != null) {
+        if (strVal.isEmpty())
+            return "";
+        if (field != null && field.getLovCode() != null && !field.getLovCode().trim().isEmpty()
+                && dataService != null) {
             String lovCode = field.getLovCode().trim();
             java.util.Map<String, String> map = lovLabelCache.computeIfAbsent(lovCode, code -> {
                 java.util.Map<String, String> res = new java.util.concurrent.ConcurrentHashMap<>();
                 dataService.getLovMeta(code).ifPresent(lovMeta -> {
                     java.util.List<Map<String, Object>> records = dataService.fetchAllLovRecords(lovMeta);
-                    String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank() ? lovMeta.getValueColumn().trim() : "id";
-                    String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank() ? lovMeta.getLabelColumn().trim() : valCol;
+                    String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank()
+                            ? lovMeta.getValueColumn().trim()
+                            : "id";
+                    String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank()
+                            ? lovMeta.getLabelColumn().trim()
+                            : valCol;
                     for (Map<String, Object> rec : records) {
                         Object v = getCaseInsensitiveVal(rec, valCol);
-                        if (v == null && rec.containsKey("id")) v = rec.get("id");
+                        if (v == null && rec.containsKey("id"))
+                            v = rec.get("id");
                         if (v != null) {
                             Object l = getCaseInsensitiveVal(rec, lblCol);
                             if (l == null || l.toString().trim().isEmpty()) {
-                                if (getCaseInsensitiveVal(rec, "code") != null) l = getCaseInsensitiveVal(rec, "code");
-                                else if (getCaseInsensitiveVal(rec, "name") != null) l = getCaseInsensitiveVal(rec, "name");
-                                else l = v;
+                                if (getCaseInsensitiveVal(rec, "code") != null)
+                                    l = getCaseInsensitiveVal(rec, "code");
+                                else if (getCaseInsensitiveVal(rec, "name") != null)
+                                    l = getCaseInsensitiveVal(rec, "name");
+                                else
+                                    l = v;
                             }
                             res.put(v.toString().trim(), l.toString().trim());
                         }
@@ -376,7 +398,8 @@ public class ComponentFactory {
                 return java.util.Arrays.stream(strVal.split(","))
                         .map(String::trim)
                         .map(item -> {
-                            if (map.containsKey(item)) return map.get(item);
+                            if (map.containsKey(item))
+                                return map.get(item);
                             return fetchSingleLovLabel(lovCode, item, dataService);
                         })
                         .collect(java.util.stream.Collectors.joining(", "));
@@ -389,18 +412,26 @@ public class ComponentFactory {
         return formatFieldValue(field, val);
     }
 
-    private static String fetchSingleLovLabel(String lovCode, String val, com.vaadinerp.service.DynamicDataService dataService) {
+    private static String fetchSingleLovLabel(String lovCode, String val,
+            com.vaadinerp.service.DynamicDataService dataService) {
         com.vaadinerp.meta.LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
         if (lovMeta != null) {
             Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), val);
             if (rec != null) {
-                String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank() ? lovMeta.getValueColumn().trim() : "id";
-                String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank() ? lovMeta.getLabelColumn().trim() : valCol;
+                String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank()
+                        ? lovMeta.getValueColumn().trim()
+                        : "id";
+                String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank()
+                        ? lovMeta.getLabelColumn().trim()
+                        : valCol;
                 Object l = getCaseInsensitiveVal(rec, lblCol);
                 if (l == null || l.toString().trim().isEmpty()) {
-                    if (getCaseInsensitiveVal(rec, "code") != null) l = getCaseInsensitiveVal(rec, "code");
-                    else if (getCaseInsensitiveVal(rec, "name") != null) l = getCaseInsensitiveVal(rec, "name");
-                    else l = val;
+                    if (getCaseInsensitiveVal(rec, "code") != null)
+                        l = getCaseInsensitiveVal(rec, "code");
+                    else if (getCaseInsensitiveVal(rec, "name") != null)
+                        l = getCaseInsensitiveVal(rec, "name");
+                    else
+                        l = val;
                 }
                 java.util.Map<String, String> cache = lovLabelCache.get(lovCode);
                 if (cache != null && l != null) {
@@ -413,10 +444,13 @@ public class ComponentFactory {
     }
 
     private static Object getCaseInsensitiveVal(Map<String, Object> map, String key) {
-        if (map == null || key == null) return null;
-        if (map.containsKey(key)) return map.get(key);
+        if (map == null || key == null)
+            return null;
+        if (map.containsKey(key))
+            return map.get(key);
         for (Map.Entry<String, Object> e : map.entrySet()) {
-            if (e.getKey() != null && e.getKey().equalsIgnoreCase(key)) return e.getValue();
+            if (e.getKey() != null && e.getKey().equalsIgnoreCase(key))
+                return e.getValue();
         }
         return null;
     }
@@ -428,17 +462,22 @@ public class ComponentFactory {
         boolean hasCustomFormat = pattern != null && !pattern.trim().isEmpty() && !pattern.equalsIgnoreCase("NONE");
         pattern = hasCustomFormat ? pattern.trim() : null;
 
-        String compType = field != null && field.getComponentType() != null ? field.getComponentType().toUpperCase() : "";
+        String compType = field != null && field.getComponentType() != null ? field.getComponentType().toUpperCase()
+                : "";
         if (!hasCustomFormat) {
             if ("DATEBOX".equals(compType) || val instanceof java.time.LocalDate || val instanceof java.sql.Date) {
                 pattern = StandardFormatService.getStandardFormat("DATEBOX", "dd/MM/yyyy");
-            } else if ("DATETIMEBOX".equals(compType) || val instanceof java.time.LocalDateTime || val instanceof java.sql.Timestamp) {
+            } else if ("DATETIMEBOX".equals(compType) || val instanceof java.time.LocalDateTime
+                    || val instanceof java.sql.Timestamp) {
                 pattern = StandardFormatService.getStandardFormat("DATETIMEBOX", "dd/MM/yyyy HH:mm");
-            } else if ("TIMEBOX".equals(compType) || val instanceof java.time.LocalTime || val instanceof java.sql.Time) {
+            } else if ("TIMEBOX".equals(compType) || val instanceof java.time.LocalTime
+                    || val instanceof java.sql.Time) {
                 pattern = StandardFormatService.getStandardFormat("TIMEBOX", "HH:mm");
-            } else if ("INTBOX".equals(compType) || val instanceof Integer || val instanceof Long || val instanceof Short) {
+            } else if ("INTBOX".equals(compType) || val instanceof Integer || val instanceof Long
+                    || val instanceof Short) {
                 pattern = StandardFormatService.getStandardFormat("INTBOX", "#,##0");
-            } else if ("DECIMALBOX".equals(compType) || val instanceof Double || val instanceof Float || val instanceof java.math.BigDecimal) {
+            } else if ("DECIMALBOX".equals(compType) || val instanceof Double || val instanceof Float
+                    || val instanceof java.math.BigDecimal) {
                 pattern = StandardFormatService.getStandardFormat("DECIMALBOX", "#,##0.00");
             }
             hasCustomFormat = pattern != null && !pattern.isEmpty();
@@ -626,16 +665,19 @@ public class ComponentFactory {
             case "DECIMALBOX":
                 FormattedBigDecimalField decimalField = new FormattedBigDecimalField(label);
                 decimalField.setReadOnly(field.isReadonly());
-                decimalField.setDisplayFormat(hasFmt ? fmt : StandardFormatService.getStandardFormat("DECIMALBOX", "#,##0.00"));
+                decimalField.setDisplayFormat(
+                        hasFmt ? fmt : StandardFormatService.getStandardFormat("DECIMALBOX", "#,##0.00"));
                 return decimalField;
             case "DATEBOX":
                 DatePicker datePicker = new DatePicker(label);
                 datePicker.setReadOnly(field.isReadonly());
                 datePicker.setLocale(java.util.Locale.of("id", "ID"));
-                datePicker.setI18n(createIndonesianDatePickerI18n(hasFmt ? fmt : StandardFormatService.getStandardFormat("DATEBOX", "dd/MM/yyyy")));
+                datePicker.setI18n(createIndonesianDatePickerI18n(
+                        hasFmt ? fmt : StandardFormatService.getStandardFormat("DATEBOX", "dd/MM/yyyy")));
                 return datePicker;
             case "DATETIMEBOX":
-                String dtFmt = hasFmt ? fmt : StandardFormatService.getStandardFormat("DATETIMEBOX", "dd/MM/yyyy HH:mm");
+                String dtFmt = hasFmt ? fmt
+                        : StandardFormatService.getStandardFormat("DATETIMEBOX", "dd/MM/yyyy HH:mm");
                 DateTimePicker dateTimePicker = new DateTimePicker(label);
                 dateTimePicker.setReadOnly(field.isReadonly());
                 dateTimePicker.setLocale(java.util.Locale.of("id", "ID"));
@@ -666,6 +708,7 @@ public class ComponentFactory {
                     {
                         setItems(new java.util.ArrayList<>(items));
                     }
+
                     @Override
                     public void setValue(String value) {
                         if (value != null && !value.isEmpty() && !items.contains(value)) {
@@ -683,7 +726,8 @@ public class ComponentFactory {
                 // (Opsional) Teks bantuan abu-abu di dalam input
                 comboBox.setPlaceholder("Ketik untuk mencari...");
 
-                // Auto-select atau tambahkan value saat Enter ditekan (berkat fitur Custom Value)
+                // Auto-select atau tambahkan value saat Enter ditekan (berkat fitur Custom
+                // Value)
                 comboBox.setAllowCustomValue(true);
                 comboBox.addCustomValueSetListener(e -> {
                     comboBox.setValue(e.getDetail());
@@ -702,6 +746,7 @@ public class ComponentFactory {
                     {
                         setItems(new java.util.ArrayList<>(items));
                     }
+
                     @Override
                     public void setValue(String value) {
                         if (value != null && !value.isEmpty() && !items.contains(value)) {
@@ -726,6 +771,7 @@ public class ComponentFactory {
                     {
                         setItems(new java.util.ArrayList<>(items));
                     }
+
                     @Override
                     public void setValue(java.util.Set<String> values) {
                         if (values != null && !values.isEmpty()) {
@@ -736,7 +782,8 @@ public class ComponentFactory {
                                     added = true;
                                 }
                             }
-                            if (added) setItems(new java.util.ArrayList<>(items));
+                            if (added)
+                                setItems(new java.util.ArrayList<>(items));
                         }
                         super.setValue(values);
                     }
@@ -755,7 +802,8 @@ public class ComponentFactory {
 
                 com.vaadinerp.meta.LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
                 if (lovMeta != null) {
-                    com.vaadinerp.meta.FormMeta targetForm = dataService.getFormMetaRepository().findById(lovCode).orElse(null);
+                    com.vaadinerp.meta.FormMeta targetForm = dataService.getFormMetaRepository().findById(lovCode)
+                            .orElse(null);
                     // 1. Dinamis menambahkan kolom ke Grid berdasarkan gridColumns (misal:
                     // "dept_code:Kode:100px,dept_name:Nama:200px")
                     String gridColsStr = lovMeta.getGridColumns();
@@ -767,11 +815,12 @@ public class ComponentFactory {
                             String colHeader = parts.length > 1 ? parts[1] : colName;
                             String colWidth = parts.length > 2 ? parts[2] : "150px";
 
-                            com.vaadinerp.meta.FieldMeta targetField = (targetForm != null && targetForm.getFields() != null)
-                                    ? targetForm.getFields().stream()
-                                            .filter(f -> f.getFieldName().equalsIgnoreCase(colName))
-                                            .findFirst().orElse(null)
-                                    : null;
+                            com.vaadinerp.meta.FieldMeta targetField = (targetForm != null
+                                    && targetForm.getFields() != null)
+                                            ? targetForm.getFields().stream()
+                                                    .filter(f -> f.getFieldName().equalsIgnoreCase(colName))
+                                                    .findFirst().orElse(null)
+                                            : null;
 
                             com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col = bandbox.getGrid()
                                     .addColumn(row -> {
@@ -788,9 +837,12 @@ public class ComponentFactory {
                                 col.setComparator((map1, map2) -> {
                                     Object val1 = getCaseInsensitiveVal(map1, colName);
                                     Object val2 = getCaseInsensitiveVal(map2, colName);
-                                    if (val1 == null && val2 == null) return 0;
-                                    if (val1 == null) return -1;
-                                    if (val2 == null) return 1;
+                                    if (val1 == null && val2 == null)
+                                        return 0;
+                                    if (val1 == null)
+                                        return -1;
+                                    if (val2 == null)
+                                        return 1;
                                     String fLovCode = targetField.getLovCode();
                                     if (fLovCode != null && !fLovCode.trim().isEmpty()) {
                                         String s1 = formatFieldValueWithLov(targetField, val1, dataService);
@@ -888,6 +940,16 @@ public class ComponentFactory {
                 SubformGridField subformGrid = new SubformGridField(label, field, dataService);
                 subformGrid.setReadOnly(field.isReadonly());
                 return subformGrid;
+            case "FILE_UPLOAD":
+                FileUploadField fileUpload = new FileUploadField(label,
+                        dataService != null ? dataService.getFileStorageService() : null, false);
+                fileUpload.setReadOnly(field.isReadonly());
+                return fileUpload;
+            case "IMAGE_UPLOAD":
+                FileUploadField imageUpload = new FileUploadField(label,
+                        dataService != null ? dataService.getFileStorageService() : null, true);
+                imageUpload.setReadOnly(field.isReadonly());
+                return imageUpload;
             default:
                 return new TextField(field.getFieldLabel());
         }
