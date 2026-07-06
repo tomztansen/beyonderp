@@ -1,0 +1,47 @@
+/* Compact grid rows: override shadow DOM parts */
+:host {
+    --lumo-size-m: 2.1rem;
+    --lumo-size-s: 1.6rem;
+    --_lumo-grid-border-width: 1px;
+}
+
+[part~="cell"] {
+    min-height: 28px !important;
+    padding-top: 1px !important;
+    padding-bottom: 1px !important;
+    font-size: 0.85rem;
+}
+
+[part~="header-cell"] {
+    min-height: 32px !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--lumo-secondary-text-color);
+    background: #f8f9fa;
+}
+
+[part~="row"] {
+    min-height: unset !important;
+}
+
+/* Alternate row colors for better readability */
+[part~="body-cell"][part~="even-row-cell"] {
+    background: #ffffff;
+}
+
+[part~="body-cell"][part~="odd-row-cell"] {
+    background: #f9fafb;
+}
+
+/* Hover effect on rows */
+[part~="body-cell"]:hover {
+    background: #eef2ff;
+}
+
+/* Compact filter text fields in header */
+[part~="header-cell"] vaadin-text-field {
+    --lumo-size-m: 1.7rem;
+    font-size: 0.8rem;
+}

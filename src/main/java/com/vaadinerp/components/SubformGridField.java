@@ -556,11 +556,11 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
         });
 
-        List<String> subformUserOrder = dataService.getUserGridOrder(childFormDef.getFormCode(), "subformGrid");
-        com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(grid, columnToFieldNameMap, subformUserOrder);
         if (grid.getDataProvider() != null) {
             grid.getDataProvider().refreshAll();
         }
+        List<String> subformUserOrder = dataService.getUserGridOrder(childFormDef.getFormCode(), "subformGrid");
+        com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(grid, columnToFieldNameMap, subformUserOrder);
     }
 
     private Object convertToFieldValue(Object rawVal, Component comp) {

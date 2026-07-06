@@ -65,6 +65,10 @@ public class DbExplorerView extends VerticalLayout {
     private Runnable schemaFilterRefresher;
     private Runnable triggerFilterRefresher;
     private Runnable constraintFilterRefresher;
+    private com.vaadin.flow.shared.Registration dataGridReorderReg;
+    private final Map<Grid.Column<Map<String, Object>>, String> schemaColMap = new HashMap<>();
+    private final Map<Grid.Column<Map<String, Object>>, String> triggerColMap = new HashMap<>();
+    private final Map<Grid.Column<Map<String, Object>>, String> constraintColMap = new HashMap<>();
 
     public DbExplorerView(DynamicDataService dynamicDataService, SessionSecurityService securityService) {
         this.dynamicDataService = dynamicDataService;
@@ -103,7 +107,18 @@ public class DbExplorerView extends VerticalLayout {
         explorerTabs.setSizeFull();
 
         // 1. Data Tab
-        HorizontalLayout dataHeader = new HorizontalLayout(recordCount, StandardGridUtils.createExportExcelButton(dataGrid, "db_data_export"));
+        Button btnResetDataGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        btnResetDataGrid.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+        btnResetDataGrid.addClickListener(e -> {
+            if (currentTable != null) {
+                dynamicDataService.resetUserGridOrder("DB_EXPLORER_" + currentTable, "dataGrid");
+                loadTableData(currentTable);
+                Notification.show("Layout grid data di-reset ke urutan default", 2000, Notification.Position.BOTTOM_END);
+            } else {
+                Notification.show("Pilih tabel terlebih dahulu", 2000, Notification.Position.MIDDLE);
+            }
+        });
+        HorizontalLayout dataHeader = new HorizontalLayout(recordCount, btnResetDataGrid, StandardGridUtils.createExportExcelButton(dataGrid, "db_data_export"));
         dataHeader.setAlignItems(Alignment.CENTER);
         VerticalLayout dataLayout = new VerticalLayout(dataHeader, dataGrid);
         dataLayout.setSizeFull();
@@ -130,7 +145,16 @@ public class DbExplorerView extends VerticalLayout {
         btnAddColumn.setEnabled(false);
         btnAddColumn.addClickListener(e -> openColumnDialog(null));
 
-        HorizontalLayout columnHeader = new HorizontalLayout(schemaInfo, btnAddColumn, StandardGridUtils.createExportExcelButton(schemaGrid, "schema_export"));
+        Button btnResetSchemaGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        btnResetSchemaGrid.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+        btnResetSchemaGrid.addClickListener(e -> {
+            dynamicDataService.resetUserGridOrder("DB_EXPLORER", "schemaGrid");
+            schemaGrid.removeAllColumns();
+            refreshSchemaGrid();
+            Notification.show("Layout grid skema di-reset", 2000, Notification.Position.BOTTOM_END);
+        });
+
+        HorizontalLayout columnHeader = new HorizontalLayout(schemaInfo, btnAddColumn, btnResetSchemaGrid, StandardGridUtils.createExportExcelButton(schemaGrid, "schema_export"));
         columnHeader.setAlignItems(Alignment.CENTER);
         columnHeader.setSpacing(true);
 
@@ -138,7 +162,16 @@ public class DbExplorerView extends VerticalLayout {
         btnAddConstraint.setEnabled(false);
         btnAddConstraint.addClickListener(e -> openConstraintDialog(null));
 
-        HorizontalLayout constraintHeader = new HorizontalLayout(constraintInfo, btnAddConstraint, StandardGridUtils.createExportExcelButton(constraintsGrid, "constraints_export"));
+        Button btnResetConstraintGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        btnResetConstraintGrid.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+        btnResetConstraintGrid.addClickListener(e -> {
+            dynamicDataService.resetUserGridOrder("DB_EXPLORER", "constraintsGrid");
+            constraintsGrid.removeAllColumns();
+            refreshConstraintsGrid();
+            Notification.show("Layout grid constraint di-reset", 2000, Notification.Position.BOTTOM_END);
+        });
+
+        HorizontalLayout constraintHeader = new HorizontalLayout(constraintInfo, btnAddConstraint, btnResetConstraintGrid, StandardGridUtils.createExportExcelButton(constraintsGrid, "constraints_export"));
         constraintHeader.setAlignItems(Alignment.CENTER);
         constraintHeader.setSpacing(true);
 
@@ -146,7 +179,16 @@ public class DbExplorerView extends VerticalLayout {
         btnAddTrigger.setEnabled(false);
         btnAddTrigger.addClickListener(e -> openTriggerDialog(null));
 
-        HorizontalLayout triggerHeader = new HorizontalLayout(triggerInfo, btnAddTrigger, StandardGridUtils.createExportExcelButton(triggersGrid, "triggers_export"));
+        Button btnResetTriggerGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        btnResetTriggerGrid.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+        btnResetTriggerGrid.addClickListener(e -> {
+            dynamicDataService.resetUserGridOrder("DB_EXPLORER", "triggersGrid");
+            triggersGrid.removeAllColumns();
+            refreshTriggersGrid();
+            Notification.show("Layout grid trigger di-reset", 2000, Notification.Position.BOTTOM_END);
+        });
+
+        HorizontalLayout triggerHeader = new HorizontalLayout(triggerInfo, btnAddTrigger, btnResetTriggerGrid, StandardGridUtils.createExportExcelButton(triggersGrid, "triggers_export"));
         triggerHeader.setAlignItems(Alignment.CENTER);
         triggerHeader.setSpacing(true);
 
@@ -210,10 +252,28 @@ public class DbExplorerView extends VerticalLayout {
             colKeyMap.put(gc, col);
         }
 
+        if (dataGridReorderReg != null) dataGridReorderReg.remove();
+        dataGrid.setColumnReorderingAllowed(true);
+        dataGridReorderReg = dataGrid.addColumnReorderListener(event -> {
+            List<String> orderedFieldNames = new ArrayList<>();
+            for (Grid.Column<Map<String, Object>> col : event.getColumns()) {
+                String fieldName = colKeyMap.get(col);
+                if (fieldName != null) orderedFieldNames.add(fieldName);
+            }
+            try {
+                dynamicDataService.saveUserGridOrder("DB_EXPLORER_" + tableName, "dataGrid", orderedFieldNames);
+                Notification.show("Urutan kolom data disimpan", 1500, Notification.Position.BOTTOM_END);
+            } catch (Exception ex) {
+                Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
+            }
+        });
         currentDataList = dynamicDataService.fetchTableData(tableName);
         recordCount.setText("Menampilkan " + currentDataList.size() + " baris data dari dynamic." + tableName);
         Runnable r = StandardGridUtils.attachMapGridFilters(dataGrid, colKeyMap, () -> currentDataList);
         r.run();
+
+        List<String> userOrder = dynamicDataService.getUserGridOrder("DB_EXPLORER_" + tableName, "dataGrid");
+        StandardGridUtils.applySafeColumnOrder(dataGrid, colKeyMap, userOrder);
     }
 
     private void loadTableSchema(String tableName) {
@@ -658,6 +718,7 @@ public class DbExplorerView extends VerticalLayout {
 
     private void refreshSchemaGrid() {
         if (schemaGrid.getColumns().isEmpty()) {
+            schemaColMap.clear();
             Grid.Column<Map<String, Object>> c1 = schemaGrid
                     .addColumn(row -> row.get("column_name") != null ? row.get("column_name").toString() : "")
                     .setHeader("Nama Kolom");
@@ -686,22 +747,40 @@ public class DbExplorerView extends VerticalLayout {
                 return new HorizontalLayout(btnEdit, btnDel);
             }).setHeader("Aksi").setWidth("110px").setFlexGrow(0);
 
-            Map<Grid.Column<Map<String, Object>>, String> colMap = new HashMap<>();
-            colMap.put(c1, "column_name");
-            colMap.put(c2, "data_type");
-            colMap.put(c3, "is_nullable");
-            colMap.put(c4, "column_default");
-            schemaFilterRefresher = StandardGridUtils.attachMapGridFilters(schemaGrid, colMap, () -> currentSchemaList);
+            schemaColMap.put(c1, "column_name");
+            schemaColMap.put(c2, "data_type");
+            schemaColMap.put(c3, "is_nullable");
+            schemaColMap.put(c4, "column_default");
+
+            schemaGrid.setColumnReorderingAllowed(true);
+            schemaGrid.addColumnReorderListener(event -> {
+                List<String> orderedFieldNames = new ArrayList<>();
+                for (Grid.Column<Map<String, Object>> col : event.getColumns()) {
+                    String fieldName = schemaColMap.get(col);
+                    if (fieldName != null) orderedFieldNames.add(fieldName);
+                }
+                try {
+                    dynamicDataService.saveUserGridOrder("DB_EXPLORER", "schemaGrid", orderedFieldNames);
+                    Notification.show("Urutan kolom skema disimpan", 1500, Notification.Position.BOTTOM_END);
+                } catch (Exception ex) {
+                    Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
+                }
+            });
+
+            schemaFilterRefresher = StandardGridUtils.attachMapGridFilters(schemaGrid, schemaColMap, () -> currentSchemaList);
         }
         if (schemaFilterRefresher != null) {
             schemaFilterRefresher.run();
         } else {
             schemaGrid.setItems(currentSchemaList);
         }
+        List<String> userOrder = dynamicDataService.getUserGridOrder("DB_EXPLORER", "schemaGrid");
+        StandardGridUtils.applySafeColumnOrder(schemaGrid, schemaColMap, userOrder);
     }
 
     private void refreshTriggersGrid() {
         if (triggersGrid.getColumns().isEmpty()) {
+            triggerColMap.clear();
             Grid.Column<Map<String, Object>> c1 = triggersGrid
                     .addColumn(row -> row.get("trigger_name") != null ? row.get("trigger_name").toString() : "")
                     .setHeader("Nama Trigger");
@@ -727,11 +806,26 @@ public class DbExplorerView extends VerticalLayout {
                 return new HorizontalLayout(btnEdit, btnDel);
             }).setHeader("Aksi").setWidth("110px").setFlexGrow(0);
 
-            Map<Grid.Column<Map<String, Object>>, String> colMap = new HashMap<>();
-            colMap.put(c1, "trigger_name");
-            colMap.put(c2, "action_timing");
-            colMap.put(c3, "event_manipulation");
-            triggerFilterRefresher = StandardGridUtils.attachMapGridFilters(triggersGrid, colMap,
+            triggerColMap.put(c1, "trigger_name");
+            triggerColMap.put(c2, "action_timing");
+            triggerColMap.put(c3, "event_manipulation");
+
+            triggersGrid.setColumnReorderingAllowed(true);
+            triggersGrid.addColumnReorderListener(event -> {
+                List<String> orderedFieldNames = new ArrayList<>();
+                for (Grid.Column<Map<String, Object>> col : event.getColumns()) {
+                    String fieldName = triggerColMap.get(col);
+                    if (fieldName != null) orderedFieldNames.add(fieldName);
+                }
+                try {
+                    dynamicDataService.saveUserGridOrder("DB_EXPLORER", "triggersGrid", orderedFieldNames);
+                    Notification.show("Urutan kolom trigger disimpan", 1500, Notification.Position.BOTTOM_END);
+                } catch (Exception ex) {
+                    Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
+                }
+            });
+
+            triggerFilterRefresher = StandardGridUtils.attachMapGridFilters(triggersGrid, triggerColMap,
                     () -> currentTriggerList);
         }
         if (triggerFilterRefresher != null) {
@@ -739,10 +833,13 @@ public class DbExplorerView extends VerticalLayout {
         } else {
             triggersGrid.setItems(currentTriggerList);
         }
+        List<String> userOrder = dynamicDataService.getUserGridOrder("DB_EXPLORER", "triggersGrid");
+        StandardGridUtils.applySafeColumnOrder(triggersGrid, triggerColMap, userOrder);
     }
 
     private void refreshConstraintsGrid() {
         if (constraintsGrid.getColumns().isEmpty()) {
+            constraintColMap.clear();
             Grid.Column<Map<String, Object>> c1 = constraintsGrid
                     .addColumn(row -> row.get("constraint_name") != null ? row.get("constraint_name").toString() : "")
                     .setHeader("Nama Constraint");
@@ -782,14 +879,29 @@ public class DbExplorerView extends VerticalLayout {
                 return new HorizontalLayout(btnEdit, btnDel);
             }).setHeader("Aksi").setWidth("110px").setFlexGrow(0);
 
-            Map<Grid.Column<Map<String, Object>>, String> colMap = new HashMap<>();
-            colMap.put(c1, "constraint_name");
-            colMap.put(c2, "constraint_type");
-            colMap.put(c3, "column_name");
-            colMap.put(c4, "foreign_table");
-            colMap.put(c5, "foreign_column");
-            colMap.put(c6, "check_expression");
-            constraintFilterRefresher = StandardGridUtils.attachMapGridFilters(constraintsGrid, colMap,
+            constraintColMap.put(c1, "constraint_name");
+            constraintColMap.put(c2, "constraint_type");
+            constraintColMap.put(c3, "column_name");
+            constraintColMap.put(c4, "foreign_table");
+            constraintColMap.put(c5, "foreign_column");
+            constraintColMap.put(c6, "check_expression");
+
+            constraintsGrid.setColumnReorderingAllowed(true);
+            constraintsGrid.addColumnReorderListener(event -> {
+                List<String> orderedFieldNames = new ArrayList<>();
+                for (Grid.Column<Map<String, Object>> col : event.getColumns()) {
+                    String fieldName = constraintColMap.get(col);
+                    if (fieldName != null) orderedFieldNames.add(fieldName);
+                }
+                try {
+                    dynamicDataService.saveUserGridOrder("DB_EXPLORER", "constraintsGrid", orderedFieldNames);
+                    Notification.show("Urutan kolom constraint disimpan", 1500, Notification.Position.BOTTOM_END);
+                } catch (Exception ex) {
+                    Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
+                }
+            });
+
+            constraintFilterRefresher = StandardGridUtils.attachMapGridFilters(constraintsGrid, constraintColMap,
                     () -> currentConstraintList);
         }
         if (constraintFilterRefresher != null) {
@@ -797,6 +909,8 @@ public class DbExplorerView extends VerticalLayout {
         } else {
             constraintsGrid.setItems(currentConstraintList);
         }
+        List<String> userOrder = dynamicDataService.getUserGridOrder("DB_EXPLORER", "constraintsGrid");
+        StandardGridUtils.applySafeColumnOrder(constraintsGrid, constraintColMap, userOrder);
     }
 
     public void refreshTables() {

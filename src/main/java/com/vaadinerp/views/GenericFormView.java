@@ -64,6 +64,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         this.closeHandler = closeHandler;
     }
 
+    /**
+     * Menyembunyikan judul H3 di dalam view.
+     * Dipanggil ketika view di-embed di dalam tab portal yang sudah menampilkan judul.
+     */
+    public void hideTitle() {
+        title.setVisible(false);
+    }
+
     private java.util.List<Map<String, Object>> gridItems = new java.util.ArrayList<>();
     private java.util.List<Map<String, Object>> allGridItems = new java.util.ArrayList<>();
 
@@ -74,6 +82,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
     private java.util.Map<String, FilterCriteria> filterValues = new java.util.HashMap<>();
     private Map<String, Object> draggedItem;
+    private com.vaadinerp.components.PaginationBar paginationBar;
+    private String currentSortField;
+    private String currentSortDir;
 
     // Peta untuk menyimpan referensi komponen form untuk update lintas-field
     private Map<String, Component> formComponents = new HashMap<>();
@@ -167,38 +178,44 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         this.dynamicDataService = dynamicDataService;
         this.securityService = securityService;
         setSizeFull();
-        setPadding(true);
-        setSpacing(true);
+        setPadding(false);
+        setSpacing(false);
+        getStyle().set("gap", "4px").set("padding", "8px 12px");
 
         title = new H3("Loading...");
+        title.getStyle().set("margin", "0").set("padding", "0");
         toolbar = new HorizontalLayout();
         toolbar.setWidthFull();
-        toolbar.setSpacing(true);
+        toolbar.setSpacing(false);
 
         formLayout = new VerticalLayout();
         formLayout.setWidthFull();
         formLayout.setPadding(false);
-        formLayout.setSpacing(true);
+        formLayout.setSpacing(false);
+        formLayout.getStyle().set("gap", "6px");
 
         gridToolbar = new HorizontalLayout();
 
         grid = new Grid<>();
         grid.setSizeFull();
-        grid.setMinHeight("580px");
+        grid.setMinHeight("300px");
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
 
         // Setup TabSheet layouts
         historisLayout = new VerticalLayout();
         historisLayout.setSizeFull();
-        historisLayout.setPadding(true);
-        historisLayout.setSpacing(true);
-        historisLayout.add(gridToolbar, grid);
+        historisLayout.setPadding(false);
+        historisLayout.setSpacing(false);
+        historisLayout.getStyle().set("gap", "4px");
+        paginationBar = new com.vaadinerp.components.PaginationBar(e -> applyFilters());
+        historisLayout.add(gridToolbar, grid, paginationBar);
         historisLayout.expand(grid);
 
         transaksiLayout = new VerticalLayout();
         transaksiLayout.setWidthFull();
-        transaksiLayout.setPadding(true);
-        transaksiLayout.setSpacing(true);
+        transaksiLayout.setPadding(false);
+        transaksiLayout.setSpacing(false);
+        transaksiLayout.getStyle().set("gap", "6px");
         transaksiLayout.add(formLayout);
 
         tabSheet = new TabSheet();
@@ -246,6 +263,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         buildToolbar(formDef);
         buildForm(formDef, event != null ? event.getLocation().getQueryParameters() : null);
         buildInlineEditingGrid(formDef);
+        executeOnLoadActions("ON_LOAD_NEW");
     }
 
     private void buildToolbar(FormMeta formDef) {
@@ -269,6 +287,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             formBinder.setBean(new HashMap<>());
             clearAllComponents();
             tabSheet.setSelectedTab(transaksiTab);
+            executeOnLoadActions("ON_LOAD_NEW");
         });
 
         // 2. HAPUS BUTTON
@@ -590,6 +609,41 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 dlg.open();
             });
             toolbar.add(actBtn);
+        }
+    }
+
+    private void executeOnLoadActions(String scope) {
+        if (currentFormDef == null || dynamicDataService == null) return;
+        List<com.vaadinerp.meta.FormActionMeta> actions = dynamicDataService.getFormActions(currentFormCode, scope);
+        if (actions == null || actions.isEmpty()) return;
+
+        Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : new HashMap<>();
+        for (com.vaadinerp.meta.FormActionMeta act : actions) {
+            try {
+                List<Map<String, Object>> fetchedRecords = dynamicDataService.fetchLovDataWithActionFilters(
+                        act.getSourceLovCode(),
+                        act.getFilterMapping(),
+                        headerBean,
+                        ""
+                );
+                if (fetchedRecords != null && !fetchedRecords.isEmpty()) {
+                    Map<String, Object> srcRec = fetchedRecords.get(0);
+                    if (headerBean != null) {
+                        applyTargetMapping(headerBean, srcRec, act.getTargetMapping());
+                        if (formBinder != null) {
+                            isLoadingExistingData = true;
+                            try {
+                                formBinder.readBean(headerBean);
+                            } finally {
+                                isLoadingExistingData = false;
+                            }
+                        }
+                        evaluateFormulas();
+                    }
+                }
+            } catch (Exception ex) {
+                System.err.println("Error executing OnLoad action [" + act.getActionCode() + "] in scope [" + scope + "]: " + ex.getMessage());
+            }
         }
     }
 
@@ -915,6 +969,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 loadSubformGridData(formValues);
                 evaluateFormulas();
                 tabSheet.setSelectedTab(transaksiTab);
+                executeOnLoadActions("ON_LOAD_EDIT");
             }
         });
 
@@ -1021,6 +1076,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 if (event.getSource().getText() != null) {
                     criteria.operator = event.getSource().getText();
                     applyOperatorUI.run();
+                    if (paginationBar != null) paginationBar.resetPage();
                     applyFilters();
                 }
             };
@@ -1047,6 +1103,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
             filterField.addValueChangeListener(e -> {
                 criteria.value = e.getValue();
+                if (paginationBar != null) paginationBar.resetPage();
                 applyFilters();
             });
 
@@ -1077,7 +1134,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     } else {
                         allGridItems.add(newIndex, draggedItem);
                     }
-                    applyFilters();
+                    updateGridDataProvider();
                 }
             }
             draggedItem = null;
@@ -1086,6 +1143,23 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         gridDragEndReg = grid.addDragEndListener(event -> {
             draggedItem = null;
             grid.setDropMode(null);
+        });
+
+        grid.addSortListener(event -> {
+            if (!event.getSortOrder().isEmpty()) {
+                com.vaadin.flow.component.grid.GridSortOrder<Map<String, Object>> order = event.getSortOrder().get(0);
+                if (order.getSorted().getKey() != null) {
+                    currentSortField = order.getSorted().getKey();
+                    currentSortDir = order.getDirection() == com.vaadin.flow.data.provider.SortDirection.DESCENDING ? "DESC" : "ASC";
+                    if (paginationBar != null) paginationBar.resetPage();
+                    applyFilters();
+                }
+            } else {
+                currentSortField = null;
+                currentSortDir = null;
+                if (paginationBar != null) paginationBar.resetPage();
+                applyFilters();
+            }
         });
 
         // ====== 4. AKTIFKAN COLUMN REORDERING (Drag-and-drop GESER KOLOM) ======
@@ -1114,114 +1188,44 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
         // =========================================================================
 
+        // Set Grid Items dari database
+        refreshGridData(formDef);
+
         // Terapkan preferensi urutan kolom per user jika ada
         java.util.List<String> userOrder = dynamicDataService.getUserGridOrder(currentFormCode, "mainGrid");
         com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(grid, columnToFieldNameMap, userOrder);
-
-        // Set Grid Items dari database
-        refreshGridData(formDef);
     }
 
     private void refreshGridData(FormMeta formDef) {
         lovLabelMapCache.clear();
-        allGridItems.clear();
-        allGridItems.addAll(dynamicDataService.fetchGridData(formDef));
-
-        // Initial / Default Sort
-        String sortField = formDef.getDefaultSortField();
-        String sortDir = formDef.getDefaultSortDirection();
-        if (sortField != null && !sortField.trim().isEmpty()) {
-            boolean asc = !"DESC".equalsIgnoreCase(sortDir);
-            allGridItems.sort((m1, m2) -> {
-                Object v1 = m1.get(sortField);
-                Object v2 = m2.get(sortField);
-                if (v1 == v2)
-                    return 0;
-                if (v1 == null)
-                    return asc ? -1 : 1;
-                if (v2 == null)
-                    return asc ? 1 : -1;
-                int cmp;
-                if (v1 instanceof Comparable && v2 instanceof Comparable) {
-                    @SuppressWarnings("unchecked")
-                    Comparable<Object> comp1 = (Comparable<Object>) v1;
-                    cmp = comp1.compareTo(v2);
-                } else {
-                    cmp = v1.toString().compareTo(v2.toString());
-                }
-                return asc ? cmp : -cmp;
-            });
+        com.vaadinerp.components.ComponentFactory.clearLovCache(null);
+        if (currentSortField == null && formDef != null) {
+            currentSortField = formDef.getDefaultSortField();
+            currentSortDir = formDef.getDefaultSortDirection();
         }
-
         applyFilters();
     }
 
     private void applyFilters() {
-        java.util.List<Map<String, Object>> filtered = allGridItems.stream().filter(item -> {
-            for (Map.Entry<String, FilterCriteria> entry : filterValues.entrySet()) {
-                String fieldName = entry.getKey();
-                FilterCriteria criteria = entry.getValue();
+        if (currentFormDef == null) return;
+        long totalRecords = dynamicDataService.countGridData(currentFormDef, filterValues);
+        if (paginationBar != null) {
+            paginationBar.setTotalRecords(totalRecords);
+        }
+        int offset = paginationBar != null ? paginationBar.getOffset() : 0;
+        int limit = paginationBar != null ? paginationBar.getLimit() : 50;
+        
+        java.util.List<Map<String, Object>> pagedData = dynamicDataService.fetchGridDataPaged(
+                currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
 
-                String op = criteria.operator;
-                String query = criteria.value;
+        allGridItems.clear();
+        allGridItems.addAll(pagedData);
+        updateGridDataProvider();
+    }
 
-                Object val = item.get(fieldName);
-                String strVal = val != null ? val.toString() : "";
-                String lovCode = fieldNameToLovCodeMap.get(fieldName);
-                if (lovCode != null && !strVal.isEmpty()) {
-                    strVal = getLovDisplayLabel(lovCode, strVal);
-                }
-                strVal = strVal.toLowerCase();
-
-                if ("Blank".equals(op)) {
-                    if (!strVal.isEmpty())
-                        return false;
-                    continue;
-                }
-                if ("Not blank".equals(op)) {
-                    if (strVal.isEmpty())
-                        return false;
-                    continue;
-                }
-
-                if (query == null || query.trim().isEmpty()) {
-                    continue;
-                }
-
-                query = query.toLowerCase();
-
-                switch (op) {
-                    case "Contains":
-                        if (!strVal.contains(query))
-                            return false;
-                        break;
-                    case "Not contains":
-                        if (strVal.contains(query))
-                            return false;
-                        break;
-                    case "Equals":
-                        if (!strVal.equals(query))
-                            return false;
-                        break;
-                    case "Not equal":
-                        if (strVal.equals(query))
-                            return false;
-                        break;
-                    case "Starts with":
-                        if (!strVal.startsWith(query))
-                            return false;
-                        break;
-                    case "Ends with":
-                        if (!strVal.endsWith(query))
-                            return false;
-                        break;
-                }
-            }
-            return true;
-        }).collect(java.util.stream.Collectors.toList());
-
+    private void updateGridDataProvider() {
         gridItems.clear();
-        gridItems.addAll(filtered);
+        gridItems.addAll(allGridItems);
         grid.setDataProvider(new com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>(
                 new java.util.ArrayList<>(gridItems)) {
             @Override

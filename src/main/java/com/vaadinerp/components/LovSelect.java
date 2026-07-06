@@ -85,11 +85,16 @@ public class LovSelect extends Select<String> {
             valueToLabelMap.clear();
             currentItems.clear();
             for (Map<String, Object> rec : records) {
-                Object valObj = rec.get(lovMeta.getValueColumn());
-                Object lblObj = rec.get(lovMeta.getLabelColumn());
+                Object valObj = getCaseInsensitive(rec, lovMeta.getValueColumn());
+                if (valObj == null && rec.containsKey("id")) valObj = rec.get("id");
+                Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
+                if (lblObj == null || lblObj.toString().trim().isEmpty()) {
+                    if (getCaseInsensitive(rec, "code") != null) lblObj = getCaseInsensitive(rec, "code");
+                    else if (getCaseInsensitive(rec, "name") != null) lblObj = getCaseInsensitive(rec, "name");
+                }
                 
-                String val = valObj != null ? valObj.toString() : "";
-                String lbl = lblObj != null ? lblObj.toString() : val;
+                String val = valObj != null ? valObj.toString().trim() : "";
+                String lbl = lblObj != null ? lblObj.toString().trim() : val;
                 
                 if (!val.isEmpty()) {
                     valueToLabelMap.put(val, lbl);

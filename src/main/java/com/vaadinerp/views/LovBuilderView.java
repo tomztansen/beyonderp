@@ -209,6 +209,7 @@ public class LovBuilderView extends VerticalLayout {
 
         try {
             lovMetaRepository.save(lovMeta);
+            com.vaadinerp.components.ComponentFactory.clearLovCache(null);
             Notification.show("LOV berhasil disimpan!", 3000, Notification.Position.TOP_CENTER);
             refreshGrid();
             populateForm(lovMeta);
@@ -221,6 +222,7 @@ public class LovBuilderView extends VerticalLayout {
         if (currentLovMeta != null && currentLovMeta.getLovCode() != null) {
             try {
                 lovMetaRepository.deleteById(currentLovMeta.getLovCode());
+                com.vaadinerp.components.ComponentFactory.clearLovCache(null);
                 Notification.show("LOV berhasil dihapus!", 3000, Notification.Position.TOP_CENTER);
                 refreshGrid();
                 clearForm();
