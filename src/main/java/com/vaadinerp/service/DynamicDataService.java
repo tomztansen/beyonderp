@@ -296,16 +296,63 @@ public class DynamicDataService {
         if (tableName == null || tableName.trim().isEmpty()) {
             return new ArrayList<>();
         }
+        String trimmed = tableName.trim();
+        if (trimmed.toLowerCase().startsWith("select") || trimmed.contains(" ")) {
+            return fetchSchemaDetailsForQuery(trimmed);
+        }
         try {
-            String rawName = tableName.contains(".") ? tableName.substring(tableName.indexOf(".") + 1) : tableName;
-            return jdbcTemplate.queryForList(
+            String rawName = trimmed.contains(".") ? trimmed.substring(trimmed.indexOf(".") + 1) : trimmed;
+            List<Map<String, Object>> res = jdbcTemplate.queryForList(
                 "SELECT column_name, data_type, is_nullable, column_default " +
                 "FROM information_schema.columns " +
                 "WHERE table_schema IN ('dynamic', 'public') AND table_name = ? " +
                 "ORDER BY ordinal_position",
                 rawName.toLowerCase()
             );
+            if (!res.isEmpty()) {
+                return res;
+            }
+            return fetchSchemaDetailsForQuery(trimmed);
         } catch (Exception e) {
+            return fetchSchemaDetailsForQuery(trimmed);
+        }
+    }
+
+    private List<Map<String, Object>> fetchSchemaDetailsForQuery(String queryOrTable) {
+        try {
+            String sql;
+            if (queryOrTable.toLowerCase().startsWith("select")) {
+                String safeQuery = validateAndSanitizeSelectQuery(queryOrTable);
+                sql = "SELECT * FROM ( " + safeQuery + " ) AS subquery LIMIT 1";
+            } else {
+                sql = "SELECT * FROM " + queryOrTable + " LIMIT 1";
+            }
+            return jdbcTemplate.query(sql, rs -> {
+                List<Map<String, Object>> cols = new ArrayList<>();
+                if (rs != null) {
+                    java.sql.ResultSetMetaData rsmd = rs.getMetaData();
+                    for (int i = 1; i <= rsmd.getColumnCount(); i++) {
+                        Map<String, Object> col = new HashMap<>();
+                        col.put("column_name", rsmd.getColumnLabel(i));
+                        String typeName = rsmd.getColumnTypeName(i) != null ? rsmd.getColumnTypeName(i).toLowerCase() : "text";
+                        if (typeName.contains("int") || typeName.contains("serial") || typeName.contains("numeric") || typeName.contains("decimal") || typeName.contains("float") || typeName.contains("double")) {
+                            col.put("data_type", "numeric");
+                        } else if (typeName.contains("date") || typeName.contains("time") || typeName.contains("timestamp")) {
+                            col.put("data_type", "date");
+                        } else if (typeName.contains("bool")) {
+                            col.put("data_type", "boolean");
+                        } else {
+                            col.put("data_type", "text");
+                        }
+                        col.put("is_nullable", rsmd.isNullable(i) == java.sql.ResultSetMetaData.columnNoNulls ? "NO" : "YES");
+                        col.put("column_default", null);
+                        cols.add(col);
+                    }
+                }
+                return cols;
+            });
+        } catch (Exception e) {
+            log.error("Gagal mengambil schema details untuk query/table: {}", queryOrTable, e);
             return new ArrayList<>();
         }
     }
@@ -743,10 +790,11 @@ public class DynamicDataService {
 
         ensureAuditColumnsExist(formMeta.getTableName());
 
-        Object masterId;
+        Object masterId = data.get(pk);
 
-        if (isUpdate) {
-            masterId = data.get(pk);
+        if (formMeta.getTableName() != null && !formMeta.getTableName().trim().isEmpty()) {
+            if (isUpdate) {
+                masterId = data.get(pk);
             Map<String, Object> oldRecord = null;
             try {
                 String selectSql = "SELECT * FROM " + getQualifiedTableName(formMeta.getTableName()) + " WHERE CAST(" + pk + " AS text) = ?";
@@ -906,6 +954,9 @@ public class DynamicDataService {
                     }
                 }
             }
+        }
+        } else {
+            log.debug("Target table untuk form '{}' kosong/null, melewati penyimpanan tabel utama dan langsung memproses subform/detail.", formMeta.getFormCode());
         }
 
         // Cascade save for subform grids
@@ -1067,6 +1118,9 @@ public class DynamicDataService {
     }
 
     public void generatePhysicalTable(FormMeta formMeta) {
+        if (formMeta == null || formMeta.getTableName() == null || formMeta.getTableName().trim().isEmpty()) {
+            return;
+        }
         if ("MASTER_DETAIL".equalsIgnoreCase(formMeta.getFormType())) {
             ensureMasterDetailTablesExist(formMeta);
         } else {
@@ -1075,6 +1129,9 @@ public class DynamicDataService {
     }
 
     private void ensureTableExists(FormMeta formMeta) {
+        if (formMeta == null || formMeta.getTableName() == null || formMeta.getTableName().trim().isEmpty()) {
+            return;
+        }
         jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS dynamic;");
         String tableName = getQualifiedTableName(formMeta.getTableName());
         String pk = formMeta.getPrimaryKey() != null ? formMeta.getPrimaryKey() : "id";
@@ -1309,7 +1366,7 @@ public class DynamicDataService {
             sql.append(orJoiner.toString());
         }
         
-        sql.append(" LIMIT 50"); // Batasi hasil agar tidak berat
+        sql.append(" LIMIT 5000");
         
         try {
             return jdbcTemplate.queryForList(sql.toString(), params.toArray());
@@ -1393,7 +1450,7 @@ public class DynamicDataService {
             sql.append(orJoiner.toString()).append(")");
         }
         
-        sql.append(" LIMIT 50");
+        sql.append(" LIMIT 5000");
         
         try {
             return jdbcTemplate.queryForList(sql.toString(), params.toArray());
@@ -1466,7 +1523,15 @@ public class DynamicDataService {
         if (tableName == null || tableName.trim().isEmpty()) {
             return new ArrayList<>();
         }
-        String sql = "SELECT * FROM " + getQualifiedTableName(tableName);
+        String trimmed = tableName.trim();
+        if (trimmed.toLowerCase().startsWith("select")) {
+            try {
+                return jdbcTemplate.queryForList(validateAndSanitizeSelectQuery(trimmed));
+            } catch (Exception e) {
+                return new ArrayList<>();
+            }
+        }
+        String sql = "SELECT * FROM " + getQualifiedTableName(trimmed);
         try {
             return jdbcTemplate.queryForList(sql);
         } catch (Exception e) {
@@ -1738,6 +1803,49 @@ public class DynamicDataService {
         }
     }
 
+    public long countTableDataPaged(String tableName, Map<String, ?> filterValues) {
+        if (tableName == null || tableName.trim().isEmpty()) return 0L;
+        String trimmed = tableName.trim();
+        StringBuilder where = new StringBuilder(" WHERE 1=1 ");
+        List<Object> args = new ArrayList<>();
+        buildWhereClause(where, args, filterValues, null);
+        String fromSql = trimmed.toLowerCase().startsWith("select")
+                ? " (" + validateAndSanitizeSelectQuery(trimmed) + ") AS subquery "
+                : getQualifiedTableName(trimmed);
+        String sql = "SELECT COUNT(*) FROM " + fromSql + where.toString();
+        try {
+            Long count = jdbcTemplate.queryForObject(sql, Long.class, args.toArray());
+            return count != null ? count : 0L;
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
+    public List<Map<String, Object>> fetchTableDataPaged(String tableName, int offset, int limit, Map<String, ?> filterValues, String sortField, String sortDir) {
+        if (tableName == null || tableName.trim().isEmpty()) return new ArrayList<>();
+        String trimmed = tableName.trim();
+        StringBuilder where = new StringBuilder(" WHERE 1=1 ");
+        List<Object> args = new ArrayList<>();
+        buildWhereClause(where, args, filterValues, null);
+        
+        String fromSql = trimmed.toLowerCase().startsWith("select")
+                ? " (" + validateAndSanitizeSelectQuery(trimmed) + ") AS subquery "
+                : getQualifiedTableName(trimmed);
+        StringBuilder sql = new StringBuilder("SELECT * FROM " + fromSql + where.toString());
+        if (sortField != null && !sortField.trim().isEmpty() && sortField.matches("^[a-zA-Z0-9_]+$")) {
+            String dir = "DESC".equalsIgnoreCase(sortDir) ? "DESC" : "ASC";
+            sql.append(" ORDER BY ").append(sortField).append(" ").append(dir);
+        }
+        sql.append(" LIMIT ? OFFSET ?");
+        args.add(limit);
+        args.add(offset);
+        try {
+            return jdbcTemplate.queryForList(sql.toString(), args.toArray());
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+
     /**
      * Menyimpan urutan kolom baru hasil drag-and-drop dari Grid ke tabel meta_field.
      * orderedFieldNames adalah daftar nama field sesuai urutan tampil yang baru
@@ -1911,8 +2019,14 @@ public class DynamicDataService {
         if (detailTableName == null || fkColumn == null || fkValue == null) {
             return new ArrayList<>();
         }
-        fkColumn = resolveExistingColumn(detailTableName, fkColumn);
-        String sql = "SELECT * FROM " + getQualifiedTableName(detailTableName) + " WHERE CAST(" + fkColumn + " AS text) = ?";
+        String trimmed = detailTableName.trim();
+        fkColumn = resolveExistingColumn(trimmed, fkColumn);
+        String sql;
+        if (trimmed.toLowerCase().startsWith("select")) {
+            sql = "SELECT * FROM ( " + validateAndSanitizeSelectQuery(trimmed) + " ) AS detail_sub WHERE CAST(" + fkColumn + " AS text) = ?";
+        } else {
+            sql = "SELECT * FROM " + getQualifiedTableName(trimmed) + " WHERE CAST(" + fkColumn + " AS text) = ?";
+        }
         try {
             return jdbcTemplate.queryForList(sql, fkValue.toString().trim());
         } catch (Exception e) {
@@ -1949,11 +2063,12 @@ public class DynamicDataService {
         boolean isUpdate = masterData.containsKey(masterPk) && masterData.get(masterPk) != null 
                            && !masterData.get(masterPk).toString().trim().isEmpty();
 
-        Object masterId;
+        Object masterId = masterData.get(masterPk);
 
         // 1. Save or Update Master Record
-        if (isUpdate) {
-            masterId = masterData.get(masterPk);
+        if (formMeta.getTableName() != null && !formMeta.getTableName().trim().isEmpty()) {
+            if (isUpdate) {
+                masterId = masterData.get(masterPk);
             Map<String, Object> oldMasterRecord = null;
             try {
                 String selectSql = "SELECT * FROM " + getQualifiedTableName(formMeta.getTableName()) + " WHERE CAST(" + masterPk + " AS text) = ?";
@@ -2091,6 +2206,9 @@ public class DynamicDataService {
                     }
                 }
             }
+        }
+        } else {
+            log.debug("Target table master untuk form '{}' kosong/null, melewati penyimpanan tabel master dan langsung memproses detail.", formMeta.getFormCode());
         }
 
         // 2. Delete removed detail rows
@@ -2260,6 +2378,7 @@ public class DynamicDataService {
     }
 
     public void ensureMasterDetailTablesExist(FormMeta formMeta) {
+        if (formMeta == null) return;
         ensureTableExists(formMeta);
 
         if ("MASTER_DETAIL".equalsIgnoreCase(formMeta.getFormType())) {
@@ -2492,7 +2611,7 @@ public class DynamicDataService {
         if (!conditions.isEmpty()) {
             sql.append(" WHERE ").append(String.join(" AND ", conditions));
         }
-        sql.append(" LIMIT 100");
+        sql.append(" LIMIT 5000");
 
         try {
             return jdbcTemplate.queryForList(sql.toString(), params.toArray());

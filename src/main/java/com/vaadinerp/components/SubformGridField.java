@@ -140,6 +140,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES, GridVariant.LUMO_COMPACT);
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
         grid.setAllRowsVisible(true);
+        grid.setPageSize(500);
         grid.setDataProvider(createDataProvider());
 
         if (childFormDef != null) {
@@ -413,9 +414,9 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             if (field.isRequired()) {
                 builder.asRequired(field.getFieldLabel() + " wajib diisi");
             }
-            builder.bind(map -> convertToFieldValue(map.get(fieldName), editorComp),
+            builder.bind(map -> convertToFieldValue(getCaseInsensitiveVal(map, fieldName), editorComp),
                     (map, val) -> {
-                        map.put(fieldName, val);
+                        putCaseInsensitiveVal(map, fieldName, val);
                         evaluateRowFormulas(map);
                         if (grid.getDataProvider() instanceof ListDataProvider) {
                             @SuppressWarnings("unchecked")
@@ -565,7 +566,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
     private Object convertToFieldValue(Object rawVal, Component comp) {
         if (rawVal == null) {
-            if (comp instanceof TextField) {
+            if (comp instanceof TextField || comp instanceof com.vaadin.flow.component.textfield.TextArea) {
                 return "";
             }
             if (comp instanceof com.vaadin.flow.component.checkbox.Checkbox) {
@@ -573,7 +574,11 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
             return null;
         }
-        if (comp instanceof TextField) {
+        if (comp instanceof TextField || comp instanceof com.vaadin.flow.component.textfield.TextArea ||
+            comp instanceof com.vaadin.flow.component.combobox.ComboBox ||
+            comp instanceof com.vaadin.flow.component.select.Select ||
+            comp instanceof com.vaadin.flow.component.listbox.ListBox ||
+            comp instanceof com.vaadin.flow.component.radiobutton.RadioButtonGroup) {
             return rawVal.toString();
         }
         if (comp instanceof com.vaadin.flow.component.textfield.IntegerField
@@ -761,6 +766,17 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 destRow.put(destCol, val);
             }
         }
+    }
+
+    private void putCaseInsensitiveVal(Map<String, Object> map, String key, Object value) {
+        if (map == null || key == null) return;
+        for (String k : map.keySet()) {
+            if (k != null && k.equalsIgnoreCase(key)) {
+                map.put(k, value);
+                return;
+            }
+        }
+        map.put(key, value);
     }
 
     private Object getCaseInsensitiveVal(Map<String, Object> map, String key) {

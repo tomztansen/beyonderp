@@ -85,22 +85,37 @@ public class BandboxField<T, V> extends CustomField<V> {
 
     private void setupDisplayField() {
         displayField.setReadOnly(true);
-        displayField.setWidth("300px");
+        displayField.setWidthFull();
+        displayField.getStyle()
+                .set("min-width", "0")
+                .set("flex-grow", "1")
+                .set("text-overflow", "ellipsis");
 
         dropdownBtn.addThemeVariants(ButtonVariant.LUMO_ICON);
         dropdownBtn.addClickListener(e -> openPopup());
+        dropdownBtn.getStyle().set("flex-shrink", "0");
 
         clearBtn.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
         clearBtn.addClickListener(e -> this.clear());
+        clearBtn.getStyle().set("flex-shrink", "0");
 
         displayField.getElement().addEventListener("click", e -> openPopup());
 
         HorizontalLayout searchLayout = new HorizontalLayout(displayField, clearBtn, dropdownBtn);
-        searchLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.END);
+        searchLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
         searchLayout.setSpacing(false);
         searchLayout.getThemeList().add("spacing-xs");
+        searchLayout.setWidthFull();
+        searchLayout.getStyle()
+                .set("min-width", "0")
+                .set("max-width", "100%");
 
         add(searchLayout);
+        setWidthFull();
+        getStyle()
+                .set("min-width", "0")
+                .set("max-width", "100%")
+                .set("box-sizing", "border-box");
     }
 
     private void setupPopup() {
@@ -120,7 +135,8 @@ public class BandboxField<T, V> extends CustomField<V> {
         // Grid
         grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES, GridVariant.LUMO_NO_BORDER);
         grid.setSelectionMode(Grid.SelectionMode.SINGLE);
-        grid.setAllRowsVisible(true);
+        grid.setHeight("340px");
+        grid.setPageSize(100);
         grid.setEmptyStateText("Tidak ada data");
 
         grid.addItemDoubleClickListener(e -> doSelect(e.getItem()));

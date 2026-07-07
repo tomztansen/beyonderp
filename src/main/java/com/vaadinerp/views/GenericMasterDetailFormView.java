@@ -867,7 +867,10 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             if (targetComponent instanceof HasValue) {
                 @SuppressWarnings("unchecked")
                 HasValue<?, Object> hasValue = (HasValue<?, Object>) targetComponent;
-                hasValue.setValue(value);
+                Object converted = convertToFieldValue(value, targetComponent);
+                try {
+                    hasValue.setValue(converted);
+                } catch (Exception ignored) {}
             }
         };
 
@@ -1300,8 +1303,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             if (field.isRequired()) {
                 builder.asRequired(field.getFieldLabel() + " wajib diisi");
             }
-            builder.bind(map -> convertToFieldValue(map.get(fieldName), editorComp),
-                         (map, val) -> map.put(fieldName, val));
+            builder.bind(map -> convertToFieldValue(getValueCaseInsensitive(map, fieldName), editorComp),
+                         (map, val) -> putValueCaseInsensitive(map, fieldName, val));
         }
 
         // Setup cascading filters (Master to Master, Master to Detail, Detail to Detail)
@@ -1722,6 +1725,10 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             if (component instanceof com.vaadin.flow.component.checkbox.Checkbox) {
                 return (V) Boolean.FALSE;
             }
+            if (component instanceof com.vaadin.flow.component.textfield.TextField ||
+                component instanceof com.vaadin.flow.component.textfield.TextArea) {
+                return (V) "";
+            }
             return null;
         }
         if (component instanceof com.vaadin.flow.component.datepicker.DatePicker) {
@@ -1762,7 +1769,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         if (component instanceof com.vaadin.flow.component.textfield.TextField ||
             component instanceof com.vaadin.flow.component.textfield.TextArea ||
             component instanceof com.vaadin.flow.component.combobox.ComboBox ||
-            component instanceof com.vaadin.flow.component.select.Select) {
+            component instanceof com.vaadin.flow.component.select.Select ||
+            component instanceof com.vaadin.flow.component.listbox.ListBox ||
+            component instanceof com.vaadin.flow.component.radiobutton.RadioButtonGroup) {
             return (V) value.toString();
         }
         return (V) value;
@@ -1785,16 +1794,29 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     if (value != null && !(value instanceof Map)) {
                         putValueCaseInsensitive(map, field.getFieldName() + ".id", value);
                     }
+                    String dispLabel = null;
+                    Map<String, Object> selMap = null;
                     if (editComponent instanceof com.vaadinerp.components.BandboxField<?, ?> bandbox) {
-                        putValueCaseInsensitive(map, field.getFieldName() + "_label", bandbox.getDisplayLabel());
+                        dispLabel = bandbox.getDisplayLabel();
                         Object selItem = bandbox.getSelectedItem();
-                        if (selItem instanceof Map) {
-                            Map<String, Object> selMap = (Map<String, Object>) selItem;
-                            putValueCaseInsensitive(map, field.getFieldName() + "_record", selMap);
-                            for (Map.Entry<String, Object> entry : selMap.entrySet()) {
-                                if (entry.getKey() != null && entry.getValue() != null) {
-                                    putValueCaseInsensitive(map, field.getFieldName() + "." + entry.getKey(), entry.getValue());
-                                }
+                        if (selItem instanceof Map) selMap = (Map<String, Object>) selItem;
+                    } else if (editComponent instanceof com.vaadinerp.components.LovComboBox lovCombo) {
+                        dispLabel = lovCombo.getDisplayLabel();
+                        selMap = lovCombo.getSelectedRecord();
+                    } else if (editComponent instanceof com.vaadinerp.components.LovSelect lovSel) {
+                        dispLabel = lovSel.getDisplayLabel();
+                        selMap = lovSel.getSelectedRecord();
+                    } else if (editComponent instanceof com.vaadinerp.components.LovChosenBox lovChosen) {
+                        dispLabel = lovChosen.getDisplayLabel();
+                    }
+                    if (dispLabel != null) {
+                        putValueCaseInsensitive(map, field.getFieldName() + "_label", dispLabel);
+                    }
+                    if (selMap != null) {
+                        putValueCaseInsensitive(map, field.getFieldName() + "_record", selMap);
+                        for (Map.Entry<String, Object> entry : selMap.entrySet()) {
+                            if (entry.getKey() != null && entry.getValue() != null) {
+                                putValueCaseInsensitive(map, field.getFieldName() + "." + entry.getKey(), entry.getValue());
                             }
                         }
                     }
@@ -1806,16 +1828,29 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 if (e.getValue() != null && !(e.getValue() instanceof Map)) {
                     putValueCaseInsensitive(bean, field.getFieldName() + ".id", e.getValue());
                 }
+                String dispLabel = null;
+                Map<String, Object> selMap = null;
                 if (editComponent instanceof com.vaadinerp.components.BandboxField<?, ?> bandbox) {
-                    putValueCaseInsensitive(bean, field.getFieldName() + "_label", bandbox.getDisplayLabel());
+                    dispLabel = bandbox.getDisplayLabel();
                     Object selItem = bandbox.getSelectedItem();
-                    if (selItem instanceof Map) {
-                        Map<String, Object> selMap = (Map<String, Object>) selItem;
-                        putValueCaseInsensitive(bean, field.getFieldName() + "_record", selMap);
-                        for (Map.Entry<String, Object> entry : selMap.entrySet()) {
-                            if (entry.getKey() != null && entry.getValue() != null) {
-                                putValueCaseInsensitive(bean, field.getFieldName() + "." + entry.getKey(), entry.getValue());
-                            }
+                    if (selItem instanceof Map) selMap = (Map<String, Object>) selItem;
+                } else if (editComponent instanceof com.vaadinerp.components.LovComboBox lovCombo) {
+                    dispLabel = lovCombo.getDisplayLabel();
+                    selMap = lovCombo.getSelectedRecord();
+                } else if (editComponent instanceof com.vaadinerp.components.LovSelect lovSel) {
+                    dispLabel = lovSel.getDisplayLabel();
+                    selMap = lovSel.getSelectedRecord();
+                } else if (editComponent instanceof com.vaadinerp.components.LovChosenBox lovChosen) {
+                    dispLabel = lovChosen.getDisplayLabel();
+                }
+                if (dispLabel != null) {
+                    putValueCaseInsensitive(bean, field.getFieldName() + "_label", dispLabel);
+                }
+                if (selMap != null) {
+                    putValueCaseInsensitive(bean, field.getFieldName() + "_record", selMap);
+                    for (Map.Entry<String, Object> entry : selMap.entrySet()) {
+                        if (entry.getKey() != null && entry.getValue() != null) {
+                            putValueCaseInsensitive(bean, field.getFieldName() + "." + entry.getKey(), entry.getValue());
                         }
                     }
                 }
