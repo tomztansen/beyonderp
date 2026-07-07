@@ -1138,6 +1138,7 @@ public class DataInitializer implements CommandLineRunner {
         } catch (Exception ignored) {}
 
         initFormActionMetadata();
+        initSequenceMaster();
     }
 
     private void initFormActionMetadata() {
@@ -1169,5 +1170,108 @@ public class DataInitializer implements CommandLineRunner {
                 formActionMetaRepository.save(act2);
             }
         }
+    }
+
+    private void initSequenceMaster() {
+        try {
+            jdbcTemplate.execute("ALTER TABLE public.meta_field ADD COLUMN IF NOT EXISTS sequence_code VARCHAR(50)");
+        } catch (Exception ignored) {}
+
+        // 1. Create table dynamic.md_sequence
+        try {
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS dynamic.md_sequence (" +
+                    "id SERIAL PRIMARY KEY, " +
+                    "seq_code VARCHAR(50) UNIQUE NOT NULL, " +
+                    "seq_name VARCHAR(255) NOT NULL, " +
+                    "prefix_format VARCHAR(100), " +
+                    "current_val BIGINT DEFAULT 0, " +
+                    "padding_len INTEGER DEFAULT 4, " +
+                    "reset_period VARCHAR(20) DEFAULT 'NEVER', " +
+                    "last_reset_date DATE, " +
+                    "status VARCHAR(50) DEFAULT 'Active'" +
+                    ")");
+            Integer seqCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM dynamic.md_sequence", Integer.class);
+            if (seqCount == null || seqCount == 0) {
+                jdbcTemplate.execute("INSERT INTO dynamic.md_sequence (seq_code, seq_name, prefix_format, current_val, padding_len, reset_period, last_reset_date, status) VALUES " +
+                        "('PO_NO', 'Penomoran Purchase Order', 'PO{YY}/{MM}/', 0, 4, 'MONTHLY', CURRENT_DATE, 'Active'), " +
+                        "('BOM_CODE', 'Penomoran Bill of Material', 'BOM', 0, 5, 'NEVER', CURRENT_DATE, 'Active'), " +
+                        "('INV_NO', 'Penomoran Faktur Penjualan', 'INV/{YYYY}/{MM}/', 0, 4, 'MONTHLY', CURRENT_DATE, 'Active')");
+            }
+        } catch (Exception e) {
+            System.err.println("Failed initializing md_sequence table: " + e.getMessage());
+        }
+
+        // 2. Create LOVs for Reset Period and Status
+        try {
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS dynamic.lov_reset_period (code VARCHAR(50) PRIMARY KEY, name VARCHAR(100))");
+            jdbcTemplate.execute("INSERT INTO dynamic.lov_reset_period (code, name) VALUES " +
+                    "('NEVER', 'Tanpa Reset (Terus Naik)'), " +
+                    "('YEARLY', 'Reset Tahunan (Tahun Baru)'), " +
+                    "('MONTHLY', 'Reset Bulanan (Bulan Baru)'), " +
+                    "('DAILY', 'Reset Harian (Hari Baru)') " +
+                    "ON CONFLICT (code) DO NOTHING");
+            if (!lovMetaRepository.existsById("RESET_PERIOD_LOV")) {
+                LovMeta lov = new LovMeta();
+                lov.setLovCode("RESET_PERIOD_LOV");
+                lov.setLovName("Daftar Periode Reset");
+                lov.setTableName("lov_reset_period");
+                lov.setValueColumn("code");
+                lov.setLabelColumn("name");
+                lov.setSearchColumn("name");
+                lov.setGridColumns("code:Kode:100px,name:Keterangan:220px");
+                lovMetaRepository.save(lov);
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS dynamic.lov_status (code VARCHAR(50) PRIMARY KEY, name VARCHAR(100))");
+            jdbcTemplate.execute("INSERT INTO dynamic.lov_status (code, name) VALUES " +
+                    "('Active', 'Aktif / Active'), " +
+                    "('Inactive', 'Non-Aktif / Inactive') " +
+                    "ON CONFLICT (code) DO NOTHING");
+            if (!lovMetaRepository.existsById("STATUS_LOV")) {
+                LovMeta lov = new LovMeta();
+                lov.setLovCode("STATUS_LOV");
+                lov.setLovName("Daftar Status Aktif");
+                lov.setTableName("lov_status");
+                lov.setValueColumn("code");
+                lov.setLabelColumn("name");
+                lov.setSearchColumn("name");
+                lov.setGridColumns("code:Kode Status:120px,name:Keterangan:200px");
+                lovMetaRepository.save(lov);
+            }
+        } catch (Exception ignored) {}
+
+        // 3. Initialize FormMeta for MD_SEQUENCE
+        if (!formMetaRepository.existsById("MD_SEQUENCE")) {
+            FormMeta form = new FormMeta();
+            form.setFormCode("MD_SEQUENCE");
+            form.setFormTitle("Master Penomoran Dokumen (Sequence)");
+            form.setTableName("md_sequence");
+            form.setFormType("GENERIC");
+            form.setFields(new ArrayList<>());
+
+            addMasterField(form, "seq_code", "Kode Sequence", "TEXTBOX", null, 1, 10, true);
+            addMasterField(form, "seq_name", "Nama / Keterangan", "TEXTBOX", null, 1, 20, true);
+            addMasterField(form, "prefix_format", "Format Awalan (mis. PO{YY}/{MM}/)", "TEXTBOX", null, 2, 30, false);
+            addMasterField(form, "current_val", "Angka Terakhir Terpakai", "INTBOX", null, 2, 40, true);
+            addMasterField(form, "padding_len", "Panjang Digit (mis. 4 -> 0001)", "INTBOX", null, 3, 50, true);
+            addMasterField(form, "reset_period", "Periode Reset", "COMBOBOX", "RESET_PERIOD_LOV", 3, 60, true);
+            addMasterField(form, "status", "Status", "COMBOBOX", "STATUS_LOV", 4, 70, true);
+
+            formMetaRepository.save(form);
+            dynamicDataService.generatePhysicalTable(form);
+        }
+
+        // 4. Seed menu in app_menus
+        try {
+            Integer seqMenuExists = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_menus WHERE menu_code = 'MD_SEQUENCE'", Integer.class);
+            if (seqMenuExists == null || seqMenuExists == 0) {
+                jdbcTemplate.execute("INSERT INTO public.app_menus (menu_code, menu_title, route_path, icon_name, parent_menu_code, display_order, menu_type) " +
+                        "VALUES ('MD_SEQUENCE', 'Master Penomoran (Sequence)', NULL, 'BARCODE', 'GRP_DEV_TOOLS', 45, 'ITEM')");
+            }
+            jdbcTemplate.execute("INSERT INTO public.app_role_menu_permissions (role_code, menu_code, can_add, can_edit, can_delete, can_print) " +
+                    "SELECT DISTINCT role_code, 'MD_SEQUENCE', TRUE, TRUE, TRUE, TRUE FROM public.app_role_menu_permissions WHERE role_code NOT IN (SELECT role_code FROM public.app_role_menu_permissions WHERE menu_code = 'MD_SEQUENCE')");
+        } catch (Exception ignored) {}
     }
 }

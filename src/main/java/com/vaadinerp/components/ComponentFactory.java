@@ -710,7 +710,13 @@ public class ComponentFactory {
             case "VARCHAR":
             case "STRING":
                 TextField textField = new TextField(label);
-                textField.setReadOnly(field.isReadonly());
+                if (field.getSequenceCode() != null && !field.getSequenceCode().trim().isEmpty()) {
+                    textField.setPlaceholder("⚡ [AUTO: " + field.getSequenceCode() + "]");
+                    textField.setTooltipText("Nomor akan dibuat otomatis oleh sistem saat data disimpan (Sequence: " + field.getSequenceCode() + ")");
+                    textField.setReadOnly(true);
+                } else {
+                    textField.setReadOnly(field.isReadonly());
+                }
                 textField.setRequiredIndicatorVisible(field.isRequired());
                 applyNumberFormatting(textField, fmt);
                 return textField;
