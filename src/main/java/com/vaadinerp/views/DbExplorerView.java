@@ -70,6 +70,16 @@ public class DbExplorerView extends VerticalLayout {
     private final Map<Grid.Column<Map<String, Object>>, String> triggerColMap = new HashMap<>();
     private final Map<Grid.Column<Map<String, Object>>, String> constraintColMap = new HashMap<>();
 
+    private com.vaadinerp.components.PaginationBar paginationBar;
+    private String currentSortField;
+    private String currentSortDir;
+
+    private static class FilterCriteria {
+        String operator = "Contains";
+        String value = "";
+    }
+    private final Map<String, FilterCriteria> dataFilterValues = new HashMap<>();
+
     public DbExplorerView(DynamicDataService dynamicDataService, SessionSecurityService securityService) {
         this.dynamicDataService = dynamicDataService;
         this.securityService = securityService;
@@ -120,7 +130,8 @@ public class DbExplorerView extends VerticalLayout {
         });
         HorizontalLayout dataHeader = new HorizontalLayout(recordCount, btnResetDataGrid, StandardGridUtils.createExportExcelButton(dataGrid, "db_data_export"));
         dataHeader.setAlignItems(Alignment.CENTER);
-        VerticalLayout dataLayout = new VerticalLayout(dataHeader, dataGrid);
+        paginationBar = new com.vaadinerp.components.PaginationBar(e -> applyDataFilters());
+        VerticalLayout dataLayout = new VerticalLayout(dataHeader, dataGrid, paginationBar);
         dataLayout.setSizeFull();
         dataLayout.setPadding(false);
         dataGrid.setSizeFull();
@@ -233,12 +244,19 @@ public class DbExplorerView extends VerticalLayout {
             dataGrid.removeHeaderRow(dataGrid.getHeaderRows().get(dataGrid.getHeaderRows().size() - 1));
         }
         dataGrid.removeAllColumns();
+        dataFilterValues.clear();
+        currentSortField = null;
+        currentSortDir = null;
+        if (paginationBar != null) {
+            paginationBar.resetPage();
+        }
 
         List<String> columns = dynamicDataService.fetchTableColumns(tableName);
         if (columns.isEmpty()) {
             recordCount.setText("Tabel tidak memiliki kolom atau terjadi kesalahan");
             currentDataList = new ArrayList<>();
             dataGrid.setItems(currentDataList);
+            if (paginationBar != null) paginationBar.setTotalRecords(0);
             return;
         }
 
@@ -247,6 +265,7 @@ public class DbExplorerView extends VerticalLayout {
             Grid.Column<Map<String, Object>> gc = dataGrid
                     .addColumn(row -> row.get(col) != null ? row.get(col).toString() : "")
                     .setHeader(col)
+                    .setKey(col)
                     .setAutoWidth(true)
                     .setSortable(true);
             colKeyMap.put(gc, col);
@@ -267,13 +286,117 @@ public class DbExplorerView extends VerticalLayout {
                 Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
             }
         });
-        currentDataList = dynamicDataService.fetchTableData(tableName);
-        recordCount.setText("Menampilkan " + currentDataList.size() + " baris data dari dynamic." + tableName);
-        Runnable r = StandardGridUtils.attachMapGridFilters(dataGrid, colKeyMap, () -> currentDataList);
-        r.run();
+
+        attachServerSideDataGridFilters(dataGrid, colKeyMap);
+        applyDataFilters();
 
         List<String> userOrder = dynamicDataService.getUserGridOrder("DB_EXPLORER_" + tableName, "dataGrid");
         StandardGridUtils.applySafeColumnOrder(dataGrid, colKeyMap, userOrder);
+    }
+
+    private void attachServerSideDataGridFilters(Grid<Map<String, Object>> grid, Map<Grid.Column<Map<String, Object>>, String> colKeyMap) {
+        com.vaadin.flow.component.grid.HeaderRow filterRow = grid.appendHeaderRow();
+        colKeyMap.forEach((col, fieldName) -> {
+            FilterCriteria criteria = new FilterCriteria();
+            dataFilterValues.put(fieldName, criteria);
+
+            TextField filterField = new TextField();
+            filterField.setPlaceholder("Filter...");
+            filterField.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.EAGER);
+            filterField.setWidthFull();
+            filterField.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
+
+            Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
+            filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
+            filterButton.getStyle().set("cursor", "pointer");
+            filterButton.getElement().setProperty("title", "Contains");
+            filterField.setPrefixComponent(filterButton);
+
+            com.vaadin.flow.component.contextmenu.ContextMenu contextMenu = new com.vaadin.flow.component.contextmenu.ContextMenu(filterButton);
+            contextMenu.setOpenOnClick(true);
+
+            Runnable applyOperatorUI = () -> {
+                String op = criteria.operator;
+                filterButton.getElement().setProperty("title", op);
+                boolean needsInput = !("Blank".equals(op) || "Not blank".equals(op));
+                if (!needsInput) {
+                    filterField.setValue("");
+                    filterField.setPlaceholder(op);
+                    filterField.setReadOnly(true);
+                } else {
+                    filterField.setPlaceholder("Filter...");
+                    filterField.setReadOnly(false);
+                }
+            };
+
+            com.vaadin.flow.component.ComponentEventListener<com.vaadin.flow.component.ClickEvent<com.vaadin.flow.component.contextmenu.MenuItem>> listener = event -> {
+                if (event.getSource().getText() != null) {
+                    criteria.operator = event.getSource().getText();
+                    applyOperatorUI.run();
+                    if (paginationBar != null) paginationBar.resetPage();
+                    applyDataFilters();
+                }
+            };
+
+            contextMenu.addItem("Contains", listener);
+            contextMenu.addItem("Not contains", listener);
+            contextMenu.addItem("Equals", listener);
+            contextMenu.addItem("Not equal", listener);
+            contextMenu.addItem("Starts with", listener);
+            contextMenu.addItem("Ends with", listener);
+            contextMenu.addItem("Blank", listener);
+            contextMenu.addItem("Not blank", listener);
+
+            contextMenu.addItem(new com.vaadin.flow.component.html.Hr(), e -> {});
+            contextMenu.addItem(col.isFrozen() ? "Unfreeze Column" : "Freeze Column", event -> {
+                boolean nextFrozen = !col.isFrozen();
+                col.setFrozen(nextFrozen);
+                event.getSource().setText(nextFrozen ? "Unfreeze Column" : "Freeze Column");
+                Notification.show(nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000, Notification.Position.BOTTOM_END);
+            });
+
+            filterField.addValueChangeListener(e -> {
+                criteria.value = e.getValue();
+                if (paginationBar != null) paginationBar.resetPage();
+                applyDataFilters();
+            });
+
+            filterRow.getCell(col).setComponent(filterField);
+        });
+
+        grid.addSortListener(event -> {
+            if (!event.getSortOrder().isEmpty()) {
+                com.vaadin.flow.component.grid.GridSortOrder<Map<String, Object>> order = event.getSortOrder().get(0);
+                if (order.getSorted().getKey() != null) {
+                    currentSortField = order.getSorted().getKey();
+                    currentSortDir = order.getDirection() == com.vaadin.flow.data.provider.SortDirection.DESCENDING ? "DESC" : "ASC";
+                    if (paginationBar != null) paginationBar.resetPage();
+                    applyDataFilters();
+                }
+            } else {
+                currentSortField = null;
+                currentSortDir = null;
+                if (paginationBar != null) paginationBar.resetPage();
+                applyDataFilters();
+            }
+        });
+    }
+
+    private void applyDataFilters() {
+        if (currentTable == null || currentTable.trim().isEmpty()) return;
+        long totalRecords = dynamicDataService.countTableDataPaged(currentTable, dataFilterValues);
+        if (paginationBar != null) {
+            paginationBar.setTotalRecords(totalRecords);
+        }
+        int offset = paginationBar != null ? paginationBar.getOffset() : 0;
+        int limit = paginationBar != null ? paginationBar.getLimit() : 50;
+
+        List<Map<String, Object>> pagedData = dynamicDataService.fetchTableDataPaged(
+                currentTable, offset, limit, dataFilterValues, currentSortField, currentSortDir);
+
+        currentDataList = new ArrayList<>(pagedData);
+        dataGrid.setDataProvider(new com.vaadin.flow.data.provider.ListDataProvider<>(currentDataList));
+        recordCount.setText("Menampilkan " + pagedData.size() + " dari total " + totalRecords + " baris data (dynamic." + currentTable + ")");
     }
 
     private void loadTableSchema(String tableName) {
@@ -689,6 +812,13 @@ public class DbExplorerView extends VerticalLayout {
     }
 
     private void clearView() {
+        dataFilterValues.clear();
+        currentSortField = null;
+        currentSortDir = null;
+        if (paginationBar != null) {
+            paginationBar.setTotalRecords(0);
+            paginationBar.resetPage();
+        }
         currentDataList = new ArrayList<>();
         currentSchemaList = new ArrayList<>();
         currentConstraintList = new ArrayList<>();

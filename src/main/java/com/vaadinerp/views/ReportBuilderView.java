@@ -455,13 +455,17 @@ public class ReportBuilderView extends VerticalLayout {
                 .set("border-radius", "4px")
                 .set("background-color", isSelected ? "#f8fafc" : "#ffffff")
                 .set("cursor", "grab")
-                .set("min-width", "90px")
+                .set("min-width", "110px")
                 .set("box-shadow", isSelected ? "0 2px 8px rgba(99, 102, 241, 0.1)" : "none");
 
         HorizontalLayout tools = new HorizontalLayout();
         tools.setWidthFull();
-        tools.setJustifyContentMode(JustifyContentMode.END);
-        tools.setSpacing(true);
+        tools.setJustifyContentMode(JustifyContentMode.START);
+        tools.setSpacing(false);
+        tools.getStyle()
+                .set("gap", "4px")
+                .set("flex-wrap", "wrap")
+                .set("align-items", "center");
         Span badge = new Span("#" + sequence);
         badge.getStyle()
                 .set("font-size", "0.6rem")
@@ -487,17 +491,30 @@ public class ReportBuilderView extends VerticalLayout {
                 .set("font-weight", "700")
                 .set("padding", "1px 4px")
                 .set("border-radius", "3px")
-                .set("margin-left", "5px")
-                .set("margin-right", "auto");
+                .set("overflow", "hidden")
+                .set("text-overflow", "ellipsis")
+                .set("white-space", "nowrap");
 
-        tools.add(badge, typeBadge);        Button btnEdit = new Button(VaadinIcon.COG.create());
+        tools.add(badge, typeBadge);
+
+        Button btnEdit = new Button(VaadinIcon.COG.create());
         btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
-        btnEdit.getStyle().set("cursor", "pointer");
+        btnEdit.getStyle()
+                .set("cursor", "pointer")
+                .set("padding", "0")
+                .set("min-width", "26px")
+                .set("width", "26px")
+                .set("height", "26px");
         btnEdit.addClickListener(e -> selectElement(temp));
 
         Button btnDel = new Button(VaadinIcon.TRASH.create());
         btnDel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
-        btnDel.getStyle().set("cursor", "pointer");
+        btnDel.getStyle()
+                .set("cursor", "pointer")
+                .set("padding", "0")
+                .set("min-width", "26px")
+                .set("width", "26px")
+                .set("height", "26px");
         btnDel.addClickListener(e -> {
             elementsList.remove(temp);
             if (selectedElement == temp) {
@@ -505,7 +522,14 @@ public class ReportBuilderView extends VerticalLayout {
             }
             rebuildCanvas();
         });
-        tools.add(btnEdit, btnDel);
+
+        HorizontalLayout actions = new HorizontalLayout(btnEdit, btnDel);
+        actions.setSpacing(false);
+        actions.getStyle()
+                .set("gap", "2px")
+                .set("margin-left", "auto")
+                .set("flex-shrink", "0");
+        tools.add(actions);
 
         Span contentLabel = new Span();
         if ("LABEL".equals(temp.elementType)) {

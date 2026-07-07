@@ -14,6 +14,7 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
     private final String lovCode;
     private final DynamicDataService dataService;
     private final Map<String, String> valueToLabelMap = new HashMap<>();
+    private final Map<String, Map<String, Object>> valueToRecordMap = new HashMap<>();
     private final Map<String, FilterCondition> activeFilters = new HashMap<>();
 
     private final List<String> currentItems = new ArrayList<>();
@@ -26,6 +27,8 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
         setItemLabelGenerator(val -> valueToLabelMap.getOrDefault(val, val));
         setClearButtonVisible(true);
         setPlaceholder("Pilih beberapa...");
+        setWidthFull();
+        getStyle().set("min-width", "0").set("max-width", "100%").set("box-sizing", "border-box");
         
         refreshItems();
     }
@@ -52,6 +55,9 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
                         LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
                         if (lovMeta != null) {
                             Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), v);
+                            if (rec != null) {
+                                valueToRecordMap.put(v, rec);
+                            }
                             Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
                             if (lblObj != null) {
                                 valueToLabelMap.put(v, lblObj.toString());
@@ -107,6 +113,7 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
                 
                 if (!val.isEmpty()) {
                     valueToLabelMap.put(val, lbl);
+                    valueToRecordMap.put(val, rec);
                     currentItems.add(val);
                 }
             }
@@ -115,5 +122,28 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
             currentItems.clear();
             setItems(new ArrayList<>());
         }
+    }
+
+    public String getDisplayLabel() {
+        java.util.Set<String> vals = getValue();
+        if (vals == null || vals.isEmpty()) return "";
+        List<String> labels = new ArrayList<>();
+        for (String val : vals) {
+            labels.add(valueToLabelMap.getOrDefault(val, val));
+        }
+        return String.join(", ", labels);
+    }
+
+    public List<Map<String, Object>> getSelectedRecords() {
+        java.util.Set<String> vals = getValue();
+        List<Map<String, Object>> list = new ArrayList<>();
+        if (vals != null) {
+            for (String val : vals) {
+                if (valueToRecordMap.containsKey(val)) {
+                    list.add(valueToRecordMap.get(val));
+                }
+            }
+        }
+        return list;
     }
 }

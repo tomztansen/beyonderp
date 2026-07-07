@@ -14,6 +14,7 @@ public class LovSelect extends Select<String> {
     private final String lovCode;
     private final DynamicDataService dataService;
     private final Map<String, String> valueToLabelMap = new HashMap<>();
+    private final Map<String, Map<String, Object>> valueToRecordMap = new HashMap<>();
     private final Map<String, FilterCondition> activeFilters = new HashMap<>();
 
     private final List<String> currentItems = new ArrayList<>();
@@ -25,6 +26,8 @@ public class LovSelect extends Select<String> {
         
         setItemLabelGenerator(val -> valueToLabelMap.getOrDefault(val, val));
         setPlaceholder("Pilih...");
+        setWidthFull();
+        getStyle().set("min-width", "0").set("max-width", "100%").set("box-sizing", "border-box");
         
         refreshItems();
     }
@@ -48,6 +51,9 @@ public class LovSelect extends Select<String> {
                 LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
                 if (lovMeta != null) {
                     Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), value);
+                    if (rec != null) {
+                        valueToRecordMap.put(value, rec);
+                    }
                     Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
                     if (lblObj != null) {
                         valueToLabelMap.put(value, lblObj.toString());
@@ -98,6 +104,7 @@ public class LovSelect extends Select<String> {
                 
                 if (!val.isEmpty()) {
                     valueToLabelMap.put(val, lbl);
+                    valueToRecordMap.put(val, rec);
                     currentItems.add(val);
                 }
             }
@@ -106,5 +113,31 @@ public class LovSelect extends Select<String> {
             currentItems.clear();
             setItems(new ArrayList<>());
         }
+    }
+
+    public String getDisplayLabel() {
+        String val = getValue();
+        if (val != null && valueToLabelMap.containsKey(val)) {
+            return valueToLabelMap.get(val);
+        }
+        return val != null ? val : "";
+    }
+
+    public Map<String, Object> getSelectedRecord() {
+        String val = getValue();
+        if (val != null && valueToRecordMap.containsKey(val)) {
+            return valueToRecordMap.get(val);
+        }
+        if (val != null && !val.isEmpty()) {
+            LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
+            if (lovMeta != null) {
+                Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), val);
+                if (rec != null) {
+                    valueToRecordMap.put(val, rec);
+                    return rec;
+                }
+            }
+        }
+        return null;
     }
 }

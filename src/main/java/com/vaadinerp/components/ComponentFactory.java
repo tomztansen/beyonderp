@@ -90,6 +90,10 @@ public class ComponentFactory {
                                 Map<String, Object> item = (Map<String, Object>) bandbox.getSelectedItem();
                                 row = item;
                             }
+                        } else if (component instanceof com.vaadinerp.components.LovComboBox lovCombo) {
+                            row = lovCombo.getSelectedRecord();
+                        } else if (component instanceof com.vaadinerp.components.LovSelect lovSel) {
+                            row = lovSel.getSelectedRecord();
                         }
 
                         com.vaadinerp.meta.LovMeta lovMeta = null;
@@ -131,14 +135,51 @@ public class ComponentFactory {
                             } else {
                                 // COPY action
                                 Object valToSet = selectedVal;
-                                if (row != null && target.getSourceColumn() != null) {
-                                    String srcCol = target.getSourceColumn();
-                                    valToSet = row.get(srcCol);
-                                    if (valToSet == null) {
-                                        for (Map.Entry<String, Object> entry : row.entrySet()) {
-                                            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(srcCol)) {
-                                                valToSet = entry.getValue();
-                                                break;
+                                if (target.getSourceColumn() != null) {
+                                    String srcCol = target.getSourceColumn().trim();
+                                    if ("_label".equalsIgnoreCase(srcCol) || "label".equalsIgnoreCase(srcCol) || (field.getFieldName() + "_label").equalsIgnoreCase(srcCol)) {
+                                        if (component instanceof com.vaadinerp.components.BandboxField<?, ?> bandbox) {
+                                            valToSet = bandbox.getDisplayLabel();
+                                        } else if (component instanceof com.vaadinerp.components.LovComboBox lovCombo) {
+                                            valToSet = lovCombo.getDisplayLabel();
+                                        } else if (component instanceof com.vaadinerp.components.LovSelect lovSel) {
+                                            valToSet = lovSel.getDisplayLabel();
+                                        } else if (component instanceof com.vaadinerp.components.LovChosenBox lovChosen) {
+                                            valToSet = lovChosen.getDisplayLabel();
+                                        } else if (row != null && lovMeta != null && lovMeta.getLabelColumn() != null) {
+                                            valToSet = row.get(lovMeta.getLabelColumn());
+                                        }
+                                    } else if (row != null) {
+                                        valToSet = row.get(srcCol);
+                                        if (valToSet == null) {
+                                            for (Map.Entry<String, Object> entry : row.entrySet()) {
+                                                if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(srcCol)) {
+                                                    valToSet = entry.getValue();
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        if (valToSet == null && srcCol.toLowerCase().endsWith("_label") && srcCol.length() > 6) {
+                                            String baseCol = srcCol.substring(0, srcCol.length() - 6);
+                                            Object baseVal = getCaseInsensitiveVal(row, baseCol);
+                                            if (baseVal != null && !baseVal.toString().trim().isEmpty() && field.getLovCode() != null && dataService != null) {
+                                                com.vaadinerp.meta.FormMeta sourceForm = dataService.getFormMetaRepository().findById(field.getLovCode().trim()).orElse(null);
+                                                if (sourceForm == null) sourceForm = dataService.getFormMetaRepository().findById(field.getLovCode().trim().toLowerCase()).orElse(null);
+                                                if (sourceForm == null) sourceForm = dataService.getFormMetaRepository().findById(field.getLovCode().trim().toUpperCase()).orElse(null);
+                                                if (sourceForm == null) {
+                                                    com.vaadinerp.meta.LovMeta lm = dataService.getLovMeta(field.getLovCode().trim()).orElse(null);
+                                                    if (lm != null && lm.getTableName() != null) {
+                                                        sourceForm = dataService.getFormMetaRepository().findById(lm.getTableName().trim()).orElse(null);
+                                                    }
+                                                }
+                                                if (sourceForm != null && sourceForm.getFields() != null) {
+                                                    com.vaadinerp.meta.FieldMeta childField = sourceForm.getFields().stream()
+                                                            .filter(f -> f.getFieldName() != null && f.getFieldName().equalsIgnoreCase(baseCol))
+                                                            .findFirst().orElse(null);
+                                                    if (childField != null && childField.getLovCode() != null) {
+                                                        valToSet = formatFieldValueWithLov(childField, baseVal, dataService);
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -156,6 +197,18 @@ public class ComponentFactory {
             @SuppressWarnings("unchecked")
             com.vaadin.flow.component.HasValue<?, Object> valComp = (com.vaadin.flow.component.HasValue<?, Object>) component;
             valComp.addValueChangeListener(ev -> validateFieldRule(field, component));
+        }
+
+        if (hideLabel) {
+            if (component instanceof com.vaadin.flow.component.HasSize hasSize) {
+                hasSize.setWidthFull();
+            }
+            component.getElement().getStyle()
+                    .set("min-width", "0")
+                    .set("max-width", "100%")
+                    .set("width", "100%")
+                    .set("box-sizing", "border-box")
+                    .set("overflow", "hidden");
         }
 
         return component;
@@ -652,23 +705,40 @@ public class ComponentFactory {
 
         switch (type.toUpperCase()) {
             case "TEXTBOX":
+            case "TEXTFIELD":
+            case "TEXT":
+            case "VARCHAR":
+            case "STRING":
                 TextField textField = new TextField(label);
                 textField.setReadOnly(field.isReadonly());
                 textField.setRequiredIndicatorVisible(field.isRequired());
                 applyNumberFormatting(textField, fmt);
                 return textField;
             case "INTBOX":
+            case "INTEGERFIELD":
+            case "INT":
+            case "INTEGER":
+            case "SERIAL":
                 FormattedIntegerField intField = new FormattedIntegerField(label);
                 intField.setReadOnly(field.isReadonly());
                 intField.setDisplayFormat(hasFmt ? fmt : StandardFormatService.getStandardFormat("INTBOX", "#,##0"));
                 return intField;
             case "DECIMALBOX":
+            case "BIGDECIMALFIELD":
+            case "DECIMAL":
+            case "NUMERIC":
+            case "FLOAT":
+            case "DOUBLE":
+            case "REAL":
+            case "MONEY":
                 FormattedBigDecimalField decimalField = new FormattedBigDecimalField(label);
                 decimalField.setReadOnly(field.isReadonly());
                 decimalField.setDisplayFormat(
                         hasFmt ? fmt : StandardFormatService.getStandardFormat("DECIMALBOX", "#,##0.00"));
                 return decimalField;
             case "DATEBOX":
+            case "DATEPICKER":
+            case "DATE":
                 DatePicker datePicker = new DatePicker(label);
                 datePicker.setReadOnly(field.isReadonly());
                 datePicker.setLocale(java.util.Locale.of("id", "ID"));
@@ -676,6 +746,9 @@ public class ComponentFactory {
                         hasFmt ? fmt : StandardFormatService.getStandardFormat("DATEBOX", "dd/MM/yyyy")));
                 return datePicker;
             case "DATETIMEBOX":
+            case "DATETIMEPICKER":
+            case "TIMESTAMP":
+            case "TIMESTAMPTZ":
                 String dtFmt = hasFmt ? fmt
                         : StandardFormatService.getStandardFormat("DATETIMEBOX", "dd/MM/yyyy HH:mm");
                 DateTimePicker dateTimePicker = new DateTimePicker(label);
@@ -685,11 +758,15 @@ public class ComponentFactory {
                         createIndonesianDatePickerI18n(dtFmt.trim().split(" ")[0]));
                 return dateTimePicker;
             case "TIMEBOX":
+            case "TIMEPICKER":
+            case "TIME":
                 TimePicker timePicker = new TimePicker(label);
                 timePicker.setReadOnly(field.isReadonly());
                 timePicker.setLocale(java.util.Locale.of("id", "ID"));
                 return timePicker;
             case "CHECKBOX":
+            case "BOOLEAN":
+            case "BOOL":
                 Checkbox checkbox = new Checkbox(label);
                 checkbox.setReadOnly(field.isReadonly());
                 return checkbox;
@@ -951,7 +1028,10 @@ public class ComponentFactory {
                 imageUpload.setReadOnly(field.isReadonly());
                 return imageUpload;
             default:
-                return new TextField(field.getFieldLabel());
+                TextField defaultField = new TextField(label);
+                defaultField.setReadOnly(field.isReadonly());
+                defaultField.setRequiredIndicatorVisible(field.isRequired());
+                return defaultField;
         }
     }
 }

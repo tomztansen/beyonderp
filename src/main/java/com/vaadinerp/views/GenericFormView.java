@@ -734,31 +734,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         }
                     }
                 } else {
-                    Object convertedValue = value;
-                    if (targetComponent instanceof com.vaadin.flow.component.datepicker.DatePicker
-                            && !(value instanceof java.time.LocalDate)) {
-                        try {
-                            convertedValue = java.time.LocalDate.parse(value.toString());
-                        } catch (Exception e) {
-                            convertedValue = null;
-                        }
-                    } else if ((targetComponent instanceof com.vaadin.flow.component.textfield.BigDecimalField
-                            || targetComponent instanceof com.vaadinerp.components.FormattedBigDecimalField)
-                            && !(value instanceof java.math.BigDecimal)) {
-                        try {
-                            convertedValue = new java.math.BigDecimal(value.toString());
-                        } catch (Exception e) {
-                            convertedValue = null;
-                        }
-                    } else if ((targetComponent instanceof com.vaadin.flow.component.textfield.IntegerField
-                            || targetComponent instanceof com.vaadinerp.components.FormattedIntegerField)
-                            && !(value instanceof Integer)) {
-                        try {
-                            convertedValue = Integer.parseInt(value.toString());
-                        } catch (Exception e) {
-                            convertedValue = null;
-                        }
-                    }
+                    Object convertedValue = convertToFieldValue(value, targetComponent);
                     try {
                         hasValue.setValue(convertedValue);
                     } catch (Exception ignored) {
@@ -1292,6 +1268,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             if (component instanceof com.vaadin.flow.component.checkbox.Checkbox) {
                 return (V) Boolean.FALSE;
             }
+            if (component instanceof com.vaadin.flow.component.textfield.TextField ||
+                component instanceof com.vaadin.flow.component.textfield.TextArea) {
+                return (V) "";
+            }
             return null;
         }
         if (component instanceof com.vaadin.flow.component.datepicker.DatePicker) {
@@ -1402,7 +1382,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         if (component instanceof com.vaadin.flow.component.textfield.TextField ||
                 component instanceof com.vaadin.flow.component.textfield.TextArea ||
                 component instanceof com.vaadin.flow.component.combobox.ComboBox ||
-                component instanceof com.vaadin.flow.component.select.Select) {
+                component instanceof com.vaadin.flow.component.select.Select ||
+                component instanceof com.vaadin.flow.component.listbox.ListBox ||
+                component instanceof com.vaadin.flow.component.radiobutton.RadioButtonGroup) {
             return (V) value.toString();
         }
         try {
@@ -1429,17 +1411,29 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     if (value != null && !(value instanceof Map)) {
                         putValueCaseInsensitive(map, field.getFieldName() + ".id", value);
                     }
+                    String dispLabel = null;
+                    Map<String, Object> selMap = null;
                     if (editComponent instanceof com.vaadinerp.components.BandboxField<?, ?> bandbox) {
-                        putValueCaseInsensitive(map, field.getFieldName() + "_label", bandbox.getDisplayLabel());
+                        dispLabel = bandbox.getDisplayLabel();
                         Object selItem = bandbox.getSelectedItem();
-                        if (selItem instanceof Map) {
-                            Map<String, Object> selMap = (Map<String, Object>) selItem;
-                            putValueCaseInsensitive(map, field.getFieldName() + "_record", selMap);
-                            for (Map.Entry<String, Object> entry : selMap.entrySet()) {
-                                if (entry.getKey() != null && entry.getValue() != null) {
-                                    putValueCaseInsensitive(map, field.getFieldName() + "." + entry.getKey(),
-                                            entry.getValue());
-                                }
+                        if (selItem instanceof Map) selMap = (Map<String, Object>) selItem;
+                    } else if (editComponent instanceof com.vaadinerp.components.LovComboBox lovCombo) {
+                        dispLabel = lovCombo.getDisplayLabel();
+                        selMap = lovCombo.getSelectedRecord();
+                    } else if (editComponent instanceof com.vaadinerp.components.LovSelect lovSel) {
+                        dispLabel = lovSel.getDisplayLabel();
+                        selMap = lovSel.getSelectedRecord();
+                    } else if (editComponent instanceof com.vaadinerp.components.LovChosenBox lovChosen) {
+                        dispLabel = lovChosen.getDisplayLabel();
+                    }
+                    if (dispLabel != null) {
+                        putValueCaseInsensitive(map, field.getFieldName() + "_label", dispLabel);
+                    }
+                    if (selMap != null) {
+                        putValueCaseInsensitive(map, field.getFieldName() + "_record", selMap);
+                        for (Map.Entry<String, Object> entry : selMap.entrySet()) {
+                            if (entry.getKey() != null && entry.getValue() != null) {
+                                putValueCaseInsensitive(map, field.getFieldName() + "." + entry.getKey(), entry.getValue());
                             }
                         }
                     }
@@ -1451,17 +1445,29 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 if (e.getValue() != null && !(e.getValue() instanceof Map)) {
                     putValueCaseInsensitive(bean, field.getFieldName() + ".id", e.getValue());
                 }
+                String dispLabel = null;
+                Map<String, Object> selMap = null;
                 if (editComponent instanceof com.vaadinerp.components.BandboxField<?, ?> bandbox) {
-                    putValueCaseInsensitive(bean, field.getFieldName() + "_label", bandbox.getDisplayLabel());
+                    dispLabel = bandbox.getDisplayLabel();
                     Object selItem = bandbox.getSelectedItem();
-                    if (selItem instanceof Map) {
-                        Map<String, Object> selMap = (Map<String, Object>) selItem;
-                        putValueCaseInsensitive(bean, field.getFieldName() + "_record", selMap);
-                        for (Map.Entry<String, Object> entry : selMap.entrySet()) {
-                            if (entry.getKey() != null && entry.getValue() != null) {
-                                putValueCaseInsensitive(bean, field.getFieldName() + "." + entry.getKey(),
-                                        entry.getValue());
-                            }
+                    if (selItem instanceof Map) selMap = (Map<String, Object>) selItem;
+                } else if (editComponent instanceof com.vaadinerp.components.LovComboBox lovCombo) {
+                    dispLabel = lovCombo.getDisplayLabel();
+                    selMap = lovCombo.getSelectedRecord();
+                } else if (editComponent instanceof com.vaadinerp.components.LovSelect lovSel) {
+                    dispLabel = lovSel.getDisplayLabel();
+                    selMap = lovSel.getSelectedRecord();
+                } else if (editComponent instanceof com.vaadinerp.components.LovChosenBox lovChosen) {
+                    dispLabel = lovChosen.getDisplayLabel();
+                }
+                if (dispLabel != null) {
+                    putValueCaseInsensitive(bean, field.getFieldName() + "_label", dispLabel);
+                }
+                if (selMap != null) {
+                    putValueCaseInsensitive(bean, field.getFieldName() + "_record", selMap);
+                    for (Map.Entry<String, Object> entry : selMap.entrySet()) {
+                        if (entry.getKey() != null && entry.getValue() != null) {
+                            putValueCaseInsensitive(bean, field.getFieldName() + "." + entry.getKey(), entry.getValue());
                         }
                     }
                 }
@@ -1558,7 +1564,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     if (parentPkValue != null && field.getLovCode() != null && field.getFormula() != null) {
                         FormMeta childForm = formMetaRepository.findById(field.getLovCode()).orElse(null);
                         if (childForm != null) {
-                            String childTableName = childForm.getTableName();
+                            String childTableName = (childForm.getViewTable() != null && !childForm.getViewTable().trim().isEmpty())
+                                    ? childForm.getViewTable().trim()
+                                    : childForm.getTableName();
                             String childFkColumn = field.getFormula();
                             childData = dynamicDataService.fetchDetailTableData(childTableName, childFkColumn,
                                     parentPkValue);
