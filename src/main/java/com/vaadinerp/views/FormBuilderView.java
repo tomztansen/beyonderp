@@ -104,6 +104,7 @@ public class FormBuilderView extends VerticalLayout {
     private final Checkbox propIsSortable = new Checkbox("Sortable in Grid");
     private final TextField propFormula = new TextField("Formula (e.g. qty * price)");
     private final ComboBox<String> propValidationRule = new ComboBox<>("Validation Rule (e.g. ONLY_SUNDAY)");
+    private final ComboBox<String> propSequenceCode = new ComboBox<>("⚡ Auto-Sequence Code");
     private final TextField propDisplayFormat = new TextField("Kolom Format (misal dd/MM/yyyy atau #,##0.00)");
     private final Checkbox propSaveOnInsert = new Checkbox("Save on Insert");
     private final Checkbox propSaveOnUpdate = new Checkbox("Save on Edit/Update");
@@ -128,6 +129,7 @@ public class FormBuilderView extends VerticalLayout {
         String formula;
         String validationRule;
         String displayFormat;
+        String sequenceCode;
         boolean saveOnInsert = true;
         boolean saveOnUpdate = true;
         boolean isAuditLog;
@@ -188,6 +190,10 @@ public class FormBuilderView extends VerticalLayout {
 
         public String getDisplayFormat() {
             return displayFormat;
+        }
+
+        public String getSequenceCode() {
+            return sequenceCode;
         }
 
         public boolean isSaveOnInsert() {
@@ -733,6 +739,12 @@ public class FormBuilderView extends VerticalLayout {
         propValidationRule.addCustomValueSetListener(e -> propValidationRule.setValue(e.getDetail()));
         propValidationRule.setPlaceholder("Pilih / ketik rule...");
 
+        propSequenceCode.setAllowCustomValue(true);
+        propSequenceCode.addCustomValueSetListener(e -> propSequenceCode.setValue(e.getDetail()));
+        propSequenceCode.setPlaceholder("Pilih / ketik kode sequence...");
+        propSequenceCode.setClearButtonVisible(true);
+        propSequenceCode.setItems(dynamicDataService.getActiveSequenceCodes());
+
         propBtnCustomValidation.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_SUCCESS);
         propBtnCustomValidation.setWidthFull();
         propBtnCustomValidation.addClickListener(e -> {
@@ -742,7 +754,7 @@ public class FormBuilderView extends VerticalLayout {
         });
 
         propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov, propRowGroup,
-                propFormula, propDisplayFormat, propValidationRule, propBtnCustomValidation, checkBoxLayout,
+                propFormula, propDisplayFormat, propValidationRule, propSequenceCode, propBtnCustomValidation, checkBoxLayout,
                 propBtnFilters, propBtnLovTargets);
 
         // Listeners for live sync
@@ -842,6 +854,11 @@ public class FormBuilderView extends VerticalLayout {
         propValidationRule.addValueChangeListener(e -> {
             if (selectedField != null && e.isFromClient()) {
                 selectedField.validationRule = "NONE".equalsIgnoreCase(e.getValue()) ? null : e.getValue().trim();
+            }
+        });
+        propSequenceCode.addValueChangeListener(e -> {
+            if (selectedField != null && e.isFromClient()) {
+                selectedField.sequenceCode = e.getValue() == null || e.getValue().trim().isEmpty() ? null : e.getValue().trim();
             }
         });
         propSaveOnInsert.addValueChangeListener(e -> {
@@ -964,6 +981,7 @@ public class FormBuilderView extends VerticalLayout {
             propFormula.setValue(temp.formula != null ? temp.formula : "");
             propDisplayFormat.setValue(temp.displayFormat != null ? temp.displayFormat : "");
             propValidationRule.setValue(temp.validationRule != null ? temp.validationRule : "NONE");
+            propSequenceCode.setValue(temp.sequenceCode != null ? temp.sequenceCode : "");
             propSaveOnInsert.setValue(temp.saveOnInsert);
             propSaveOnUpdate.setValue(temp.saveOnUpdate);
             propIsAuditLog.setValue(temp.isAuditLog);
@@ -1778,6 +1796,7 @@ public class FormBuilderView extends VerticalLayout {
             field.setFormula(temp.formula);
             field.setDisplayFormat(temp.displayFormat);
             field.setValidationRule(temp.validationRule);
+            field.setSequenceCode(temp.sequenceCode);
             field.setSaveOnInsert(temp.saveOnInsert);
             field.setSaveOnUpdate(temp.saveOnUpdate);
             field.setAuditLog(temp.isAuditLog);
@@ -2564,6 +2583,7 @@ public class FormBuilderView extends VerticalLayout {
                     temp.formula = field.getFormula();
                     temp.displayFormat = field.getDisplayFormat();
                     temp.validationRule = field.getValidationRule();
+                    temp.sequenceCode = field.getSequenceCode();
                     temp.saveOnInsert = field.isSaveOnInsert();
                     temp.saveOnUpdate = field.isSaveOnUpdate();
                     temp.isAuditLog = field.isAuditLog();

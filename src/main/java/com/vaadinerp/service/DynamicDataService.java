@@ -885,6 +885,20 @@ public class DynamicDataService {
             }
         } else {
             // INSERT: Jika primary key tidak ada nilainya
+            if (formMeta.getFields() != null) {
+                for (FieldMeta field : formMeta.getFields()) {
+                    if (field.getSequenceCode() != null && !field.getSequenceCode().trim().isEmpty()) {
+                        String fieldName = field.getFieldName();
+                        Object val = data.get(fieldName);
+                        if (val == null || val.toString().trim().isEmpty() || val.toString().startsWith("[AUTO") || val.toString().startsWith("⚡")) {
+                            String genNum = generateNextSequence(field.getSequenceCode());
+                            data.put(fieldName, genNum);
+                            log.info("Auto-generated sequence '{}' for field '{}' -> {}", field.getSequenceCode(), fieldName, genNum);
+                        }
+                    }
+                }
+            }
+
             StringJoiner columns = new StringJoiner(", ");
             StringJoiner valuesParam = new StringJoiner(", ");
             List<Object> args = new ArrayList<>();
@@ -918,39 +932,25 @@ public class DynamicDataService {
             columns.add("inputdt");
             valuesParam.add("?");
             args.add(nowTs);
+            columns.add("updateby");
+            valuesParam.add("?");
+            args.add(currentUser);
+            columns.add("updatedt");
+            valuesParam.add("?");
+            args.add(nowTs);
             columns.add("version");
-            valuesParam.add("0");
-            data.put("inputby", currentUser);
-            data.put("inputdt", nowTs);
-            data.put("version", 0);
-
-            if (args.isEmpty()) {
-                throw new IllegalArgumentException("Tidak ada field data valid untuk disimpan.");
-            }
+            valuesParam.add("?");
+            args.add(1);
 
             String sql = "INSERT INTO " + getQualifiedTableName(formMeta.getTableName()) + " (" + columns.toString() + ") VALUES (" + valuesParam.toString() + ")";
-            org.springframework.jdbc.support.GeneratedKeyHolder keyHolder = new org.springframework.jdbc.support.GeneratedKeyHolder();
-            
-            System.out.println("=================================================");
-            System.out.println("EXECUTING INSERT SQL: " + sql);
-            System.out.println("PARAMETERS: " + args);
-            System.out.println("=================================================");
-            jdbcTemplate.update(connection -> {
-                java.sql.PreparedStatement ps = connection.prepareStatement(sql, new String[]{finalPk});
-                for (int i = 0; i < args.size(); i++) {
-                    ps.setObject(i + 1, args.get(i));
-                }
-                return ps;
-            }, keyHolder);
-            
-            masterId = keyHolder.getKey();
-            data.put(pk, masterId); // Update key in data map
+            executeAndLogSql(sql, args);
 
-            for (FieldMeta field : formMeta.getFields()) {
-                if (field.isAuditLog()) {
-                    String fieldName = field.getFieldName();
-                    if (data.containsKey(fieldName)) {
-                        recordFieldAuditLog(formMeta.getFormCode(), formMeta.getTableName(), masterId, "INSERT", fieldName, null, data.get(fieldName), currentUser);
+            if (formMeta.getFields() != null) {
+                for (FieldMeta field : formMeta.getFields()) {
+                    if (field.isAuditLog()) {
+                        String fieldName = field.getFieldName();
+                        Object newVal = data.get(fieldName);
+                        recordFieldAuditLog(formMeta.getFormCode(), formMeta.getTableName(), masterId, "INSERT", fieldName, null, newVal, currentUser);
                     }
                 }
             }
@@ -959,38 +959,113 @@ public class DynamicDataService {
             log.debug("Target table untuk form '{}' kosong/null, melewati penyimpanan tabel utama dan langsung memproses subform/detail.", formMeta.getFormCode());
         }
 
-        // Cascade save for subform grids
-        for (FieldMeta field : formMeta.getFields()) {
-            if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
-                String subformFieldName = field.getFieldName();
-                
-                // Get child FormMeta
-                FormMeta childFormMeta = formMetaRepository.findById(field.getLovCode()).orElse(null);
-                if (childFormMeta == null) continue;
-                
-                // Ensure child physical table exists
-                generatePhysicalTable(childFormMeta);
-                
-                // 1. Delete removed rows
-                String deletedKey = "__deleted_" + subformFieldName;
-                if (data.containsKey(deletedKey) && data.get(deletedKey) instanceof List) {
-                    @SuppressWarnings("unchecked")
-                    List<Map<String, Object>> deletedRows = (List<Map<String, Object>>) data.get(deletedKey);
-                    for (Map<String, Object> delRow : deletedRows) {
-                        deleteData(childFormMeta, delRow);
+        // Simpan data Subform Grid
+        if (formMeta.getFields() != null) {
+            for (FieldMeta field : formMeta.getFields()) {
+                if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
+                    String subformFieldName = field.getFieldName();
+                    String childFormCode = field.getLovCode();
+                    if (childFormCode == null || childFormCode.trim().isEmpty()) continue;
+                    
+                    FormMeta childFormMeta = formMetaRepository.findById(childFormCode).orElse(null);
+                    if (childFormMeta == null) continue;
+
+                    // 1. Delete removed rows
+                    if (data.containsKey(subformFieldName + "_deleted") && data.get(subformFieldName + "_deleted") instanceof List) {
+                        @SuppressWarnings("unchecked")
+                        List<Map<String, Object>> deletedRows = (List<Map<String, Object>>) data.get(subformFieldName + "_deleted");
+                        for (Map<String, Object> delRow : deletedRows) {
+                            deleteData(childFormMeta, delRow);
+                        }
                     }
-                }
-                
-                // 2. Save active rows
-                if (data.containsKey(subformFieldName) && data.get(subformFieldName) instanceof List) {
-                    @SuppressWarnings("unchecked")
-                    List<Map<String, Object>> activeRows = (List<Map<String, Object>>) data.get(subformFieldName);
-                    String childFkField = field.getFormula(); // child FK column
-                    for (Map<String, Object> activeRow : activeRows) {
-                        saveData(childFormMeta, activeRow, childFkField, masterId);
+                    
+                    // 2. Save active rows
+                    if (data.containsKey(subformFieldName) && data.get(subformFieldName) instanceof List) {
+                        @SuppressWarnings("unchecked")
+                        List<Map<String, Object>> activeRows = (List<Map<String, Object>>) data.get(subformFieldName);
+                        String childFkField = field.getFormula(); // child FK column
+                        for (Map<String, Object> activeRow : activeRows) {
+                            saveData(childFormMeta, activeRow, childFkField, masterId);
+                        }
                     }
                 }
             }
+        }
+    }
+
+    @Transactional
+    public String generateNextSequence(String seqCode) {
+        if (seqCode == null || seqCode.trim().isEmpty()) return "";
+        String cleanCode = seqCode.trim();
+        String selectSql = "SELECT * FROM dynamic.md_sequence WHERE seq_code = ? FOR UPDATE";
+        List<Map<String, Object>> list;
+        try {
+            list = jdbcTemplate.queryForList(selectSql, cleanCode);
+        } catch (Exception e) {
+            log.warn("Gagal query FOR UPDATE pada md_sequence untuk code '{}': {}", cleanCode, e.getMessage());
+            list = jdbcTemplate.queryForList("SELECT * FROM dynamic.md_sequence WHERE seq_code = ?", cleanCode);
+        }
+        if (list.isEmpty()) {
+            list = jdbcTemplate.queryForList("SELECT * FROM dynamic.md_sequence WHERE LOWER(seq_code) = LOWER(?)", cleanCode);
+            if (list.isEmpty()) {
+                log.warn("Sequence code '{}' tidak ditemukan di tabel dynamic.md_sequence!", cleanCode);
+                return cleanCode + "-" + (System.currentTimeMillis() % 100000);
+            }
+        }
+        Map<String, Object> seq = list.get(0);
+        String prefixFormat = seq.get("prefix_format") != null ? seq.get("prefix_format").toString() : "";
+        long currentVal = 0;
+        if (seq.get("current_val") != null) {
+            currentVal = ((Number) seq.get("current_val")).longValue();
+        }
+        int paddingLen = 4;
+        if (seq.get("padding_len") != null) {
+            paddingLen = ((Number) seq.get("padding_len")).intValue();
+        }
+        String resetPeriod = seq.get("reset_period") != null ? seq.get("reset_period").toString() : "NEVER";
+        java.sql.Date lastResetDate = null;
+        if (seq.get("last_reset_date") instanceof java.sql.Date d) {
+            lastResetDate = d;
+        } else if (seq.get("last_reset_date") instanceof java.util.Date ud) {
+            lastResetDate = new java.sql.Date(ud.getTime());
+        }
+
+        java.time.LocalDate now = java.time.LocalDate.now();
+        java.time.LocalDate lastDate = lastResetDate != null ? lastResetDate.toLocalDate() : now;
+        boolean needReset = false;
+
+        if ("MONTHLY".equalsIgnoreCase(resetPeriod) && (now.getYear() != lastDate.getYear() || now.getMonthValue() != lastDate.getMonthValue())) {
+            needReset = true;
+        } else if ("YEARLY".equalsIgnoreCase(resetPeriod) && now.getYear() != lastDate.getYear()) {
+            needReset = true;
+        } else if ("DAILY".equalsIgnoreCase(resetPeriod) && !now.equals(lastDate)) {
+            needReset = true;
+        }
+
+        long nextVal = needReset ? 1 : (currentVal + 1);
+
+        try {
+            jdbcTemplate.update("UPDATE dynamic.md_sequence SET current_val = ?, last_reset_date = ? WHERE seq_code = ?",
+                    nextVal, java.sql.Date.valueOf(now), seq.get("seq_code"));
+        } catch (Exception ex) {
+            log.warn("Gagal update md_sequence: {}", ex.getMessage());
+        }
+
+        String formattedPrefix = prefixFormat
+                .replace("{YYYY}", String.format("%04d", now.getYear()))
+                .replace("{YY}", String.format("%02d", now.getYear() % 100))
+                .replace("{MM}", String.format("%02d", now.getMonthValue()))
+                .replace("{DD}", String.format("%02d", now.getDayOfMonth()));
+
+        String numberPart = (paddingLen > 0) ? String.format("%0" + paddingLen + "d", nextVal) : String.valueOf(nextVal);
+        return formattedPrefix + numberPart;
+    }
+
+    public List<String> getActiveSequenceCodes() {
+        try {
+            return jdbcTemplate.queryForList("SELECT seq_code FROM dynamic.md_sequence WHERE status = 'Active'", String.class);
+        } catch (Exception e) {
+            return List.of("PO_NO", "BOM_CODE", "INV_NO");
         }
     }
 

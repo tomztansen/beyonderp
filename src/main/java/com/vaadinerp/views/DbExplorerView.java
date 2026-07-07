@@ -9,6 +9,7 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.H4;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.html.Hr;
 
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
@@ -53,6 +54,7 @@ public class DbExplorerView extends VerticalLayout {
     private final Button btnAddConstraint = new Button("Tambah Constraint", VaadinIcon.PLUS.create());
     private final Button btnAddTrigger = new Button("Tambah Trigger", VaadinIcon.PLUS.create());
     private final Button btnAddColumn = new Button("Tambah Kolom", VaadinIcon.PLUS.create());
+    private final Button btnAddAuditCols = new Button("⚡ Tambah Kolom Audit Default", VaadinIcon.TIME_FORWARD.create());
 
     private List<Map<String, Object>> currentDataList = new ArrayList<>();
     private List<Map<String, Object>> currentSchemaList = new ArrayList<>();
@@ -104,11 +106,13 @@ public class DbExplorerView extends VerticalLayout {
                 btnAddConstraint.setEnabled(true);
                 btnAddTrigger.setEnabled(true);
                 btnAddColumn.setEnabled(true);
+                btnAddAuditCols.setEnabled(true);
             } else {
                 clearView();
                 btnAddConstraint.setEnabled(false);
                 btnAddTrigger.setEnabled(false);
                 btnAddColumn.setEnabled(false);
+                btnAddAuditCols.setEnabled(false);
             }
         });
 
@@ -156,6 +160,18 @@ public class DbExplorerView extends VerticalLayout {
         btnAddColumn.setEnabled(false);
         btnAddColumn.addClickListener(e -> openColumnDialog(null));
 
+        btnAddAuditCols.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
+        btnAddAuditCols.setEnabled(false);
+        btnAddAuditCols.setTooltipText("Langsung tambahkan kolom inputby, inputdt, updateby, updatedt, dan version ke tabel ini");
+        btnAddAuditCols.addClickListener(e -> {
+            if (this.currentTable != null) {
+                dynamicDataService.ensureAuditColumnsExist(this.currentTable);
+                loadTableSchema(this.currentTable);
+                loadTableData(this.currentTable);
+                Notification.show("Kolom audit default (inputby, inputdt, updateby, updatedt, version) berhasil ditambahkan ke tabel '" + this.currentTable + "'!", 3500, Notification.Position.BOTTOM_END);
+            }
+        });
+
         Button btnResetSchemaGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
         btnResetSchemaGrid.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         btnResetSchemaGrid.addClickListener(e -> {
@@ -165,7 +181,7 @@ public class DbExplorerView extends VerticalLayout {
             Notification.show("Layout grid skema di-reset", 2000, Notification.Position.BOTTOM_END);
         });
 
-        HorizontalLayout columnHeader = new HorizontalLayout(schemaInfo, btnAddColumn, btnResetSchemaGrid, StandardGridUtils.createExportExcelButton(schemaGrid, "schema_export"));
+        HorizontalLayout columnHeader = new HorizontalLayout(schemaInfo, btnAddColumn, btnAddAuditCols, btnResetSchemaGrid, StandardGridUtils.createExportExcelButton(schemaGrid, "schema_export"));
         columnHeader.setAlignItems(Alignment.CENTER);
         columnHeader.setSpacing(true);
 
@@ -751,6 +767,23 @@ public class DbExplorerView extends VerticalLayout {
         FormLayout form = new FormLayout();
         form.add(nameField, typeField, defaultField);
         layout.add(form, nullableField);
+
+        if (!isEdit) {
+            Button btnQuickAudit = new Button("⚡ Langsung Tambah Semua Kolom Audit Default (inputby, inputdt, updateby, updatedt)", VaadinIcon.TIME_FORWARD.create());
+            btnQuickAudit.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
+            btnQuickAudit.setWidthFull();
+            btnQuickAudit.getStyle().set("margin-top", "10px");
+            btnQuickAudit.addClickListener(e -> {
+                if (this.currentTable != null) {
+                    dynamicDataService.ensureAuditColumnsExist(this.currentTable);
+                    loadTableSchema(this.currentTable);
+                    loadTableData(this.currentTable);
+                    dialog.close();
+                    Notification.show("Kolom audit default berhasil ditambahkan ke tabel '" + this.currentTable + "'!", 3500, Notification.Position.BOTTOM_END);
+                }
+            });
+            layout.add(new Hr(), btnQuickAudit);
+        }
 
         Button btnApply = new Button("Simpan Kolom", VaadinIcon.CHECK.create());
         btnApply.addThemeVariants(ButtonVariant.LUMO_PRIMARY);

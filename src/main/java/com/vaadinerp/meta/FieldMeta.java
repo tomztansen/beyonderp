@@ -71,6 +71,9 @@ public class FieldMeta {
     @Column(name = "display_format", length = 50)
     private String displayFormat;
 
+    @Column(name = "sequence_code", length = 50)
+    private String sequenceCode;
+
     @Column(name = "is_audit_log")
     private Boolean isAuditLog = false;
 
