@@ -67,9 +67,11 @@ vaadin-grid vaadin-text-field {
     font-size: 0.82rem;
 }
 
-/* Tighten tabsheet content area */
+/* Tighten tabsheet content area & safeguard vertical scrolling for long forms */
 vaadin-tabsheet > [role="tabpanel"] {
     padding: 8px 4px !important;
+    overflow-y: auto !important;
+    height: 100%;
 }
 
 /* Reduce vertical-layout default spacing when inside the main content area */
@@ -274,7 +276,7 @@ vaadin-email-field[readonly]::part(label),
 vaadin-password-field[readonly]::part(label),
 vaadin-select[readonly]::part(label) {
     color: #64748b !important;
-    font-style: italic !important;
+    font-style: normal !important;
 }
 
 vaadin-text-field[readonly]:not(.bandbox-display)::part(label)::after,

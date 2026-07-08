@@ -1424,6 +1424,43 @@ public class DynamicDataService {
         return null;
     }
 
+    public String getLovDefaultOrderByClause(String lovCodeOrTableName) {
+        if (lovCodeOrTableName == null || lovCodeOrTableName.trim().isEmpty()) return "";
+        String code = lovCodeOrTableName.trim();
+        if (code.toLowerCase().contains("order by")) return "";
+
+        try {
+            Optional<com.vaadinerp.meta.FormMeta> formOpt = formMetaRepository.findById(code);
+            if (formOpt.isEmpty()) {
+                formOpt = formMetaRepository.findAll().stream()
+                        .filter(f -> code.equalsIgnoreCase(f.getTableName())
+                                || code.equalsIgnoreCase(f.getFormCode())
+                                || (f.getViewTable() != null && code.equalsIgnoreCase(f.getViewTable()))
+                                || (f.getDetailTableName() != null && code.equalsIgnoreCase(f.getDetailTableName())))
+                        .findFirst();
+            }
+            if (formOpt.isPresent()) {
+                com.vaadinerp.meta.FormMeta form = formOpt.get();
+                String sortField = form.getDefaultSortField();
+                if (sortField != null && !sortField.trim().isEmpty()) {
+                    String safeCol = sortField.trim();
+                    validateSqlIdentifier(safeCol, "default sort field");
+                    List<String> existingCols = getColumnsForQueryOrTable(code);
+                    if (!existingCols.isEmpty() && existingCols.stream().noneMatch(c -> c.equalsIgnoreCase(safeCol))) {
+                        return "";
+                    }
+                    String dir = form.getDefaultSortDirection();
+                    if (dir == null || (!dir.equalsIgnoreCase("DESC") && !dir.equalsIgnoreCase("ASC"))) {
+                        dir = "ASC";
+                    }
+                    return " ORDER BY " + safeCol + " " + dir.toUpperCase() + " ";
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return "";
+    }
+
     public List<Map<String, Object>> fetchLovData(String lovCode, String searchBy, String searchTerm) {
         if (lovCode == null || lovCode.trim().isEmpty()) {
             return new ArrayList<>();
@@ -1461,6 +1498,7 @@ public class DynamicDataService {
             sql.append(orJoiner.toString());
         }
         
+        sql.append(getLovDefaultOrderByClause(lovCode));
         sql.append(" LIMIT 5000");
         
         try {
@@ -1545,6 +1583,7 @@ public class DynamicDataService {
             sql.append(orJoiner.toString()).append(")");
         }
         
+        sql.append(getLovDefaultOrderByClause(tableName));
         sql.append(" LIMIT 5000");
         
         try {
@@ -1601,11 +1640,12 @@ public class DynamicDataService {
             return new ArrayList<>();
         }
         String trimmed = lovMeta.getTableName().trim();
+        String orderBy = getLovDefaultOrderByClause(lovMeta.getLovCode() != null ? lovMeta.getLovCode() : trimmed);
         String sql;
         if (trimmed.toLowerCase().startsWith("select")) {
-            sql = "SELECT * FROM ( " + validateAndSanitizeSelectQuery(trimmed) + " ) AS subquery LIMIT 3000";
+            sql = "SELECT * FROM ( " + validateAndSanitizeSelectQuery(trimmed) + " ) AS subquery" + orderBy + " LIMIT 3000";
         } else {
-            sql = "SELECT * FROM " + getLovQualifiedTableName(trimmed) + " LIMIT 3000";
+            sql = "SELECT * FROM " + getLovQualifiedTableName(trimmed) + orderBy + " LIMIT 3000";
         }
         try {
             return jdbcTemplate.queryForList(sql);
@@ -2116,11 +2156,12 @@ public class DynamicDataService {
         }
         String trimmed = detailTableName.trim();
         fkColumn = resolveExistingColumn(trimmed, fkColumn);
+        String orderBy = getLovDefaultOrderByClause(trimmed);
         String sql;
         if (trimmed.toLowerCase().startsWith("select")) {
-            sql = "SELECT * FROM ( " + validateAndSanitizeSelectQuery(trimmed) + " ) AS detail_sub WHERE CAST(" + fkColumn + " AS text) = ?";
+            sql = "SELECT * FROM ( " + validateAndSanitizeSelectQuery(trimmed) + " ) AS detail_sub WHERE CAST(" + fkColumn + " AS text) = ?" + orderBy;
         } else {
-            sql = "SELECT * FROM " + getQualifiedTableName(trimmed) + " WHERE CAST(" + fkColumn + " AS text) = ?";
+            sql = "SELECT * FROM " + getQualifiedTableName(trimmed) + " WHERE CAST(" + fkColumn + " AS text) = ?" + orderBy;
         }
         try {
             return jdbcTemplate.queryForList(sql, fkValue.toString().trim());
@@ -2727,6 +2768,7 @@ public class DynamicDataService {
         if (!conditions.isEmpty()) {
             sql.append(" WHERE ").append(String.join(" AND ", conditions));
         }
+        sql.append(getLovDefaultOrderByClause(sourceLovCode));
         sql.append(" LIMIT 5000");
 
         try {
