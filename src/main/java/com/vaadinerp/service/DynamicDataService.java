@@ -786,7 +786,10 @@ public class DynamicDataService {
         validateSqlIdentifier(pk, "primary key");
         if (fkColumn != null) validateSqlIdentifier(fkColumn, "foreign key column");
         final String finalPk = pk;
-        boolean isUpdate = data.containsKey(pk) && data.get(pk) != null && !data.get(pk).toString().trim().isEmpty();
+        boolean isUpdate = data.containsKey(pk) && data.get(pk) != null && !data.get(pk).toString().trim().isEmpty()
+                && !"0".equals(data.get(pk).toString().trim())
+                && !data.get(pk).toString().trim().startsWith("[AUTO")
+                && !data.get(pk).toString().trim().startsWith("⚡");
 
         ensureAuditColumnsExist(formMeta.getTableName());
 
@@ -906,7 +909,13 @@ public class DynamicDataService {
             for (FieldMeta field : formMeta.getFields()) {
                 String fieldName = field.getFieldName();
                 validateSqlIdentifier(fieldName, "column name");
-                if (fieldName.equalsIgnoreCase(pk)) continue;
+                if (fieldName.equalsIgnoreCase(pk)) {
+                    Object pkVal = data.get(fieldName);
+                    if ((field.getSequenceCode() == null || field.getSequenceCode().trim().isEmpty()) &&
+                        (pkVal == null || pkVal.toString().trim().isEmpty() || "0".equals(pkVal.toString().trim()) || pkVal.toString().trim().startsWith("[AUTO") || pkVal.toString().trim().startsWith("⚡"))) {
+                        continue;
+                    }
+                }
                 if (fieldName.equalsIgnoreCase("inputby") || fieldName.equalsIgnoreCase("inputdt") ||
                     fieldName.equalsIgnoreCase("updateby") || fieldName.equalsIgnoreCase("updatedt")) continue;
                 if (!field.isSaveOnInsert()) continue;
@@ -1212,9 +1221,20 @@ public class DynamicDataService {
         String pk = formMeta.getPrimaryKey() != null ? formMeta.getPrimaryKey() : "id";
         
         // 1. Buat tabel minimal jika belum ada
+        boolean isTextPk = !pk.equalsIgnoreCase("id");
+        if (formMeta.getFields() != null) {
+            for (FieldMeta fm : formMeta.getFields()) {
+                if (fm.getFieldName().equalsIgnoreCase(pk)) {
+                    if (fm.getSequenceCode() != null || "TEXTBOX".equalsIgnoreCase(fm.getComponentType()) || "VARCHAR".equalsIgnoreCase(fm.getComponentType()) || "STRING".equalsIgnoreCase(fm.getComponentType()) || "TEXTFIELD".equalsIgnoreCase(fm.getComponentType())) {
+                        isTextPk = true;
+                    }
+                    break;
+                }
+            }
+        }
         StringBuilder createSql = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
         createSql.append(tableName).append(" (");
-        createSql.append(pk).append(" SERIAL PRIMARY KEY");
+        createSql.append(pk).append(isTextPk ? " VARCHAR(100) PRIMARY KEY" : " SERIAL PRIMARY KEY");
         createSql.append(")");
         jdbcTemplate.execute(createSql.toString());
 
@@ -2399,7 +2419,13 @@ public class DynamicDataService {
                     for (FieldMeta field : formMeta.getFields()) {
                         if (!field.isDetail()) continue; // skip master fields
                         String fieldName = field.getFieldName();
-                        if (fieldName.equalsIgnoreCase(detailPk)) continue;
+                        if (fieldName.equalsIgnoreCase(detailPk)) {
+                            Object pkVal = row.get(fieldName);
+                            if ((field.getSequenceCode() == null || field.getSequenceCode().trim().isEmpty()) &&
+                                (pkVal == null || pkVal.toString().trim().isEmpty() || "0".equals(pkVal.toString().trim()) || pkVal.toString().trim().startsWith("[AUTO") || pkVal.toString().trim().startsWith("⚡"))) {
+                                continue;
+                            }
+                        }
                         if (fieldName.equalsIgnoreCase("inputby") || fieldName.equalsIgnoreCase("inputdt") ||
                             fieldName.equalsIgnoreCase("updateby") || fieldName.equalsIgnoreCase("updatedt")) continue;
                         if (!field.isSaveOnInsert()) continue;
@@ -2460,6 +2486,7 @@ public class DynamicDataService {
             String detailTableName = formMeta.getDetailTableName();
             String detailPk = formMeta.getDetailPrimaryKey() != null ? formMeta.getDetailPrimaryKey() : "id";
             String detailFk = formMeta.getDetailForeignKey();
+            String masterPk = formMeta.getPrimaryKey() != null ? formMeta.getPrimaryKey() : "id";
 
             if (detailTableName == null || detailTableName.trim().isEmpty() || detailFk == null || detailFk.trim().isEmpty()) {
                 return;
@@ -2469,10 +2496,24 @@ public class DynamicDataService {
             String qDetailTable = getQualifiedTableName(detailTableName);
 
             // 1. Create detail table if not exists
+            boolean isDetailTextPk = !detailPk.equalsIgnoreCase("id");
+            boolean isFkText = !masterPk.equalsIgnoreCase("id");
+            if (formMeta.getFields() != null) {
+                for (FieldMeta fm : formMeta.getFields()) {
+                    if (fm.getFieldName().equalsIgnoreCase(detailPk) && (fm.getSequenceCode() != null || "TEXTBOX".equalsIgnoreCase(fm.getComponentType()) || "VARCHAR".equalsIgnoreCase(fm.getComponentType()) || "STRING".equalsIgnoreCase(fm.getComponentType()))) {
+                        isDetailTextPk = true;
+                    }
+                    if (fm.getFieldName().equalsIgnoreCase(detailFk) || fm.getFieldName().equalsIgnoreCase(masterPk)) {
+                        if (fm.getSequenceCode() != null || "TEXTBOX".equalsIgnoreCase(fm.getComponentType()) || "VARCHAR".equalsIgnoreCase(fm.getComponentType()) || "STRING".equalsIgnoreCase(fm.getComponentType()) || "TEXTFIELD".equalsIgnoreCase(fm.getComponentType())) {
+                            isFkText = true;
+                        }
+                    }
+                }
+            }
             StringBuilder createSql = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
             createSql.append(qDetailTable).append(" (");
-            createSql.append(detailPk).append(" SERIAL PRIMARY KEY, ");
-            createSql.append(detailFk).append(" INTEGER NOT NULL");
+            createSql.append(detailPk).append(isDetailTextPk ? " VARCHAR(100) PRIMARY KEY, " : " SERIAL PRIMARY KEY, ");
+            createSql.append(detailFk).append(isFkText ? " VARCHAR(100) NOT NULL" : " INTEGER NOT NULL");
             createSql.append(")");
             jdbcTemplate.execute(createSql.toString());
 

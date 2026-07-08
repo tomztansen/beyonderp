@@ -65,6 +65,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     private String currentFormCode;
     private FormMeta currentFormDef;
     private Runnable closeHandler;
+    private com.vaadin.flow.router.QueryParameters queryParameters;
 
     // Master Grid Filters and Reordering State
     private final List<Map<String, Object>> masterGridItems = new ArrayList<>();
@@ -373,6 +374,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         this.currentFormCode = formCode;
         this.currentFormDef = formDef;
+        this.queryParameters = event != null && event.getLocation() != null ? event.getLocation().getQueryParameters() : null;
 
         formBinder = new Binder<>();
         formBinder.setBean(new HashMap<>());
@@ -756,7 +758,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     String pk = formDef.getPrimaryKey() != null ? formDef.getPrimaryKey() : "id";
                     if (bean != null && bean.containsKey(pk) && bean.get(pk) != null && !bean.get(pk).toString().trim().isEmpty()) {
                         Object idVal = bean.get(pk);
-                        Map<String, Object> freshRecord = dynamicDataService.fetchLovRecord(formDef.getTableName(), pk, idVal);
+                        String srcTable = (formDef.getViewTable() != null && !formDef.getViewTable().trim().isEmpty()) ? formDef.getViewTable().trim() : formDef.getTableName();
+                        Map<String, Object> freshRecord = dynamicDataService.fetchLovRecord(srcTable, pk, idVal);
                         if (freshRecord != null) {
                             formBinder.setBean(new HashMap<>(freshRecord));
                             evaluateFormulas();
@@ -964,7 +967,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 Map<String, Object> freshMaster = selectedMaster;
                 if (masterId != null && !masterId.toString().trim().isEmpty()) {
                     try {
-                        Map<String, Object> dbRow = dynamicDataService.fetchLovRecord(formDef.getTableName(), pk, masterId);
+                        String srcTable = (formDef.getViewTable() != null && !formDef.getViewTable().trim().isEmpty()) ? formDef.getViewTable().trim() : formDef.getTableName();
+                        Map<String, Object> dbRow = dynamicDataService.fetchLovRecord(srcTable, pk, masterId);
                         if (dbRow != null && !dbRow.isEmpty()) {
                             freshMaster = dbRow;
                         }
@@ -1307,19 +1311,21 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                          (map, val) -> putValueCaseInsensitive(map, fieldName, val));
         }
 
-        // Setup cascading filters (Master to Master, Master to Detail, Detail to Detail)
+        // Setup cascading and static filters (Master to Master, Master to Detail, Detail to Detail)
         for (FieldMeta field : formDef.getFields()) {
             if (field.getFilters() != null) {
                 for (com.vaadinerp.meta.FieldFilterMeta filter : field.getFilters()) {
+                    Component targetComponent = field.isDetail() ? detailEditorComponents.get(field.getFieldName()) : formComponents.get(field.getFieldName());
+                    if (targetComponent == null) continue;
+
                     if ("FIELD".equalsIgnoreCase(filter.getSourceType())) {
                         String sourceFieldName = filter.getSourceName();
                         Component sourceComponent = formComponents.get(sourceFieldName);
                         if (sourceComponent == null && field.isDetail()) {
                             sourceComponent = detailEditorComponents.get(sourceFieldName);
                         }
-                        Component targetComponent = field.isDetail() ? detailEditorComponents.get(field.getFieldName()) : formComponents.get(field.getFieldName());
                         
-                        if (sourceComponent instanceof HasValue && targetComponent != null) {
+                        if (sourceComponent instanceof HasValue) {
                             @SuppressWarnings("unchecked")
                             HasValue<?, Object> hasValueSource = (HasValue<?, Object>) sourceComponent;
                             hasValueSource.addValueChangeListener(event -> {
@@ -1332,6 +1338,22 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                             Object initVal = hasValueSource.getValue();
                             if (initVal != null) {
                                 com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), initVal, filter.getLogicalOperator(), filter.getComparisonOperator());
+                                applyFilterToComponent(targetComponent, condition);
+                            }
+                        } else {
+                            // Fallback jika user salah pilih FIELD untuk static value di Form Builder
+                            com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(), filter.getComparisonOperator());
+                            applyFilterToComponent(targetComponent, condition);
+                        }
+                    } else if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
+                        com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(), filter.getComparisonOperator());
+                        applyFilterToComponent(targetComponent, condition);
+                    } else if ("QUERY".equalsIgnoreCase(filter.getSourceType())) {
+                        String paramName = filter.getSourceName();
+                        if (queryParameters != null && queryParameters.getParameters().containsKey(paramName)) {
+                            java.util.List<String> vals = queryParameters.getParameters().get(paramName);
+                            if (vals != null && !vals.isEmpty()) {
+                                com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), vals.get(0), filter.getLogicalOperator(), filter.getComparisonOperator());
                                 applyFilterToComponent(targetComponent, condition);
                             }
                         }
@@ -1958,7 +1980,14 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                                 Object val = ((HasValue<?, ?>) sourceComponent).getValue();
                                 com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), val, filter.getLogicalOperator(), filter.getComparisonOperator());
                                 applyFilterToComponent(targetComponent, condition);
+                            } else {
+                                // Fallback jika user salah pilih FIELD untuk static value
+                                com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(), filter.getComparisonOperator());
+                                applyFilterToComponent(targetComponent, condition);
                             }
+                        } else if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
+                            com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(), filter.getComparisonOperator());
+                            applyFilterToComponent(targetComponent, condition);
                         }
                     }
                 }

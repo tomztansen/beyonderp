@@ -2,6 +2,7 @@ package com.vaadinerp.security.repository;
 
 import com.vaadinerp.security.entity.RoleMenuPermission;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
@@ -9,4 +10,6 @@ public interface RoleMenuPermissionRepository extends JpaRepository<RoleMenuPerm
     Optional<RoleMenuPermission> findByRoleCodeAndMenuCode(String roleCode, String menuCode);
     List<RoleMenuPermission> findByRoleCode(String roleCode);
     List<RoleMenuPermission> findByMenuCode(String menuCode);
+    @Transactional
+    void deleteByMenuCode(String menuCode);
 }

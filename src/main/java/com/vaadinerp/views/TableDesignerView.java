@@ -107,7 +107,7 @@ public class TableDesignerView extends VerticalLayout {
                 new FormLayout.ResponsiveStep("800px", 4)
         );
 
-        colTypeInput.setItems("VARCHAR(255)", "VARCHAR(50)", "INTEGER", "BIGINT", "DECIMAL(19, 2)", "NUMERIC(15, 2)", "DATE", "TIMESTAMP", "BOOLEAN", "TEXT");
+        colTypeInput.setItems("VARCHAR(255)", "VARCHAR(50)", "SERIAL", "BIGSERIAL", "INTEGER", "BIGINT", "DECIMAL(19, 2)", "NUMERIC(15, 2)", "DATE", "TIMESTAMP", "BOOLEAN", "TEXT");
         colTypeInput.setAllowCustomValue(true);
         colTypeInput.setValue("VARCHAR(255)");
         colTypeInput.addCustomValueSetListener(e -> colTypeInput.setValue(e.getDetail()));

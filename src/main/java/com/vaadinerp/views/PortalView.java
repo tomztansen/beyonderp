@@ -423,6 +423,46 @@ public class PortalView extends AppLayout {
             }
         }
 
+        AppMenu seqMenu = appMenuRepository.findById("MD_SEQUENCE").orElseGet(AppMenu::new);
+        seqMenu.setMenuCode("MD_SEQUENCE");
+        seqMenu.setMenuTitle("Master Penomoran Dokumen");
+        seqMenu.setParentMenuCode(targetParent);
+        seqMenu.setIconName("BARCODE");
+        seqMenu.setDisplayOrder(45);
+        seqMenu.setMenuType("ITEM");
+        seqMenu.setRoutePath("MD_SEQUENCE");
+        appMenuRepository.save(seqMenu);
+
+        if (roleMenuPermissionRepository != null) {
+            for (String rCode : java.util.List.of("STAFF", "ADMIN", "SUPER_ADMIN")) {
+                if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, "MD_SEQUENCE").isEmpty()) {
+                    RoleMenuPermission p = new RoleMenuPermission();
+                    p.setRoleCode(rCode);
+                    p.setMenuCode("MD_SEQUENCE");
+                    p.setCanAdd(true);
+                    p.setCanEdit(true);
+                    p.setCanDelete(true);
+                    p.setCanPrint(true);
+                    roleMenuPermissionRepository.save(p);
+                }
+            }
+            if (appRoleRepository != null) {
+                for (com.vaadinerp.security.entity.AppRole r : appRoleRepository.findAll()) {
+                    if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), "MD_SEQUENCE")
+                            .isEmpty()) {
+                        RoleMenuPermission p = new RoleMenuPermission();
+                        p.setRoleCode(r.getRoleCode());
+                        p.setMenuCode("MD_SEQUENCE");
+                        p.setCanAdd(true);
+                        p.setCanEdit(true);
+                        p.setCanDelete(true);
+                        p.setCanPrint(true);
+                        roleMenuPermissionRepository.save(p);
+                    }
+                }
+            }
+        }
+
         ensureMenuExists("GRP_SYSTEM", "Sistem & Keamanan", null, "COG", 30, "GROUP");
         ensureMenuExists("FIELD_AUDIT_LOG", "Field Audit Log Viewer", "GRP_SYSTEM", "CLOCK", 20, "ITEM");
 
@@ -430,6 +470,9 @@ public class PortalView extends AppLayout {
         int order = 10;
         for (FormMeta f : forms) {
             String code = f.getFormCode();
+            if ("MD_SEQUENCE".equalsIgnoreCase(code)) {
+                continue;
+            }
             boolean isSubform = "SUBFORM".equalsIgnoreCase(f.getFormType())
                     || code.toUpperCase().endsWith("_DTL")
                     || code.toUpperCase().endsWith("_DETAIL")
@@ -442,10 +485,9 @@ public class PortalView extends AppLayout {
 
             AppMenu m = appMenuRepository.findById(code).orElse(null);
             if (m == null) {
-                m = new AppMenu();
-                m.setMenuCode(code);
-                m.setParentMenuCode("GRP_FORMS"); // Hanya berikan default GRP_FORMS jika ini menu baru
-                m.setMenuType("ITEM");
+                // Menu untuk form ini sudah tidak ada atau telah dihapus oleh admin dari Manajemen Menu.
+                // Jangan buat ulang secara otomatis agar menu yang dihapus tetap terhapus.
+                continue;
             }
             m.setMenuTitle(f.getFormTitle());
             m.setRoutePath(code);
@@ -540,7 +582,7 @@ public class PortalView extends AppLayout {
         AppUser currentUser = securityService.getCurrentUser();
         Set<String> favMenuCodes = currentUser != null
                 ? appUserFavoriteMenuRepository.findByUsername(currentUser.getUsername()).stream()
-                        .map(AppUserFavoriteMenu::getMenuCode)
+                        .map(menu -> menu.getMenuCode())
                         .collect(Collectors.toSet())
                 : java.util.Collections.emptySet();
 
@@ -762,7 +804,7 @@ public class PortalView extends AppLayout {
             case "STANDARD_FORMAT" -> new StandardFormatView(standardFormatService);
             case "FIELD_AUDIT_LOG" -> new FieldAuditLogView(dynamicDataService, securityService);
             case "SECURITY_ADMIN" -> new UserAuthorityAdminView(appUserRepository, appRoleRepository, appMenuRepository,
-                    roleMenuPermissionRepository, securityService);
+                    roleMenuPermissionRepository, appUserFavoriteMenuRepository, formMetaRepository, reportMetaRepository, securityService);
             default -> {
                 Optional<FormMeta> optForm = formMetaRepository.findById(code);
                 if (optForm.isPresent()) {

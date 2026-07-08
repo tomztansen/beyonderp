@@ -408,6 +408,29 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             col.setEditorComponent(editorComp);
             editorComponents.put(fieldName, editorComp);
 
+            if (field.getFilters() != null) {
+                for (com.vaadinerp.meta.FieldFilterMeta filter : field.getFilters()) {
+                    if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
+                        FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(), filter.getComparisonOperator());
+                        applyFilterToSubformEditor(editorComp, condition);
+                    } else if ("FIELD".equalsIgnoreCase(filter.getSourceType())) {
+                        String sourceFieldName = filter.getSourceName();
+                        Component sourceComp = editorComponents.get(sourceFieldName);
+                        if (sourceComp instanceof HasValue) {
+                            Object val = ((HasValue<?, ?>) sourceComp).getValue();
+                            if (val != null) {
+                                FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), val, filter.getLogicalOperator(), filter.getComparisonOperator());
+                                applyFilterToSubformEditor(editorComp, condition);
+                            }
+                        } else {
+                            // Fallback jika user salah pilih FIELD untuk static value di Form Builder
+                            FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(), filter.getComparisonOperator());
+                            applyFilterToSubformEditor(editorComp, condition);
+                        }
+                    }
+                }
+            }
+
             @SuppressWarnings("unchecked")
             HasValue<?, Object> hasValue = (HasValue<?, Object>) editorComp;
             Binder.BindingBuilder<Map<String, Object>, Object> builder = gridBinder.forField(hasValue);
@@ -632,24 +655,44 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         for (FieldMeta field : childFormDef.getFields()) {
             if (field.getFilters() != null) {
                 for (com.vaadinerp.meta.FieldFilterMeta filter : field.getFilters()) {
-                    if ("FIELD".equalsIgnoreCase(filter.getSourceType())
-                            && parentFieldName.equalsIgnoreCase(filter.getSourceName())) {
+                    if ("FIELD".equalsIgnoreCase(filter.getSourceType())) {
+                        Component editorComp = editorComponents.get(field.getFieldName());
+                        if (editorComp != null) {
+                            if (parentFieldName.equalsIgnoreCase(filter.getSourceName())) {
+                                FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
+                                        filter.getFilterColumn(), value, filter.getLogicalOperator(),
+                                        filter.getComparisonOperator());
+                                applyFilterToSubformEditor(editorComp, condition);
+                            } else if (editorComponents.get(filter.getSourceName()) == null) {
+                                // Fallback jika user salah pilih FIELD untuk static value
+                                FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
+                                        filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(),
+                                        filter.getComparisonOperator());
+                                applyFilterToSubformEditor(editorComp, condition);
+                            }
+                        }
+                    } else if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
                         Component editorComp = editorComponents.get(field.getFieldName());
                         if (editorComp != null) {
                             FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
-                                    filter.getFilterColumn(), value, filter.getLogicalOperator(),
+                                    filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(),
                                     filter.getComparisonOperator());
-                            if (editorComp instanceof BandboxField) {
-                                ((BandboxField<?, ?>) editorComp).setFilterValue(condition);
-                            } else if (editorComp instanceof LovComboBox) {
-                                ((LovComboBox) editorComp).setFilterValue(condition);
-                            } else if (editorComp instanceof LovSelect) {
-                                ((LovSelect) editorComp).setFilterValue(condition);
-                            }
+                            applyFilterToSubformEditor(editorComp, condition);
                         }
                     }
                 }
             }
+        }
+    }
+
+    private void applyFilterToSubformEditor(Component editorComp, FilterCondition condition) {
+        if (editorComp == null) return;
+        if (editorComp instanceof BandboxField) {
+            ((BandboxField<?, ?>) editorComp).setFilterValue(condition);
+        } else if (editorComp instanceof LovComboBox) {
+            ((LovComboBox) editorComp).setFilterValue(condition);
+        } else if (editorComp instanceof LovSelect) {
+            ((LovSelect) editorComp).setFilterValue(condition);
         }
     }
 
