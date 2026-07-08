@@ -179,19 +179,33 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
             Component firstCompToFocus = null;
             if (childFormDef != null && !childFormDef.getFields().isEmpty()) {
-                List<FieldMeta> childFields = childFormDef.getFields().stream()
-                        .filter(f -> f.isShowInGrid() && !f.isHideInForm()
-                                && !"HIDDEN".equalsIgnoreCase(f.getComponentType()))
-                        .collect(Collectors.toList());
+                String firstFieldName = null;
+                List<String> userOrder = dataService.getUserGridOrder(childFormDef.getFormCode(), "subformGrid");
+                if (userOrder != null && !userOrder.isEmpty()) {
+                    for (String fname : userOrder) {
+                        if (editorComponents.containsKey(fname) && editorComponents.get(fname) != null) {
+                            firstFieldName = fname;
+                            break;
+                        }
+                    }
+                }
+                if (firstFieldName == null) {
+                    List<FieldMeta> childFields = childFormDef.getFields().stream()
+                            .filter(f -> f.isShowInGrid() && !f.isHideInForm()
+                                    && !"HIDDEN".equalsIgnoreCase(f.getComponentType()))
+                            .collect(Collectors.toList());
 
-                childFields.sort((f1, f2) -> {
-                    Integer o1 = f1.getColOrder() != null ? f1.getColOrder() : Integer.MAX_VALUE;
-                    Integer o2 = f2.getColOrder() != null ? f2.getColOrder() : Integer.MAX_VALUE;
-                    return o1.compareTo(o2);
-                });
+                    childFields.sort((f1, f2) -> {
+                        Integer o1 = f1.getColOrder() != null ? f1.getColOrder() : Integer.MAX_VALUE;
+                        Integer o2 = f2.getColOrder() != null ? f2.getColOrder() : Integer.MAX_VALUE;
+                        return o1.compareTo(o2);
+                    });
 
-                if (!childFields.isEmpty()) {
-                    String firstFieldName = childFields.get(0).getFieldName();
+                    if (!childFields.isEmpty()) {
+                        firstFieldName = childFields.get(0).getFieldName();
+                    }
+                }
+                if (firstFieldName != null) {
                     firstCompToFocus = editorComponents.get(firstFieldName);
                 }
             }
@@ -443,11 +457,13 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     (map, val) -> {
                         putCaseInsensitiveVal(map, fieldName, val);
                         evaluateRowFormulas(map);
-                        if (grid.getDataProvider() instanceof ListDataProvider) {
-                            @SuppressWarnings("unchecked")
-                            ListDataProvider<Map<String, Object>> dp = (ListDataProvider<Map<String, Object>>) grid
-                                    .getDataProvider();
-                            dp.refreshItem(map);
+                        if (!grid.getEditor().isOpen() || grid.getEditor().getItem() != map) {
+                            if (grid.getDataProvider() instanceof ListDataProvider) {
+                                @SuppressWarnings("unchecked")
+                                ListDataProvider<Map<String, Object>> dp = (ListDataProvider<Map<String, Object>>) grid
+                                        .getDataProvider();
+                                dp.refreshItem(map);
+                            }
                         }
                         updateValue();
                     });
