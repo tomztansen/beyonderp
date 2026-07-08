@@ -1272,7 +1272,24 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     .setResizable(true)
                     .setKey(fieldName);
 
-            // Setup Comparator for Sorting
+            columnsMap.put(fieldName, col);
+            detailsColumnToFieldNameMap.put(col, fieldName);
+
+            // Create inline editor component FIRST
+            Component editorComp = ComponentFactory.create(field, dynamicDataService, detailUpdateFieldValue, true);
+            col.setEditorComponent(editorComp);
+            detailEditorComponents.put(fieldName, editorComp);
+            
+            @SuppressWarnings("unchecked")
+            HasValue<?, Object> hasValue = (HasValue<?, Object>) editorComp;
+            Binder.BindingBuilder<Map<String, Object>, Object> builder = gridBinder.forField(hasValue);
+            if (field.isRequired()) {
+                builder.asRequired(field.getFieldLabel() + " wajib diisi");
+            }
+            builder.bind(map -> convertToFieldValue(getValueCaseInsensitive(map, fieldName), editorComp),
+                         (map, val) -> putValueCaseInsensitive(map, fieldName, val));
+
+            // Setup Comparator and Sortable AFTER editor binding to prevent override
             col.setComparator((map1, map2) -> {
                 Object val1 = map1.get(fieldName);
                 Object val2 = map2.get(fieldName);
@@ -1292,23 +1309,6 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 return val1.toString().compareTo(val2.toString());
             });
             col.setSortable(true);
-
-            columnsMap.put(fieldName, col);
-            detailsColumnToFieldNameMap.put(col, fieldName);
-
-            // Create inline editor component
-            Component editorComp = ComponentFactory.create(field, dynamicDataService, detailUpdateFieldValue, true);
-            col.setEditorComponent(editorComp);
-            detailEditorComponents.put(fieldName, editorComp);
-            
-            @SuppressWarnings("unchecked")
-            HasValue<?, Object> hasValue = (HasValue<?, Object>) editorComp;
-            Binder.BindingBuilder<Map<String, Object>, Object> builder = gridBinder.forField(hasValue);
-            if (field.isRequired()) {
-                builder.asRequired(field.getFieldLabel() + " wajib diisi");
-            }
-            builder.bind(map -> convertToFieldValue(getValueCaseInsensitive(map, fieldName), editorComp),
-                         (map, val) -> putValueCaseInsensitive(map, fieldName, val));
         }
 
         // Setup cascading and static filters (Master to Master, Master to Detail, Detail to Detail)
@@ -1551,6 +1551,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
         });
 
+        // 5. Enable multi-sort on details grid
+        detailsGrid.setMultiSort(true);
+
         applyDetailsFilters();
         java.util.List<String> detailsUserOrder = dynamicDataService.getUserGridOrder(currentFormCode, "detailsGrid");
         com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(detailsGrid, detailsColumnToFieldNameMap, detailsUserOrder);
@@ -1623,15 +1626,31 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         
         com.vaadin.flow.data.provider.DataProvider<Map<String, Object>, ?> dp = detailsGrid.getDataProvider();
         if (dp instanceof com.vaadin.flow.data.provider.ListDataProvider) {
+            @SuppressWarnings("unchecked")
             com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> ldp = 
                 (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) dp;
-            if (ldp.getItems() == filteredDetailsList) {
+            java.util.Collection<Map<String, Object>> backingItems = ldp.getItems();
+            if (backingItems == filteredDetailsList) {
+                // Same backing list — just refresh to preserve sort state
+                ldp.refreshAll();
+            } else if (backingItems instanceof java.util.List && backingItems.size() == 0 && filteredDetailsList.size() == 0) {
+                // Both empty, no need to reset
                 ldp.refreshAll();
             } else {
+                // Different backing collection — must reset, but preserve sort order
+                java.util.List<com.vaadin.flow.component.grid.GridSortOrder<Map<String, Object>>> currentSort = detailsGrid.getSortOrder();
                 detailsGrid.setItems(filteredDetailsList);
+                if (currentSort != null && !currentSort.isEmpty()) {
+                    detailsGrid.sort(currentSort);
+                }
             }
         } else {
+            // First time or non-list provider — set items and preserve any sort
+            java.util.List<com.vaadin.flow.component.grid.GridSortOrder<Map<String, Object>>> currentSort = detailsGrid.getSortOrder();
             detailsGrid.setItems(filteredDetailsList);
+            if (currentSort != null && !currentSort.isEmpty()) {
+                detailsGrid.sort(currentSort);
+            }
         }
     }
 

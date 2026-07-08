@@ -139,6 +139,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         grid.setWidthFull();
         grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES, GridVariant.LUMO_COMPACT);
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
+        grid.setMultiSort(true);
         grid.setAllRowsVisible(true);
         grid.setPageSize(500);
         grid.setDataProvider(createDataProvider());
@@ -341,6 +342,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         com.vaadinerp.components.StandardGridUtils.cleanGridBeforeRebuild(grid);
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
+        grid.setMultiSort(true);
 
         List<FieldMeta> childFields = childFormDef.getFields().stream()
                 .filter(FieldMeta::isShowInGrid)
@@ -449,6 +451,28 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                         }
                         updateValue();
                     });
+
+            // Setup Comparator and Sortable AFTER editor binding to prevent override
+            col.setComparator((map1, map2) -> {
+                Object val1 = getCaseInsensitiveVal(map1, fieldName);
+                Object val2 = getCaseInsensitiveVal(map2, fieldName);
+                if (val1 == null && val2 == null) return 0;
+                if (val1 == null) return -1;
+                if (val2 == null) return 1;
+                String lovCode = field.getLovCode();
+                if (lovCode != null && !lovCode.trim().isEmpty()) {
+                    String s1 = ComponentFactory.formatFieldValueWithLov(field, val1, dataService);
+                    String s2 = ComponentFactory.formatFieldValueWithLov(field, val2, dataService);
+                    return s1.compareToIgnoreCase(s2);
+                }
+                if (val1 instanceof Comparable && val2 instanceof Comparable) {
+                    @SuppressWarnings("unchecked")
+                    Comparable<Object> comp1 = (Comparable<Object>) val1;
+                    return comp1.compareTo(val2);
+                }
+                return val1.toString().compareTo(val2.toString());
+            });
+            col.setSortable(true);
         }
 
         // 2. Setup Header Filter Row
@@ -774,7 +798,11 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 }
             }
         }
+        java.util.List<com.vaadin.flow.component.grid.GridSortOrder<Map<String, Object>>> currentSort = grid.getSortOrder();
         grid.setDataProvider(createDataProvider());
+        if (currentSort != null && !currentSort.isEmpty()) {
+            grid.sort(currentSort);
+        }
         applyFilters();
     }
 
