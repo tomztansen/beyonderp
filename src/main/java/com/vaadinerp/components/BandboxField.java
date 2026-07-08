@@ -285,6 +285,7 @@ public class BandboxField<T, V> extends CustomField<V> {
 
         setValue(this.selectedValue); // Memicu form binder
         popup.close();
+        this.focus();
     }
 
     private void executeSearch(String keyword) {
@@ -354,6 +355,7 @@ public class BandboxField<T, V> extends CustomField<V> {
         super.clear(); // This triggers ValueChangeEvent with null
         this.selectedItem = null;
         displayField.clear();
+        this.focus();
     }
 
     @Override
