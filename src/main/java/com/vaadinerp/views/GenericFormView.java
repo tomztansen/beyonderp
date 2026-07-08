@@ -523,7 +523,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     if (bean != null && bean.containsKey(pk) && bean.get(pk) != null
                             && !bean.get(pk).toString().trim().isEmpty()) {
                         Object idVal = bean.get(pk);
-                        Map<String, Object> freshRecord = dynamicDataService.fetchLovRecord(formDef.getTableName(), pk,
+                        String srcTable = (formDef.getViewTable() != null && !formDef.getViewTable().trim().isEmpty()) ? formDef.getViewTable().trim() : formDef.getTableName();
+                        Map<String, Object> freshRecord = dynamicDataService.fetchLovRecord(srcTable, pk,
                                 idVal);
                         if (freshRecord != null) {
                             formBinder.setBean(new HashMap<>(freshRecord));
@@ -785,15 +786,17 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             formLayout.add(rowLayout);
         }
 
-        // 2. Setup cascading listeners for FIELD filters
+        // 2. Setup cascading listeners and initial/static/query filters
         for (FieldMeta field : formDef.getFields()) {
             if (field.getFilters() != null) {
                 for (FieldFilterMeta filter : field.getFilters()) {
+                    Component targetComponent = formComponents.get(field.getFieldName());
+                    if (targetComponent == null) continue;
+
                     if ("FIELD".equalsIgnoreCase(filter.getSourceType())) {
                         String sourceFieldName = filter.getSourceName();
                         Component sourceComponent = formComponents.get(sourceFieldName);
-                        Component targetComponent = formComponents.get(field.getFieldName());
-                        if (sourceComponent instanceof com.vaadin.flow.component.HasValue && targetComponent != null) {
+                        if (sourceComponent instanceof com.vaadin.flow.component.HasValue) {
                             @SuppressWarnings("unchecked")
                             com.vaadin.flow.component.HasValue<?, Object> hasValueSource = (com.vaadin.flow.component.HasValue<?, Object>) sourceComponent;
                             hasValueSource.addValueChangeListener(event -> {
@@ -803,6 +806,36 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                                         filter.getLogicalOperator(), filter.getComparisonOperator());
                                 applyFilterToComponent(targetComponent, condition);
                             });
+                            // Apply initial value immediately
+                            Object initVal = hasValueSource.getValue();
+                            if (initVal != null) {
+                                com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(
+                                        String.valueOf(filter.getId()), filter.getFilterColumn(), initVal,
+                                        filter.getLogicalOperator(), filter.getComparisonOperator());
+                                applyFilterToComponent(targetComponent, condition);
+                            }
+                        } else {
+                            // Fallback: Jika field tidak ditemukan di form, perlakukan sebagai STATIC value (atasi human error saat salah pilih FIELD di Form Builder)
+                            com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(
+                                    String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(),
+                                    filter.getLogicalOperator(), filter.getComparisonOperator());
+                            applyFilterToComponent(targetComponent, condition);
+                        }
+                    } else if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
+                        com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(
+                                String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(),
+                                filter.getLogicalOperator(), filter.getComparisonOperator());
+                        applyFilterToComponent(targetComponent, condition);
+                    } else if ("QUERY".equalsIgnoreCase(filter.getSourceType())) {
+                        String paramName = filter.getSourceName();
+                        if (queryParameters != null && queryParameters.getParameters().containsKey(paramName)) {
+                            java.util.List<String> vals = queryParameters.getParameters().get(paramName);
+                            if (vals != null && !vals.isEmpty()) {
+                                com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(
+                                        String.valueOf(filter.getId()), filter.getFilterColumn(), vals.get(0),
+                                        filter.getLogicalOperator(), filter.getComparisonOperator());
+                                applyFilterToComponent(targetComponent, condition);
+                            }
                         }
                     }
                 }
@@ -823,34 +856,6 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         }
                     }
                 });
-            }
-        }
-
-        // 3. Setup STATIC and direct QUERY filters
-        for (FieldMeta field : formDef.getFields()) {
-            if (field.getFilters() != null) {
-                for (FieldFilterMeta filter : field.getFilters()) {
-                    Component targetComponent = formComponents.get(field.getFieldName());
-                    if (targetComponent != null) {
-                        if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
-                            com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(
-                                    String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(),
-                                    filter.getLogicalOperator(), filter.getComparisonOperator());
-                            applyFilterToComponent(targetComponent, condition);
-                        } else if ("QUERY".equalsIgnoreCase(filter.getSourceType())) {
-                            String paramName = filter.getSourceName();
-                            if (queryParameters != null && queryParameters.getParameters().containsKey(paramName)) {
-                                java.util.List<String> vals = queryParameters.getParameters().get(paramName);
-                                if (vals != null && !vals.isEmpty()) {
-                                    com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(
-                                            String.valueOf(filter.getId()), filter.getFilterColumn(), vals.get(0),
-                                            filter.getLogicalOperator(), filter.getComparisonOperator());
-                                    applyFilterToComponent(targetComponent, condition);
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
 
@@ -924,7 +929,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 Map<String, Object> freshRow = selectedRow;
                 if (pkVal != null && !pkVal.toString().trim().isEmpty()) {
                     try {
-                        Map<String, Object> dbRow = dynamicDataService.fetchLovRecord(formDef.getTableName(), pk,
+                        String srcTable = (formDef.getViewTable() != null && !formDef.getViewTable().trim().isEmpty()) ? formDef.getViewTable().trim() : formDef.getTableName();
+                        Map<String, Object> dbRow = dynamicDataService.fetchLovRecord(srcTable, pk,
                                 pkVal);
                         if (dbRow != null && !dbRow.isEmpty()) {
                             freshRow = dbRow;

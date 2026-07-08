@@ -11,4 +11,6 @@ public interface AppUserFavoriteMenuRepository extends JpaRepository<AppUserFavo
     Optional<AppUserFavoriteMenu> findByUsernameAndMenuCode(String username, String menuCode);
     @Transactional
     void deleteByUsernameAndMenuCode(String username, String menuCode);
+    @Transactional
+    void deleteByMenuCode(String menuCode);
 }

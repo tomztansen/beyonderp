@@ -206,3 +206,93 @@ vaadin-checkbox:not([has-label]) {
     margin: 0;
 }
 
+/* ===== Distinct & Premium Styling for Read-Only Form Fields ===== */
+vaadin-text-field[readonly]:not(.bandbox-display)::part(input-field),
+vaadin-text-field.bandbox-readonly::part(input-field),
+vaadin-text-area[readonly]::part(input-field),
+vaadin-combo-box[readonly]::part(input-field),
+vaadin-date-picker[readonly]::part(input-field),
+vaadin-time-picker[readonly]::part(input-field),
+vaadin-date-time-picker[readonly]::part(input-field),
+vaadin-number-field[readonly]::part(input-field),
+vaadin-integer-field[readonly]::part(input-field),
+vaadin-big-decimal-field[readonly]::part(input-field),
+vaadin-email-field[readonly]::part(input-field),
+vaadin-password-field[readonly]::part(input-field),
+vaadin-select[readonly]::part(input-field),
+vaadin-custom-field[readonly]::part(input-field) {
+    background-color: #f1f5f9 !important;
+    border: 1px dashed #94a3b8 !important;
+    border-radius: var(--lumo-border-radius-m) !important;
+    color: #475569 !important;
+    cursor: not-allowed !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+vaadin-text-field[readonly]:not(.bandbox-display) input,
+vaadin-text-field[readonly]:not(.bandbox-display)::part(value),
+vaadin-text-field.bandbox-readonly input,
+vaadin-text-field.bandbox-readonly::part(value),
+vaadin-text-area[readonly] textarea,
+vaadin-text-area[readonly]::part(value),
+vaadin-combo-box[readonly] input,
+vaadin-combo-box[readonly]::part(value),
+vaadin-date-picker[readonly] input,
+vaadin-date-picker[readonly]::part(value),
+vaadin-time-picker[readonly] input,
+vaadin-time-picker[readonly]::part(value),
+vaadin-date-time-picker[readonly] input,
+vaadin-date-time-picker[readonly]::part(value),
+vaadin-number-field[readonly] input,
+vaadin-number-field[readonly]::part(value),
+vaadin-integer-field[readonly] input,
+vaadin-integer-field[readonly]::part(value),
+vaadin-big-decimal-field[readonly] input,
+vaadin-big-decimal-field[readonly]::part(value),
+vaadin-email-field[readonly] input,
+vaadin-email-field[readonly]::part(value),
+vaadin-password-field[readonly] input,
+vaadin-password-field[readonly]::part(value),
+vaadin-select[readonly]::part(value) {
+    color: #334155 !important;
+    font-weight: 600 !important;
+    cursor: not-allowed !important;
+    -webkit-text-fill-color: #334155 !important;
+}
+
+vaadin-text-field[readonly]:not(.bandbox-display)::part(label),
+vaadin-text-field.bandbox-readonly::part(label),
+vaadin-text-area[readonly]::part(label),
+vaadin-combo-box[readonly]::part(label),
+vaadin-date-picker[readonly]::part(label),
+vaadin-time-picker[readonly]::part(label),
+vaadin-date-time-picker[readonly]::part(label),
+vaadin-number-field[readonly]::part(label),
+vaadin-integer-field[readonly]::part(label),
+vaadin-big-decimal-field[readonly]::part(label),
+vaadin-email-field[readonly]::part(label),
+vaadin-password-field[readonly]::part(label),
+vaadin-select[readonly]::part(label) {
+    color: #64748b !important;
+    font-style: italic !important;
+}
+
+vaadin-text-field[readonly]:not(.bandbox-display)::part(label)::after,
+vaadin-text-field.bandbox-readonly::part(label)::after,
+vaadin-text-area[readonly]::part(label)::after,
+vaadin-combo-box[readonly]::part(label)::after,
+vaadin-date-picker[readonly]::part(label)::after,
+vaadin-time-picker[readonly]::part(label)::after,
+vaadin-date-time-picker[readonly]::part(label)::after,
+vaadin-number-field[readonly]::part(label)::after,
+vaadin-integer-field[readonly]::part(label)::after,
+vaadin-big-decimal-field[readonly]::part(label)::after,
+vaadin-email-field[readonly]::part(label)::after,
+vaadin-password-field[readonly]::part(label)::after,
+vaadin-select[readonly]::part(label)::after {
+    content: " 🔒";
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+

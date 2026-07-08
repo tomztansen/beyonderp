@@ -85,6 +85,7 @@ public class BandboxField<T, V> extends CustomField<V> {
 
     private void setupDisplayField() {
         displayField.setReadOnly(true);
+        displayField.addClassName("bandbox-display");
         displayField.setWidthFull();
         displayField.getStyle()
                 .set("min-width", "0")
@@ -381,6 +382,11 @@ public class BandboxField<T, V> extends CustomField<V> {
         getElement().setProperty("readonly", readOnly);
         dropdownBtn.setEnabled(!readOnly);
         clearBtn.setEnabled(!readOnly);
+        if (readOnly) {
+            displayField.addClassName("bandbox-readonly");
+        } else {
+            displayField.removeClassName("bandbox-readonly");
+        }
     }
 
     @Override

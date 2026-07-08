@@ -738,8 +738,10 @@ public class DbExplorerView extends VerticalLayout {
 
         TextField nameField = new TextField("Nama Kolom");
         ComboBox<String> typeField = new ComboBox<>("Tipe Data SQL");
-        typeField.setItems("VARCHAR(255)", "TEXT", "INTEGER", "BIGINT", "DECIMAL(19,2)", "DATE", "TIMESTAMP",
+        typeField.setItems("VARCHAR(255)", "VARCHAR(50)", "SERIAL", "BIGSERIAL", "TEXT", "INTEGER", "BIGINT", "DECIMAL(19,2)", "DATE", "TIMESTAMP",
                 "BOOLEAN");
+        typeField.setAllowCustomValue(true);
+        typeField.addCustomValueSetListener(e -> typeField.setValue(e.getDetail()));
         typeField.setValue("VARCHAR(255)");
 
         Checkbox nullableField = new Checkbox("Nullable (Bolehkah Kosong?)");

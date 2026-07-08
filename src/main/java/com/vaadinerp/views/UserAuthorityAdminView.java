@@ -30,9 +30,15 @@ import com.vaadinerp.security.entity.RoleMenuPermission;
 import com.vaadinerp.security.repository.AppMenuRepository;
 import com.vaadinerp.security.repository.AppRoleRepository;
 import com.vaadinerp.security.repository.AppUserRepository;
+import com.vaadinerp.meta.FormMeta;
+import com.vaadinerp.meta.FormMetaRepository;
+import com.vaadinerp.meta.ReportMeta;
+import com.vaadinerp.meta.ReportMetaRepository;
+import com.vaadinerp.security.repository.AppUserFavoriteMenuRepository;
 import com.vaadinerp.security.repository.RoleMenuPermissionRepository;
 import com.vaadinerp.security.service.SessionSecurityService;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -51,6 +57,9 @@ public class UserAuthorityAdminView extends VerticalLayout {
     private final AppRoleRepository roleRepository;
     private final AppMenuRepository menuRepository;
     private final RoleMenuPermissionRepository permissionRepository;
+    private final AppUserFavoriteMenuRepository favoriteMenuRepository;
+    private final FormMetaRepository formMetaRepository;
+    private final ReportMetaRepository reportMetaRepository;
     private final SessionSecurityService securityService;
 
     private final Grid<AppUser> userGrid = new Grid<>(AppUser.class, false);
@@ -65,11 +74,17 @@ public class UserAuthorityAdminView extends VerticalLayout {
     public UserAuthorityAdminView(AppUserRepository userRepository, AppRoleRepository roleRepository,
                                   AppMenuRepository menuRepository,
                                   RoleMenuPermissionRepository permissionRepository,
+                                  AppUserFavoriteMenuRepository favoriteMenuRepository,
+                                  FormMetaRepository formMetaRepository,
+                                  ReportMetaRepository reportMetaRepository,
                                   SessionSecurityService securityService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.menuRepository = menuRepository;
         this.permissionRepository = permissionRepository;
+        this.favoriteMenuRepository = favoriteMenuRepository;
+        this.formMetaRepository = formMetaRepository;
+        this.reportMetaRepository = reportMetaRepository;
         this.securityService = securityService;
 
         setSizeFull();
@@ -402,13 +417,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
             editBtn.getElement().setAttribute("title", "Edit Menu");
 
             Button deleteBtn = new Button(VaadinIcon.TRASH.create(), e -> {
-                if ("GROUP".equalsIgnoreCase(m.getMenuType())) {
-                    List<AppMenu> children = menuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(m.getMenuCode());
-                    if (!children.isEmpty()) {
-                        menuRepository.deleteAll(children);
-                    }
-                }
-                menuRepository.delete(m);
+                deleteMenuAndDependencies(m);
                 refreshMenuTreeGrid();
                 Notification.show("Menu '" + m.getMenuCode() + "' dihapus!", 2000, Notification.Position.BOTTOM_END);
             });
@@ -431,11 +440,18 @@ public class UserAuthorityAdminView extends VerticalLayout {
         return l;
     }
 
+    private record AvailableMenuItem(String code, String title, String route, String icon, String type, String defaultParent) {
+        @Override
+        public String toString() {
+            return "[" + type + "] " + code + " — " + title;
+        }
+    }
+
     private void openMenuDialog(AppMenu existing, String defaultParentCode) {
         boolean isNew = existing == null;
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle((existing == null) ? "Tambah Menu Baru" : "Edit Menu: " + existing.getMenuCode());
-        dialog.setWidth("520px");
+        dialog.setWidth("540px");
 
         FormLayout form = new FormLayout();
 
@@ -497,6 +513,64 @@ public class UserAuthorityAdminView extends VerticalLayout {
             }
         }
 
+        if (existing == null) {
+            ComboBox<AvailableMenuItem> autoFillSelect = new ComboBox<>("⚡ Pilih dari Form / Modul yang Tersedia (Auto-Fill)");
+            autoFillSelect.setWidthFull();
+            autoFillSelect.setPlaceholder("-- Pilih Modul / Form untuk Isi Otomatis --");
+            autoFillSelect.setClearButtonVisible(true);
+
+            List<AvailableMenuItem> availableList = new ArrayList<>();
+            if (formMetaRepository != null) {
+                for (FormMeta f : formMetaRepository.findAll()) {
+                    String code = f.getFormCode();
+                    if (code == null || "MD_SEQUENCE".equalsIgnoreCase(code)) continue;
+                    boolean isSubform = "SUBFORM".equalsIgnoreCase(f.getFormType())
+                            || code.toUpperCase().endsWith("_DTL")
+                            || code.toUpperCase().endsWith("_DETAIL")
+                            || (f.getFormTitle() != null && f.getFormTitle().toLowerCase().startsWith("detail "));
+                    if (isSubform) continue;
+                    availableList.add(new AvailableMenuItem(code, f.getFormTitle() != null ? f.getFormTitle() : code, code, "FILE_TEXT_O", "Form", "GRP_FORMS"));
+                }
+            }
+            if (reportMetaRepository != null) {
+                for (ReportMeta r : reportMetaRepository.findAll()) {
+                    String code = r.getReportCode();
+                    if (code == null) continue;
+                    availableList.add(new AvailableMenuItem(code, r.getReportTitle() != null ? r.getReportTitle() : code, "report-viewer/" + code, "PRINT", "Report", "GRP_REPORTS"));
+                }
+            }
+            availableList.add(new AvailableMenuItem("REPORT_BUILDER", "Report Designer", "REPORT_BUILDER", "EDIT", "System", "GRP_REPORTS"));
+            availableList.add(new AvailableMenuItem("REPORT_VIEWER", "Report Viewer", "REPORT_VIEWER", "PRINT", "System", "GRP_REPORTS"));
+            availableList.add(new AvailableMenuItem("LOV_BUILDER", "LOV Metadata Builder", "LOV_BUILDER", "LIST", "System", "SYS_FORM"));
+            availableList.add(new AvailableMenuItem("STANDARD_FORMAT", "Konfigurasi Format Standar", "STANDARD_FORMAT", "SLIDERS", "System", "SYS_FORM"));
+            availableList.add(new AvailableMenuItem("FORM_ACTION_BUILDER", "Extra Toolbar Builder", "action-builder", "BOLT", "System", "SYS_FORM"));
+            availableList.add(new AvailableMenuItem("MD_SEQUENCE", "Master Penomoran Dokumen", "MD_SEQUENCE", "BARCODE", "System", "SYS_FORM"));
+            availableList.add(new AvailableMenuItem("FIELD_AUDIT_LOG", "Field Audit Log Viewer", "FIELD_AUDIT_LOG", "CLOCK", "System", "GRP_SYSTEM"));
+
+            autoFillSelect.setItems(availableList);
+            autoFillSelect.setItemLabelGenerator(AvailableMenuItem::toString);
+
+            autoFillSelect.addValueChangeListener(e -> {
+                AvailableMenuItem item = e.getValue();
+                if (item != null) {
+                    codeField.setValue(item.code());
+                    titleField.setValue(item.title());
+                    typeSelect.setValue("ITEM");
+                    iconField.setValue(item.icon());
+                    routeField.setValue(item.route());
+
+                    if (item.defaultParent() != null) {
+                        groups.stream()
+                                .filter(g -> g.getMenuCode().equals(item.defaultParent()))
+                                .findFirst()
+                                .ifPresent(g -> parentSelect.setValue(g.getMenuCode() + " — " + g.getMenuTitle()));
+                    }
+                }
+            });
+
+            form.add(autoFillSelect);
+        }
+
         form.add(codeField, titleField, typeSelect, parentSelect, iconField, routeField, orderField);
 
         Button saveBtn = new Button("Simpan", VaadinIcon.CHECK.create(), e -> {
@@ -536,6 +610,21 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
     private void openMenuDialogItem(AppMenu existing, String parentCode) {
         openMenuDialog(existing, parentCode);
+    }
+
+    private void deleteMenuAndDependencies(AppMenu menu) {
+        if (menu == null || menu.getMenuCode() == null) return;
+        if ("GROUP".equalsIgnoreCase(menu.getMenuType())) {
+            List<AppMenu> children = menuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(menu.getMenuCode());
+            for (AppMenu child : children) {
+                deleteMenuAndDependencies(child);
+            }
+        }
+        permissionRepository.deleteByMenuCode(menu.getMenuCode());
+        if (favoriteMenuRepository != null) {
+            favoriteMenuRepository.deleteByMenuCode(menu.getMenuCode());
+        }
+        menuRepository.delete(menu);
     }
 
     // ============================
