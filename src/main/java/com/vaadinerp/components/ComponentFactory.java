@@ -417,36 +417,7 @@ public class ComponentFactory {
         if (field != null && field.getLovCode() != null && !field.getLovCode().trim().isEmpty()
                 && dataService != null) {
             String lovCode = field.getLovCode().trim();
-            java.util.Map<String, String> map = lovLabelCache.computeIfAbsent(lovCode, code -> {
-                java.util.Map<String, String> res = new java.util.concurrent.ConcurrentHashMap<>();
-                dataService.getLovMeta(code).ifPresent(lovMeta -> {
-                    java.util.List<Map<String, Object>> records = dataService.fetchAllLovRecords(lovMeta);
-                    String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank()
-                            ? lovMeta.getValueColumn().trim()
-                            : "id";
-                    String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank()
-                            ? lovMeta.getLabelColumn().trim()
-                            : valCol;
-                    for (Map<String, Object> rec : records) {
-                        Object v = getCaseInsensitiveVal(rec, valCol);
-                        if (v == null && rec.containsKey("id"))
-                            v = rec.get("id");
-                        if (v != null) {
-                            Object l = getCaseInsensitiveVal(rec, lblCol);
-                            if (l == null || l.toString().trim().isEmpty()) {
-                                if (getCaseInsensitiveVal(rec, "code") != null)
-                                    l = getCaseInsensitiveVal(rec, "code");
-                                else if (getCaseInsensitiveVal(rec, "name") != null)
-                                    l = getCaseInsensitiveVal(rec, "name");
-                                else
-                                    l = v;
-                            }
-                            res.put(v.toString().trim(), l.toString().trim());
-                        }
-                    }
-                });
-                return res;
-            });
+            java.util.Map<String, String> map = lovLabelCache.computeIfAbsent(lovCode, code -> new java.util.concurrent.ConcurrentHashMap<>());
             if (strVal.contains(",")) {
                 return java.util.Arrays.stream(strVal.split(","))
                         .map(String::trim)
@@ -493,6 +464,10 @@ public class ComponentFactory {
                 return l != null ? l.toString().trim() : val;
             }
         }
+        java.util.Map<String, String> cache = lovLabelCache.get(lovCode);
+        if (cache != null && val != null) {
+            cache.put(val, val);
+        }
         return val;
     }
 
@@ -513,7 +488,11 @@ public class ComponentFactory {
             return "";
         String pattern = field != null ? field.getDisplayFormat() : null;
         boolean hasCustomFormat = pattern != null && !pattern.trim().isEmpty() && !pattern.equalsIgnoreCase("NONE");
-        pattern = hasCustomFormat ? pattern.trim() : null;
+        if (pattern != null && hasCustomFormat) {
+            pattern = pattern.trim();
+        } else {
+            pattern = "";
+        }
 
         String compType = field != null && field.getComponentType() != null ? field.getComponentType().toUpperCase()
                 : "";
@@ -615,7 +594,7 @@ public class ComponentFactory {
                 } catch (Exception ignored) {
                 }
             }
-            if (numVal != null && hasCustomFormat) {
+            if (numVal != null && hasCustomFormat && pattern != null && !pattern.isEmpty()) {
                 try {
                     boolean hasRp = pattern.startsWith("Rp ") || pattern.startsWith("Rp");
                     String cleanPattern = pattern;
@@ -755,8 +734,9 @@ public class ComponentFactory {
             case "DATETIMEPICKER":
             case "TIMESTAMP":
             case "TIMESTAMPTZ":
-                String dtFmt = hasFmt ? fmt
+                String dtFmt = hasFmt && fmt != null ? fmt
                         : StandardFormatService.getStandardFormat("DATETIMEBOX", "dd/MM/yyyy HH:mm");
+                if (dtFmt == null) dtFmt = "dd/MM/yyyy HH:mm";
                 DateTimePicker dateTimePicker = new DateTimePicker(label);
                 dateTimePicker.setReadOnly(field.isReadonly());
                 dateTimePicker.setLocale(java.util.Locale.of("id", "ID"));

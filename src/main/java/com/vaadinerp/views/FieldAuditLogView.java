@@ -29,6 +29,10 @@ public class FieldAuditLogView extends VerticalLayout {
     private final DynamicDataService dynamicDataService;
     private final SessionSecurityService securityService;
 
+    public SessionSecurityService getSecurityService() {
+        return securityService;
+    }
+
     private final TextField filterFormCode = new TextField("Form Code");
     private final TextField filterTableName = new TextField("Table Name");
     private final TextField filterRecordId = new TextField("Record ID");

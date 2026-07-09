@@ -42,6 +42,7 @@ import com.vaadinerp.components.BandboxField;
 import com.vaadinerp.components.FileUploadField;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -112,6 +113,7 @@ public class FormBuilderView extends VerticalLayout {
     private final Button propBtnFilters = new Button("Configure Filters", VaadinIcon.FILTER.create());
     private final Button propBtnLovTargets = new Button("Configure LOV Targets", VaadinIcon.LINK.create());
     private final Button propBtnCustomValidation = new Button("🛡️ Atur Validasi Dinamis", VaadinIcon.SHIELD.create());
+    private final Button propBtnOnAddScript = new Button("⚡ On-Add-Row Script & AI", VaadinIcon.CODE.create());
 
     // Temporary Classes to hold builder state
     public static class FieldMetaTemp {
@@ -133,8 +135,13 @@ public class FormBuilderView extends VerticalLayout {
         boolean saveOnInsert = true;
         boolean saveOnUpdate = true;
         boolean isAuditLog;
+        String onAddScript;
         List<FieldFilterMetaTemp> filters = new ArrayList<>();
         List<FieldLovTargetMetaTemp> lovTargets = new ArrayList<>();
+
+        public String getOnAddScript() {
+            return onAddScript;
+        }
 
         public String getFieldName() {
             return fieldName;
@@ -753,9 +760,17 @@ public class FormBuilderView extends VerticalLayout {
             }
         });
 
+        propBtnOnAddScript.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
+        propBtnOnAddScript.setWidthFull();
+        propBtnOnAddScript.addClickListener(e -> {
+            if (selectedField != null) {
+                openOnAddScriptDialog(selectedField);
+            }
+        });
+
         propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov, propRowGroup,
                 propFormula, propDisplayFormat, propValidationRule, propSequenceCode, propBtnCustomValidation, checkBoxLayout,
-                propBtnFilters, propBtnLovTargets);
+                propBtnFilters, propBtnLovTargets, propBtnOnAddScript);
 
         // Listeners for live sync
         setupPropertiesListeners();
@@ -898,6 +913,8 @@ public class FormBuilderView extends VerticalLayout {
 
             propBtnFilters.setEnabled(false);
             propBtnLovTargets.setEnabled(false);
+            propBtnOnAddScript.setEnabled(true);
+            propBtnOnAddScript.setVisible(true);
 
             propShowInGrid.setEnabled(false);
             propIsDetail.setEnabled(false);
@@ -918,6 +935,8 @@ public class FormBuilderView extends VerticalLayout {
             propBtnFilters.setEnabled(isSelection && selectedField != null && selectedField.lovCode != null
                     && !selectedField.lovCode.trim().isEmpty());
             propBtnLovTargets.setEnabled(true);
+            propBtnOnAddScript.setEnabled(false);
+            propBtnOnAddScript.setVisible(false);
 
             propShowInGrid.setEnabled(true);
             propIsDetail.setEnabled(true);
@@ -1568,6 +1587,281 @@ public class FormBuilderView extends VerticalLayout {
         dialog.open();
     }
 
+    private void openOnAddScriptDialog(FieldMetaTemp fieldTemp) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("⚡ On-Add-Row Script & AI Assistant - " + fieldTemp.fieldName);
+        dialog.setWidth("880px");
+        dialog.setHeight("720px");
+
+        VerticalLayout layout = new VerticalLayout();
+        layout.setSizeFull();
+        layout.setSpacing(true);
+        layout.setPadding(false);
+
+        // 1. AI Assistant Panel
+        com.vaadin.flow.component.details.Details aiDetails = new com.vaadin.flow.component.details.Details("✨ Asisten AI (Bahasa Manusia ke Groovy Script)");
+        aiDetails.setOpened(true);
+        aiDetails.setWidthFull();
+        aiDetails.getStyle().set("background", "var(--lumo-contrast-5pct)").set("padding", "10px").set("border-radius", "8px");
+
+        VerticalLayout aiLayout = new VerticalLayout();
+        aiLayout.setPadding(false);
+        aiLayout.setSpacing(true);
+        Span aiHelp = new Span("Ketik instruksi aturan dalam bahasa Indonesia (misal: 'baris pertama status centang, lainnya false' atau 'baris 1 sampai 3 aktif'):");
+        aiHelp.getStyle().set("font-size", "0.85em").set("color", "var(--lumo-secondary-text-color)");
+
+        TextField aiInput = new TextField();
+        aiInput.setPlaceholder("Contoh: jika baris pertama maka status = true, baris kedua dst false...");
+        aiInput.setWidthFull();
+
+        Button btnGenerateAi = new Button("✨ Buatkan Aturan (AI)", VaadinIcon.LIGHTBULB.create());
+        btnGenerateAi.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
+
+        aiLayout.add(aiHelp, aiInput, btnGenerateAi);
+        aiDetails.add(aiLayout);
+
+        // 2. Quick Snippets & Variable Pickers
+        HorizontalLayout pickersLayout = new HorizontalLayout();
+        pickersLayout.setWidthFull();
+        pickersLayout.setSpacing(true);
+
+        ComboBox<String> templatePicker = new ComboBox<>("💡 Sisipkan Template");
+        templatePicker.setItems(
+                "Baris Pertama Centang (if rowIndex == 1)",
+                "Baris 1 s/d 3 Centang (if rowIndex <= 3)",
+                "Ambil dari Form Header (row.field = header.field)",
+                "Lookup Tabel Lain (db.find)",
+                "Kalkulasi Matematika (row.total = row.qty * row.price)"
+        );
+        templatePicker.setWidth("36%");
+
+        ComboBox<String> rowVarPicker = new ComboBox<>("📄 Kolom Baris Ini (row)");
+        List<String> childCols = new ArrayList<>();
+        if (fieldTemp.lovCode != null && !fieldTemp.lovCode.trim().isEmpty()) {
+            FormMeta childForm = dynamicDataService.getFormMetaRepository().findById(fieldTemp.lovCode).orElse(null);
+            if (childForm != null && childForm.getFields() != null) {
+                for (FieldMeta fm : childForm.getFields()) {
+                    childCols.add("row." + fm.getFieldName());
+                }
+            }
+        }
+        if (childCols.isEmpty()) {
+            childCols.addAll(Arrays.asList("row.status", "row.qty", "row.price", "row.item_code", "row.description"));
+        }
+        rowVarPicker.setItems(childCols);
+        rowVarPicker.setWidth("34%");
+
+        ComboBox<String> headerVarPicker = new ComboBox<>("🏢 Kolom Header (header)");
+        List<String> headerCols = new ArrayList<>();
+        for (FieldMetaTemp fm : fieldsList) {
+            if (!"SUBFORM_GRID".equalsIgnoreCase(fm.componentType)) {
+                headerCols.add("header." + fm.fieldName);
+            }
+        }
+        if (headerCols.isEmpty()) {
+            headerCols.addAll(Arrays.asList("header.qty", "header.date", "header.customer_id", "header.order_no"));
+        }
+        headerVarPicker.setItems(headerCols);
+        headerVarPicker.setWidth("30%");
+
+        pickersLayout.add(templatePicker, rowVarPicker, headerVarPicker);
+
+        // 3. Code Editor Area
+        TextArea scriptArea = new TextArea("Kode Script (Groovy Syntax):");
+        scriptArea.setValue(fieldTemp.onAddScript != null ? fieldTemp.onAddScript : "");
+        scriptArea.setWidthFull();
+        scriptArea.setHeight("260px");
+        scriptArea.getStyle().set("font-family", "monospace, Courier New").set("font-size", "13px");
+
+        // Picker listeners to insert text into scriptArea
+        templatePicker.addValueChangeListener(e -> {
+            String val = e.getValue();
+            if (val == null) return;
+            String snippet = "";
+            if (val.startsWith("Baris Pertama")) {
+                snippet = "// Aturan: Baris pertama aktif (true), baris kedua dst false\nif (rowIndex == 1) {\n    row.status = true\n} else {\n    row.status = false\n}\n";
+            } else if (val.startsWith("Baris 1 s/d 3")) {
+                snippet = "// Aturan: Baris 1 sampai 3 aktif (true), baris selanjutnya false\nif (rowIndex <= 3) {\n    row.status = true\n} else {\n    row.status = false\n}\n";
+            } else if (val.startsWith("Ambil dari Form Header")) {
+                snippet = "// Mengambil nilai dari kolom di header/master form\nrow.perseries = header.qty != null ? header.qty : 1\n";
+            } else if (val.startsWith("Lookup Tabel Lain")) {
+                snippet = "// Lookup data dari tabel lain di database\ndef item = db.find('lov_item', 'item_code', row.item_code)\nif (item != null) {\n    row.price = item.default_price\n}\n";
+            } else if (val.startsWith("Kalkulasi Matematika")) {
+                snippet = "// Kalkulasi antar kolom di baris yang sama\nrow.total = (row.qty != null ? row.qty : 0) * (row.price != null ? row.price : 0)\n";
+            }
+            String curr = scriptArea.getValue();
+            scriptArea.setValue(curr + (curr.isEmpty() || curr.endsWith("\n") ? "" : "\n") + snippet);
+            templatePicker.clear();
+        });
+
+        rowVarPicker.addValueChangeListener(e -> {
+            if (e.getValue() != null) {
+                String curr = scriptArea.getValue();
+                scriptArea.setValue(curr + (curr.isEmpty() || curr.endsWith(" ") || curr.endsWith("\n") ? "" : " ") + e.getValue());
+                rowVarPicker.clear();
+            }
+        });
+
+        headerVarPicker.addValueChangeListener(e -> {
+            if (e.getValue() != null) {
+                String curr = scriptArea.getValue();
+                scriptArea.setValue(curr + (curr.isEmpty() || curr.endsWith(" ") || curr.endsWith("\n") ? "" : " ") + e.getValue());
+                headerVarPicker.clear();
+            }
+        });
+
+        // AI Generator logic
+        btnGenerateAi.addClickListener(e -> {
+            String prompt = aiInput.getValue().toLowerCase().trim();
+            if (prompt.isEmpty()) {
+                Notification.show("Ketik instruksi untuk AI terlebih dahulu!", 3000, Notification.Position.MIDDLE);
+                return;
+            }
+            StringBuilder generated = new StringBuilder("// ✨ Di-generate oleh AI Assistant dari perintah: \"" + aiInput.getValue() + "\"\n");
+            boolean handled = false;
+
+            // Helper untuk mengekstrak nama kolom target dari kalimat natural language
+            String targetCol = "status"; // default
+            List<String> reservedWords = Arrays.asList(
+                "jika", "maka", "baris", "pertama", "kedua", "ketiga", "ke", "1", "2", "3", "4", "5",
+                "dst", "selanjutnya", "lainnya", "sampai", "sd", "s/d", "kolom", "field", "param", "=", "==",
+                "true", "false", "centang", "aktif", "tidak", "bukan", "di", "dari", "header",
+                "master", "form", "ambil", "isi", "dengan", "sama", "adalah", "saja", "kalo", "kalau",
+                "row", "index", "rowindex"
+            );
+            
+            if (prompt.contains("kolom ")) {
+                String after = prompt.substring(prompt.indexOf("kolom ") + 6).trim();
+                String[] words = after.split("[\\s=,]+");
+                if (words.length > 0 && !words[0].isEmpty()) {
+                    targetCol = words[0];
+                }
+            } else if (prompt.contains("field ")) {
+                String after = prompt.substring(prompt.indexOf("field ") + 6).trim();
+                String[] words = after.split("[\\s=,]+");
+                if (words.length > 0 && !words[0].isEmpty()) {
+                    targetCol = words[0];
+                }
+            } else {
+                String[] tokens = prompt.split("[\\s=,().]+");
+                for (String t : tokens) {
+                    if (!t.isEmpty() && !reservedWords.contains(t) && !t.matches("^[0-9]+$")) {
+                        targetCol = t;
+                        break;
+                    }
+                }
+            }
+
+            boolean valTrue = !prompt.contains("tidak centang") && !prompt.contains("false") && !prompt.contains("bukan");
+
+            if (prompt.contains("baris pertama") || (prompt.contains("baris 1") && !prompt.contains("sampai") && !prompt.contains("sd"))) {
+                generated.append("if (rowIndex == 1) {\n    row.").append(targetCol).append(" = ").append(valTrue).append("\n} else {\n    row.").append(targetCol).append(" = ").append(!valTrue).append("\n}\n");
+                handled = true;
+            } else if (prompt.contains("baris 1") && (prompt.contains("sampai") || prompt.contains("sd") || prompt.contains("-"))) {
+                int maxRow = 3;
+                if (prompt.contains("2")) maxRow = 2;
+                else if (prompt.contains("3")) maxRow = 3;
+                else if (prompt.contains("4")) maxRow = 4;
+                else if (prompt.contains("5")) maxRow = 5;
+                generated.append("if (rowIndex <= ").append(maxRow).append(") {\n    row.").append(targetCol).append(" = ").append(valTrue).append("\n} else {\n    row.").append(targetCol).append(" = ").append(!valTrue).append("\n}\n");
+                handled = true;
+            }
+            if (prompt.contains("ambil") || prompt.contains("dari header") || prompt.contains("dari master")) {
+                String toCol = targetCol;
+                String fromCol = "qty";
+                String[] tokens = prompt.split("[\\s=,().]+");
+                List<String> nonReserved = new ArrayList<>();
+                for (String t : tokens) {
+                    if (!t.isEmpty() && !reservedWords.contains(t) && !t.matches("^[0-9]+$")) {
+                        nonReserved.add(t);
+                    }
+                }
+                if (nonReserved.size() >= 1) toCol = nonReserved.get(0);
+                if (nonReserved.size() >= 2) fromCol = nonReserved.get(1);
+                generated.append("row.").append(toCol).append(" = header.").append(fromCol).append(" != null ? header.").append(fromCol).append(" : 0\n");
+                handled = true;
+            }
+            if (!handled) {
+                generated.append("// AI: Struktur umum bersyarat berdasarkan indeks baris\nif (rowIndex == 1) {\n    row.").append(targetCol).append(" = ").append(valTrue).append("\n} else {\n    row.").append(targetCol).append(" = ").append(!valTrue).append("\n}\n");
+            }
+            scriptArea.setValue(generated.toString());
+            Notification.show("✨ Aturan berhasil dibuat oleh AI!", 3000, Notification.Position.BOTTOM_END);
+            aiInput.clear();
+        });
+
+        // 4. Live Simulator (Dry-Run)
+        Button btnSimulate = new Button("▶ Simulasikan Script pada 3 Baris Dummy", VaadinIcon.PLAY.create());
+        btnSimulate.addThemeVariants(ButtonVariant.LUMO_CONTRAST, ButtonVariant.LUMO_SMALL);
+
+        Grid<Map<String, Object>> simGrid = new Grid<>();
+        simGrid.setHeight("140px");
+        simGrid.setVisible(false);
+
+        btnSimulate.addClickListener(e -> {
+            String scriptText = scriptArea.getValue().trim();
+            if (scriptText.isEmpty()) {
+                Notification.show("Script masih kosong!", 3000, Notification.Position.MIDDLE);
+                return;
+            }
+            if (dynamicDataService.getScriptExecutorService() == null) {
+                Notification.show("ScriptExecutorService tidak aktif!", 3000, Notification.Position.MIDDLE);
+                return;
+            }
+            try {
+                List<Map<String, Object>> simRows = new ArrayList<>();
+                Map<String, Object> dummyHeader = new HashMap<>();
+                dummyHeader.put("qty", 100);
+                dummyHeader.put("customer_id", "CUST-DEMO");
+                dummyHeader.put("date", new java.util.Date());
+
+                for (int i = 1; i <= 3; i++) {
+                    Map<String, Object> r = new HashMap<>();
+                    r.put("baris_ke", i);
+                    r.put("status", false);
+                    r.put("perseries", 0);
+                    dynamicDataService.getScriptExecutorService().executeScript(
+                            "sim_" + System.currentTimeMillis() + "_" + i,
+                            scriptText, r, i, dummyHeader, simRows);
+                    simRows.add(r);
+                }
+
+                simGrid.removeAllColumns();
+                if (!simRows.isEmpty()) {
+                    for (String key : simRows.get(0).keySet()) {
+                        simGrid.addColumn(row -> row.get(key)).setHeader(key.toUpperCase()).setAutoWidth(true);
+                    }
+                }
+                simGrid.setItems(simRows);
+                simGrid.setVisible(true);
+                Notification.show("✅ Simulasi sukses! Lihat tabel hasil di bawah.", 3000, Notification.Position.BOTTOM_END);
+            } catch (Exception ex) {
+                Notification.show("❌ Error saat simulasi: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+            }
+        });
+
+        layout.add(aiDetails, pickersLayout, scriptArea, btnSimulate, simGrid);
+
+        Button btnSave = new Button("Simpan Script", VaadinIcon.CHECK.create(), e -> {
+            fieldTemp.onAddScript = scriptArea.getValue().trim();
+            Notification.show("On-Add-Row Script disimpan ke memori sementara (jangan lupa Klik Simpan Form)!", 4000, Notification.Position.BOTTOM_END);
+            dialog.close();
+        });
+        btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button btnClear = new Button("Hapus Script", VaadinIcon.TRASH.create(), e -> {
+            scriptArea.clear();
+            fieldTemp.onAddScript = null;
+            dialog.close();
+        });
+        btnClear.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY);
+
+        Button btnCancel = new Button("Batal", e -> dialog.close());
+
+        dialog.add(layout);
+        dialog.getFooter().add(btnClear, btnCancel, btnSave);
+        dialog.open();
+    }
+
     private void openFilterConfigDialog(FieldMetaTemp fieldTemp) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Configure Filters for Field: " + fieldTemp.fieldName);
@@ -1800,6 +2094,7 @@ public class FormBuilderView extends VerticalLayout {
             field.setSaveOnInsert(temp.saveOnInsert);
             field.setSaveOnUpdate(temp.saveOnUpdate);
             field.setAuditLog(temp.isAuditLog);
+            field.setOnAddScript(temp.onAddScript);
             field.setRowGroup(temp.rowGroup);
             field.setColOrder(order);
             order += 10;
@@ -2587,6 +2882,7 @@ public class FormBuilderView extends VerticalLayout {
                     temp.saveOnInsert = field.isSaveOnInsert();
                     temp.saveOnUpdate = field.isSaveOnUpdate();
                     temp.isAuditLog = field.isAuditLog();
+                    temp.onAddScript = field.getOnAddScript();
 
                     // Load filters
                     temp.filters = new ArrayList<>();

@@ -77,6 +77,9 @@ public class FieldMeta {
     @Column(name = "is_audit_log")
     private Boolean isAuditLog = false;
 
+    @Column(name = "on_add_script", length = 2000)
+    private String onAddScript;
+
     public boolean isDetail() {
         return isDetail != null && isDetail;
     }

@@ -84,8 +84,8 @@ public class DynamicPickerPopupDialog extends Dialog {
                 Notification.show("Pilih minimal 1 data terlebih dahulu!", 3000, Notification.Position.MIDDLE);
                 return;
             }
-            if (onSelectCallback != null) {
-                onSelectCallback.accept(new ArrayList<>(selected));
+            if (this.onSelectCallback != null) {
+                this.onSelectCallback.accept(new ArrayList<>(selected));
             }
             close();
         });
@@ -122,7 +122,14 @@ public class DynamicPickerPopupDialog extends Dialog {
                 Grid.Column<Map<String, Object>> col = grid.addColumn(row -> {
                     Object valObj = getCaseInsensitiveVal(row, colName);
                     return ComponentFactory.formatFieldValueWithLov(targetField, valObj, dataService);
-                }).setHeader(colHeader).setAutoWidth(true).setResizable(true);
+                }).setHeader(colHeader).setResizable(true);
+
+                if (parts.length > 2 && !colWidth.isEmpty()) {
+                    col.setWidth(colWidth);
+                    col.setAutoWidth(false);
+                } else {
+                    col.setAutoWidth(true);
+                }
 
                 if (targetField != null) {
                     col.setSortable(targetField.isSortable());

@@ -31,7 +31,65 @@ public class LovComboBox extends ComboBox<String> {
         setWidthFull();
         getStyle().set("min-width", "0").set("max-width", "100%").set("box-sizing", "border-box");
         
-        refreshItems();
+        setupLazyDataProvider();
+    }
+
+    private void setupLazyDataProvider() {
+        LovMeta lovMeta = dataService != null && lovCode != null ? dataService.getLovMeta(lovCode).orElse(null) : null;
+        if (lovMeta == null) {
+            setItems(new ArrayList<>());
+            return;
+        }
+
+        setItems(com.vaadin.flow.data.provider.DataProvider.fromFilteringCallbacks(
+                query -> {
+                    String filter = query.getFilter().orElse("");
+                    int offset = query.getOffset();
+                    int limit = query.getLimit();
+
+                    List<Map<String, Object>> records = dataService.fetchLovDataPaged(
+                            lovMeta.getTableName(),
+                            lovMeta.getSearchColumn(),
+                            filter,
+                            activeFilters.values(),
+                            offset,
+                            limit
+                    );
+
+                    List<String> pageItems = new ArrayList<>();
+                    for (Map<String, Object> rec : records) {
+                        Object valObj = getCaseInsensitive(rec, lovMeta.getValueColumn());
+                        if (valObj == null && rec.containsKey("id")) valObj = rec.get("id");
+                        Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
+                        if (lblObj == null || lblObj.toString().trim().isEmpty()) {
+                            if (getCaseInsensitive(rec, "code") != null) lblObj = getCaseInsensitive(rec, "code");
+                            else if (getCaseInsensitive(rec, "name") != null) lblObj = getCaseInsensitive(rec, "name");
+                        }
+
+                        String val = valObj != null ? valObj.toString().trim() : "";
+                        String lbl = lblObj != null ? lblObj.toString().trim() : val;
+
+                        if (!val.isEmpty()) {
+                            valueToLabelMap.put(val, lbl);
+                            valueToRecordMap.put(val, rec);
+                            if (!currentItems.contains(val)) {
+                                currentItems.add(val);
+                            }
+                            pageItems.add(val);
+                        }
+                    }
+                    return pageItems.stream();
+                },
+                query -> {
+                    String filter = query.getFilter().orElse("");
+                    return dataService.countLovData(
+                            lovMeta.getTableName(),
+                            lovMeta.getSearchColumn(),
+                            filter,
+                            activeFilters.values()
+                    );
+                }
+        ));
     }
 
     private Object getCaseInsensitive(Map<String, Object> map, String key) {
@@ -47,10 +105,12 @@ public class LovComboBox extends ComboBox<String> {
 
     @Override
     public void setValue(String value) {
-        if (value != null && !value.isEmpty() && !currentItems.contains(value)) {
-            currentItems.add(value);
+        if (value != null && !value.isEmpty()) {
+            if (!currentItems.contains(value)) {
+                currentItems.add(value);
+            }
             if (!valueToLabelMap.containsKey(value)) {
-                LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
+                LovMeta lovMeta = dataService != null && lovCode != null ? dataService.getLovMeta(lovCode).orElse(null) : null;
                 if (lovMeta != null) {
                     Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), value);
                     if (rec != null) {
@@ -66,7 +126,6 @@ public class LovComboBox extends ComboBox<String> {
                     valueToLabelMap.put(value, value);
                 }
             }
-            setItems(new ArrayList<>(currentItems));
         }
         super.setValue(value);
     }
@@ -81,39 +140,10 @@ public class LovComboBox extends ComboBox<String> {
     }
 
     public void refreshItems() {
-        LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
-        if (lovMeta != null) {
-            List<Map<String, Object>> records = dataService.fetchLovDataWithFilters(
-                    lovMeta.getTableName(),
-                    lovMeta.getSearchColumn(),
-                    "",
-                    activeFilters.values()
-            );
-            
-            valueToLabelMap.clear();
-            currentItems.clear();
-            for (Map<String, Object> rec : records) {
-                Object valObj = getCaseInsensitive(rec, lovMeta.getValueColumn());
-                if (valObj == null && rec.containsKey("id")) valObj = rec.get("id");
-                Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
-                if (lblObj == null || lblObj.toString().trim().isEmpty()) {
-                    if (getCaseInsensitive(rec, "code") != null) lblObj = getCaseInsensitive(rec, "code");
-                    else if (getCaseInsensitive(rec, "name") != null) lblObj = getCaseInsensitive(rec, "name");
-                }
-                
-                String val = valObj != null ? valObj.toString().trim() : "";
-                String lbl = lblObj != null ? lblObj.toString().trim() : val;
-                
-                if (!val.isEmpty()) {
-                    valueToLabelMap.put(val, lbl);
-                    valueToRecordMap.put(val, rec);
-                    currentItems.add(val);
-                }
-            }
-            setItems(new ArrayList<>(currentItems));
+        if (getDataProvider() != null) {
+            getDataProvider().refreshAll();
         } else {
-            currentItems.clear();
-            setItems(new ArrayList<>());
+            setupLazyDataProvider();
         }
     }
 
@@ -131,7 +161,7 @@ public class LovComboBox extends ComboBox<String> {
             return valueToRecordMap.get(val);
         }
         if (val != null && !val.isEmpty()) {
-            LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
+            LovMeta lovMeta = dataService != null && lovCode != null ? dataService.getLovMeta(lovCode).orElse(null) : null;
             if (lovMeta != null) {
                 Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), val);
                 if (rec != null) {

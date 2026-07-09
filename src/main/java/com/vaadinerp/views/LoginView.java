@@ -165,7 +165,7 @@ public class LoginView extends Div {
                 loginBtn.addClickListener(e -> {
                         String u = usernameField.getValue();
                         String p = passwordField.getValue();
-                        if (securityService.login(u, p)) {
+                        if (this.securityService.login(u, p)) {
                                 Notification.show("Selamat datang, " + u + "!", 3000, Notification.Position.TOP_CENTER);
                                 UI.getCurrent().navigate("");
                         } else {

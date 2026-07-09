@@ -79,6 +79,8 @@ public class DbExplorerView extends VerticalLayout {
     private static class FilterCriteria {
         String operator = "Contains";
         String value = "";
+        public String getOperator() { return operator; }
+        public String getValue() { return value; }
     }
     private final Map<String, FilterCriteria> dataFilterValues = new HashMap<>();
 
@@ -244,7 +246,7 @@ public class DbExplorerView extends VerticalLayout {
                         3000, Notification.Position.BOTTOM_END));
 
         // Penerapan hak akses menu RBAC berdasarkan sesi user yang aktif
-        actionToolbar.applyAuthority(securityService != null ? securityService.getAuthorityForMenu("DB_EXPLORER")
+        actionToolbar.applyAuthority(this.securityService != null ? this.securityService.getAuthorityForMenu("DB_EXPLORER")
                 : StandardActionToolbar.MenuAccessAuthority.fullAccess());
 
         HorizontalLayout toolbar = new HorizontalLayout(tableSelect, actionToolbar);

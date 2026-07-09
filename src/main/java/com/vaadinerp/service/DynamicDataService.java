@@ -43,6 +43,13 @@ public class DynamicDataService {
         return fileStorageService;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ScriptExecutorService scriptExecutorService;
+
+    public ScriptExecutorService getScriptExecutorService() {
+        return scriptExecutorService;
+    }
+
     public DynamicDataService(JdbcTemplate jdbcTemplate, LovMetaRepository lovMetaRepository, FormMetaRepository formMetaRepository) {
         this.jdbcTemplate = jdbcTemplate;
         this.lovMetaRepository = lovMetaRepository;
@@ -785,7 +792,6 @@ public class DynamicDataService {
         pk = resolveExistingColumn(formMeta.getTableName(), pk);
         validateSqlIdentifier(pk, "primary key");
         if (fkColumn != null) validateSqlIdentifier(fkColumn, "foreign key column");
-        final String finalPk = pk;
         boolean isUpdate = data.containsKey(pk) && data.get(pk) != null && !data.get(pk).toString().trim().isEmpty()
                 && !"0".equals(data.get(pk).toString().trim())
                 && !data.get(pk).toString().trim().startsWith("[AUTO")
@@ -1100,10 +1106,6 @@ public class DynamicDataService {
             return map;
         });
         return colTypes.getOrDefault(columnName.toLowerCase(), "");
-    }
-
-    private Object sanitizeJdbcValue(Object val) {
-        return sanitizeJdbcValue(null, null, val);
     }
 
     private Object sanitizeJdbcValue(String tableName, String columnName, Object val) {
@@ -1591,6 +1593,174 @@ public class DynamicDataService {
         } catch (Exception e) {
             e.printStackTrace();
             return new ArrayList<>();
+        }
+    }
+
+    public List<Map<String, Object>> fetchLovDataPaged(String tableName, String searchBy, String searchTerm, java.util.Collection<com.vaadinerp.components.FilterCondition> filters, int offset, int limit) {
+        if (tableName == null || tableName.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        StringBuilder sql = new StringBuilder();
+        String trimmed = tableName.trim();
+        if (trimmed.toLowerCase().startsWith("select")) {
+            sql.append("SELECT * FROM ( ").append(validateAndSanitizeSelectQuery(trimmed)).append(" ) AS subquery");
+        } else {
+            sql.append("SELECT * FROM ").append(getLovQualifiedTableName(trimmed));
+        }
+        
+        List<Object> params = new ArrayList<>();
+        boolean hasWhere = false;
+        
+        if (filters != null && !filters.isEmpty()) {
+            StringBuilder filterBuilder = new StringBuilder();
+            boolean isFirst = true;
+            for (com.vaadinerp.components.FilterCondition condition : filters) {
+                if (condition.getValue() != null && !condition.getValue().toString().trim().isEmpty()) {
+                    if (!isFirst) {
+                        String logOp = validateLogicalOperator(condition.getLogicalOperator());
+                        filterBuilder.append(" ").append(logOp).append(" ");
+                    }
+                    isFirst = false;
+                    
+                    String safeFilterCol = condition.getFilterColumn() != null ? condition.getFilterColumn().trim() : "";
+                    validateSqlIdentifier(safeFilterCol, "filter column");
+                    String compOp = validateComparisonOperator(condition.getComparisonOperator());
+                    
+                    if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
+                        filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
+                        params.add("%" + condition.getValue() + "%");
+                    } else {
+                        filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
+                        params.add(condition.getValue() != null ? condition.getValue().toString().trim() : "");
+                    }
+                }
+            }
+            if (filterBuilder.length() > 0) {
+                sql.append(" WHERE (").append(filterBuilder.toString()).append(")");
+                hasWhere = true;
+            }
+        }
+        
+        if (searchBy == null || searchBy.trim().isEmpty()) {
+            if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+                List<String> allCols = getColumnsForQueryOrTable(trimmed);
+                if (!allCols.isEmpty()) {
+                    searchBy = String.join(",", allCols);
+                }
+            }
+        }
+
+        if (searchBy != null && !searchBy.trim().isEmpty() && searchTerm != null && !searchTerm.trim().isEmpty()) {
+            if (hasWhere) {
+                sql.append(" AND (");
+            } else {
+                sql.append(" WHERE (");
+                hasWhere = true;
+            }
+            String[] cols = searchBy.split(",");
+            java.util.StringJoiner orJoiner = new java.util.StringJoiner(" OR ");
+            for (String col : cols) {
+                String safeCol = col.trim();
+                validateSqlIdentifier(safeCol, "search column");
+                orJoiner.add("CAST(" + safeCol + " AS text) ILIKE ?");
+                params.add("%" + searchTerm + "%");
+            }
+            sql.append(orJoiner.toString()).append(")");
+        }
+        
+        sql.append(getLovDefaultOrderByClause(tableName));
+        sql.append(" LIMIT ? OFFSET ?");
+        params.add(limit > 0 ? limit : 50);
+        params.add(Math.max(0, offset));
+        
+        try {
+            return jdbcTemplate.queryForList(sql.toString(), params.toArray());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    public int countLovData(String tableName, String searchBy, String searchTerm, java.util.Collection<com.vaadinerp.components.FilterCondition> filters) {
+        if (tableName == null || tableName.trim().isEmpty()) {
+            return 0;
+        }
+        
+        StringBuilder sql = new StringBuilder();
+        String trimmed = tableName.trim();
+        if (trimmed.toLowerCase().startsWith("select")) {
+            sql.append("SELECT COUNT(*) FROM ( ").append(validateAndSanitizeSelectQuery(trimmed)).append(" ) AS subquery");
+        } else {
+            sql.append("SELECT COUNT(*) FROM ").append(getLovQualifiedTableName(trimmed));
+        }
+        
+        List<Object> params = new ArrayList<>();
+        boolean hasWhere = false;
+        
+        if (filters != null && !filters.isEmpty()) {
+            StringBuilder filterBuilder = new StringBuilder();
+            boolean isFirst = true;
+            for (com.vaadinerp.components.FilterCondition condition : filters) {
+                if (condition.getValue() != null && !condition.getValue().toString().trim().isEmpty()) {
+                    if (!isFirst) {
+                        String logOp = validateLogicalOperator(condition.getLogicalOperator());
+                        filterBuilder.append(" ").append(logOp).append(" ");
+                    }
+                    isFirst = false;
+                    
+                    String safeFilterCol = condition.getFilterColumn() != null ? condition.getFilterColumn().trim() : "";
+                    validateSqlIdentifier(safeFilterCol, "filter column");
+                    String compOp = validateComparisonOperator(condition.getComparisonOperator());
+                    
+                    if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
+                        filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
+                        params.add("%" + condition.getValue() + "%");
+                    } else {
+                        filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
+                        params.add(condition.getValue() != null ? condition.getValue().toString().trim() : "");
+                    }
+                }
+            }
+            if (filterBuilder.length() > 0) {
+                sql.append(" WHERE (").append(filterBuilder.toString()).append(")");
+                hasWhere = true;
+            }
+        }
+        
+        if (searchBy == null || searchBy.trim().isEmpty()) {
+            if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+                List<String> allCols = getColumnsForQueryOrTable(trimmed);
+                if (!allCols.isEmpty()) {
+                    searchBy = String.join(",", allCols);
+                }
+            }
+        }
+
+        if (searchBy != null && !searchBy.trim().isEmpty() && searchTerm != null && !searchTerm.trim().isEmpty()) {
+            if (hasWhere) {
+                sql.append(" AND (");
+            } else {
+                sql.append(" WHERE (");
+                hasWhere = true;
+            }
+            String[] cols = searchBy.split(",");
+            java.util.StringJoiner orJoiner = new java.util.StringJoiner(" OR ");
+            for (String col : cols) {
+                String safeCol = col.trim();
+                validateSqlIdentifier(safeCol, "search column");
+                orJoiner.add("CAST(" + safeCol + " AS text) ILIKE ?");
+                params.add("%" + searchTerm + "%");
+            }
+            sql.append(orJoiner.toString()).append(")");
+        }
+        
+        try {
+            Integer count = jdbcTemplate.queryForObject(sql.toString(), Integer.class, params.toArray());
+            return count != null ? count : 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
         }
     }
 

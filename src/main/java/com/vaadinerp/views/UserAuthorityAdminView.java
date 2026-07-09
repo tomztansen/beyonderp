@@ -448,7 +448,6 @@ public class UserAuthorityAdminView extends VerticalLayout {
     }
 
     private void openMenuDialog(AppMenu existing, String defaultParentCode) {
-        boolean isNew = existing == null;
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle((existing == null) ? "Tambah Menu Baru" : "Edit Menu: " + existing.getMenuCode());
         dialog.setWidth("540px");
