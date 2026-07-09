@@ -1175,6 +1175,7 @@ public class DataInitializer implements CommandLineRunner {
     private void initSequenceMaster() {
         try {
             jdbcTemplate.execute("ALTER TABLE public.meta_field ADD COLUMN IF NOT EXISTS sequence_code VARCHAR(50)");
+            jdbcTemplate.execute("ALTER TABLE public.meta_field ADD COLUMN IF NOT EXISTS on_add_script VARCHAR(2000)");
         } catch (Exception ignored) {}
 
         // 1. Create table dynamic.md_sequence

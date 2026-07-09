@@ -79,13 +79,15 @@ public class LovSelect extends Select<String> {
     }
 
     public void refreshItems() {
-        LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
+        LovMeta lovMeta = dataService != null && lovCode != null ? dataService.getLovMeta(lovCode).orElse(null) : null;
         if (lovMeta != null) {
-            List<Map<String, Object>> records = dataService.fetchLovDataWithFilters(
+            List<Map<String, Object>> records = dataService.fetchLovDataPaged(
                     lovMeta.getTableName(),
                     lovMeta.getSearchColumn(),
                     "",
-                    activeFilters.values()
+                    activeFilters.values(),
+                    0,
+                    200
             );
             
             valueToLabelMap.clear();

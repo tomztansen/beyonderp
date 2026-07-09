@@ -30,7 +30,12 @@ import java.util.stream.Collectors;
 public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
     private final DynamicDataService dataService;
+    private final FieldMeta fieldMeta;
     private FormMeta childFormDef;
+
+    public FieldMeta getFieldMeta() {
+        return fieldMeta;
+    }
 
     private final List<Map<String, Object>> items = new ArrayList<>();
     private final List<Map<String, Object>> deletedItems = new ArrayList<>();
@@ -61,6 +66,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
     public SubformGridField(String label, FieldMeta fieldMeta, DynamicDataService dataService) {
         this.dataService = dataService;
+        this.fieldMeta = fieldMeta;
         setLabel(label);
 
         VerticalLayout layout = new VerticalLayout();
@@ -131,7 +137,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
         }
 
-        com.vaadin.flow.component.html.Anchor btnExportSubformExcel = com.vaadinerp.components.StandardGridUtils.createExportExcelButton(grid, fieldMeta != null && fieldMeta.getFieldName() != null ? fieldMeta.getFieldName() + "_export" : "subform_export");
+        com.vaadin.flow.component.html.Anchor btnExportSubformExcel = com.vaadinerp.components.StandardGridUtils.createExportExcelButton(grid, this.fieldMeta != null && this.fieldMeta.getFieldName() != null ? this.fieldMeta.getFieldName() + "_export" : "subform_export");
         btnExportSubformExcel.getStyle().set("margin-left", "auto");
         toolbar.add(btnExportSubformExcel, btnResetSubformGrid);
 
@@ -172,6 +178,23 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
             Map<String, Object> newRow = new HashMap<>();
             newRow.put("_tempId", java.util.UUID.randomUUID().toString());
+
+            int currentRowIndex = items.size() + 1;
+            Map<String, Object> headerData = null;
+            if (headerRecordSupplier != null) {
+                headerData = headerRecordSupplier.get();
+            }
+            if (dataService != null && dataService.getScriptExecutorService() != null && this.fieldMeta != null && this.fieldMeta.getOnAddScript() != null) {
+                try {
+                    dataService.getScriptExecutorService().executeOnAddScript(
+                            this.fieldMeta, newRow, currentRowIndex, headerData, items);
+                } catch (Exception ex) {
+                    com.vaadin.flow.component.notification.Notification.show(
+                            "Error eksekusi On-Add-Row script: " + ex.getMessage(),
+                            4000, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_START);
+                }
+            }
+
             items.add(newRow);
             grid.getDataProvider().refreshAll();
 
@@ -284,7 +307,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 String op = criteria.operator;
                 String query = criteria.value;
 
-                Object val = item.get(fieldName);
+                Object val = getCaseInsensitiveVal(item, fieldName);
                 String strVal = val != null ? val.toString().toLowerCase() : "";
 
                 if ("Blank".equals(op)) {
@@ -379,8 +402,10 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         java.util.function.BiConsumer<String, Object> subformUpdateFieldValue = (targetFieldName, val) -> {
             Component targetComp = editorComponents.get(targetFieldName);
             if (targetComp == null) {
+                String cleanTarget = targetFieldName != null ? targetFieldName.replaceAll("[_\\s-]+", "") : "";
                 for (java.util.Map.Entry<String, Component> e : editorComponents.entrySet()) {
-                    if (e.getKey() != null && e.getKey().equalsIgnoreCase(targetFieldName)) {
+                    if (e.getKey() != null && (e.getKey().equalsIgnoreCase(targetFieldName)
+                            || e.getKey().replaceAll("[_\\s-]+", "").equalsIgnoreCase(cleanTarget))) {
                         targetComp = e.getValue();
                         break;
                     }
@@ -405,7 +430,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         for (FieldMeta field : childFields) {
             String fieldName = field.getFieldName();
             Grid.Column<Map<String, Object>> col = grid
-                    .addColumn(map -> ComponentFactory.formatFieldValueWithLov(field, map.get(fieldName), dataService))
+                    .addColumn(map -> ComponentFactory.formatFieldValueWithLov(field, getCaseInsensitiveVal(map, fieldName), dataService))
                     .setHeader(field.getFieldLabel())
                     .setAutoWidth(true)
                     .setFlexGrow(1)
@@ -637,6 +662,16 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
             return null;
         }
+        if (comp instanceof com.vaadin.flow.component.checkbox.Checkbox) {
+            if (rawVal instanceof Boolean) {
+                return rawVal;
+            }
+            if (rawVal instanceof Number) {
+                return ((Number) rawVal).intValue() != 0;
+            }
+            String str = rawVal.toString().trim().toLowerCase();
+            return "true".equals(str) || "1".equals(str) || "t".equals(str) || "yes".equals(str) || "y".equals(str) || "on".equals(str);
+        }
         if (comp instanceof TextField || comp instanceof com.vaadin.flow.component.textfield.TextArea ||
             comp instanceof com.vaadin.flow.component.combobox.ComboBox ||
             comp instanceof com.vaadin.flow.component.select.Select ||
@@ -751,7 +786,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         for (Map<String, Object> row : items) {
             for (FieldMeta field : childFormDef.getFields()) {
                 if (field.isRequired()) {
-                    Object val = row.get(field.getFieldName());
+                    Object val = getCaseInsensitiveVal(row, field.getFieldName());
                     if (val == null || val.toString().trim().isEmpty()) {
                         return false;
                     }
@@ -863,6 +898,13 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 return;
             }
         }
+        String cleanKey = key.replaceAll("[_\\s-]+", "");
+        for (String k : map.keySet()) {
+            if (k != null && k.replaceAll("[_\\s-]+", "").equalsIgnoreCase(cleanKey)) {
+                map.put(k, value);
+                return;
+            }
+        }
         map.put(key, value);
     }
 
@@ -870,7 +912,11 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         if (map == null || key == null) return null;
         if (map.containsKey(key)) return map.get(key);
         for (Map.Entry<String, Object> e : map.entrySet()) {
-            if (e.getKey().equalsIgnoreCase(key)) return e.getValue();
+            if (e.getKey() != null && e.getKey().equalsIgnoreCase(key)) return e.getValue();
+        }
+        String cleanKey = key.replaceAll("[_\\s-]+", "");
+        for (Map.Entry<String, Object> e : map.entrySet()) {
+            if (e.getKey() != null && e.getKey().replaceAll("[_\\s-]+", "").equalsIgnoreCase(cleanKey)) return e.getValue();
         }
         return null;
     }

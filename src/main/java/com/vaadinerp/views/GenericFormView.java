@@ -78,6 +78,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private static class FilterCriteria {
         String operator = "Contains";
         String value = "";
+        public String getOperator() { return operator; }
+        public String getValue() { return value; }
     }
 
     private java.util.Map<String, FilterCriteria> filterValues = new java.util.HashMap<>();
