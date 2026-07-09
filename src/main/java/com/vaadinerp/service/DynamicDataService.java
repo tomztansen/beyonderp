@@ -2763,11 +2763,15 @@ public class DynamicDataService {
         if (formActionMetaRepository == null || formCode == null) return java.util.Collections.emptyList();
         List<com.vaadinerp.meta.FormActionMeta> result = new ArrayList<>();
 
-        // 1. First check direct actions attached to formCode
-        if (targetScope == null) {
-            result.addAll(formActionMetaRepository.findByFormMeta_FormCode(formCode));
-        } else {
-            result.addAll(formActionMetaRepository.findByFormMeta_FormCodeAndTargetScope(formCode, targetScope));
+        // 1. First check direct actions attached to formCode (case-insensitive)
+        List<com.vaadinerp.meta.FormActionMeta> directActions = formActionMetaRepository.findByFormMeta_FormCodeIgnoreCase(formCode);
+        for (com.vaadinerp.meta.FormActionMeta act : directActions) {
+            if (targetScope == null || act.getTargetScope() == null || act.getTargetScope().isBlank() 
+                    || targetScope.equalsIgnoreCase(act.getTargetScope())) {
+                if (result.stream().noneMatch(a -> a.getId() != null && a.getId().equals(act.getId()))) {
+                    result.add(act);
+                }
+            }
         }
 
         // 2. Then check if formMeta has assigned actions via extraToolbars catalog selection
@@ -2777,10 +2781,11 @@ public class DynamicDataService {
             for (String c : codes) {
                 String cleanCode = c.trim();
                 if (!cleanCode.isEmpty()) {
-                    com.vaadinerp.meta.FormActionMeta act = formActionMetaRepository.findByActionCode(cleanCode);
+                    com.vaadinerp.meta.FormActionMeta act = formActionMetaRepository.findByActionCodeIgnoreCase(cleanCode);
                     if (act != null) {
-                        if (targetScope == null || targetScope.equalsIgnoreCase(act.getTargetScope())) {
-                            if (result.stream().noneMatch(a -> a.getActionCode() != null && a.getActionCode().equalsIgnoreCase(cleanCode))) {
+                        if (targetScope == null || act.getTargetScope() == null || act.getTargetScope().isBlank() 
+                                || targetScope.equalsIgnoreCase(act.getTargetScope())) {
+                            if (result.stream().noneMatch(a -> (a.getId() != null && a.getId().equals(act.getId())) || (a.getActionCode() != null && a.getActionCode().equalsIgnoreCase(cleanCode)))) {
                                 result.add(act);
                             }
                         }

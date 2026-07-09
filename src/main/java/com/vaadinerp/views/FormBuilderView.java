@@ -614,7 +614,7 @@ public class FormBuilderView extends VerticalLayout {
         temp.rowGroup = 1;
         temp.isRequired = false;
         temp.isReadonly = false;
-        temp.showInGrid = true;
+        temp.showInGrid = !"SUBFORM_GRID".equalsIgnoreCase(type);
         temp.isSortable = true;
 
         fieldsList.add(temp);
@@ -916,6 +916,10 @@ public class FormBuilderView extends VerticalLayout {
             propBtnOnAddScript.setEnabled(true);
             propBtnOnAddScript.setVisible(true);
 
+            if (selectedField != null) {
+                selectedField.showInGrid = false;
+            }
+            propShowInGrid.setValue(false);
             propShowInGrid.setEnabled(false);
             propIsDetail.setEnabled(false);
             propIsSortable.setEnabled(false);
@@ -992,6 +996,9 @@ public class FormBuilderView extends VerticalLayout {
             propRowGroup.setValue(temp.rowGroup);
             propIsRequired.setValue(temp.isRequired);
             propIsReadonly.setValue(temp.isReadonly);
+            if ("SUBFORM_GRID".equalsIgnoreCase(temp.componentType)) {
+                temp.showInGrid = false;
+            }
             propShowInGrid.setValue(temp.showInGrid);
             propHideInForm.setValue(temp.hideInForm);
             propIsDetail.setValue(temp.isDetail);
@@ -3150,7 +3157,7 @@ public class FormBuilderView extends VerticalLayout {
                 temp.fieldName = colName;
                 temp.fieldLabel = formatLabelFromColumnName(colName);
                 temp.componentType = mapDataTypeToComponentType(dataType);
-                temp.showInGrid = true;
+                temp.showInGrid = !"SUBFORM_GRID".equalsIgnoreCase(temp.componentType);
                 temp.isSortable = true;
                 temp.saveOnInsert = true;
                 temp.saveOnUpdate = true;

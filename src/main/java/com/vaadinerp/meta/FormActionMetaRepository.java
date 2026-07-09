@@ -9,6 +9,8 @@ import java.util.List;
 public interface FormActionMetaRepository extends JpaRepository<FormActionMeta, Long> {
     List<FormActionMeta> findByFormMeta_FormCodeAndTargetScope(String formCode, String targetScope);
     List<FormActionMeta> findByFormMeta_FormCode(String formCode);
+    List<FormActionMeta> findByFormMeta_FormCodeIgnoreCase(String formCode);
     FormActionMeta findByActionCode(String actionCode);
+    FormActionMeta findByActionCodeIgnoreCase(String actionCode);
     List<FormActionMeta> findByFormMetaIsNull();
 }

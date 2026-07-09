@@ -407,7 +407,7 @@ public class DbExplorerView extends VerticalLayout {
             paginationBar.setTotalRecords(totalRecords);
         }
         int offset = paginationBar != null ? paginationBar.getOffset() : 0;
-        int limit = paginationBar != null ? paginationBar.getLimit() : 50;
+        int limit = paginationBar != null ? paginationBar.getLimit() : 100;
 
         List<Map<String, Object>> pagedData = dynamicDataService.fetchTableDataPaged(
                 currentTable, offset, limit, dataFilterValues, currentSortField, currentSortDir);

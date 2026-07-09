@@ -57,6 +57,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     private final Map<String, Component> detailEditorComponents = new HashMap<>();
 
     private HorizontalLayout toolbar;
+    private final HorizontalLayout extraActionsContainer = new HorizontalLayout();
     private TabSheet tabSheet;
     private Tab historisTab;
     private Tab transaksiTab;
@@ -747,6 +748,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         btnRefresh.setDisableOnClick(true);
         btnRefresh.addClickListener(e -> {
             try {
+                refreshExtraToolbarButtons();
+                buildDetailsActions(currentFormDef);
                 if (tabSheet.getSelectedTab() == historisTab) {
                     refreshMasterGridData();
                     Notification.show("Data berhasil diperbarui!", 1500, Notification.Position.BOTTOM_END);
@@ -825,9 +828,15 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             com.vaadinerp.components.FormDebugUtils.showDebugDialog(bean);
         });
 
-        toolbar.add(btnNew, btnDelete, btnSave, btnCancel, btnRefresh, btnClose, btnPrint, btnDebug);
+        extraActionsContainer.setSpacing(true);
+        toolbar.add(btnNew, btnDelete, btnSave, btnCancel, btnRefresh, btnClose, btnPrint, btnDebug, extraActionsContainer);
+        refreshExtraToolbarButtons();
+    }
 
-        List<com.vaadinerp.meta.FormActionMeta> masterActions = dynamicDataService.getFormActions(formDef.getFormCode(), "MASTER_TOOLBAR");
+    private void refreshExtraToolbarButtons() {
+        extraActionsContainer.removeAll();
+        if (currentFormDef == null || dynamicDataService == null) return;
+        List<com.vaadinerp.meta.FormActionMeta> masterActions = dynamicDataService.getFormActions(currentFormDef.getFormCode(), "MASTER_TOOLBAR");
         for (com.vaadinerp.meta.FormActionMeta act : masterActions) {
             Icon icon = null;
             if (act.getIconName() != null && !act.getIconName().isBlank()) {
@@ -847,7 +856,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 });
                 dlg.open();
             });
-            toolbar.add(actBtn);
+            extraActionsContainer.add(actBtn);
         }
     }
 
@@ -1735,7 +1744,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             paginationBar.setTotalRecords(totalRecords);
         }
         int offset = paginationBar != null ? paginationBar.getOffset() : 0;
-        int limit = paginationBar != null ? paginationBar.getLimit() : 50;
+        int limit = paginationBar != null ? paginationBar.getLimit() : 100;
         
         java.util.List<Map<String, Object>> pagedData = dynamicDataService.fetchGridDataPaged(
                 currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
