@@ -42,6 +42,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private final Grid<Map<String, Object>> grid = new Grid<>();
     private final Button btnAdd = new Button("Tambah Baris", VaadinIcon.PLUS.create());
     private final Button btnDelete = new Button("Hapus Baris", VaadinIcon.TRASH.create());
+    private final HorizontalLayout extraActionsContainer = new HorizontalLayout();
     private final Map<String, Component> editorComponents = new HashMap<>();
 
     private final Map<String, FilterCriteria> filterValues = new HashMap<>();
@@ -104,38 +105,10 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
         });
 
-        toolbar.add(btnAdd, btnDelete);
+        extraActionsContainer.setSpacing(true);
+        toolbar.add(btnAdd, btnDelete, extraActionsContainer);
 
-        if (fieldMeta.getLovCode() != null && dataService != null) {
-            List<com.vaadinerp.meta.FormActionMeta> actions = dataService.getFormActions(fieldMeta.getLovCode(), "DETAIL_TOOLBAR");
-            for (com.vaadinerp.meta.FormActionMeta act : actions) {
-                com.vaadin.flow.component.icon.Icon icon = null;
-                if (act.getIconName() != null && !act.getIconName().isBlank()) {
-                    try {
-                        icon = com.vaadin.flow.component.icon.VaadinIcon.valueOf(act.getIconName().toUpperCase()).create();
-                    } catch (Exception ignored) {}
-                }
-                Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
-                actBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
-                actBtn.addClickListener(e -> {
-                    if (grid.getEditor().isOpen()) {
-                        grid.getEditor().cancel();
-                    }
-                    Map<String, Object> headerBean = headerRecordSupplier != null && headerRecordSupplier.get() != null ? headerRecordSupplier.get() : new HashMap<>();
-                    DynamicPickerPopupDialog dlg = new DynamicPickerPopupDialog(act, dataService, headerBean, selectedRecords -> {
-                        for (Map<String, Object> srcRec : selectedRecords) {
-                            Map<String, Object> newRow = new HashMap<>();
-                            newRow.put("_tempId", java.util.UUID.randomUUID().toString());
-                            applyTargetMapping(newRow, srcRec, act.getTargetMapping());
-                            items.add(newRow);
-                        }
-                        grid.getDataProvider().refreshAll();
-                    });
-                    dlg.open();
-                });
-                toolbar.add(actBtn);
-            }
-        }
+        refreshExtraActions();
 
         com.vaadin.flow.component.html.Anchor btnExportSubformExcel = com.vaadinerp.components.StandardGridUtils.createExportExcelButton(grid, this.fieldMeta != null && this.fieldMeta.getFieldName() != null ? this.fieldMeta.getFieldName() + "_export" : "subform_export");
         btnExportSubformExcel.getStyle().set("margin-left", "auto");
@@ -156,8 +129,53 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         layout.add(toolbar, grid);
         add(layout);
+        setupGridListeners();
+    }
 
-        // Listeners
+    public void refreshExtraActions() {
+        extraActionsContainer.removeAll();
+        if (dataService == null) return;
+        List<com.vaadinerp.meta.FormActionMeta> actions = new ArrayList<>();
+        if (fieldMeta.getLovCode() != null) {
+            actions.addAll(dataService.getFormActions(fieldMeta.getLovCode(), "DETAIL_TOOLBAR"));
+        }
+        if (fieldMeta.getFormMeta() != null && fieldMeta.getFormMeta().getFormCode() != null) {
+            for (com.vaadinerp.meta.FormActionMeta act : dataService.getFormActions(fieldMeta.getFormMeta().getFormCode(), "DETAIL_TOOLBAR")) {
+                if (actions.stream().noneMatch(a -> (a.getId() != null && a.getId().equals(act.getId())) || (a.getActionCode() != null && a.getActionCode().equalsIgnoreCase(act.getActionCode())))) {
+                    actions.add(act);
+                }
+            }
+        }
+        for (com.vaadinerp.meta.FormActionMeta act : actions) {
+            com.vaadin.flow.component.icon.Icon icon = null;
+            if (act.getIconName() != null && !act.getIconName().isBlank()) {
+                try {
+                    icon = com.vaadin.flow.component.icon.VaadinIcon.valueOf(act.getIconName().toUpperCase()).create();
+                } catch (Exception ignored) {}
+            }
+            Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
+            actBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
+            actBtn.addClickListener(e -> {
+                if (grid.getEditor().isOpen()) {
+                    grid.getEditor().cancel();
+                }
+                Map<String, Object> headerBean = headerRecordSupplier != null && headerRecordSupplier.get() != null ? headerRecordSupplier.get() : new HashMap<>();
+                DynamicPickerPopupDialog dlg = new DynamicPickerPopupDialog(act, dataService, headerBean, selectedRecords -> {
+                    for (Map<String, Object> srcRec : selectedRecords) {
+                        Map<String, Object> newRow = new HashMap<>();
+                        newRow.put("_tempId", java.util.UUID.randomUUID().toString());
+                        applyTargetMapping(newRow, srcRec, act.getTargetMapping());
+                        items.add(newRow);
+                    }
+                    grid.getDataProvider().refreshAll();
+                });
+                dlg.open();
+            });
+            extraActionsContainer.add(actBtn);
+        }
+    }
+
+    private void setupGridListeners() {
         grid.addItemClickListener(event -> {
             if (isReadOnly()) {
                 return;

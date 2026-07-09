@@ -297,4 +297,74 @@ vaadin-select[readonly]::part(label)::after {
     opacity: 0.7;
 }
 
+/* =========================================================================================
+   MODAL PERINGATAN SERVER DOWN / KONEKSI TERPUTUS (Vaadin 24 Connection Indicator & Reconnect)
+   ========================================================================================= */
+
+/* Ubah status indicator/banner menjadi Overlay Modal Penuh menutup layar */
+vaadin-connection-indicator[reconnecting],
+vaadin-connection-indicator[offline],
+vaadin-connection-indicator[connection-lost],
+.v-reconnect-dialog {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(15, 23, 42, 0.85) !important;
+    backdrop-filter: blur(6px) !important;
+    -webkit-backdrop-filter: blur(6px) !important;
+    z-index: 9999999 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transform: none !important;
+    margin: 0 !important;
+    pointer-events: auto !important;
+}
+
+/* Kotak pesan putih di tengah layar (Desain Card Peringatan) */
+vaadin-connection-indicator[reconnecting] .v-status-message,
+vaadin-connection-indicator[offline] .v-status-message,
+vaadin-connection-indicator[connection-lost] .v-status-message,
+.v-reconnect-dialog .text {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    padding: 2rem 2.5rem !important;
+    border-radius: 16px !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6) !important;
+    border-top: 6px solid #ef4444 !important;
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    max-width: 480px !important;
+    width: 85% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    line-height: 1.5 !important;
+}
+
+/* Sembunyikan loading spinner kecil bawaan jika ada */
+vaadin-connection-indicator .v-loading-indicator {
+    display: none !important;
+}
+
+/* Sub-teks instruksi di bawah pesan status utama */
+vaadin-connection-indicator[reconnecting] .v-status-message::after,
+vaadin-connection-indicator[offline] .v-status-message::after,
+vaadin-connection-indicator[connection-lost] .v-status-message::after,
+.v-reconnect-dialog .text::after {
+    content: "Server sedang tidak aktif atau koneksi terputus. Silakan periksa jaringan Anda atau tekan F5 untuk memuat ulang halaman.";
+    display: block !important;
+    font-size: 0.9rem !important;
+    font-weight: 400 !important;
+    color: #64748b !important;
+    margin-top: 0.5rem !important;
+    line-height: 1.4 !important;
+}
+
 

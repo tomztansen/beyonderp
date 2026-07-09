@@ -123,8 +123,8 @@ public class FormActionBuilderView extends VerticalLayout {
         formCodeCombo.setItems(formCodes);
         formCodeCombo.setClearButtonVisible(true);
 
-        targetScopeCombo.setItems("DETAIL_TOOLBAR", "MASTER_TOOLBAR", "ON_LOAD_NEW", "ON_DETAIL_ADD", "ON_LOAD_EDIT");
-        targetScopeCombo.setValue("DETAIL_TOOLBAR");
+        targetScopeCombo.setItems("MASTER_TOOLBAR", "DETAIL_TOOLBAR", "ON_LOAD_NEW", "ON_DETAIL_ADD", "ON_LOAD_EDIT");
+        targetScopeCombo.setValue("MASTER_TOOLBAR");
 
         iconNameCombo.setItems("CHECK_SQUARE_O", "LIST_SELECT", "PLUS", "SEARCH", "CHECK", "DOWNLOAD", "UPLOAD", "COG", "TRASH", "STAR");
 
@@ -224,7 +224,7 @@ public class FormActionBuilderView extends VerticalLayout {
         formCodeCombo.clear();
         actionCodeField.clear();
         actionLabelField.clear();
-        targetScopeCombo.setValue("DETAIL_TOOLBAR");
+        targetScopeCombo.setValue("MASTER_TOOLBAR");
         iconNameCombo.clear();
         buttonStyleCombo.setValue("PRIMARY");
         sourceLovCodeCombo.clear();

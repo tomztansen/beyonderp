@@ -20,7 +20,7 @@ import com.vaadin.flow.router.Route;
 import com.vaadinerp.security.service.SessionSecurityService;
 
 @Route("login")
-@PageTitle("Login | Vaadin ERP Enterprise")
+@PageTitle("Login | ERP Enterprise")
 public class LoginView extends Div {
 
         private final SessionSecurityService securityService;
@@ -212,7 +212,7 @@ public class LoginView extends Div {
                 add(card);
 
                 // ── Footer below card ──
-                Paragraph footer = new Paragraph("© 2026 Vaadin ERP Enterprise • Powered by Vaadin 24 & Java 21");
+                Paragraph footer = new Paragraph("© 2026 ERP Enterprise • Powered by Tommy");
                 footer.getStyle()
                                 .set("position", "absolute")
                                 .set("bottom", "18px")

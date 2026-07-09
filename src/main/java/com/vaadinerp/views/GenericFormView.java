@@ -49,6 +49,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private VerticalLayout formLayout;
     private Grid<Map<String, Object>> grid;
     private HorizontalLayout toolbar;
+    private final HorizontalLayout extraActionsContainer = new HorizontalLayout();
     private HorizontalLayout gridToolbar;
     private H3 title;
 
@@ -516,6 +517,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnRefresh.setDisableOnClick(true);
         btnRefresh.addClickListener(e -> {
             try {
+                refreshExtraToolbarButtons();
+                if (formComponents != null) {
+                    for (Component comp : formComponents.values()) {
+                        if (comp instanceof com.vaadinerp.components.SubformGridField subGrid) {
+                            subGrid.refreshExtraActions();
+                        }
+                    }
+                }
                 if (tabSheet.getSelectedTab() == historisTab) {
                     refreshGridData(formDef);
                     Notification.show("Data berhasil diperbarui!", 1500, Notification.Position.BOTTOM_END);
@@ -585,9 +594,15 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             com.vaadinerp.components.FormDebugUtils.showDebugDialog(bean);
         });
 
-        toolbar.add(btnNew, btnDelete, btnSave, btnCancel, btnRefresh, btnClose, btnPrint, btnDebug);
+        extraActionsContainer.setSpacing(true);
+        toolbar.add(btnNew, btnDelete, btnSave, btnCancel, btnRefresh, btnClose, btnPrint, btnDebug, extraActionsContainer);
+        refreshExtraToolbarButtons();
+    }
 
-        List<com.vaadinerp.meta.FormActionMeta> masterActions = dynamicDataService.getFormActions(formDef.getFormCode(),
+    private void refreshExtraToolbarButtons() {
+        extraActionsContainer.removeAll();
+        if (currentFormDef == null || dynamicDataService == null) return;
+        List<com.vaadinerp.meta.FormActionMeta> masterActions = dynamicDataService.getFormActions(currentFormDef.getFormCode(),
                 "MASTER_TOOLBAR");
         for (com.vaadinerp.meta.FormActionMeta act : masterActions) {
             com.vaadin.flow.component.icon.Icon icon = null;
@@ -611,7 +626,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         });
                 dlg.open();
             });
-            toolbar.add(actBtn);
+            extraActionsContainer.add(actBtn);
         }
     }
 
@@ -1197,7 +1212,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             paginationBar.setTotalRecords(totalRecords);
         }
         int offset = paginationBar != null ? paginationBar.getOffset() : 0;
-        int limit = paginationBar != null ? paginationBar.getLimit() : 50;
+        int limit = paginationBar != null ? paginationBar.getLimit() : 100;
         
         java.util.List<Map<String, Object>> pagedData = dynamicDataService.fetchGridDataPaged(
                 currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
