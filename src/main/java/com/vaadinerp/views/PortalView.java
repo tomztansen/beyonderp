@@ -43,6 +43,17 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.contextmenu.ContextMenu;
 import com.vaadin.flow.data.value.ValueChangeMode;
 
+import com.vaadinerp.views.ReportBuilderView;
+import com.vaadinerp.views.ReportViewerView;
+import com.vaadinerp.views.LovBuilderView;
+import com.vaadinerp.views.StandardFormatView;
+import com.vaadinerp.views.ProductionSchedulerView;
+import com.vaadinerp.views.UserAuthorityAdminView;
+import com.vaadinerp.views.FormBuilderView;
+import com.vaadinerp.views.DbExplorerView;
+import com.vaadinerp.views.FormActionBuilderView;
+import com.vaadinerp.views.FieldAuditLogView;
+import com.vaadinerp.views.AuditTrailView;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -465,6 +476,29 @@ public class PortalView extends AppLayout {
 
         ensureMenuExists("GRP_SYSTEM", "Sistem & Keamanan", null, "COG", 30, "GROUP");
         ensureMenuExists("FIELD_AUDIT_LOG", "Field Audit Log Viewer", "GRP_SYSTEM", "CLOCK", 20, "ITEM");
+        
+        AppMenu fieldLogMenu = appMenuRepository.findById("FIELD_AUDIT_LOG").orElse(null);
+        String actualSysParent = fieldLogMenu != null && fieldLogMenu.getParentMenuCode() != null
+                ? fieldLogMenu.getParentMenuCode()
+                : (appMenuRepository.existsById("SYS_FORM") ? "SYS_FORM" : "GRP_SYSTEM");
+        ensureAdminOnlyMenuExists("AUDIT_TRAIL_RESTORE", "Audit Trail & Restore Center", actualSysParent, "SHIELD", 25, "ITEM");
+
+        ensureMenuExists("GRP_MFG", "Manufaktur & Produksi", null, "FACTORY", 15, "GROUP");
+        ensureMenuExists("PRODUCTION_SCHEDULER", "Production Gantt Scheduler", "GRP_MFG", "CALENDAR_CLOCK", 10, "ITEM");
+        if (roleMenuPermissionRepository != null) {
+            for (String rCode : java.util.List.of("STAFF", "ADMIN", "SUPER_ADMIN")) {
+                if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, "PRODUCTION_SCHEDULER").isEmpty()) {
+                    RoleMenuPermission p = new RoleMenuPermission();
+                    p.setRoleCode(rCode);
+                    p.setMenuCode("PRODUCTION_SCHEDULER");
+                    p.setCanAdd(true);
+                    p.setCanEdit(true);
+                    p.setCanDelete(true);
+                    p.setCanPrint(true);
+                    roleMenuPermissionRepository.save(p);
+                }
+            }
+        }
 
         List<FormMeta> forms = formMetaRepository.findAll();
         int order = 10;
@@ -535,6 +569,49 @@ public class PortalView extends AppLayout {
             perm.setCanDelete(true);
             perm.setCanPrint(true);
             roleMenuPermissionRepository.save(perm);
+        }
+    }
+
+    private void ensureAdminOnlyMenuExists(String code, String title, String parentCode, String icon, int order, String type) {
+        AppMenu m = appMenuRepository.findById(code).orElseGet(AppMenu::new);
+        m.setMenuCode(code);
+        m.setMenuTitle(title);
+        m.setParentMenuCode(parentCode);
+        m.setIconName(icon);
+        m.setDisplayOrder(order);
+        m.setMenuType(type);
+        if (m.getRoutePath() == null || m.getRoutePath().isEmpty()) {
+            m.setRoutePath(code.toLowerCase().replace('_', '-'));
+        }
+        appMenuRepository.save(m);
+        if (!"GROUP".equals(type) && roleMenuPermissionRepository != null) {
+            for (String rCode : java.util.List.of("ADMIN", "SUPER_ADMIN")) {
+                if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, code).isEmpty()) {
+                    RoleMenuPermission perm = new RoleMenuPermission();
+                    perm.setRoleCode(rCode);
+                    perm.setMenuCode(code);
+                    perm.setCanAdd(true);
+                    perm.setCanEdit(true);
+                    perm.setCanDelete(true);
+                    perm.setCanPrint(true);
+                    roleMenuPermissionRepository.save(perm);
+                }
+            }
+            if (appRoleRepository != null) {
+                for (com.vaadinerp.security.entity.AppRole r : appRoleRepository.findAll()) {
+                    if (r.getRoleCode() != null && r.getRoleCode().toUpperCase().contains("ADMIN") &&
+                        roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), code).isEmpty()) {
+                        RoleMenuPermission perm = new RoleMenuPermission();
+                        perm.setRoleCode(r.getRoleCode());
+                        perm.setMenuCode(code);
+                        perm.setCanAdd(true);
+                        perm.setCanEdit(true);
+                        perm.setCanDelete(true);
+                        perm.setCanPrint(true);
+                        roleMenuPermissionRepository.save(perm);
+                    }
+                }
+            }
         }
     }
 
@@ -800,9 +877,11 @@ public class PortalView extends AppLayout {
             case "REPORT_VIEWER" -> new ReportViewerView(reportMetaRepository, dynamicDataService);
             case "LOV_BUILDER" -> new LovBuilderView(lovMetaRepository, dynamicDataService);
             case "FORM_ACTION_BUILDER" -> new FormActionBuilderView(dynamicDataService.getFormActionMetaRepository(),
-                    formMetaRepository, lovMetaRepository);
+                    formMetaRepository, lovMetaRepository, dynamicDataService);
             case "STANDARD_FORMAT" -> new StandardFormatView(standardFormatService);
             case "FIELD_AUDIT_LOG" -> new FieldAuditLogView(dynamicDataService, securityService);
+            case "AUDIT_TRAIL_RESTORE" -> new AuditTrailView(dynamicDataService, dynamicDataService.getJdbcTemplate());
+            case "PRODUCTION_SCHEDULER" -> new ProductionSchedulerView(dynamicDataService);
             case "SECURITY_ADMIN" -> new UserAuthorityAdminView(appUserRepository, appRoleRepository, appMenuRepository,
                     roleMenuPermissionRepository, appUserFavoriteMenuRepository, formMetaRepository, reportMetaRepository, securityService);
             default -> {

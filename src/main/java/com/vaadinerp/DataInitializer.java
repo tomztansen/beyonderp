@@ -1116,6 +1116,25 @@ public class DataInitializer implements CommandLineRunner {
             } else {
                 jdbcTemplate.execute("UPDATE public.app_menus SET parent_menu_code = '" + targetParent + "', display_order = 35 WHERE menu_code = 'FORM_ACTION_BUILDER'");
             }
+
+            try {
+                String sysParentForAudit = "GRP_SYSTEM";
+                try {
+                    String fLogParent = jdbcTemplate.queryForObject("SELECT parent_menu_code FROM public.app_menus WHERE menu_code = 'FIELD_AUDIT_LOG'", String.class);
+                    if (fLogParent != null && !fLogParent.trim().isEmpty()) sysParentForAudit = fLogParent;
+                } catch (Exception ignored) {}
+
+                Integer auditMenuExists = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_menus WHERE menu_code = 'AUDIT_TRAIL_RESTORE'", Integer.class);
+                if (auditMenuExists == null || auditMenuExists == 0) {
+                    jdbcTemplate.execute("INSERT INTO public.app_menus (menu_code, menu_title, route_path, icon_name, parent_menu_code, display_order, menu_type) " +
+                            "VALUES ('AUDIT_TRAIL_RESTORE', 'Audit Trail & Restore Center', 'audit-trail', 'SHIELD', '" + sysParentForAudit + "', 25, 'ITEM')");
+                } else {
+                    jdbcTemplate.execute("UPDATE public.app_menus SET parent_menu_code = '" + sysParentForAudit + "', display_order = 25 WHERE menu_code = 'AUDIT_TRAIL_RESTORE'");
+                }
+
+                jdbcTemplate.execute("INSERT INTO public.app_role_menu_permissions (role_code, menu_code, can_add, can_edit, can_delete, can_print) " +
+                        "SELECT DISTINCT role_code, 'AUDIT_TRAIL_RESTORE', TRUE, TRUE, TRUE, TRUE FROM public.app_role_menu_permissions WHERE role_code IN ('ADMIN', 'SUPER_ADMIN') AND role_code NOT IN (SELECT role_code FROM public.app_role_menu_permissions WHERE menu_code = 'AUDIT_TRAIL_RESTORE')");
+            } catch (Exception ignored) {}
         } catch (Exception ignored) {}
 
         try {

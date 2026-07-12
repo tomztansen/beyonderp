@@ -8,6 +8,7 @@ import lombok.EqualsAndHashCode;
 
 @Entity
 @Table(name = "meta_form_action", schema = "public")
+@EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Data
 @EqualsAndHashCode(of = {"id", "actionCode"})
 @ToString(exclude = "formMeta")
@@ -17,6 +18,7 @@ public class FormActionMeta {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne
     @JoinColumn(name = "form_code", nullable = true)
     private FormMeta formMeta;
@@ -47,4 +49,10 @@ public class FormActionMeta {
 
     @Column(name = "target_mapping", length = 1000)
     private String targetMapping; // JSON mapping e.g. {"item_code": "item_code", "price": "unit_price"}
+
+    @Column(name = "copy_source_lov_code", length = 50)
+    private String copySourceLovCode; // e.g. "BOM_DETAIL"
+
+    @Column(name = "copy_filter_mapping", length = 1000)
+    private String copyFilterMapping; // e.g. {"item_id": "picked.id"}
 }

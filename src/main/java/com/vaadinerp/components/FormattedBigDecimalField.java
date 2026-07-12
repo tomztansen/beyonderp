@@ -55,7 +55,7 @@ public class FormattedBigDecimalField extends CustomField<BigDecimal> {
                 suffix.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-weight", "500");
                 textField.setSuffixComponent(suffix);
             }
-            textField.setPlaceholder(clean);
+            textField.setPlaceholder("");
         }
     }
 

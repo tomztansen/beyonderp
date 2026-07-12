@@ -16,7 +16,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 @Service
 public class DynamicDataService {
@@ -45,6 +47,329 @@ public class DynamicDataService {
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ScriptExecutorService scriptExecutorService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    private com.fasterxml.jackson.databind.ObjectMapper getObjectMapper() {
+        if (objectMapper == null) {
+            objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        }
+        return objectMapper;
+    }
+
+    @org.springframework.beans.factory.annotation.Value("${app.audit.enabled:true}")
+    private boolean auditGlobalEnabled = true;
+
+    @org.springframework.beans.factory.annotation.Value("${app.audit.insert.enabled:true}")
+    private boolean auditInsertEnabled = true;
+
+    @org.springframework.beans.factory.annotation.Value("${app.audit.update.enabled:true}")
+    private boolean auditUpdateEnabled = true;
+
+    @org.springframework.beans.factory.annotation.Value("${app.audit.delete.enabled:true}")
+    private boolean auditDeleteEnabled = true;
+
+    private volatile boolean auditTableChecked = false;
+    private volatile boolean fieldAuditTableChecked = false;
+
+    public boolean isAuditEnabled() {
+        return auditGlobalEnabled;
+    }
+
+    public void setAuditEnabled(boolean auditGlobalEnabled) {
+        this.auditGlobalEnabled = auditGlobalEnabled;
+    }
+
+    public boolean isAuditInsertEnabled() {
+        return auditInsertEnabled;
+    }
+
+    public void setAuditInsertEnabled(boolean auditInsertEnabled) {
+        this.auditInsertEnabled = auditInsertEnabled;
+    }
+
+    public boolean isAuditUpdateEnabled() {
+        return auditUpdateEnabled;
+    }
+
+    public void setAuditUpdateEnabled(boolean auditUpdateEnabled) {
+        this.auditUpdateEnabled = auditUpdateEnabled;
+    }
+
+    public boolean isAuditDeleteEnabled() {
+        return auditDeleteEnabled;
+    }
+
+    public void setAuditDeleteEnabled(boolean auditDeleteEnabled) {
+        this.auditDeleteEnabled = auditDeleteEnabled;
+    }
+
+    public boolean isAuditActiveForAction(String actionType) {
+        if (!auditGlobalEnabled) return false;
+        if (actionType == null) return true;
+        String upper = actionType.trim().toUpperCase();
+        if ("INSERT".equals(upper)) return auditInsertEnabled;
+        if ("UPDATE".equals(upper)) return auditUpdateEnabled;
+        if ("DELETE".equals(upper)) return auditDeleteEnabled;
+        return true;
+    }
+
+    public void logAuditTrail(String tableName, String recordId, String actionType, Map<String, Object> oldData, Map<String, Object> newData) {
+        if (!isAuditActiveForAction(actionType)) return;
+        if (tableName == null || tableName.equalsIgnoreCase("sys_audit_log")) return;
+        try {
+            if (!auditTableChecked) {
+                synchronized (this) {
+                    if (!auditTableChecked) {
+                        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS sys_audit_log (" +
+                                "id SERIAL PRIMARY KEY, " +
+                                "table_name VARCHAR(100) NOT NULL, " +
+                                "record_id VARCHAR(100), " +
+                                "action_type VARCHAR(20) NOT NULL, " +
+                                "action_by VARCHAR(100), " +
+                                "action_dt TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                                "old_data_json TEXT, " +
+                                "new_data_json TEXT)");
+                        auditTableChecked = true;
+                    }
+                }
+            }
+
+            String oldJson = null;
+            if (oldData != null && !oldData.isEmpty()) {
+                oldJson = getObjectMapper().writeValueAsString(oldData);
+            }
+            String newJson = null;
+            if (newData != null && !newData.isEmpty()) {
+                newJson = getObjectMapper().writeValueAsString(newData);
+            }
+
+            String currentUser = getCurrentLoggedUser();
+            try {
+                if (com.vaadin.flow.server.VaadinSession.getCurrent() != null) {
+                    Object obj = com.vaadin.flow.server.VaadinSession.getCurrent().getAttribute(com.vaadinerp.security.service.SessionSecurityService.SESSION_USER_KEY);
+                    if (obj instanceof com.vaadinerp.security.entity.AppUser) {
+                        com.vaadinerp.security.entity.AppUser user = (com.vaadinerp.security.entity.AppUser) obj;
+                        if (user.getUsername() != null && !user.getUsername().trim().isEmpty()) {
+                            currentUser = user.getUsername().trim();
+                            if (user.getFullName() != null && !user.getFullName().trim().isEmpty() && !user.getFullName().trim().equalsIgnoreCase(currentUser)) {
+                                currentUser += " (" + user.getFullName().trim() + ")";
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+            if (currentUser == null || currentUser.trim().isEmpty() || "SYSTEM".equalsIgnoreCase(currentUser)) {
+                if (securityService != null && securityService.getCurrentUser() != null) {
+                    com.vaadinerp.security.entity.AppUser user = securityService.getCurrentUser();
+                    if (user.getUsername() != null && !user.getUsername().trim().isEmpty()) {
+                        currentUser = user.getUsername().trim();
+                        if (user.getFullName() != null && !user.getFullName().trim().isEmpty() && !user.getFullName().trim().equalsIgnoreCase(currentUser)) {
+                            currentUser += " (" + user.getFullName().trim() + ")";
+                        }
+                    }
+                }
+            }
+            if (currentUser == null || currentUser.trim().isEmpty()) {
+                currentUser = "System / Auto";
+            }
+
+            jdbcTemplate.update("INSERT INTO sys_audit_log (table_name, record_id, action_type, action_by, action_dt, old_data_json, new_data_json) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)",
+                    tableName, recordId, actionType, currentUser, oldJson, newJson);
+        } catch (Exception ex) {
+            log.warn("Gagal mencatat audit log untuk tabel {}: {}", tableName, ex.getMessage());
+        }
+    }
+
+    @Transactional
+    public boolean restoreFromAuditLog(Long auditId) {
+        try {
+            boolean success = restoreSingleRecordInternal(auditId);
+            if (!success) return false;
+
+            // Cascade restore anak (detail / subform) jika ada yang terhapus bersamaan dengan header ini
+            try {
+                Map<String, Object> logRow = jdbcTemplate.queryForMap("SELECT * FROM sys_audit_log WHERE id = ?", auditId);
+                String tableName = (String) logRow.get("table_name");
+                String oldJson = (String) logRow.get("old_data_json");
+                if (tableName != null && oldJson != null && !oldJson.trim().isEmpty()) {
+                    Map<String, Object> oldData = getObjectMapper().readValue(oldJson, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                    List<Map<String, Object>> headerCols = fetchTableSchemaDetails(tableName);
+                    Set<String> headerValidCols = headerCols.stream()
+                            .map(c -> ((String) c.get("column_name")).toLowerCase())
+                            .collect(Collectors.toSet());
+                    String pkCol = resolvePrimaryKeyColumn(tableName, headerValidCols, oldData);
+                    Object headerPkVal = oldData.get(pkCol);
+                    if (headerPkVal == null) {
+                        for (Map.Entry<String, Object> e : oldData.entrySet()) {
+                            if (pkCol.equalsIgnoreCase(findMatchingColumn(headerValidCols, e.getKey()))) {
+                                headerPkVal = e.getValue();
+                                break;
+                            }
+                        }
+                    }
+                    if (headerPkVal != null && !tableName.equalsIgnoreCase("sys_audit_log")) {
+                        String strPk = headerPkVal.toString().trim();
+                        List<Map<String, Object>> childLogs = jdbcTemplate.queryForList(
+                                "SELECT * FROM sys_audit_log WHERE id != ? AND action_type = 'DELETE' AND table_name != ? " +
+                                "AND action_dt >= ?::timestamp - INTERVAL '10 seconds' AND action_dt <= ?::timestamp + INTERVAL '10 seconds' ORDER BY id ASC",
+                                auditId, tableName, logRow.get("action_dt"), logRow.get("action_dt"));
+                        for (Map<String, Object> cLog : childLogs) {
+                            String cOldJson = (String) cLog.get("old_data_json");
+                            if (cOldJson != null && !cOldJson.trim().isEmpty()) {
+                                Map<String, Object> cOldData = getObjectMapper().readValue(cOldJson, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                                boolean fkMatches = false;
+                                for (Map.Entry<String, Object> e : cOldData.entrySet()) {
+                                    if (e.getValue() != null && e.getValue().toString().trim().equals(strPk)) {
+                                        fkMatches = true;
+                                        break;
+                                    }
+                                }
+                                if (fkMatches) {
+                                    Long childLogId = ((Number) cLog.get("id")).longValue();
+                                    restoreSingleRecordInternal(childLogId);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Gagal cascade restore detail anak dari log ID {}: {}", auditId, ex.getMessage());
+            }
+            return true;
+        } catch (Exception ex) {
+            log.error("Gagal melakukan restore dari audit log ID {}: {}", auditId, ex.getMessage(), ex);
+            throw new RuntimeException("Gagal restore data: " + ex.getMessage(), ex);
+        }
+    }
+
+    private String resolvePrimaryKeyColumn(String tableName, Set<String> validCols, Map<String, Object> oldData) {
+        String rawName = tableName;
+        if (tableName != null && tableName.contains(".")) {
+            rawName = tableName.substring(tableName.indexOf(".") + 1);
+        }
+        if (rawName != null) {
+            try {
+                List<String> pks = jdbcTemplate.queryForList(
+                    "SELECT kcu.column_name " +
+                    "FROM information_schema.table_constraints tc " +
+                    "JOIN information_schema.key_column_usage kcu " +
+                    "  ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema " +
+                    "WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_name = ? AND tc.table_schema IN ('dynamic', 'public') " +
+                    "ORDER BY kcu.ordinal_position LIMIT 1",
+                    String.class, rawName.toLowerCase()
+                );
+                if (!pks.isEmpty() && pks.get(0) != null && validCols.contains(pks.get(0).trim().toLowerCase())) {
+                    return pks.get(0).trim().toLowerCase();
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (rawName != null) {
+            String lowerName = rawName.toLowerCase();
+            if ("meta_form".equals(lowerName) && validCols.contains("form_code")) return "form_code";
+            if ("meta_lov".equals(lowerName) && validCols.contains("lov_code")) return "lov_code";
+            if ("meta_report".equals(lowerName) && validCols.contains("report_code")) return "report_code";
+            if ("meta_form_action".equals(lowerName) && validCols.contains("id")) return "id";
+            if ("meta_field".equals(lowerName) && validCols.contains("id")) return "id";
+        }
+
+        if (validCols.contains("id")) return "id";
+        if (validCols.contains("code")) return "code";
+        if (validCols.contains("form_code")) return "form_code";
+        if (validCols.contains("lov_code")) return "lov_code";
+        if (validCols.contains("report_code")) return "report_code";
+
+        if (oldData.containsKey("id")) return "id";
+        if (oldData.containsKey("code")) return "code";
+
+        return "id";
+    }
+
+    private String findMatchingColumn(Set<String> validCols, String jsonKey) {
+        if (jsonKey == null) return null;
+        String lower = jsonKey.toLowerCase();
+        if (validCols.contains(lower)) return lower;
+        String stripped = lower.replace("_", "");
+        for (String vc : validCols) {
+            if (vc.replace("_", "").equalsIgnoreCase(stripped)) {
+                return vc;
+            }
+        }
+        return null;
+    }
+
+    private boolean restoreSingleRecordInternal(Long auditId) throws Exception {
+        Map<String, Object> logRow = jdbcTemplate.queryForMap("SELECT * FROM sys_audit_log WHERE id = ?", auditId);
+        String tableName = (String) logRow.get("table_name");
+        String oldJson = (String) logRow.get("old_data_json");
+        if (tableName == null || oldJson == null || oldJson.trim().isEmpty()) {
+            throw new IllegalStateException("Data snapshot JSON lama (old_data_json) tidak ditemukan pada log ID " + auditId);
+        }
+
+        Map<String, Object> oldData = getObjectMapper().readValue(oldJson, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+        if (oldData == null || oldData.isEmpty()) {
+            throw new IllegalStateException("Snapshot data kosong pada log ID " + auditId);
+        }
+
+        List<Map<String, Object>> cols = fetchTableSchemaDetails(tableName);
+        Set<String> validCols = cols.stream()
+                .map(c -> ((String) c.get("column_name")).toLowerCase())
+                .collect(Collectors.toSet());
+
+        List<String> insertCols = new ArrayList<>();
+        List<Object> insertVals = new ArrayList<>();
+        List<String> placeholders = new ArrayList<>();
+
+        for (Map.Entry<String, Object> entry : oldData.entrySet()) {
+            String col = findMatchingColumn(validCols, entry.getKey());
+            if (col != null) {
+                insertCols.add(col);
+                insertVals.add(sanitizeJdbcValue(tableName, col, entry.getValue()));
+                placeholders.add("?");
+            }
+        }
+
+        if (insertCols.isEmpty()) {
+            throw new IllegalStateException("Tidak ada kolom valid yang cocok untuk direstore ke tabel " + tableName);
+        }
+
+        String qTable = getQualifiedTableName(tableName);
+        String pkCol = resolvePrimaryKeyColumn(tableName, validCols, oldData);
+
+        StringBuilder sql = new StringBuilder();
+        sql.append("INSERT INTO ").append(qTable).append(" (")
+           .append(String.join(", ", insertCols)).append(") VALUES (")
+           .append(String.join(", ", placeholders)).append(")");
+        
+        if (validCols.contains(pkCol)) {
+            sql.append(" ON CONFLICT (").append(pkCol).append(") DO UPDATE SET ");
+            List<String> updates = new ArrayList<>();
+            for (String col : insertCols) {
+                if (!col.equalsIgnoreCase(pkCol)) {
+                    updates.add(col + " = EXCLUDED." + col);
+                }
+            }
+            if (!updates.isEmpty()) {
+                sql.append(String.join(", ", updates));
+            } else {
+                sql.append(pkCol).append(" = EXCLUDED.").append(pkCol);
+            }
+        }
+
+        jdbcTemplate.update(sql.toString(), insertVals.toArray());
+
+        Object pkVal = null;
+        for (Map.Entry<String, Object> e : oldData.entrySet()) {
+            if (pkCol.equalsIgnoreCase(findMatchingColumn(validCols, e.getKey()))) {
+                pkVal = e.getValue();
+                break;
+            }
+        }
+        logAuditTrail(tableName, pkVal != null ? pkVal.toString() : auditId.toString(), "RESTORE", null, oldData);
+        return true;
+    }
 
     public ScriptExecutorService getScriptExecutorService() {
         return scriptExecutorService;
@@ -220,6 +545,27 @@ public class DynamicDataService {
         validateSqlIdentifier(clean, "table name");
         if ("global_master".equalsIgnoreCase(clean)) return "dynamic.global_category";
         if (clean.contains(".")) return clean;
+
+        String lower = clean.toLowerCase();
+        if (lower.startsWith("meta_") || lower.startsWith("sys_") || lower.equals("app_user") || lower.equals("app_role")) {
+            return "public." + clean;
+        }
+
+        try {
+            Integer countDynamic = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'dynamic' AND table_name = ?",
+                Integer.class, lower);
+            if (countDynamic != null && countDynamic > 0) {
+                return "dynamic." + clean;
+            }
+            Integer countPublic = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ?",
+                Integer.class, lower);
+            if (countPublic != null && countPublic > 0) {
+                return "public." + clean;
+            }
+        } catch (Exception ignored) {}
+
         return "dynamic." + clean;
     }
 
@@ -882,15 +1228,22 @@ public class DynamicDataService {
                 }
             }
 
-            if (oldRecord != null) {
+            if (oldRecord != null && formMeta.getFields() != null) {
+                List<Object[]> auditBatch = new ArrayList<>();
+                java.sql.Timestamp nowDt = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now());
                 for (FieldMeta field : formMeta.getFields()) {
                     if (field.isAuditLog()) {
                         String fieldName = field.getFieldName();
                         Object oldVal = getCaseInsensitiveValue(oldRecord, fieldName);
                         Object newVal = data.get(fieldName);
-                        recordFieldAuditLog(formMeta.getFormCode(), formMeta.getTableName(), masterId, "UPDATE", fieldName, oldVal, newVal, currentUser);
+                        String oldStr = oldVal != null ? oldVal.toString() : null;
+                        String newStr = newVal != null ? newVal.toString() : null;
+                        if (oldStr == null || !oldStr.equals(newStr)) {
+                            auditBatch.add(new Object[]{formMeta.getFormCode(), formMeta.getTableName(), masterId != null ? masterId.toString() : "", "UPDATE", fieldName, oldStr, newStr, currentUser, nowDt});
+                        }
                     }
                 }
+                recordFieldAuditLogsBatch(auditBatch);
             }
         } else {
             // INSERT: Jika primary key tidak ada nilainya
@@ -957,17 +1310,76 @@ public class DynamicDataService {
             valuesParam.add("?");
             args.add(1);
 
-            String sql = "INSERT INTO " + getQualifiedTableName(formMeta.getTableName()) + " (" + columns.toString() + ") VALUES (" + valuesParam.toString() + ")";
-            executeAndLogSql(sql, args);
+            String qMasterTable = getQualifiedTableName(formMeta.getTableName());
+            String sql = "INSERT INTO " + qMasterTable + " (" + columns.toString() + ") VALUES (" + valuesParam.toString() + ")";
+            final String finalMasterPk = pk;
+            try {
+                String returningSql = sql + " RETURNING " + finalMasterPk;
+                System.out.println("EXECUTING INSERT WITH RETURNING: " + returningSql);
+                Object genId = jdbcTemplate.queryForObject(returningSql, args.toArray(), Object.class);
+                if (genId != null) {
+                    masterId = genId;
+                    data.put(pk, masterId);
+                    data.put("id", masterId);
+                    if (rawData != null) {
+                        rawData.put(pk, masterId);
+                        rawData.put("id", masterId);
+                    }
+                    System.out.println(">> CAPTURED RETURNING ID FOR TABLE " + formMeta.getTableName() + " -> PK: " + pk + " = " + masterId);
+                }
+            } catch (Exception ex) {
+                log.warn("RETURNING clause gagal untuk tabel '{}', mencoba GeneratedKeyHolder/executeAndLogSql: {}", formMeta.getTableName(), ex.getMessage());
+                org.springframework.jdbc.support.GeneratedKeyHolder keyHolder = new org.springframework.jdbc.support.GeneratedKeyHolder();
+                try {
+                    jdbcTemplate.update(connection -> {
+                        java.sql.PreparedStatement ps = connection.prepareStatement(sql, new String[]{finalMasterPk});
+                        for (int i = 0; i < args.size(); i++) {
+                            ps.setObject(i + 1, args.get(i));
+                        }
+                        return ps;
+                    }, keyHolder);
+                    if (keyHolder.getKey() != null) {
+                        masterId = keyHolder.getKey();
+                        data.put(pk, masterId);
+                        data.put("id", masterId);
+                        if (rawData != null) {
+                            rawData.put(pk, masterId);
+                            rawData.put("id", masterId);
+                        }
+                        System.out.println(">> CAPTURED KEYHOLDER ID FOR TABLE " + formMeta.getTableName() + " -> PK: " + pk + " = " + masterId);
+                    }
+                } catch (Exception ex2) {
+                    executeAndLogSql(sql, args);
+                    try {
+                        Object lastId = jdbcTemplate.queryForObject("SELECT " + finalMasterPk + " FROM " + qMasterTable + " ORDER BY " + finalMasterPk + " DESC LIMIT 1", Object.class);
+                        if (lastId != null) {
+                            masterId = lastId;
+                            data.put(pk, masterId);
+                            data.put("id", masterId);
+                            if (rawData != null) {
+                                rawData.put(pk, masterId);
+                                rawData.put("id", masterId);
+                            }
+                            System.out.println(">> CAPTURED LAST ID FOR TABLE " + formMeta.getTableName() + " -> PK: " + pk + " = " + masterId);
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
 
             if (formMeta.getFields() != null) {
+                List<Object[]> auditBatch = new ArrayList<>();
+                java.sql.Timestamp nowDt = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now());
                 for (FieldMeta field : formMeta.getFields()) {
                     if (field.isAuditLog()) {
                         String fieldName = field.getFieldName();
                         Object newVal = data.get(fieldName);
-                        recordFieldAuditLog(formMeta.getFormCode(), formMeta.getTableName(), masterId, "INSERT", fieldName, null, newVal, currentUser);
+                        String newStr = newVal != null ? newVal.toString() : null;
+                        if (newStr != null) {
+                            auditBatch.add(new Object[]{formMeta.getFormCode(), formMeta.getTableName(), masterId != null ? masterId.toString() : "", "INSERT", fieldName, null, newStr, currentUser, nowDt});
+                        }
                     }
                 }
+                recordFieldAuditLogsBatch(auditBatch);
             }
         }
         } else {
@@ -1141,6 +1553,20 @@ public class DynamicDataService {
                     try { return Long.valueOf(trimmedStr); } catch (Exception ex) { log.trace("Konversi ke Long gagal untuk '{}': {}", trimmedStr, ex.getMessage()); }
                 } else if ("numeric".equals(colType) || "decimal".equals(colType) || "real".equals(colType) || "double precision".equals(colType)) {
                     try { return new java.math.BigDecimal(trimmedStr); } catch (Exception ex) { log.trace("Konversi ke BigDecimal gagal untuk '{}': {}", trimmedStr, ex.getMessage()); }
+                } else if ("date".equals(colType)) {
+                    try { return java.sql.Date.valueOf(trimmedStr); } catch (Exception ex) { try { return java.time.LocalDate.parse(trimmedStr); } catch (Exception ignored) {} }
+                } else if (colType.startsWith("timestamp")) {
+                    try { return java.sql.Timestamp.valueOf(trimmedStr); } catch (Exception ex) {
+                        try {
+                            String normalized = trimmedStr.replace("T", " ");
+                            if (normalized.contains("+") || (normalized.contains("-") && normalized.lastIndexOf("-") > 10)) {
+                                try { return java.sql.Timestamp.from(java.time.OffsetDateTime.parse(trimmedStr).toInstant()); } catch (Exception ignored) {}
+                            }
+                            return java.sql.Timestamp.valueOf(normalized);
+                        } catch (Exception ignored) {}
+                    }
+                } else if ("boolean".equals(colType) || "bool".equals(colType)) {
+                    return "true".equalsIgnoreCase(trimmedStr) || "1".equals(trimmedStr) || "active".equalsIgnoreCase(trimmedStr);
                 }
             }
         }
@@ -1148,49 +1574,162 @@ public class DynamicDataService {
     }
 
     @Transactional
-    public void deleteData(FormMeta formMeta, Map<String, Object> data) {
-        if (data == null || data.isEmpty()) {
+    public void deleteData(FormMeta formMeta, Map<String, Object> rawData) {
+        if (rawData == null || rawData.isEmpty()) {
             return;
         }
+        Map<String, Object> data = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        data.putAll(rawData);
+
         String pk = formMeta.getPrimaryKey() != null ? formMeta.getPrimaryKey() : "id";
         pk = resolveExistingColumn(formMeta.getTableName(), pk);
-        if (data.containsKey(pk) && data.get(pk) != null && !data.get(pk).toString().trim().isEmpty()) {
-            if ("MASTER_DETAIL".equalsIgnoreCase(formMeta.getFormType())) {
+        Object pkObj = getCaseInsensitiveValue(data, pk);
+        if (pkObj != null && !pkObj.toString().trim().isEmpty()) {
+            String pkVal = pkObj.toString().trim();
+            Map<String, Object> oldRow = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+            try {
+                Map<String, Object> queried = jdbcTemplate.queryForMap("SELECT * FROM " + getQualifiedTableName(formMeta.getTableName()) + " WHERE CAST(" + pk + " AS text) = ?", pkVal);
+                if (queried != null) oldRow.putAll(queried);
+            } catch (Exception ignored) {}
+            if (oldRow.isEmpty()) {
+                oldRow.putAll(data);
+            }
+
+            logAuditTrail(formMeta.getTableName(), pkVal, "DELETE", oldRow, null);
+
+            List<Object[]> auditBatch = new ArrayList<>();
+            java.sql.Timestamp auditNowDt = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now());
+            String currentUser = getCurrentLoggedUser();
+
+            if (formMeta.getFields() != null && !oldRow.isEmpty()) {
+                for (FieldMeta field : formMeta.getFields()) {
+                    if (!field.isDetail() && field.isAuditLog()) {
+                        String fieldName = field.getFieldName();
+                        Object oldVal = getCaseInsensitiveValue(oldRow, fieldName);
+                        String oldStr = oldVal != null ? oldVal.toString() : null;
+                        if (oldStr != null) {
+                            auditBatch.add(new Object[]{formMeta.getFormCode(), formMeta.getTableName(), pkVal, "DELETE", fieldName, oldStr, null, currentUser, auditNowDt});
+                        }
+                    }
+                }
+            }
+
+            boolean isMasterDetail = "MASTER_DETAIL".equalsIgnoreCase(formMeta.getFormType())
+                    || (formMeta.getDetailTableName() != null && !formMeta.getDetailTableName().trim().isEmpty() && formMeta.getDetailForeignKey() != null && !formMeta.getDetailForeignKey().trim().isEmpty());
+
+            if (isMasterDetail) {
                 String detailTable = formMeta.getDetailTableName();
                 String detailFk = formMeta.getDetailForeignKey();
                 if (detailTable != null && !detailTable.trim().isEmpty() && detailFk != null && !detailFk.trim().isEmpty()) {
                     try {
-                        String sqlDtl = "DELETE FROM " + getQualifiedTableName(detailTable) + " WHERE CAST(" + detailFk + " AS text) = ?";
-                        jdbcTemplate.update(sqlDtl, data.get(pk) != null ? data.get(pk).toString().trim() : "");
+                        List<Map<String, Object>> dtlRows = jdbcTemplate.queryForList(
+                                "SELECT * FROM " + getQualifiedTableName(detailTable) + " WHERE CAST(" + detailFk + " AS text) = ?", pkVal);
+                        String dtlPkCol = "id";
+                        try {
+                            String pkColQuery = "SELECT kcu.column_name FROM information_schema.table_constraints tc " +
+                                    "JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema " +
+                                    "WHERE tc.constraint_type = 'PRIMARY KEY' AND LOWER(tc.table_name) = ? LIMIT 1";
+                            List<String> pkCols = jdbcTemplate.queryForList(pkColQuery, String.class, detailTable.toLowerCase());
+                            if (!pkCols.isEmpty() && pkCols.get(0) != null) dtlPkCol = pkCols.get(0);
+                        } catch (Exception ignored) {}
+                        for (Map<String, Object> rawDRow : dtlRows) {
+                            Map<String, Object> dRow = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+                            if (rawDRow != null) dRow.putAll(rawDRow);
+                            String dPkVal = dRow.get(dtlPkCol) != null ? dRow.get(dtlPkCol).toString() : (dRow.get("id") != null ? dRow.get("id").toString() : pkVal);
+                            logAuditTrail(detailTable, dPkVal, "DELETE", dRow, null);
+                            if (formMeta.getFields() != null) {
+                                for (FieldMeta field : formMeta.getFields()) {
+                                    if (field.isDetail() && field.isAuditLog()) {
+                                        String fieldName = field.getFieldName();
+                                        Object oldVal = getCaseInsensitiveValue(dRow, fieldName);
+                                        String oldStr = oldVal != null ? oldVal.toString() : null;
+                                        if (oldStr != null) {
+                                            auditBatch.add(new Object[]{formMeta.getFormCode(), detailTable, dPkVal, "DELETE", fieldName, oldStr, null, currentUser, auditNowDt});
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     } catch (Exception ex) {
-                        log.warn("Gagal cascade delete detail (tabel: {}, fk: {}, pk: {}): {}", detailTable, detailFk, data.get(pk), ex.getMessage());
+                        log.warn("Gagal merekam audit trail detail sebelum delete (tabel: {}, fk: {}, pk: {}): {}", detailTable, detailFk, pkVal, ex.getMessage());
                     }
                 }
             }
-            
-            // Cascade delete for modular subforms
-            for (FieldMeta field : formMeta.getFields()) {
-                if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
-                    FormMeta childForm = formMetaRepository.findById(field.getLovCode()).orElse(null);
-                    if (childForm != null) {
-                        String childTable = childForm.getTableName();
-                        String childFk = field.getFormula();
-                        if (childTable != null && !childTable.trim().isEmpty() && childFk != null && !childFk.trim().isEmpty()) {
-                            try {
-                                String sqlDtl = "DELETE FROM " + getQualifiedTableName(childTable) + " WHERE CAST(" + childFk + " AS text) = ?";
-                                jdbcTemplate.update(sqlDtl, data.get(pk) != null ? data.get(pk).toString().trim() : "");
-                            } catch (Exception ex) {
-                                log.warn("Gagal cascade delete subform (tabel: {}, fk: {}, pk: {}): {}", childTable, childFk, data.get(pk), ex.getMessage());
+
+            // Cascade audit trail logging for modular subforms
+            if (formMeta.getFields() != null) {
+                for (FieldMeta field : formMeta.getFields()) {
+                    if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
+                        FormMeta childForm = formMetaRepository.findById(field.getLovCode()).orElse(null);
+                        if (childForm != null) {
+                            String childTable = childForm.getTableName();
+                            String childFk = field.getFormula();
+                            if (childTable != null && !childTable.trim().isEmpty() && childFk != null && !childFk.trim().isEmpty()) {
+                                try {
+                                    List<Map<String, Object>> subRows = jdbcTemplate.queryForList(
+                                            "SELECT * FROM " + getQualifiedTableName(childTable) + " WHERE CAST(" + childFk + " AS text) = ?", pkVal);
+                                    String subPkCol = "id";
+                                    try {
+                                        String pkColQuery = "SELECT kcu.column_name FROM information_schema.table_constraints tc " +
+                                                "JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema " +
+                                                "WHERE tc.constraint_type = 'PRIMARY KEY' AND LOWER(tc.table_name) = ? LIMIT 1";
+                                        List<String> pkCols = jdbcTemplate.queryForList(pkColQuery, String.class, childTable.toLowerCase());
+                                        if (!pkCols.isEmpty() && pkCols.get(0) != null) subPkCol = pkCols.get(0);
+                                    } catch (Exception ignored) {}
+                                    for (Map<String, Object> rawSRow : subRows) {
+                                        Map<String, Object> sRow = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+                                        if (rawSRow != null) sRow.putAll(rawSRow);
+                                        String sPkVal = sRow.get(subPkCol) != null ? sRow.get(subPkCol).toString() : (sRow.get("id") != null ? sRow.get("id").toString() : pkVal);
+                                        logAuditTrail(childTable, sPkVal, "DELETE", sRow, null);
+                                        if (childForm.getFields() != null) {
+                                            for (FieldMeta childField : childForm.getFields()) {
+                                                if (childField.isAuditLog()) {
+                                                    String fieldName = childField.getFieldName();
+                                                    Object oldVal = getCaseInsensitiveValue(sRow, fieldName);
+                                                    String oldStr = oldVal != null ? oldVal.toString() : null;
+                                                    if (oldStr != null) {
+                                                        auditBatch.add(new Object[]{childForm.getFormCode(), childTable, sPkVal, "DELETE", fieldName, oldStr, null, currentUser, auditNowDt});
+                                                    }
+                                                }
+                                                if (fileStorageService != null && ("FILE_UPLOAD".equalsIgnoreCase(childField.getComponentType()) || "IMAGE_UPLOAD".equalsIgnoreCase(childField.getComponentType()))) {
+                                                    Object val = sRow.get(childField.getFieldName());
+                                                    if (val != null && !val.toString().trim().isEmpty()) {
+                                                        fileStorageService.deleteFilesByDelimitedString(val.toString());
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    boolean subHasIsDeleted = false;
+                                    try {
+                                        String checkSubCol = "SELECT column_name FROM information_schema.columns WHERE LOWER(table_name) = ? AND LOWER(column_name) = 'is_deleted'";
+                                        List<String> cols = jdbcTemplate.queryForList(checkSubCol, String.class, childTable.toLowerCase());
+                                        subHasIsDeleted = !cols.isEmpty();
+                                    } catch (Exception ignored) {}
+
+                                    if (subHasIsDeleted) {
+                                        String delUser = getCurrentLoggedUser();
+                                        java.sql.Timestamp delTs = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now());
+                                        jdbcTemplate.update("UPDATE " + getQualifiedTableName(childTable) + " SET is_deleted = true, delete_by = ?, delete_date = ? WHERE CAST(" + childFk + " AS text) = ?", delUser, delTs, pkVal);
+                                    } else {
+                                        jdbcTemplate.update("DELETE FROM " + getQualifiedTableName(childTable) + " WHERE CAST(" + childFk + " AS text) = ?", pkVal);
+                                    }
+                                } catch (Exception ex) {
+                                    log.warn("Gagal cascade delete subform (tabel: {}, fk: {}, pk: {}): {}", childTable, childFk, pkVal, ex.getMessage());
+                                }
                             }
                         }
                     }
                 }
             }
 
-            if (fileStorageService != null && formMeta.getFields() != null) {
+            recordFieldAuditLogsBatch(auditBatch);
+
+            if (fileStorageService != null && formMeta.getFields() != null && data != null) {
                 for (FieldMeta field : formMeta.getFields()) {
                     if ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType()) || "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType())) {
                         Object val = data.get(field.getFieldName());
+                        if (val == null && oldRow != null) val = oldRow.get(field.getFieldName());
                         if (val != null && !val.toString().trim().isEmpty()) {
                             fileStorageService.deleteFilesByDelimitedString(val.toString());
                         }
@@ -1198,8 +1737,145 @@ public class DynamicDataService {
                 }
             }
 
+            // Cek apakah tabel memiliki kolom soft delete (is_deleted)
+            boolean hasSoftDelete = false;
+            String sdCol = "is_deleted";
+            try {
+                for (Map<String, Object> c : fetchTableSchemaDetails(formMeta.getTableName())) {
+                    String cn = ((String) c.get("column_name")).toLowerCase();
+                    if (cn.equals("is_deleted") || cn.equals("is_delete") || cn.equals("deleted")) {
+                        hasSoftDelete = true;
+                        sdCol = cn;
+                        break;
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            if (hasSoftDelete) {
+                currentUser = getCurrentLoggedUser();
+                boolean hasDelBy = false;
+                boolean hasDelDt = false;
+                try {
+                    for (Map<String, Object> c : fetchTableSchemaDetails(formMeta.getTableName())) {
+                        String cn = ((String) c.get("column_name")).toLowerCase();
+                        if (cn.equals("delete_by") || cn.equals("deleted_by")) hasDelBy = true;
+                        if (cn.equals("delete_dt") || cn.equals("delete_date") || cn.equals("deleted_at")) hasDelDt = true;
+                    }
+                } catch (Exception ignored) {}
+
+                StringBuilder sqlUpdate = new StringBuilder("UPDATE " + getQualifiedTableName(formMeta.getTableName()) + " SET " + sdCol + " = true");
+                List<Object> args = new ArrayList<>();
+                if (hasDelBy) {
+                    sqlUpdate.append(", delete_by = ?");
+                    args.add(currentUser);
+                }
+                if (hasDelDt) {
+                    sqlUpdate.append(", delete_dt = CURRENT_TIMESTAMP");
+                }
+                sqlUpdate.append(" WHERE CAST(" + pk + " AS text) = ?");
+                args.add(pkVal);
+                jdbcTemplate.update(sqlUpdate.toString(), args.toArray());
+
+                if (isMasterDetail) {
+                    String detailTable = formMeta.getDetailTableName();
+                    String detailFk = formMeta.getDetailForeignKey();
+                    if (detailTable != null && !detailTable.trim().isEmpty() && detailFk != null && !detailFk.trim().isEmpty()) {
+                        boolean dtlSoft = false;
+                        String dtlSdCol = "is_deleted";
+                        try {
+                            for (Map<String, Object> c : fetchTableSchemaDetails(detailTable)) {
+                                String cn = ((String) c.get("column_name")).toLowerCase();
+                                if (cn.equals("is_deleted") || cn.equals("is_delete") || cn.equals("deleted")) {
+                                    dtlSoft = true;
+                                    dtlSdCol = cn;
+                                    break;
+                                }
+                            }
+                        } catch (Exception ignored) {}
+                        try {
+                            if (dtlSoft) {
+                                jdbcTemplate.update("UPDATE " + getQualifiedTableName(detailTable) + " SET " + dtlSdCol + " = true WHERE CAST(" + detailFk + " AS text) = ?", pkVal);
+                            } else {
+                                jdbcTemplate.update("DELETE FROM " + getQualifiedTableName(detailTable) + " WHERE CAST(" + detailFk + " AS text) = ?", pkVal);
+                            }
+                        } catch (Exception ex) {
+                            log.warn("Gagal cascade delete detail pada soft delete (tabel: {}): {}", detailTable, ex.getMessage());
+                        }
+                    }
+                }
+
+                if (formMeta.getFields() != null) {
+                    for (FieldMeta field : formMeta.getFields()) {
+                        if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
+                            FormMeta childForm = formMetaRepository.findById(field.getLovCode()).orElse(null);
+                            if (childForm != null) {
+                                String childTable = childForm.getTableName();
+                                String childFk = field.getFormula();
+                                if (childTable != null && !childTable.trim().isEmpty() && childFk != null && !childFk.trim().isEmpty()) {
+                                    boolean subSoft = false;
+                                    String subSdCol = "is_deleted";
+                                    try {
+                                        for (Map<String, Object> c : fetchTableSchemaDetails(childTable)) {
+                                            String cn = ((String) c.get("column_name")).toLowerCase();
+                                            if (cn.equals("is_deleted") || cn.equals("is_delete") || cn.equals("deleted")) {
+                                                subSoft = true;
+                                                subSdCol = cn;
+                                                break;
+                                            }
+                                        }
+                                    } catch (Exception ignored) {}
+                                    try {
+                                        if (subSoft) {
+                                            jdbcTemplate.update("UPDATE " + getQualifiedTableName(childTable) + " SET " + subSdCol + " = true WHERE CAST(" + childFk + " AS text) = ?", pkVal);
+                                        } else {
+                                            jdbcTemplate.update("DELETE FROM " + getQualifiedTableName(childTable) + " WHERE CAST(" + childFk + " AS text) = ?", pkVal);
+                                        }
+                                    } catch (Exception ex) {
+                                        log.warn("Gagal cascade delete subform pada soft delete (tabel: {}): {}", childTable, ex.getMessage());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (isMasterDetail) {
+                String detailTable = formMeta.getDetailTableName();
+                String detailFk = formMeta.getDetailForeignKey();
+                if (detailTable != null && !detailTable.trim().isEmpty() && detailFk != null && !detailFk.trim().isEmpty()) {
+                    try {
+                        String sqlDtl = "DELETE FROM " + getQualifiedTableName(detailTable) + " WHERE CAST(" + detailFk + " AS text) = ?";
+                        jdbcTemplate.update(sqlDtl, pkVal);
+                    } catch (Exception ex) {
+                        log.warn("Gagal cascade delete detail (tabel: {}, fk: {}, pk: {}): {}", detailTable, detailFk, pkVal, ex.getMessage());
+                    }
+                }
+            }
+
+            if (formMeta.getFields() != null) {
+                for (FieldMeta field : formMeta.getFields()) {
+                    if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
+                        FormMeta childForm = formMetaRepository.findById(field.getLovCode()).orElse(null);
+                        if (childForm != null) {
+                            String childTable = childForm.getTableName();
+                            String childFk = field.getFormula();
+                            if (childTable != null && !childTable.trim().isEmpty() && childFk != null && !childFk.trim().isEmpty()) {
+                                try {
+                                    String sqlDtl = "DELETE FROM " + getQualifiedTableName(childTable) + " WHERE CAST(" + childFk + " AS text) = ?";
+                                    jdbcTemplate.update(sqlDtl, pkVal);
+                                } catch (Exception ex) {
+                                    log.warn("Gagal cascade delete subform (tabel: {}, fk: {}, pk: {}): {}", childTable, childFk, pkVal, ex.getMessage());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             String sql = "DELETE FROM " + getQualifiedTableName(formMeta.getTableName()) + " WHERE CAST(" + pk + " AS text) = ?";
-            jdbcTemplate.update(sql, data.get(pk) != null ? data.get(pk).toString().trim() : "");
+            jdbcTemplate.update(sql, pkVal);
         }
     }
 
@@ -1287,7 +1963,7 @@ public class DynamicDataService {
         }
     }
 
-    private String getCurrentLoggedUser() {
+    public String getCurrentLoggedUser() {
         try {
             if (com.vaadin.flow.server.VaadinSession.getCurrent() != null) {
                 Object obj = com.vaadin.flow.server.VaadinSession.getCurrent().getAttribute(com.vaadinerp.security.service.SessionSecurityService.SESSION_USER_KEY);
@@ -1323,20 +1999,27 @@ public class DynamicDataService {
     }
 
     public void ensureFieldAuditTableExists() {
-        try {
-            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS sys_field_audit (" +
-                "id BIGSERIAL PRIMARY KEY, " +
-                "form_code VARCHAR(50), " +
-                "table_name VARCHAR(100), " +
-                "record_id VARCHAR(100), " +
-                "action_type VARCHAR(20), " +
-                "field_name VARCHAR(100), " +
-                "old_value TEXT, " +
-                "new_value TEXT, " +
-                "action_by VARCHAR(100), " +
-                "action_dt TIMESTAMP)");
-        } catch (Exception ex) {
-            log.warn("Gagal membuat tabel sys_field_audit: {}", ex.getMessage());
+        if (!fieldAuditTableChecked) {
+            synchronized (this) {
+                if (!fieldAuditTableChecked) {
+                    try {
+                        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS sys_field_audit (" +
+                            "id BIGSERIAL PRIMARY KEY, " +
+                            "form_code VARCHAR(50), " +
+                            "table_name VARCHAR(100), " +
+                            "record_id VARCHAR(100), " +
+                            "action_type VARCHAR(20), " +
+                            "field_name VARCHAR(100), " +
+                            "old_value TEXT, " +
+                            "new_value TEXT, " +
+                            "action_by VARCHAR(100), " +
+                            "action_dt TIMESTAMP)");
+                        fieldAuditTableChecked = true;
+                    } catch (Exception ex) {
+                        log.warn("Gagal membuat tabel sys_field_audit: {}", ex.getMessage());
+                    }
+                }
+            }
         }
     }
 
@@ -1350,6 +2033,17 @@ public class DynamicDataService {
             jdbcTemplate.update(sql, formCode, tableName, recordId != null ? recordId.toString() : "", actionType, fieldName, oldStr, newStr, actionBy, java.sql.Timestamp.valueOf(java.time.LocalDateTime.now()));
         } catch (Exception ex) {
             log.warn("Gagal mencatat audit log (form: {}, tabel: {}, field: {}, recordId: {}): {}", formCode, tableName, fieldName, recordId, ex.getMessage());
+        }
+    }
+
+    public void recordFieldAuditLogsBatch(List<Object[]> batchArgs) {
+        if (batchArgs == null || batchArgs.isEmpty()) return;
+        ensureFieldAuditTableExists();
+        try {
+            String sql = "INSERT INTO sys_field_audit (form_code, table_name, record_id, action_type, field_name, old_value, new_value, action_by, action_dt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            jdbcTemplate.batchUpdate(sql, batchArgs);
+        } catch (Exception ex) {
+            log.warn("Gagal merekam batch audit log: {}", ex.getMessage());
         }
     }
 
@@ -2370,6 +3064,9 @@ public class DynamicDataService {
                            && !masterData.get(masterPk).toString().trim().isEmpty();
 
         Object masterId = masterData.get(masterPk);
+        List<Object[]> auditBatch = new ArrayList<>();
+        java.sql.Timestamp auditNowDt = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now());
+        String currentUser = getCurrentLoggedUser();
 
         // 1. Save or Update Master Record
         if (formMeta.getTableName() != null && !formMeta.getTableName().trim().isEmpty()) {
@@ -2401,7 +3098,7 @@ public class DynamicDataService {
                 }
             }
 
-            String currentUser = getCurrentLoggedUser();
+            currentUser = getCurrentLoggedUser();
             java.sql.Timestamp nowTs = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now());
             setClause.add("updateby = ?");
             args.add(currentUser);
@@ -2441,13 +3138,17 @@ public class DynamicDataService {
                 }
             }
 
-            if (oldMasterRecord != null) {
+            if (oldMasterRecord != null && formMeta.getFields() != null) {
                 for (FieldMeta field : formMeta.getFields()) {
                     if (!field.isDetail() && field.isAuditLog()) {
                         String fieldName = field.getFieldName();
                         Object oldVal = getCaseInsensitiveValue(oldMasterRecord, fieldName);
                         Object newVal = masterData.get(fieldName);
-                        recordFieldAuditLog(formMeta.getFormCode(), formMeta.getTableName(), masterId, "UPDATE", fieldName, oldVal, newVal, currentUser);
+                        String oldStr = oldVal != null ? oldVal.toString() : null;
+                        String newStr = newVal != null ? newVal.toString() : null;
+                        if (oldStr == null || !oldStr.equals(newStr)) {
+                            auditBatch.add(new Object[]{formMeta.getFormCode(), formMeta.getTableName(), masterId != null ? masterId.toString() : "", "UPDATE", fieldName, oldStr, newStr, currentUser, auditNowDt});
+                        }
                     }
                 }
             }
@@ -2471,7 +3172,7 @@ public class DynamicDataService {
                 }
             }
 
-            String currentUser = getCurrentLoggedUser();
+            currentUser = getCurrentLoggedUser();
             java.sql.Timestamp nowTs = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now());
             columns.add("inputby");
             valuesParam.add("?");
@@ -2487,28 +3188,49 @@ public class DynamicDataService {
 
             String qMasterTable = getQualifiedTableName(formMeta.getTableName());
             String sql = "INSERT INTO " + qMasterTable + " (" + columns.toString() + ") VALUES (" + valuesParam.toString() + ")";
-            org.springframework.jdbc.support.GeneratedKeyHolder keyHolder = new org.springframework.jdbc.support.GeneratedKeyHolder();
-            
-            System.out.println("=================================================");
-            System.out.println("EXECUTING MASTER INSERT SQL: " + sql);
-            System.out.println("PARAMETERS: " + args);
-            System.out.println("=================================================");
-            jdbcTemplate.update(connection -> {
-                java.sql.PreparedStatement ps = connection.prepareStatement(sql, new String[]{finalMasterPk});
-                for (int i = 0; i < args.size(); i++) {
-                    ps.setObject(i + 1, args.get(i));
+            try {
+                String returningSql = sql + " RETURNING " + finalMasterPk;
+                System.out.println("EXECUTING MASTER INSERT WITH RETURNING: " + returningSql);
+                Object genId = jdbcTemplate.queryForObject(returningSql, args.toArray(), Object.class);
+                if (genId != null) {
+                    masterId = genId;
+                    masterData.put(masterPk, masterId);
+                    masterData.put("id", masterId);
+                    if (rawMasterData != null) {
+                        rawMasterData.put(masterPk, masterId);
+                        rawMasterData.put("id", masterId);
+                    }
                 }
-                return ps;
-            }, keyHolder);
-            
-            masterId = keyHolder.getKey();
-            masterData.put(masterPk, masterId); // update local bean state
+            } catch (Exception ex) {
+                log.warn("RETURNING clause gagal di saveMasterDetailData untuk tabel '{}', mencoba GeneratedKeyHolder: {}", formMeta.getTableName(), ex.getMessage());
+                org.springframework.jdbc.support.GeneratedKeyHolder keyHolder = new org.springframework.jdbc.support.GeneratedKeyHolder();
+                jdbcTemplate.update(connection -> {
+                    java.sql.PreparedStatement ps = connection.prepareStatement(sql, new String[]{finalMasterPk});
+                    for (int i = 0; i < args.size(); i++) {
+                        ps.setObject(i + 1, args.get(i));
+                    }
+                    return ps;
+                }, keyHolder);
+                masterId = keyHolder.getKey();
+                masterData.put(masterPk, masterId);
+                masterData.put("id", masterId);
+                if (rawMasterData != null) {
+                    rawMasterData.put(masterPk, masterId);
+                    rawMasterData.put("id", masterId);
+                }
+            }
 
-            for (FieldMeta field : formMeta.getFields()) {
-                if (!field.isDetail() && field.isAuditLog()) {
-                    String fieldName = field.getFieldName();
-                    if (masterData.containsKey(fieldName)) {
-                        recordFieldAuditLog(formMeta.getFormCode(), formMeta.getTableName(), masterId, "INSERT", fieldName, null, masterData.get(fieldName), currentUser);
+            if (formMeta.getFields() != null) {
+                for (FieldMeta field : formMeta.getFields()) {
+                    if (!field.isDetail() && field.isAuditLog()) {
+                        String fieldName = field.getFieldName();
+                        if (masterData.containsKey(fieldName)) {
+                            Object newVal = masterData.get(fieldName);
+                            String newStr = newVal != null ? newVal.toString() : null;
+                            if (newStr != null) {
+                                auditBatch.add(new Object[]{formMeta.getFormCode(), formMeta.getTableName(), masterId != null ? masterId.toString() : "", "INSERT", fieldName, null, newStr, currentUser, auditNowDt});
+                            }
+                        }
                     }
                 }
             }
@@ -2520,10 +3242,34 @@ public class DynamicDataService {
         // 2. Delete removed detail rows
         if (deletedDetailsData != null && !deletedDetailsData.isEmpty()) {
             String qDetailTable = getQualifiedTableName(detailTableName);
-            for (Map<String, Object> row : deletedDetailsData) {
-                if (row.containsKey(detailPk) && row.get(detailPk) != null && !row.get(detailPk).toString().trim().isEmpty()) {
+            for (Map<String, Object> rawDelRow : deletedDetailsData) {
+                Map<String, Object> row = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+                if (rawDelRow != null) row.putAll(rawDelRow);
+                Object dPkObj = getCaseInsensitiveValue(row, detailPk);
+                if (dPkObj != null && !dPkObj.toString().trim().isEmpty()) {
+                    String delId = dPkObj.toString().trim();
+                    Map<String, Object> oldDetail = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+                    try {
+                        Map<String, Object> q = jdbcTemplate.queryForMap("SELECT * FROM " + qDetailTable + " WHERE CAST(" + detailPk + " AS text) = ?", delId);
+                        if (q != null) oldDetail.putAll(q);
+                    } catch (Exception ignored) {}
+                    if (oldDetail.isEmpty()) oldDetail.putAll(row);
+
+                    if (formMeta.getFields() != null) {
+                        for (FieldMeta field : formMeta.getFields()) {
+                            if (field.isDetail() && field.isAuditLog()) {
+                                String fieldName = field.getFieldName();
+                                Object oldVal = getCaseInsensitiveValue(oldDetail, fieldName);
+                                String oldStr = oldVal != null ? oldVal.toString() : null;
+                                if (oldStr != null) {
+                                    auditBatch.add(new Object[]{formMeta.getFormCode(), detailTableName, delId, "DELETE", fieldName, oldStr, null, currentUser, auditNowDt});
+                                }
+                            }
+                        }
+                    }
+
                     String sql = "DELETE FROM " + qDetailTable + " WHERE CAST(" + detailPk + " AS text) = ?";
-                    jdbcTemplate.update(sql, row.get(detailPk).toString().trim());
+                    jdbcTemplate.update(sql, delId);
                 }
             }
         }
@@ -2536,7 +3282,8 @@ public class DynamicDataService {
                 row.putAll(rawRow);
                 row.put(detailFk, masterId);
 
-                boolean isDetailUpdate = row.containsKey(detailPk) && row.get(detailPk) != null 
+                boolean isTempRow = row.containsKey("_tempId") && row.get("_tempId") != null && !row.get("_tempId").toString().trim().isEmpty();
+                boolean isDetailUpdate = !isTempRow && row.containsKey(detailPk) && row.get(detailPk) != null 
                                          && !row.get(detailPk).toString().trim().isEmpty();
 
                 if (isDetailUpdate) {
@@ -2568,7 +3315,7 @@ public class DynamicDataService {
                         }
                     }
 
-                    String currentUser = getCurrentLoggedUser();
+                    currentUser = getCurrentLoggedUser();
                     java.sql.Timestamp nowTs = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now());
                     setClause.add("updateby = ?");
                     args.add(currentUser);
@@ -2617,7 +3364,11 @@ public class DynamicDataService {
                                 String fieldName = field.getFieldName();
                                 Object oldVal = getCaseInsensitiveValue(oldDetailRecord, fieldName);
                                 Object newVal = row.get(fieldName);
-                                recordFieldAuditLog(formMeta.getFormCode(), detailTableName, detailId, "UPDATE", fieldName, oldVal, newVal, currentUser);
+                                String oldStr = oldVal != null ? oldVal.toString() : null;
+                                String newStr = newVal != null ? newVal.toString() : null;
+                                if (oldStr == null || !oldStr.equals(newStr)) {
+                                    auditBatch.add(new Object[]{formMeta.getFormCode(), detailTableName, detailId != null ? detailId.toString() : "", "UPDATE", fieldName, oldStr, newStr, currentUser, auditNowDt});
+                                }
                             }
                         }
                     }
@@ -2647,7 +3398,7 @@ public class DynamicDataService {
                         }
                     }
 
-                    String currentUser = getCurrentLoggedUser();
+                    currentUser = getCurrentLoggedUser();
                     java.sql.Timestamp nowTs = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now());
                     columns.add("inputby");
                     valuesParam.add("?");
@@ -2680,13 +3431,18 @@ public class DynamicDataService {
                         if (field.isDetail() && field.isAuditLog()) {
                             String fieldName = field.getFieldName();
                             if (row.containsKey(fieldName)) {
-                                recordFieldAuditLog(formMeta.getFormCode(), detailTableName, insertedDetailId, "INSERT", fieldName, null, row.get(fieldName), currentUser);
+                                Object newVal = row.get(fieldName);
+                                String newStr = newVal != null ? newVal.toString() : null;
+                                if (newStr != null) {
+                                    auditBatch.add(new Object[]{formMeta.getFormCode(), detailTableName, insertedDetailId != null ? insertedDetailId.toString() : "", "INSERT", fieldName, null, newStr, currentUser, auditNowDt});
+                                }
                             }
                         }
                     }
                 }
             }
         }
+        recordFieldAuditLogsBatch(auditBatch);
     }
 
     public void ensureMasterDetailTablesExist(FormMeta formMeta) {
@@ -2797,6 +3553,10 @@ public class DynamicDataService {
     }
 
     public String evaluateFilterMappingDiagnostic(String filterMapping, Map<String, Object> headerRecord) {
+        return evaluateFilterMappingDiagnostic(filterMapping, headerRecord, null);
+    }
+
+    public String evaluateFilterMappingDiagnostic(String filterMapping, Map<String, Object> headerRecord, Map<String, Object> pickedRecord) {
         if (filterMapping == null || filterMapping.trim().isEmpty()) {
             return "Tidak ada filter mapping aktif.";
         }
@@ -2814,12 +3574,20 @@ public class DynamicDataService {
                 String valSpec = kv[1].trim();
                 Object paramVal = null;
                 boolean isHeader = false;
+                boolean isPicked = false;
                 String headerKey = "";
+                String pickedKey = "";
                 if (valSpec.startsWith("header.") || valSpec.startsWith("\"header.")) {
                     isHeader = true;
                     headerKey = valSpec.replaceAll("[\"']", "").substring(valSpec.indexOf("header.") + "header.".length()).trim();
                     if (headerRecord != null) {
                         paramVal = getCaseInsensitiveValue(headerRecord, headerKey);
+                    }
+                } else if (valSpec.startsWith("picked.") || valSpec.startsWith("\"picked.")) {
+                    isPicked = true;
+                    pickedKey = valSpec.replaceAll("[\"']", "").substring(valSpec.indexOf("picked.") + "picked.".length()).trim();
+                    if (pickedRecord != null) {
+                        paramVal = getCaseInsensitiveValue(pickedRecord, pickedKey);
                     }
                 } else if (valSpec.startsWith("'") && valSpec.endsWith("'")) {
                     paramVal = valSpec.substring(1, valSpec.length() - 1);
@@ -2839,6 +3607,12 @@ public class DynamicDataService {
                     } else {
                         sb.append("⚠️ KOSONG/NULL (ekspresi 'header.").append(headerKey).append("' tidak ditemukan atau null di form)");
                     }
+                } else if (isPicked) {
+                    if (paramVal != null) {
+                        sb.append("OK (ekspresi 'picked.").append(pickedKey).append("' bernilai: ").append(paramVal).append(")");
+                    } else {
+                        sb.append("⚠️ KOSONG/NULL (ekspresi 'picked.").append(pickedKey).append("' tidak ditemukan atau null di baris terpilih)");
+                    }
                 } else {
                     sb.append("Literal '").append(paramVal).append("'");
                 }
@@ -2854,9 +3628,13 @@ public class DynamicDataService {
     }
 
     public List<Map<String, Object>> fetchLovDataWithActionFilters(String sourceLovCode, String filterMapping, Map<String, Object> headerRecord, String searchTerm) {
+        return fetchLovDataWithActionFilters(sourceLovCode, filterMapping, headerRecord, null, searchTerm);
+    }
+
+    public List<Map<String, Object>> fetchLovDataWithActionFilters(String sourceLovCode, String filterMapping, Map<String, Object> headerRecord, Map<String, Object> pickedRecord, String searchTerm) {
         if (sourceLovCode == null || sourceLovCode.trim().isEmpty()) return new ArrayList<>();
         System.out.println("=== DEBUG FETCH LOV ACTION FILTERS [" + sourceLovCode + "] ===");
-        System.out.println(evaluateFilterMappingDiagnostic(filterMapping, headerRecord));
+        System.out.println(evaluateFilterMappingDiagnostic(filterMapping, headerRecord, pickedRecord));
         LovMeta lovMeta = getLovMeta(sourceLovCode).orElse(null);
         String srcTable = lovMeta != null ? lovMeta.getTableName() : sourceLovCode;
         String searchCol = lovMeta != null ? lovMeta.getSearchColumn() : null;
@@ -2891,6 +3669,11 @@ public class DynamicDataService {
                         if (headerRecord != null) {
                             paramVal = getCaseInsensitiveValue(headerRecord, headerKey);
                         }
+                    } else if (valSpec.startsWith("picked.") || valSpec.startsWith("\"picked.")) {
+                        String pickedKey = valSpec.replaceAll("[\"']", "").substring(valSpec.indexOf("picked.") + "picked.".length()).trim();
+                        if (pickedRecord != null) {
+                            paramVal = getCaseInsensitiveValue(pickedRecord, pickedKey);
+                        }
                     } else if (valSpec.startsWith("'") && valSpec.endsWith("'")) {
                         paramVal = valSpec.substring(1, valSpec.length() - 1);
                     } else if (valSpec.startsWith("\"") && valSpec.endsWith("\"")) {
@@ -2916,6 +3699,8 @@ public class DynamicDataService {
                             params.add(paramVal);
                         }
                     } else if (valSpec.startsWith("header.") || valSpec.startsWith("\"header.")) {
+                        conditions.add("1 = 0");
+                    } else if (valSpec.startsWith("picked.") || valSpec.startsWith("\"picked.")) {
                         conditions.add("1 = 0");
                     }
                 }

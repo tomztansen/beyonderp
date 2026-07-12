@@ -37,18 +37,24 @@ public class FormActionBuilderView extends VerticalLayout {
     private final ComboBox<String> iconNameCombo = new ComboBox<>("Ikon Tombol");
     private final ComboBox<String> buttonStyleCombo = new ComboBox<>("Gaya / Warna Tombol");
     private final ComboBox<String> sourceLovCodeCombo = new ComboBox<>("Sumber Data Pop-up (LOV / Form)");
-    private final TextArea filterMappingField = new TextArea("Filter Mapping");
+    private final ComboBox<String> copySourceLovCodeCombo = new ComboBox<>("Copy Data Source (2-Stage)");
+    private final TextArea filterMappingField = new TextArea("Filter Mapping (Pop-up)");
+    private final TextArea copyFilterMappingField = new TextArea("Copy Filter Mapping (2-Stage)");
     private final TextArea targetMappingField = new TextArea("Target Mapping");
 
     private FormActionMeta currentAction;
 
+    private final com.vaadinerp.service.DynamicDataService dynamicDataService;
+
     @Autowired
     public FormActionBuilderView(FormActionMetaRepository actionRepository,
                                  FormMetaRepository formRepository,
-                                 LovMetaRepository lovRepository) {
+                                 LovMetaRepository lovRepository,
+                                 com.vaadinerp.service.DynamicDataService dynamicDataService) {
         this.actionRepository = actionRepository;
         this.formRepository = formRepository;
         this.lovRepository = lovRepository;
+        this.dynamicDataService = dynamicDataService;
 
         setSizeFull();
         setPadding(true);
@@ -140,6 +146,9 @@ public class FormActionBuilderView extends VerticalLayout {
         });
         sources.sort(String::compareToIgnoreCase);
         sourceLovCodeCombo.setItems(sources);
+        
+        copySourceLovCodeCombo.setItems(sources);
+        copySourceLovCodeCombo.setClearButtonVisible(true);
     }
 
     private void setupGrid() {
@@ -175,17 +184,32 @@ public class FormActionBuilderView extends VerticalLayout {
         iconNameCombo.setWidthFull();
         buttonStyleCombo.setWidthFull();
         sourceLovCodeCombo.setWidthFull();
+        copySourceLovCodeCombo.setWidthFull();
 
         filterMappingField.setWidthFull();
         filterMappingField.setPlaceholder("Contoh: status:'Active',customer_id:header.cust_code");
         filterMappingField.setHeight("70px");
+        HorizontalLayout filterLayout = new HorizontalLayout(filterMappingField, createBuilderButton(filterMappingField, false));
+        filterLayout.setWidthFull();
+        filterLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.END);
+
+        copyFilterMappingField.setWidthFull();
+        copyFilterMappingField.setPlaceholder("Contoh: item_id:picked.id");
+        copyFilterMappingField.setHeight("70px");
+        HorizontalLayout copyFilterLayout = new HorizontalLayout(copyFilterMappingField, createBuilderButton(copyFilterMappingField, false));
+        copyFilterLayout.setWidthFull();
+        copyFilterLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.END);
 
         targetMappingField.setWidthFull();
         targetMappingField.setPlaceholder("Contoh: item_code:code,price:sell_price,qty:1");
         targetMappingField.setHeight("80px");
+        HorizontalLayout targetLayout = new HorizontalLayout(targetMappingField, createBuilderButton(targetMappingField, true));
+        targetLayout.setWidthFull();
+        targetLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.END);
 
         editor.add(formCodeCombo, actionCodeField, actionLabelField, targetScopeCombo,
-                iconNameCombo, buttonStyleCombo, sourceLovCodeCombo, filterMappingField, targetMappingField);
+                iconNameCombo, buttonStyleCombo, sourceLovCodeCombo, filterLayout, 
+                copySourceLovCodeCombo, copyFilterLayout, targetLayout);
 
         return editor;
     }
@@ -214,7 +238,9 @@ public class FormActionBuilderView extends VerticalLayout {
         iconNameCombo.setValue(action.getIconName());
         buttonStyleCombo.setValue(action.getButtonStyle() != null ? action.getButtonStyle() : "PRIMARY");
         sourceLovCodeCombo.setValue(action.getSourceLovCode());
+        copySourceLovCodeCombo.setValue(action.getCopySourceLovCode());
         filterMappingField.setValue(action.getFilterMapping() != null ? action.getFilterMapping() : "");
+        copyFilterMappingField.setValue(action.getCopyFilterMapping() != null ? action.getCopyFilterMapping() : "");
         targetMappingField.setValue(action.getTargetMapping() != null ? action.getTargetMapping() : "");
     }
 
@@ -228,7 +254,9 @@ public class FormActionBuilderView extends VerticalLayout {
         iconNameCombo.clear();
         buttonStyleCombo.setValue("PRIMARY");
         sourceLovCodeCombo.clear();
+        copySourceLovCodeCombo.clear();
         filterMappingField.clear();
+        copyFilterMappingField.clear();
         targetMappingField.clear();
     }
 
@@ -258,16 +286,240 @@ public class FormActionBuilderView extends VerticalLayout {
         currentAction.setIconName(iconNameCombo.getValue());
         currentAction.setButtonStyle(buttonStyleCombo.getValue());
         currentAction.setSourceLovCode(sourceLovCodeCombo.getValue());
+        currentAction.setCopySourceLovCode(copySourceLovCodeCombo.getValue());
         currentAction.setFilterMapping(filterMappingField.getValue());
+        currentAction.setCopyFilterMapping(copyFilterMappingField.getValue());
         currentAction.setTargetMapping(targetMappingField.getValue());
 
         try {
             actionRepository.save(currentAction);
-            Notification.show("Extra Toolbar berhasil disimpan" + (targetForm == null ? " sebagai Katalog Global!" : "!"), 3000, Notification.Position.BOTTOM_END);
+            Notification.show("Aksi berhasil disimpan!", 3000, Notification.Position.MIDDLE);
             refreshGrid();
-        } catch (Exception e) {
-            Notification.show("Gagal menyimpan: " + e.getMessage(), 4000, Notification.Position.MIDDLE);
+        } catch (Exception ex) {
+            Notification.show("Gagal menyimpan: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
         }
+    }
+
+    private Button createBuilderButton(TextArea targetField, boolean isTargetMapping) {
+        Button btn = new Button(VaadinIcon.MAGIC.create());
+        btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btn.getElement().setProperty("title", "Mapping Builder");
+        btn.addClickListener(e -> openMappingBuilderDialog(targetField, isTargetMapping));
+        return btn;
+    }
+
+    private void openMappingBuilderDialog(TextArea targetField, boolean isTargetMapping) {
+        com.vaadin.flow.component.dialog.Dialog dialog = new com.vaadin.flow.component.dialog.Dialog();
+        dialog.setHeaderTitle(isTargetMapping ? "Target Mapping Builder" : "Filter Mapping Builder");
+        dialog.setWidth("700px");
+
+        VerticalLayout rowsLayout = new VerticalLayout();
+        rowsLayout.setPadding(false);
+
+        Button btnAddRow = new Button("Tambah Baris", VaadinIcon.PLUS.create());
+        btnAddRow.addClickListener(e -> addMappingRow(rowsLayout, isTargetMapping));
+
+        Button btnSave = new Button("Simpan", e -> {
+            String generated = generateMappingString(rowsLayout, isTargetMapping);
+            targetField.setValue(generated);
+            dialog.close();
+        });
+        btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        Button btnCancel = new Button("Batal", e -> dialog.close());
+
+        String existing = targetField.getValue();
+        if (existing != null && !existing.isBlank()) {
+            parseExistingMapping(existing, rowsLayout, isTargetMapping);
+        } else {
+            addMappingRow(rowsLayout, isTargetMapping);
+        }
+
+        dialog.add(rowsLayout, btnAddRow);
+        dialog.getFooter().add(btnCancel, btnSave);
+        dialog.open();
+    }
+
+    @SuppressWarnings("unchecked")
+    private void addMappingRow(VerticalLayout layout, boolean isTargetMapping) {
+        HorizontalLayout row = new HorizontalLayout();
+        row.setWidthFull();
+        row.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.BASELINE);
+
+        Button btnRemove = new Button(VaadinIcon.TRASH.create(), e -> layout.remove(row));
+        btnRemove.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY);
+
+        if (isTargetMapping) {
+            ComboBox<String> scopeCombo = new ComboBox<>();
+            scopeCombo.setItems("Header", "Detail");
+            scopeCombo.setValue("Detail");
+            scopeCombo.setWidth("120px");
+            
+            TextField destField = new TextField("Target Field");
+            destField.setWidth("150px");
+
+            ComboBox<String> srcField = new ComboBox<>("Source Field");
+            srcField.setWidth("150px");
+            srcField.setAllowCustomValue(true);
+            srcField.addCustomValueSetListener(e -> setComboBoxValue(srcField, e.getDetail()));
+
+            // Populate items from data source
+            String srcLovCode = copySourceLovCodeCombo.getValue() != null && !copySourceLovCodeCombo.getValue().isBlank() 
+                                ? copySourceLovCodeCombo.getValue() 
+                                : sourceLovCodeCombo.getValue();
+            if (srcLovCode != null && !srcLovCode.isBlank()) {
+                String tableName = srcLovCode;
+                LovMeta lovMeta = lovRepository.findById(srcLovCode).orElse(null);
+                if (lovMeta != null && lovMeta.getTableName() != null && !lovMeta.getTableName().isBlank()) {
+                    tableName = lovMeta.getTableName();
+                } else {
+                    FormMeta formMeta = formRepository.findById(srcLovCode).orElse(null);
+                    if (formMeta != null) {
+                        if (formMeta.getViewTable() != null && !formMeta.getViewTable().isBlank()) {
+                            tableName = formMeta.getViewTable();
+                        } else if (formMeta.getTableName() != null && !formMeta.getTableName().isBlank()) {
+                            tableName = formMeta.getTableName();
+                        }
+                    }
+                }
+                try {
+                    List<String> cols = dynamicDataService.getColumnsForQueryOrTable(tableName);
+                    if (cols != null && !cols.isEmpty()) {
+                        srcField.setItems(cols);
+                    } else {
+                        srcField.setItems(new ArrayList<>());
+                    }
+                } catch (Exception ignored) {
+                    srcField.setItems(new ArrayList<>());
+                }
+            } else {
+                srcField.setItems(new ArrayList<>());
+            }
+
+            row.add(scopeCombo, destField, new com.vaadin.flow.component.html.Span("="), srcField, btnRemove);
+        } else {
+            TextField targetCol = new TextField("Filter Field");
+            targetCol.setWidth("150px");
+
+            ComboBox<String> typeCombo = new ComboBox<>();
+            typeCombo.setItems("Literal", "header.", "picked.");
+            typeCombo.setValue("Literal");
+            typeCombo.setWidth("120px");
+
+            TextField valField = new TextField("Value");
+            valField.setWidth("150px");
+
+            row.add(targetCol, new com.vaadin.flow.component.html.Span("="), typeCombo, valField, btnRemove);
+        }
+        layout.add(row);
+    }
+
+    @SuppressWarnings("unchecked")
+    private String generateMappingString(VerticalLayout layout, boolean isTargetMapping) {
+        List<String> pairs = new ArrayList<>();
+        for (com.vaadin.flow.component.Component c : layout.getChildren().toList()) {
+            if (c instanceof HorizontalLayout row) {
+                if (isTargetMapping) {
+                    ComboBox<String> scope = (ComboBox<String>) row.getComponentAt(0);
+                    TextField dest = (TextField) row.getComponentAt(1);
+                    ComboBox<String> src = (ComboBox<String>) row.getComponentAt(3);
+                    
+                    if (dest.getValue() != null && !dest.getValue().isBlank() && src.getValue() != null && !src.getValue().isBlank()) {
+                        String prefix = "Detail".equals(scope.getValue()) ? "detail." : "";
+                        pairs.add(prefix + dest.getValue().trim() + ":" + src.getValue().trim());
+                    }
+                } else {
+                    TextField target = (TextField) row.getComponentAt(0);
+                    ComboBox<String> type = (ComboBox<String>) row.getComponentAt(2);
+                    TextField val = (TextField) row.getComponentAt(3);
+                    
+                    if (target.getValue() != null && !target.getValue().isBlank() && val.getValue() != null && !val.getValue().isBlank()) {
+                        String valStr = val.getValue().trim();
+                        if ("Literal".equals(type.getValue())) {
+                            if (!valStr.startsWith("'") && !valStr.endsWith("'")) valStr = "'" + valStr + "'";
+                        } else {
+                            valStr = type.getValue() + valStr;
+                        }
+                        pairs.add(target.getValue().trim() + ":" + valStr);
+                    }
+                }
+            }
+        }
+        if (pairs.isEmpty()) return "";
+        if (isTargetMapping) {
+            return String.join(",", pairs);
+        } else {
+            return "{" + String.join(",", pairs) + "}";
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void parseExistingMapping(String mapping, VerticalLayout layout, boolean isTargetMapping) {
+        String clean = mapping.trim();
+        if (clean.startsWith("{") && clean.endsWith("}")) clean = clean.substring(1, clean.length() - 1).trim();
+        if (clean.isEmpty()) return;
+        
+        String[] pairs = clean.split(",");
+        for (String pair : pairs) {
+            String[] kv = pair.split(":");
+            if (kv.length < 2) kv = pair.split("=");
+            if (kv.length == 2) {
+                addMappingRow(layout, isTargetMapping);
+                HorizontalLayout row = (HorizontalLayout) layout.getComponentAt(layout.getComponentCount() - 1);
+                String k = kv[0].replaceAll("[\"']", "").trim();
+                String v = kv[1].trim();
+                
+                if (isTargetMapping) {
+                    ComboBox<String> scope = (ComboBox<String>) row.getComponentAt(0);
+                    TextField dest = (TextField) row.getComponentAt(1);
+                    ComboBox<String> src = (ComboBox<String>) row.getComponentAt(3);
+                    
+                    if (k.toLowerCase().startsWith("detail.")) {
+                        scope.setValue("Detail");
+                        dest.setValue(k.substring(7));
+                    } else {
+                        scope.setValue("Header");
+                        dest.setValue(k);
+                    }
+                    setComboBoxValue(src, v.replaceAll("[\"']", ""));
+                } else {
+                    TextField target = (TextField) row.getComponentAt(0);
+                    ComboBox<String> type = (ComboBox<String>) row.getComponentAt(2);
+                    TextField val = (TextField) row.getComponentAt(3);
+                    
+                    target.setValue(k);
+                    if (v.startsWith("header.") || v.startsWith("\"header.")) {
+                        type.setValue("header.");
+                        val.setValue(v.replace("\"", "").substring(7));
+                    } else if (v.startsWith("picked.") || v.startsWith("\"picked.")) {
+                        type.setValue("picked.");
+                        val.setValue(v.replace("\"", "").substring(7));
+                    } else {
+                        type.setValue("Literal");
+                        val.setValue(v.replace("\"", "").replace("'", ""));
+                    }
+                }
+            }
+        }
+    }
+
+    private void setComboBoxValue(ComboBox<String> combo, String value) {
+        if (value == null || value.isEmpty()) return;
+        
+        com.vaadin.flow.data.provider.DataProvider<String, ?> dp = combo.getDataProvider();
+        if (dp instanceof com.vaadin.flow.data.provider.ListDataProvider<?> listDp) {
+            @SuppressWarnings("unchecked")
+            java.util.Collection<String> items = (java.util.Collection<String>) listDp.getItems();
+            if (items == null || items.isEmpty()) {
+                combo.setItems(value);
+            } else if (!items.contains(value)) {
+                java.util.List<String> newItems = new java.util.ArrayList<>(items);
+                newItems.add(value);
+                combo.setItems(newItems);
+            }
+        } else {
+            combo.setItems(value);
+        }
+        combo.setValue(value);
     }
 
     private void deleteAction() {

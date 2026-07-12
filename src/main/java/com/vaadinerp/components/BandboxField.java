@@ -97,7 +97,7 @@ public class BandboxField<T, V> extends CustomField<V> {
         dropdownBtn.getStyle().set("flex-shrink", "0");
 
         clearBtn.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
-        clearBtn.addClickListener(e -> this.clear());
+        clearBtn.addClickListener(e -> this.clearFromClient());
         clearBtn.getStyle().set("flex-shrink", "0");
 
         displayField.getElement().addEventListener("click", e -> openPopup());
@@ -283,7 +283,7 @@ public class BandboxField<T, V> extends CustomField<V> {
             onSelectListener.accept(item);
         }
 
-        setValue(this.selectedValue); // Memicu form binder
+        setModelValue(this.selectedValue, true); // Memicu form binder dan menandai e.isFromClient() == true
         popup.close();
         this.focus();
     }
@@ -348,6 +348,14 @@ public class BandboxField<T, V> extends CustomField<V> {
     @Override
     protected V generateModelValue() {
         return selectedValue;
+    }
+
+    @com.vaadin.flow.component.ClientCallable
+    public void clearFromClient() {
+        this.selectedItem = null;
+        displayField.clear();
+        setModelValue(null, true);
+        this.focus();
     }
 
     @Override

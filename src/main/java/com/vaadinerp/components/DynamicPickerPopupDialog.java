@@ -85,7 +85,24 @@ public class DynamicPickerPopupDialog extends Dialog {
                 return;
             }
             if (this.onSelectCallback != null) {
-                this.onSelectCallback.accept(new ArrayList<>(selected));
+                if (actionMeta.getCopySourceLovCode() != null && !actionMeta.getCopySourceLovCode().trim().isEmpty()) {
+                    List<Map<String, Object>> aggregatedData = new ArrayList<>();
+                    for (Map<String, Object> pickedRow : selected) {
+                        List<Map<String, Object>> children = dataService.fetchLovDataWithActionFilters(
+                                actionMeta.getCopySourceLovCode(),
+                                actionMeta.getCopyFilterMapping(),
+                                headerRecord,
+                                pickedRow,
+                                ""
+                        );
+                        if (children != null) {
+                            aggregatedData.addAll(children);
+                        }
+                    }
+                    this.onSelectCallback.accept(aggregatedData);
+                } else {
+                    this.onSelectCallback.accept(new ArrayList<>(selected));
+                }
             }
             close();
         });

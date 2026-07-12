@@ -742,6 +742,10 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         return new ArrayList<>(deletedItems);
     }
 
+    public List<Map<String, Object>> getItems() {
+        return new ArrayList<>(items);
+    }
+
     public void setParentFieldValue(String parentFieldName, Object value) {
         if (childFormDef == null)
             return;
@@ -899,11 +903,17 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             if (kv.length == 2) {
                 String destCol = kv[0].replaceAll("[\"']", "").trim();
                 String srcCol = kv[1].replaceAll("[\"']", "").trim();
+                if (srcCol.toLowerCase().startsWith("source.")) {
+                    srcCol = srcCol.substring(7);
+                }
+                if (destCol.toLowerCase().startsWith("detail.")) {
+                    destCol = destCol.substring(7);
+                }
                 Object val = null;
                 if (srcRecord != null) {
                     val = getCaseInsensitiveVal(srcRecord, srcCol);
                 }
-                destRow.put(destCol, val);
+                putCaseInsensitiveVal(destRow, destCol, val);
             }
         }
     }
