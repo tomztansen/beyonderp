@@ -6,6 +6,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "meta_report", schema = "public")
+@EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Data
 public class ReportMeta {
     @Id

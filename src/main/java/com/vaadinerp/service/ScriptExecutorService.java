@@ -11,7 +11,7 @@ import org.codehaus.groovy.control.customizers.SecureASTCustomizer;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 
 @Service
 public class ScriptExecutorService {
@@ -19,6 +19,11 @@ public class ScriptExecutorService {
     private final org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider;
     private final ConcurrentHashMap<String, Class<? extends Script>> scriptCache = new ConcurrentHashMap<>();
     private CompilerConfiguration compilerConfiguration;
+    private final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "groovy-script-exec");
+        t.setDaemon(true);
+        return t;
+    });
 
     public ScriptExecutorService(org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider) {
         this.dataServiceProvider = dataServiceProvider;
@@ -27,17 +32,36 @@ public class ScriptExecutorService {
 
     private void initCompilerConfig() {
         SecureASTCustomizer secure = new SecureASTCustomizer();
+        secure.setIndirectImportCheckEnabled(true);
         // Block dangerous imports & receivers
         secure.setDisallowedImports(Arrays.asList(
                 "java.lang.System", "java.lang.Runtime", "java.io.File",
-                "java.net.*", "java.lang.Thread", "java.lang.reflect.*", "org.springframework.*", "javax.sql.*", "java.sql.*"
+                "java.net.*", "java.lang.Thread", "java.lang.ThreadGroup", "java.lang.Process", "java.lang.ProcessBuilder",
+                "java.lang.reflect.*", "java.lang.invoke.*", "org.springframework.*", "javax.sql.*", "java.sql.*",
+                "groovy.lang.GroovyShell", "groovy.lang.GroovyClassLoader", "groovy.util.Eval", "groovy.lang.MetaClass"
         ));
         secure.setDisallowedReceivers(Arrays.asList(
-                "java.lang.System", "java.lang.Runtime", "java.lang.Thread", "java.lang.Class"
+                "java.lang.System", "java.lang.Runtime", "java.lang.Thread", "java.lang.ThreadGroup", "java.lang.Process", "java.lang.ProcessBuilder",
+                "java.lang.Class", "java.lang.ClassLoader", "groovy.lang.GroovyShell", "groovy.lang.GroovyClassLoader",
+                "groovy.util.Eval", "groovy.lang.MetaClass", "org.codehaus.groovy.runtime.InvokerHelper", "org.codehaus.groovy.runtime.ProcessGroovyMethods"
         ));
+        // Block dangerous reflection & code execution method calls to prevent dynamic typing/reflection bypasses
+        secure.addExpressionCheckers(expression -> {
+            if (expression instanceof org.codehaus.groovy.ast.expr.MethodCallExpression mce) {
+                String methodName = mce.getMethodAsString();
+                if (methodName != null && Arrays.asList("getClass", "forName", "invoke", "newInstance", "eval", "execute", "getSystemClassLoader", "getClassLoader",
+                        "getConstructor", "getDeclaredConstructor", "getMethod", "getDeclaredMethod", "getField", "getDeclaredField",
+                        "exit", "halt", "loadClass", "defineClass", "getMetaClass", "setMetaClass", "invokeMethod",
+                        "setProperty", "start", "dump", "inspect").contains(methodName)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
 
         // Allow all constant literal types (int, boolean, String, BigDecimal, List, Map, etc.)
-        // Security is enforced via disallowed imports, receivers, and execution timeout.
+        // Security is enforced via disallowed imports, receivers, methods, and execution timeout.
 
         compilerConfiguration = new CompilerConfiguration();
         compilerConfiguration.addCompilationCustomizers(secure);
@@ -84,9 +108,22 @@ public class ScriptExecutorService {
             binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
 
             scriptInstance.setBinding(binding);
-            scriptInstance.run();
+
+            Future<?> future = executorService.submit((Runnable) () -> scriptInstance.run());
+            try {
+                future.get(2, TimeUnit.SECONDS);
+            } catch (TimeoutException te) {
+                future.cancel(true);
+                throw new RuntimeException("Script Execution Timeout: exceeded 2 seconds maximum limit.");
+            } catch (ExecutionException ee) {
+                Throwable cause = ee.getCause() != null ? ee.getCause() : ee;
+                throw new RuntimeException("Script Error: " + cause.getMessage(), cause);
+            }
         } catch (Exception e) {
             System.err.println("Error executing script [" + scriptId + "]: " + e.getMessage());
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            }
             throw new RuntimeException("Script Error: " + e.getMessage(), e);
         }
     }
@@ -107,6 +144,15 @@ public class ScriptExecutorService {
             this.dataServiceProvider = dataServiceProvider;
         }
 
+        // Blokir akses refleksi atau properti internal dari script Groovy
+        public Object getDataServiceProvider() {
+            throw new SecurityException("Akses ke dataServiceProvider internal ditolak!");
+        }
+
+        public Object getJdbcTemplate() {
+            throw new SecurityException("Akses langsung ke JdbcTemplate ditolak!");
+        }
+
         // Ambil 1 baris data dari tabel berdasarkan kolom kunci & nilai
         public Map<String, Object> find(String tableName, String keyColumn, Object keyValue) {
             try {
@@ -118,16 +164,31 @@ public class ScriptExecutorService {
             }
         }
 
-        // Ambil 1 nilai langsung dari SQL query ringan (hanya SELECT)
+        // Ambil 1 nilai langsung dari SQL query ringan (hanya SELECT murni tanpa chained queries)
         public Object getValue(String sql, Object... args) {
             try {
-                if (sql == null || !sql.trim().toUpperCase().startsWith("SELECT ")) {
+                if (sql == null || sql.trim().isEmpty()) {
+                    return null;
+                }
+                String clean = sql.trim().toUpperCase();
+                if (!clean.startsWith("SELECT ")) {
                     throw new IllegalArgumentException("Hanya query SELECT yang diperbolehkan dalam script!");
+                }
+                if (clean.contains("INSERT ") || clean.contains("UPDATE ") || clean.contains("DELETE ") ||
+                        clean.contains("DROP ") || clean.contains("ALTER ") || clean.contains("TRUNCATE ") ||
+                        clean.contains("GRANT ") || clean.contains("REVOKE ") || clean.contains("EXEC ") ||
+                        clean.contains("EXECUTE ") || clean.contains("PG_SLEEP") || clean.contains("PG_TERMINATE") ||
+                        clean.contains("PG_CANCEL") || clean.contains("DBLINK") || sql.contains(";") ||
+                        sql.contains("--") || sql.contains("/*")) {
+                    throw new IllegalArgumentException("Query mengandung perintah perusak database atau karakter terlarang!");
                 }
                 DynamicDataService dataService = dataServiceProvider.getIfAvailable();
                 if (dataService == null) return null;
                 return dataService.getJdbcTemplate().queryForObject(sql, Object.class, args);
             } catch (Exception e) {
+                if (e instanceof IllegalArgumentException) {
+                    throw e;
+                }
                 return null;
             }
         }

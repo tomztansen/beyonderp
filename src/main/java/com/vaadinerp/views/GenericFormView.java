@@ -408,13 +408,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
                 if (binderOk && requiredOk && rulesOk && subformsOk) {
                     Map<String, Object> parentData = formBinder.getBean();
-                    // Inject deleted records into the parent data map before saving
+                    // Inject active and deleted records into the parent data map before saving
                     for (FieldMeta field : formDef.getFields()) {
                         if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
                             Component comp = formComponents.get(field.getFieldName());
                             if (comp instanceof SubformGridField) {
                                 SubformGridField subformField = (SubformGridField) comp;
-                                parentData.put("__deleted_" + field.getFieldName(), subformField.getDeletedValues());
+                                parentData.put(field.getFieldName(), subformField.getItems());
+                                parentData.put(field.getFieldName() + "_deleted", subformField.getDeletedValues());
                             }
                         }
                     }
@@ -680,6 +681,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             if (kv.length == 2) {
                 String destCol = kv[0].replaceAll("[\"']", "").trim();
                 String srcCol = kv[1].replaceAll("[\"']", "").trim();
+                if (srcCol.toLowerCase().startsWith("source.")) {
+                    srcCol = srcCol.substring(7);
+                }
                 Object val = null;
                 if (srcRecord != null) {
                     val = getValueCaseInsensitive(srcRecord, srcCol);
@@ -777,7 +781,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             List<FieldMeta> groupFields = groups.get(rg);
             FormLayout rowLayout = new FormLayout();
             rowLayout.setWidthFull();
-            int cols = groupFields.size();
+            boolean allDefault = groupFields.stream().allMatch(f -> f.getColSpan() == null || f.getColSpan() <= 1);
+            int cols = (allDefault && groupFields.size() > 0 && groupFields.size() <= 6) ? groupFields.size() : 12;
             rowLayout.setResponsiveSteps(
                     new FormLayout.ResponsiveStep("0", 1),
                     new FormLayout.ResponsiveStep("500px", Math.max(1, cols / 2)),
@@ -796,8 +801,15 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 formComponents.put(field.getFieldName(), input);
                 bindComponent(formBinder, input, field);
 
-                if ("TEXTAREA".equalsIgnoreCase(field.getComponentType())) {
-                    rowLayout.setColspan(input, cols);
+                int span = (field.getColSpan() != null && field.getColSpan() > 0) ? field.getColSpan() : 1;
+                if ("TEXTAREA".equalsIgnoreCase(field.getComponentType()) && (field.getColSpan() == null || field.getColSpan() <= 1)) {
+                    span = cols;
+                }
+                if (span > 1) {
+                    rowLayout.setColspan(input, Math.min(span, cols));
+                }
+                if ("TEXTAREA".equalsIgnoreCase(field.getComponentType()) && input instanceof com.vaadin.flow.component.textfield.TextArea ta) {
+                    ta.getStyle().set("resize", "vertical");
                 }
             }
             formLayout.add(rowLayout);

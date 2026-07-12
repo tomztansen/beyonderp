@@ -6,6 +6,7 @@ import lombok.ToString;
 
 @Entity
 @Table(name = "meta_report_element", schema = "public")
+@EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Data
 @ToString(exclude = "reportMeta")
 public class ReportElementMeta {
@@ -13,6 +14,7 @@ public class ReportElementMeta {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne
     @JoinColumn(name = "report_code")
     private ReportMeta reportMeta;

@@ -137,7 +137,8 @@ public class ComponentFactory {
                                 Object valToSet = selectedVal;
                                 if (target.getSourceColumn() != null) {
                                     String srcCol = target.getSourceColumn().trim();
-                                    if ("_label".equalsIgnoreCase(srcCol) || "label".equalsIgnoreCase(srcCol) || (field.getFieldName() + "_label").equalsIgnoreCase(srcCol)) {
+                                    if ("_label".equalsIgnoreCase(srcCol) || "label".equalsIgnoreCase(srcCol)
+                                            || (field.getFieldName() + "_label").equalsIgnoreCase(srcCol)) {
                                         if (component instanceof com.vaadinerp.components.BandboxField<?, ?> bandbox) {
                                             valToSet = bandbox.getDisplayLabel();
                                         } else if (component instanceof com.vaadinerp.components.LovComboBox lovCombo) {
@@ -159,25 +160,40 @@ public class ComponentFactory {
                                                 }
                                             }
                                         }
-                                        if (valToSet == null && srcCol.toLowerCase().endsWith("_label") && srcCol.length() > 6) {
+                                        if (valToSet == null && srcCol.toLowerCase().endsWith("_label")
+                                                && srcCol.length() > 6) {
                                             String baseCol = srcCol.substring(0, srcCol.length() - 6);
                                             Object baseVal = getCaseInsensitiveVal(row, baseCol);
-                                            if (baseVal != null && !baseVal.toString().trim().isEmpty() && field.getLovCode() != null && dataService != null) {
-                                                com.vaadinerp.meta.FormMeta sourceForm = dataService.getFormMetaRepository().findById(field.getLovCode().trim()).orElse(null);
-                                                if (sourceForm == null) sourceForm = dataService.getFormMetaRepository().findById(field.getLovCode().trim().toLowerCase()).orElse(null);
-                                                if (sourceForm == null) sourceForm = dataService.getFormMetaRepository().findById(field.getLovCode().trim().toUpperCase()).orElse(null);
+                                            if (baseVal != null && !baseVal.toString().trim().isEmpty()
+                                                    && field.getLovCode() != null && dataService != null) {
+                                                com.vaadinerp.meta.FormMeta sourceForm = dataService
+                                                        .getFormMetaRepository().findById(field.getLovCode().trim())
+                                                        .orElse(null);
+                                                if (sourceForm == null)
+                                                    sourceForm = dataService.getFormMetaRepository()
+                                                            .findById(field.getLovCode().trim().toLowerCase())
+                                                            .orElse(null);
+                                                if (sourceForm == null)
+                                                    sourceForm = dataService.getFormMetaRepository()
+                                                            .findById(field.getLovCode().trim().toUpperCase())
+                                                            .orElse(null);
                                                 if (sourceForm == null) {
-                                                    com.vaadinerp.meta.LovMeta lm = dataService.getLovMeta(field.getLovCode().trim()).orElse(null);
+                                                    com.vaadinerp.meta.LovMeta lm = dataService
+                                                            .getLovMeta(field.getLovCode().trim()).orElse(null);
                                                     if (lm != null && lm.getTableName() != null) {
-                                                        sourceForm = dataService.getFormMetaRepository().findById(lm.getTableName().trim()).orElse(null);
+                                                        sourceForm = dataService.getFormMetaRepository()
+                                                                .findById(lm.getTableName().trim()).orElse(null);
                                                     }
                                                 }
                                                 if (sourceForm != null && sourceForm.getFields() != null) {
-                                                    com.vaadinerp.meta.FieldMeta childField = sourceForm.getFields().stream()
-                                                            .filter(f -> f.getFieldName() != null && f.getFieldName().equalsIgnoreCase(baseCol))
+                                                    com.vaadinerp.meta.FieldMeta childField = sourceForm.getFields()
+                                                            .stream()
+                                                            .filter(f -> f.getFieldName() != null
+                                                                    && f.getFieldName().equalsIgnoreCase(baseCol))
                                                             .findFirst().orElse(null);
                                                     if (childField != null && childField.getLovCode() != null) {
-                                                        valToSet = formatFieldValueWithLov(childField, baseVal, dataService);
+                                                        valToSet = formatFieldValueWithLov(childField, baseVal,
+                                                                dataService);
                                                     }
                                                 }
                                             }
@@ -231,9 +247,9 @@ public class ComponentFactory {
         if (val != null) {
             String strVal = val.toString();
             boolean hasMaxLenRule = (hasExplicitRule && rawRule != null && rawRule.toUpperCase().contains("MAX_LEN:"));
-            if (!hasMaxLenRule && strVal.length() > 4000) {
+            if (!hasMaxLenRule && strVal.length() > 40000) {
                 isInvalid = true;
-                errMsg = "Panjang teks maksimal adalah 4000 karakter (batas default sistem)!";
+                errMsg = "Panjang teks maksimal adalah 40000 karakter (batas default sistem)!";
             }
         }
 
@@ -417,7 +433,8 @@ public class ComponentFactory {
         if (field != null && field.getLovCode() != null && !field.getLovCode().trim().isEmpty()
                 && dataService != null) {
             String lovCode = field.getLovCode().trim();
-            java.util.Map<String, String> map = lovLabelCache.computeIfAbsent(lovCode, code -> new java.util.concurrent.ConcurrentHashMap<>());
+            java.util.Map<String, String> map = lovLabelCache.computeIfAbsent(lovCode,
+                    code -> new java.util.concurrent.ConcurrentHashMap<>());
             if (strVal.contains(",")) {
                 return java.util.Arrays.stream(strVal.split(","))
                         .map(String::trim)
@@ -640,19 +657,19 @@ public class ComponentFactory {
         }
 
         if (comp instanceof IntegerField intField) {
-            intField.setPlaceholder(cleanFmt);
+            intField.setPlaceholder("");
             if (prefix != null)
                 intField.setPrefixComponent(prefix);
             if (suffix != null)
                 intField.setSuffixComponent(suffix);
         } else if (comp instanceof BigDecimalField decField) {
-            decField.setPlaceholder(cleanFmt);
+            decField.setPlaceholder("");
             if (prefix != null)
                 decField.setPrefixComponent(prefix);
             if (suffix != null)
                 decField.setSuffixComponent(suffix);
         } else if (comp instanceof TextField txtField) {
-            txtField.setPlaceholder(cleanFmt);
+            txtField.setPlaceholder("");
             if (prefix != null)
                 txtField.setPrefixComponent(prefix);
             if (suffix != null)
@@ -691,7 +708,8 @@ public class ComponentFactory {
                 TextField textField = new TextField(label);
                 if (field.getSequenceCode() != null && !field.getSequenceCode().trim().isEmpty()) {
                     textField.setPlaceholder("⚡ [AUTO: " + field.getSequenceCode() + "]");
-                    textField.setTooltipText("Nomor akan dibuat otomatis oleh sistem saat data disimpan (Sequence: " + field.getSequenceCode() + ")");
+                    textField.setTooltipText("Nomor akan dibuat otomatis oleh sistem saat data disimpan (Sequence: "
+                            + field.getSequenceCode() + ")");
                     textField.setReadOnly(true);
                 } else {
                     textField.setReadOnly(field.isReadonly());
@@ -736,7 +754,8 @@ public class ComponentFactory {
             case "TIMESTAMPTZ":
                 String dtFmt = hasFmt && fmt != null ? fmt
                         : StandardFormatService.getStandardFormat("DATETIMEBOX", "dd/MM/yyyy HH:mm");
-                if (dtFmt == null) dtFmt = "dd/MM/yyyy HH:mm";
+                if (dtFmt == null)
+                    dtFmt = "dd/MM/yyyy HH:mm";
                 DateTimePicker dateTimePicker = new DateTimePicker(label);
                 dateTimePicker.setReadOnly(field.isReadonly());
                 dateTimePicker.setLocale(java.util.Locale.of("id", "ID"));

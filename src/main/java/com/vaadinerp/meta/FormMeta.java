@@ -10,6 +10,7 @@ import lombok.ToString;
 
 @Entity
 @Table(name = "meta_form", schema = "public")
+@EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Data
 @EqualsAndHashCode(of = "formCode")
 @ToString(exclude = "fields")

@@ -1,13 +1,11 @@
 package com.vaadinerp.meta;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Data;
 
 @Entity
 @Table(name = "meta_lov", schema = "public")
+@EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Data
 public class LovMeta {
     @Id

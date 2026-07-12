@@ -8,6 +8,7 @@ import lombok.EqualsAndHashCode;
 
 @Entity
 @Table(name = "meta_field", schema = "public")
+@EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Data
 @EqualsAndHashCode(of = {"id", "fieldName"})
 @ToString(exclude = {"formMeta", "lovTargets"})
@@ -16,6 +17,7 @@ public class FieldMeta {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne
     @JoinColumn(name = "form_code")
     private FormMeta formMeta;
@@ -34,6 +36,9 @@ public class FieldMeta {
 
     @Column(name = "col_order")
     private Integer colOrder;
+
+    @Column(name = "col_span")
+    private Integer colSpan = 1;
 
     @Column(name = "is_required")
     private boolean isRequired;
