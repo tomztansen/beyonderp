@@ -47,6 +47,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
     private final Map<String, FilterCriteria> filterValues = new HashMap<>();
     private final Map<Grid.Column<Map<String, Object>>, String> columnToFieldNameMap = new HashMap<>();
+    private final Map<Grid.Column<Map<String, Object>>, java.util.function.Function<Map<String, Object>, String>> colGetterMap = new java.util.concurrent.ConcurrentHashMap<>();
     private Map<String, Object> draggedItem;
 
     // Registrations for listener deduplication
@@ -97,6 +98,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 dataService.resetUserGridOrder(childFormDef.getFormCode(), "subformGrid");
                 grid.setSelectionMode(Grid.SelectionMode.MULTI);
                 columnToFieldNameMap.clear();
+                colGetterMap.clear();
                 editorComponents.clear();
                 filterValues.clear();
                 buildGridColumns();
@@ -110,7 +112,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         refreshExtraActions();
 
-        com.vaadin.flow.component.html.Anchor btnExportSubformExcel = com.vaadinerp.components.StandardGridUtils.createExportExcelButton(grid, this.fieldMeta != null && this.fieldMeta.getFieldName() != null ? this.fieldMeta.getFieldName() + "_export" : "subform_export");
+        com.vaadin.flow.component.html.Anchor btnExportSubformExcel = com.vaadinerp.components.StandardGridUtils.createExportExcelButton(grid, this.fieldMeta != null && this.fieldMeta.getFieldName() != null ? this.fieldMeta.getFieldName() + "_export" : "subform_export", colGetterMap);
         btnExportSubformExcel.getStyle().set("margin-left", "auto");
         toolbar.add(btnExportSubformExcel, btnResetSubformGrid);
 
@@ -448,13 +450,18 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         for (FieldMeta field : childFields) {
             String fieldName = field.getFieldName();
+            java.util.function.Function<Map<String, Object>, String> valueGetter = map -> {
+                String formatted = ComponentFactory.formatFieldValueWithLov(field, getCaseInsensitiveVal(map, fieldName), dataService);
+                return formatted != null ? formatted : "";
+            };
             Grid.Column<Map<String, Object>> col = grid
-                    .addColumn(map -> ComponentFactory.formatFieldValueWithLov(field, getCaseInsensitiveVal(map, fieldName), dataService))
+                    .addColumn(valueGetter::apply)
                     .setHeader(field.getFieldLabel())
                     .setAutoWidth(true)
                     .setFlexGrow(1)
                     .setResizable(true)
                     .setKey(fieldName);
+            colGetterMap.put(col, valueGetter);
 
             if (field.isHideInForm() || "HIDDEN".equalsIgnoreCase(field.getComponentType())) {
                 col.setVisible(false);

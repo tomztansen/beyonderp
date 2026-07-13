@@ -170,6 +170,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     }
 
     private boolean isEvaluatingFormulas = false;
+    private final java.util.Map<Grid.Column<Map<String, Object>>, java.util.function.Function<Map<String, Object>, String>> colGetterMap = new java.util.concurrent.ConcurrentHashMap<>();
 
     public GenericFormView(FormMetaRepository formMetaRepository, DynamicDataService dynamicDataService) {
         this(formMetaRepository, dynamicDataService, null);
@@ -203,6 +204,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         grid.setSizeFull();
         grid.setMinHeight("300px");
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
+        grid.setPageSize(25);
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(grid);
 
         // Setup TabSheet layouts
@@ -981,6 +983,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // grid.setSelectionMode(Grid.SelectionMode.MULTI);
 
         columnToFieldNameMap.clear(); // reset mapping setiap kali grid dibangun ulang
+        colGetterMap.clear();
 
         // 1. Konfigurasi Toolbar Grid
         gridToolbar.removeAll();
@@ -1001,8 +1004,73 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         com.vaadin.flow.component.html.Anchor btnExportExcel = com.vaadinerp.components.StandardGridUtils
-                .createExportExcelButton(grid, currentFormCode != null ? currentFormCode + "_export" : "data_export");
-        gridToolbar.add(sectionTitle, btnExportExcel, btnResetGridToolbar);
+                .createExportExcelButton(grid, currentFormCode != null ? currentFormCode + "_export" : "data_export", colGetterMap);
+
+        com.vaadin.flow.component.checkbox.Checkbox cbPilihSemuaHalIni = new com.vaadin.flow.component.checkbox.Checkbox();
+        com.vaadin.flow.component.html.Span lblPilihSemuaHalIni = new com.vaadin.flow.component.html.Span("Pilih Semua (Hal Ini)");
+        lblPilihSemuaHalIni.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "500").set("cursor", "pointer").set("user-select", "none").set("white-space", "nowrap");
+        lblPilihSemuaHalIni.addClickListener(e -> cbPilihSemuaHalIni.setValue(!Boolean.TRUE.equals(cbPilihSemuaHalIni.getValue())));
+
+        HorizontalLayout boxHalIni = new HorizontalLayout(cbPilihSemuaHalIni, lblPilihSemuaHalIni);
+        boxHalIni.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
+        boxHalIni.setSpacing(false);
+        boxHalIni.getStyle().set("gap", "4px").set("margin-left", "10px");
+
+        com.vaadin.flow.component.checkbox.Checkbox cbPilihSemua = new com.vaadin.flow.component.checkbox.Checkbox();
+        com.vaadin.flow.component.html.Span lblPilihSemua = new com.vaadin.flow.component.html.Span("Pilih Semua");
+        lblPilihSemua.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "500").set("cursor", "pointer").set("user-select", "none").set("white-space", "nowrap");
+        lblPilihSemua.addClickListener(e -> cbPilihSemua.setValue(!Boolean.TRUE.equals(cbPilihSemua.getValue())));
+
+        HorizontalLayout boxAll = new HorizontalLayout(cbPilihSemua, lblPilihSemua);
+        boxAll.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
+        boxAll.setSpacing(false);
+        boxAll.getStyle().set("gap", "4px").set("margin-left", "12px");
+
+        cbPilihSemuaHalIni.addValueChangeListener(e -> {
+            if (e.isFromClient() && currentFormDef != null) {
+                if (Boolean.TRUE.equals(e.getValue())) {
+                    int offset = paginationBar != null ? paginationBar.getOffset() : 0;
+                    int limit = paginationBar != null ? paginationBar.getLimit() : 1000;
+                    java.util.List<Map<String, Object>> pageItems = dynamicDataService.fetchGridDataPaged(
+                            currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
+                    grid.asMultiSelect().select(pageItems);
+                    Notification.show("Memilih " + pageItems.size() + " baris di halaman ini.", 1500, Notification.Position.BOTTOM_END);
+                } else {
+                    if (!cbPilihSemua.getValue()) {
+                        grid.deselectAll();
+                    } else {
+                        cbPilihSemua.setValue(false);
+                        grid.deselectAll();
+                    }
+                }
+            }
+        });
+
+        cbPilihSemua.addValueChangeListener(e -> {
+            if (e.isFromClient() && currentFormDef != null) {
+                if (Boolean.TRUE.equals(e.getValue())) {
+                    java.util.List<Map<String, Object>> allItems = dynamicDataService.fetchGridDataPaged(
+                            currentFormDef, 0, Integer.MAX_VALUE, filterValues, currentSortField, currentSortDir);
+                    grid.asMultiSelect().select(allItems);
+                    cbPilihSemuaHalIni.setValue(true);
+                    Notification.show("Memilih seluruh " + allItems.size() + " baris data.", 2000, Notification.Position.BOTTOM_END);
+                } else {
+                    cbPilihSemuaHalIni.setValue(false);
+                    grid.deselectAll();
+                }
+            }
+        });
+
+        grid.addSelectionListener(e -> {
+            if (e.getAllSelectedItems().isEmpty()) {
+                cbPilihSemuaHalIni.setValue(false);
+                cbPilihSemua.setValue(false);
+            }
+        });
+
+        gridToolbar.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
+        gridToolbar.getStyle().set("flex-wrap", "nowrap").set("overflow-x", "auto");
+        gridToolbar.add(sectionTitle, boxHalIni, boxAll, btnExportExcel, btnResetGridToolbar);
 
         // Double Click Listener to load data into form and switch tab
         com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority auth = securityService != null
@@ -1036,16 +1104,19 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     fieldNameToLovCodeMap.put(fieldName, lovCode);
                 }
 
-                Grid.Column<Map<String, Object>> col = grid.addColumn(map -> {
+                java.util.function.Function<Map<String, Object>, String> valueGetter = map -> {
                     Object valObj = getValueCaseInsensitive(map, fieldName);
-                    return com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(field, valObj,
+                    String formatted = com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(field, valObj,
                             dynamicDataService);
-                })
+                    return formatted != null ? formatted : "";
+                };
+                Grid.Column<Map<String, Object>> col = grid.addColumn(valueGetter::apply)
                         .setHeader(field.getFieldLabel())
                         .setAutoWidth(true)
                         .setFlexGrow(1)
                         .setResizable(true)
                         .setKey(fieldName); // setKey supaya bisa diakses ulang kalau perlu
+                colGetterMap.put(col, valueGetter);
 
                 // Setup Comparator for Sorting
                 col.setComparator((map1, map2) -> {
@@ -1236,6 +1307,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // Terapkan preferensi urutan kolom per user jika ada
         java.util.List<String> userOrder = dynamicDataService.getUserGridOrder(currentFormCode, "mainGrid");
         com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(grid, columnToFieldNameMap, userOrder);
+
+        com.vaadinerp.components.StandardGridUtils.attachSelectAllHeader(grid, () -> {
+            if (currentFormDef == null) return java.util.Collections.emptyList();
+            int offset = paginationBar != null ? paginationBar.getOffset() : 0;
+            int limit = paginationBar != null ? paginationBar.getLimit() : 1000;
+            return dynamicDataService.fetchGridDataPaged(currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
+        });
     }
 
     private void refreshGridData(FormMeta formDef) {
@@ -1311,6 +1389,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         }
                 );
         grid.setDataProvider(dataProvider);
+        com.vaadinerp.components.StandardGridUtils.attachSelectAllHeader(grid, () -> {
+            if (currentFormDef == null) return java.util.Collections.emptyList();
+            int offset = paginationBar != null ? paginationBar.getOffset() : 0;
+            int limit = paginationBar != null ? paginationBar.getLimit() : 1000;
+            return dynamicDataService.fetchGridDataPaged(currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
+        });
     }
 
     private void evaluateFormulas() {
