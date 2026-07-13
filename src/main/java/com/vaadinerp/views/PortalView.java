@@ -115,6 +115,11 @@ public class PortalView extends AppLayout {
         setupTabSheet();
 
         setContent(tabSheet);
+
+        try {
+            getElement().executeJs(com.vaadinerp.components.StandardGridUtils.getGlobalCellCopyJs());
+        } catch (Exception ignored) {
+        }
     }
 
     private void setupNavbar() {
@@ -1120,15 +1125,21 @@ public class PortalView extends AppLayout {
         openTabs.put(tabId, tab);
 
         closeBtn.addClickListener(e -> {
-            tabSheet.remove(tab);
-            openTabs.remove(tabId);
-            if (openTabs.isEmpty()) {
-                tabSheet.setSelectedIndex(0);
-                clearActiveLeaves();
-            }
+            closeTabById(tabId);
         });
 
         tabSheet.setSelectedTab(tab);
+    }
+
+    public void closeTabById(String tabId) {
+        Tab tab = openTabs.remove(tabId);
+        if (tab != null) {
+            tabSheet.remove(tab);
+        }
+        if (openTabs.isEmpty()) {
+            tabSheet.setSelectedIndex(0);
+            clearActiveLeaves();
+        }
     }
 
     private void refreshFormMenu() {

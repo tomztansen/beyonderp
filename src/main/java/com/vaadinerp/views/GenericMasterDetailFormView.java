@@ -199,6 +199,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         masterGrid.setSizeFull();
         masterGrid.setMinHeight("300px");
         masterGrid.setSelectionMode(Grid.SelectionMode.MULTI);
+        com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(masterGrid);
 
         // Setup Tab Sheet layouts
         VerticalLayout historisLayout = new VerticalLayout();
@@ -251,6 +252,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         detailsGrid.setWidthFull();
         detailsGrid.setMinHeight("300px");
         detailsGrid.setSelectionMode(Grid.SelectionMode.MULTI);
+        com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(detailsGrid);
         
         transaksiLayout.add(formLayout, detailsToolbar, detailsGrid);
 
@@ -525,6 +527,27 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             applyDetailsFilters();
             tabSheet.setSelectedTab(transaksiTab);
             executeOnLoadActions("ON_LOAD_NEW");
+        });
+
+        // 1.5. EDIT BUTTON
+        Button btnEdit = new Button("Edit");
+        Icon iconEdit = VaadinIcon.EDIT.create();
+        iconEdit.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
+        btnEdit.setIcon(iconEdit);
+        btnEdit.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btnEdit.getStyle().set("font-weight", "500").set("color", "#374151");
+        btnEdit.addClickListener(e -> {
+            if (tabSheet.getSelectedTab() == historisTab) {
+                java.util.Set<Map<String, Object>> selectedItems = masterGrid.getSelectedItems();
+                if (selectedItems == null || selectedItems.isEmpty()) {
+                    Notification.show("Pilih data yang akan diedit terlebih dahulu di tab Historis!", 3000, Notification.Position.MIDDLE);
+                    return;
+                }
+                loadAndEditData(selectedItems.iterator().next());
+            } else {
+                Notification.show("Silakan pilih data di tab Historis terlebih dahulu.", 3000, Notification.Position.MIDDLE);
+                tabSheet.setSelectedTab(historisTab);
+            }
         });
 
         // 2. HAPUS BUTTON
@@ -808,6 +831,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         if (!auth.canEdit) {
             btnSave.setVisible(false);
             btnSave.setEnabled(false);
+            btnEdit.setVisible(false);
+            btnEdit.setEnabled(false);
         }
         if (!auth.canDelete) {
             btnDelete.setVisible(false);
@@ -832,8 +857,52 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         });
 
         extraActionsContainer.setSpacing(true);
-        toolbar.add(btnNew, btnDelete, btnSave, btnCancel, btnRefresh, btnClose, btnPrint, btnDebug, extraActionsContainer);
+        toolbar.add(btnNew, btnEdit, btnDelete, btnSave, btnCancel, btnRefresh, btnClose, btnPrint, btnDebug, extraActionsContainer);
         refreshExtraToolbarButtons();
+    }
+
+    private void loadAndEditData(Map<String, Object> selectedMaster) {
+        if (selectedMaster != null && currentFormDef != null) {
+            String pk = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey() : "id";
+            Object masterId = getValueCaseInsensitive(selectedMaster, pk);
+            Map<String, Object> freshMaster = selectedMaster;
+            if (masterId != null && !masterId.toString().trim().isEmpty()) {
+                try {
+                    String srcTable = (currentFormDef.getViewTable() != null && !currentFormDef.getViewTable().trim().isEmpty()) ? currentFormDef.getViewTable().trim() : currentFormDef.getTableName();
+                    Map<String, Object> dbRow = dynamicDataService.fetchLovRecord(srcTable, pk, masterId);
+                    if (dbRow != null && !dbRow.isEmpty()) {
+                        freshMaster = dbRow;
+                    }
+                } catch (Exception ex) {
+                    Notification.show("Error memuat data: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                }
+            }
+            Map<String, Object> formValues = new HashMap<>(freshMaster);
+
+            // Set flag to prevent cascading listeners from clearing child LOV values
+            isLoadingExistingData = true;
+            try {
+                formBinder.setBean(formValues);
+            } finally {
+                isLoadingExistingData = false;
+            }
+            evaluateFormulas();
+            
+            // Fetch details
+            detailsList.clear();
+            deletedDetailsList.clear();
+            if (masterId != null) {
+                detailsList.addAll(dynamicDataService.fetchDetailTableData(
+                        currentFormDef.getDetailTableName(), 
+                        currentFormDef.getDetailForeignKey(), 
+                        masterId
+                ));
+            }
+            
+            applyDetailsFilters();
+            tabSheet.setSelectedTab(transaksiTab);
+            executeOnLoadActions("ON_LOAD_EDIT");
+        }
     }
 
     private void refreshExtraToolbarButtons() {
@@ -979,50 +1048,16 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         com.vaadin.flow.component.html.Anchor btnExportMasterExcel = com.vaadinerp.components.StandardGridUtils.createExportExcelButton(masterGrid, currentFormCode != null ? currentFormCode + "_master_export" : "master_export");
         masterGridToolbar.add(sectionTitle, btnExportMasterExcel, btnResetMasterGrid);
 
-        masterDoubleClickReg = masterGrid.addItemDoubleClickListener(event -> {
-            Map<String, Object> selectedMaster = event.getItem();
-            if (selectedMaster != null) {
-                String pk = formDef.getPrimaryKey() != null ? formDef.getPrimaryKey() : "id";
-                Object masterId = getValueCaseInsensitive(selectedMaster, pk);
-                Map<String, Object> freshMaster = selectedMaster;
-                if (masterId != null && !masterId.toString().trim().isEmpty()) {
-                    try {
-                        String srcTable = (formDef.getViewTable() != null && !formDef.getViewTable().trim().isEmpty()) ? formDef.getViewTable().trim() : formDef.getTableName();
-                        Map<String, Object> dbRow = dynamicDataService.fetchLovRecord(srcTable, pk, masterId);
-                        if (dbRow != null && !dbRow.isEmpty()) {
-                            freshMaster = dbRow;
-                        }
-                    } catch (Exception ex) {
-                        Notification.show("Error memuat data: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
-                    }
-                }
-                Map<String, Object> formValues = new HashMap<>(freshMaster);
+        com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority auth = securityService != null
+                && currentFormCode != null
+                        ? securityService.getAuthorityForMenu(currentFormCode)
+                        : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
 
-                // Set flag to prevent cascading listeners from clearing child LOV values
-                isLoadingExistingData = true;
-                try {
-                    formBinder.setBean(formValues);
-                } finally {
-                    isLoadingExistingData = false;
-                }
-                evaluateFormulas();
-                
-                // Fetch details
-                detailsList.clear();
-                deletedDetailsList.clear();
-                if (masterId != null) {
-                    detailsList.addAll(dynamicDataService.fetchDetailTableData(
-                            formDef.getDetailTableName(), 
-                            formDef.getDetailForeignKey(), 
-                            masterId
-                    ));
-                }
-                
-                applyDetailsFilters();
-                tabSheet.setSelectedTab(transaksiTab);
-                executeOnLoadActions("ON_LOAD_EDIT");
-            }
-        });
+        if (auth.canEdit) {
+            masterDoubleClickReg = masterGrid.addItemDoubleClickListener(event -> {
+                loadAndEditData(event.getItem());
+            });
+        }
 
         // LinkedHashMap to hold columns for Header Filter Row
         java.util.Map<String, Grid.Column<Map<String, Object>>> columnsMap = new java.util.LinkedHashMap<>();
@@ -1754,21 +1789,63 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         if (paginationBar != null) {
             paginationBar.setTotalRecords(totalRecords);
         }
-        int offset = paginationBar != null ? paginationBar.getOffset() : 0;
-        int limit = paginationBar != null ? paginationBar.getLimit() : 100;
-        
-        java.util.List<Map<String, Object>> pagedData = dynamicDataService.fetchGridDataPaged(
-                currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
-
-        allMasterGridItems.clear();
-        allMasterGridItems.addAll(pagedData);
-        updateMasterGridDataProvider();
+        com.vaadin.flow.data.provider.DataProvider<Map<String, Object>, ?> dp = masterGrid.getDataProvider();
+        if (dp instanceof com.vaadin.flow.data.provider.CallbackDataProvider) {
+            dp.refreshAll();
+        } else {
+            updateMasterGridDataProvider();
+        }
     }
 
     private void updateMasterGridDataProvider() {
-        masterGridItems.clear();
-        masterGridItems.addAll(allMasterGridItems);
-        masterGrid.setItems(new ArrayList<>(masterGridItems));
+        if (currentFormDef == null) return;
+        com.vaadin.flow.data.provider.CallbackDataProvider<Map<String, Object>, Void> dataProvider =
+                new com.vaadin.flow.data.provider.CallbackDataProvider<>(
+                        query -> {
+                            int queryOffset = query.getOffset();
+                            int queryLimit = query.getLimit();
+                            int effectiveOffset = (paginationBar != null ? paginationBar.getOffset() : 0) + queryOffset;
+
+                            String sortField = currentSortField;
+                            String sortDir = currentSortDir;
+                            if (!query.getSortOrders().isEmpty()) {
+                                com.vaadin.flow.data.provider.QuerySortOrder order = query.getSortOrders().get(0);
+                                sortField = order.getSorted();
+                                sortDir = order.getDirection() == com.vaadin.flow.data.provider.SortDirection.DESCENDING ? "DESC" : "ASC";
+                            }
+
+                            java.util.List<Map<String, Object>> chunk = dynamicDataService.fetchGridDataPaged(
+                                    currentFormDef, effectiveOffset, queryLimit, filterValues, sortField, sortDir);
+
+                            allMasterGridItems.clear();
+                            allMasterGridItems.addAll(chunk);
+                            masterGridItems.clear();
+                            masterGridItems.addAll(chunk);
+
+                            return chunk.stream();
+                        },
+                        query -> {
+                            long total = dynamicDataService.countGridData(currentFormDef, filterValues);
+                            if (paginationBar != null) {
+                                paginationBar.setTotalRecords(total);
+                                long pageLimit = paginationBar.getLimit();
+                                long remaining = total - paginationBar.getOffset();
+                                if (remaining < 0) remaining = 0;
+                                return (int) Math.min(pageLimit, remaining);
+                            }
+                            return (int) Math.min(total, Integer.MAX_VALUE);
+                        },
+                        item -> {
+                            if (item == null)
+                                return 0;
+                            String pk = currentFormDef != null && currentFormDef.getPrimaryKey() != null
+                                    ? currentFormDef.getPrimaryKey()
+                                    : "id";
+                            Object pkVal = item.get(pk);
+                            return pkVal != null ? pkVal : System.identityHashCode(item);
+                        }
+                );
+        masterGrid.setDataProvider(dataProvider);
     }
 
     private int findIndexByReference(List<Map<String, Object>> list, Map<String, Object> item) {

@@ -142,6 +142,7 @@ public class DbExplorerView extends VerticalLayout {
         dataLayout.setPadding(false);
         dataGrid.setSizeFull();
         dataGrid.getStyle().set("border-radius", "8px");
+        com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(dataGrid);
 
         // 2. Schema Tab
         VerticalLayout schemaLayout = new VerticalLayout();
@@ -151,12 +152,15 @@ public class DbExplorerView extends VerticalLayout {
 
         schemaGrid.setHeight("200px");
         schemaGrid.getStyle().set("border-radius", "8px");
+        com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(schemaGrid);
 
         triggersGrid.setHeight("180px");
         triggersGrid.getStyle().set("border-radius", "8px");
+        com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(triggersGrid);
 
         constraintsGrid.setHeight("180px");
         constraintsGrid.getStyle().set("border-radius", "8px");
+        com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(constraintsGrid);
 
         btnAddColumn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
         btnAddColumn.setEnabled(false);

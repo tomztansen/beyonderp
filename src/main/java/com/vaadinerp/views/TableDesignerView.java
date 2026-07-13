@@ -157,6 +157,7 @@ public class TableDesignerView extends VerticalLayout {
 
     private void setupGrid() {
         columnsGrid.setHeight("250px");
+        com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(columnsGrid);
         Grid.Column<ColumnDefinition> c1 = columnsGrid.addColumn(ColumnDefinition::getColumnName).setHeader("Nama Kolom");
         Grid.Column<ColumnDefinition> c2 = columnsGrid.addColumn(ColumnDefinition::getDataType).setHeader("Tipe Data");
         Grid.Column<ColumnDefinition> c3 = columnsGrid.addColumn(col -> col.isPrimaryKey() ? "YES" : "NO").setHeader("PK");
