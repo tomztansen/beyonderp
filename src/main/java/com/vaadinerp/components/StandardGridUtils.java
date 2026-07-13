@@ -591,4 +591,27 @@ public class StandardGridUtils {
         String s = str.replace("\"", "\"\"");
         return "\"" + s + "\"";
     }
+
+    public static <T> void attachSelectAllHeader(Grid<T> grid, java.util.function.Supplier<java.util.List<T>> pageItemsSupplier) {
+        if (grid == null || !(grid.getSelectionModel() instanceof com.vaadin.flow.component.grid.GridMultiSelectionModel<?> multiSel)) {
+            return;
+        }
+        multiSel.setSelectAllCheckboxVisibility(com.vaadin.flow.component.grid.GridMultiSelectionModel.SelectAllCheckboxVisibility.HIDDEN);
+        try {
+            Grid.Column<T> selCol = grid.getColumns().stream()
+                    .filter(c -> "vaadin-grid-selection-column".equals(c.getKey()) || (c.getKey() != null && c.getKey().contains("selection")))
+                    .findFirst()
+                    .orElse(null);
+            if (selCol != null) {
+                for (HeaderRow row : grid.getHeaderRows()) {
+                    HeaderRow.HeaderCell cell = row.getCell(selCol);
+                    if (cell != null) {
+                        cell.setComponent(null);
+                        cell.setText("");
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
 }

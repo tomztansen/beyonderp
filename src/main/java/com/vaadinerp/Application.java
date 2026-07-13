@@ -14,6 +14,15 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @Push(value = PushMode.AUTOMATIC, transport = Transport.WEBSOCKET_XHR)
 public class Application implements AppShellConfigurator {
 
+    @org.springframework.context.annotation.Bean
+    public com.vaadin.flow.server.VaadinServiceInitListener vaadinServiceInitListener() {
+        return event -> event.getSource().addUIInitListener(uiEvent -> {
+            uiEvent.getUI().getLoadingIndicatorConfiguration().setFirstDelay(150);
+            uiEvent.getUI().getLoadingIndicatorConfiguration().setSecondDelay(1000);
+            uiEvent.getUI().getLoadingIndicatorConfiguration().setThirdDelay(3000);
+        });
+    }
+
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
     }

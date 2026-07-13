@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 public class PaginationBar extends HorizontalLayout {
 
     private int currentPage = 0; // 0-indexed
-    private int pageSize = 100;
+    private int pageSize = 1000;
     private long totalRecords = 0;
 
     private final ComboBox<Integer> pageSizeCombo = new ComboBox<>("Baris / hal");
@@ -38,7 +38,7 @@ public class PaginationBar extends HorizontalLayout {
                   .set("margin-top", "5px");
 
         pageSizeCombo.setItems(25, 50, 100, 250, 500, 1000);
-        pageSizeCombo.setValue(100);
+        pageSizeCombo.setValue(1000);
         pageSizeCombo.setWidth("110px");
         pageSizeCombo.addValueChangeListener(e -> {
             if (e.getValue() != null && e.getValue() != pageSize) {
