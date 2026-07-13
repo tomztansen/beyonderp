@@ -345,6 +345,7 @@ public class FormBuilderView extends VerticalLayout {
         historyGrid.setWidthFull();
         historyGrid.setSelectionMode(Grid.SelectionMode.MULTI);
         historyGrid.setAllRowsVisible(true);
+        com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(historyGrid);
         Grid.Column<FormMeta> codeCol = historyGrid.addColumn(FormMeta::getFormCode).setHeader("Kode Form")
                 .setSortable(true).setAutoWidth(true).setKey("formCode");
         Grid.Column<FormMeta> titleCol = historyGrid.addColumn(FormMeta::getFormTitle).setHeader("Judul Form")
@@ -782,9 +783,9 @@ public class FormBuilderView extends VerticalLayout {
             }
         });
 
-        propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov, propRowGroup, propColSpan,
+        propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov, propBtnFilters, propBtnLovTargets, propRowGroup, propColSpan,
                 propFormula, propDisplayFormat, propValidationRule, propSequenceCode, propBtnCustomValidation, checkBoxLayout,
-                propBtnFilters, propBtnLovTargets, propBtnOnAddScript);
+                propBtnOnAddScript);
 
         // Listeners for live sync
         setupPropertiesListeners();
@@ -1855,6 +1856,7 @@ public class FormBuilderView extends VerticalLayout {
         Grid<Map<String, Object>> simGrid = new Grid<>();
         simGrid.setHeight("140px");
         simGrid.setVisible(false);
+        com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(simGrid);
 
         btnSimulate.addClickListener(e -> {
             String scriptText = scriptArea.getValue().trim();
@@ -1955,6 +1957,7 @@ public class FormBuilderView extends VerticalLayout {
 
         Grid<FieldFilterMetaTemp> filtersGrid = new Grid<>();
         filtersGrid.setSizeFull();
+        com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(filtersGrid);
         filtersGrid.addColumn(FieldFilterMetaTemp::getLogicalOperator).setHeader("Logika").setWidth("80px")
                 .setFlexGrow(0);
         filtersGrid.addColumn(FieldFilterMetaTemp::getFilterColumn).setHeader("Target Kolom").setFlexGrow(1);
@@ -2479,6 +2482,7 @@ public class FormBuilderView extends VerticalLayout {
 
         Grid<FieldLovTargetMetaTemp> grid = new Grid<>();
         grid.setSizeFull();
+        com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(grid);
         grid.addColumn(FieldLovTargetMetaTemp::getSourceColumn).setHeader("Source Column");
         grid.addColumn(FieldLovTargetMetaTemp::getTargetField).setHeader("Target Field");
         grid.addColumn(FieldLovTargetMetaTemp::getActionType).setHeader("Action Type");
@@ -2626,6 +2630,28 @@ public class FormBuilderView extends VerticalLayout {
             selectField(null);
             rebuildCanvas();
             tabSheet.setSelectedTab(transaksiTab);
+        });
+
+        // 1.5. EDIT BUTTON
+        Button btnEdit = new Button("Edit");
+        Icon iconEdit = VaadinIcon.EDIT.create();
+        iconEdit.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
+        btnEdit.setIcon(iconEdit);
+        btnEdit.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btnEdit.getStyle().set("font-weight", "500").set("color", "#374151");
+        btnEdit.addClickListener(e -> {
+            if (tabSheet.getSelectedTab() == historisTab) {
+                java.util.Set<FormMeta> sel = historyGrid.getSelectedItems();
+                if (sel != null && !sel.isEmpty()) {
+                    FormMeta selectedForm = sel.iterator().next();
+                    loadFormDefinition(selectedForm);
+                    tabSheet.setSelectedTab(transaksiTab);
+                } else {
+                    Notification.show("Pilih form yang akan diedit terlebih dahulu di tab Historis!", 3000, Notification.Position.MIDDLE);
+                }
+            } else {
+                Notification.show("Anda sudah berada di tab desain/edit form.", 3000, Notification.Position.MIDDLE);
+            }
         });
 
         // 2. HAPUS BUTTON
@@ -2811,7 +2837,7 @@ public class FormBuilderView extends VerticalLayout {
             }
         });
 
-        toolbar.add(btnNew, btnCopy, btnDelete, btnSave, btnCancel, btnRefresh);
+        toolbar.add(btnNew, btnEdit, btnCopy, btnDelete, btnSave, btnCancel, btnRefresh);
     }
 
     private void refreshHistoryGrid() {

@@ -1,11 +1,76 @@
-/* Custom theme styles */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+/* ============================================================================
+   CHANGELOG dari versi sebelumnya (ringkas, cek komentar inline per section):
+   1. Font Outfit: @import CDN -> @font-face lokal (aman untuk on-premise)
+   2. vaadin-tab[selected]:hover ditambahkan eksplisit (fix specificity race)
+   3. Spacing layout dikonsolidasi ke variable --lumo-space-*, bukan angka manual
+   4. Grid cell: user-select:none dihapus (biar product code/material id bisa di-copy)
+   5. .menu-item-button hover: padding-left -> transform (hindari reflow/jank)
+   6. Reconnect modal: ditambah animation-delay biar gak instan block di blip singkat
+   7. Scrollbar: ditambah fallback Firefox
+   8. z-index reconnect modal: diberi komentar + tetap tinggi tapi lebih masuk akal
+   NOTE: perilaku "tiered / informed not forced" untuk reconnect modal ini
+   idealnya dikontrol dari Java lewat UI.getCurrent().getReconnectDialogConfiguration()
+   (setDialogGracePeriod, dsb) -- CSS cuma bisa kasih delay visual, bukan logic asli.
+   ============================================================================ */
+
+
+/* ============================================================================
+   FONT: Outfit (lokal, format TTF)
+   ============================================================================
+   Taruh file .ttf di: src/main/frontend/fonts/outfit/
+   (sesuaikan path relatif kalau struktur folder frontend kamu beda)
+
+   Kalau file yang kamu download bernama "Outfit-VariableFont_wght.ttf"
+   (satu file untuk semua ketebalan) -> pakai blok di bawah ini, cukup 1 file.
+   ============================================================================ */
+/* @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap'); */
+
+@font-face {
+    font-family: 'Outfit';
+    src: url('./fonts/outfit/static/Outfit-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Outfit';
+    src: url('./fonts/outfit/static/Outfit-Medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Outfit';
+    src: url('./fonts/outfit/static/Outfit-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Outfit';
+    src: url('./fonts/outfit/static/Outfit-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Outfit';
+    src: url('./fonts/outfit/static/Outfit-ExtraBold.ttf') format('truetype');
+    font-weight: 800;
+    font-style: normal;
+    font-display: swap;
+}
+
 
 html {
     --lumo-font-family: 'Outfit', sans-serif;
     --lumo-border-radius-m: 8px;
     --lumo-border-radius-l: 12px;
-    /* Compact spacing overrides */
+    /* Compact spacing - satu-satunya sumber kebenaran untuk semua gap/spacing */
     --lumo-space-xs: 0.2rem;
     --lumo-space-s: 0.4rem;
     --lumo-space-m: 0.6rem;
@@ -16,13 +81,16 @@ html {
 body {
     margin: 0;
     padding: 0;
+    /* overflow:hidden di sini valid selama scroll internal (tabpanel, dsb)
+       benar-benar punya height:100% + overflow-y:auto yang utuh sampai ke body.
+       Kalau ada view yang "gak bisa discroll", cek dulu rantai height di sini. */
     overflow: hidden;
 }
 
 /* ===== Compact Layout: Reduce empty gaps ===== */
 
-/* Tighten headings (H3 page title, H4 section title) */
-h3, h4 {
+h3,
+h4 {
     margin-top: 0 !important;
     margin-bottom: 0.25rem !important;
     line-height: 1.3;
@@ -36,14 +104,13 @@ vaadin-grid {
 }
 
 vaadin-grid::part(cell) {
-    -webkit-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
     display: flex;
     align-items: center;
     min-height: unset;
     padding-top: 0;
     padding-bottom: 0;
+    /* user-select:none dihapus: user ERP sering butuh copy value cell
+       (product code, material id) untuk paste ke tempat lain */
 }
 
 vaadin-grid::part(header-cell) {
@@ -60,7 +127,6 @@ vaadin-grid::part(body-cell) {
     padding-bottom: 3px;
 }
 
-/* Reduce gap between filter row inputs inside grid */
 vaadin-grid-filter-column vaadin-text-field,
 vaadin-grid vaadin-text-field {
     --lumo-size-m: 1.8rem;
@@ -68,19 +134,20 @@ vaadin-grid vaadin-text-field {
 }
 
 /* Tighten tabsheet content area & safeguard vertical scrolling for long forms */
-vaadin-tabsheet > [role="tabpanel"] {
+vaadin-tabsheet>[role="tabpanel"] {
     padding: 8px 4px !important;
     overflow-y: auto !important;
     height: 100%;
 }
 
-/* Reduce vertical-layout default spacing when inside the main content area */
+/* Spacing layout: turunan langsung dari --lumo-space-*, bukan angka hardcode
+   terpisah, biar cuma ada satu tempat untuk ubah "compact-ness" ke depannya */
 vaadin-vertical-layout[theme~="spacing"] {
-    gap: 0.35rem !important;
+    gap: var(--lumo-space-m) !important;
 }
 
 vaadin-horizontal-layout[theme~="spacing"] {
-    gap: 0.5rem !important;
+    gap: var(--lumo-space-l) !important;
 }
 
 /* Sidebar Styling */
@@ -109,7 +176,9 @@ vaadin-horizontal-layout[theme~="spacing"] {
     border-radius: 8px !important;
     font-size: 0.95rem !important;
     font-weight: 500 !important;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        background 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
     padding-left: 12px !important;
     justify-content: flex-start !important;
     background: transparent !important;
@@ -119,7 +188,9 @@ vaadin-horizontal-layout[theme~="spacing"] {
 .menu-item-button:hover {
     background: rgba(255, 255, 255, 0.05) !important;
     color: #ffffff !important;
-    padding-left: 18px !important; /* Micro-slide animation */
+    /* transform dipakai untuk micro-slide, bukan padding-left:
+       dijalankan di compositor -> tidak memicu reflow/jank */
+    transform: translateX(6px) !important;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
 }
 
@@ -146,27 +217,36 @@ vaadin-tabsheet [slot="tabs"] {
 }
 
 vaadin-tab {
-    font-size: 0.9rem !important;
-    font-weight: 500 !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
     color: #6b7280 !important;
     transition: all 0.2s ease !important;
     border-radius: 8px 8px 0 0 !important;
     margin-right: 4px !important;
 }
 
-vaadin-tab:hover {
-    color: #111827 !important;
+vaadin-tab:not([selected]):hover {
+    color: #374151 !important;
     background: #f3f4f6 !important;
+    cursor: pointer;
 }
 
 vaadin-tab[selected] {
-    color: #4f46e5 !important;
-    background: #ffffff !important;
-    border-bottom: 2px solid #4f46e5 !important;
-    font-weight: 600 !important;
+    color: #2563eb !important;
+    background: #f9fafb !important;
+    box-shadow: inset 0 -2px 0 #2563eb !important;
 }
 
-/* Scrollbar Customization */
+/* Eksplisit: tab aktif tetap terlihat aktif walau di-hover.
+   Tanpa ini, menang/kalahnya rule cuma bergantung urutan penulisan file
+   karena spesifisitas [selected] dan :hover sama-sama satu attribute/pseudo-class */
+vaadin-tab[selected]:hover {
+    color: #2563eb !important;
+    background: #f9fafb !important;
+    box-shadow: inset 0 -2px 0 #2563eb !important;
+}
+
+/* Scrollbar Customization (WebKit) */
 ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -185,6 +265,12 @@ vaadin-tab[selected] {
     background: #94a3b8;
 }
 
+/* Scrollbar Customization (Firefox) */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
 /* Micro-interaction Button scale on click */
 vaadin-button {
     transition: transform 0.1s ease !important;
@@ -194,7 +280,7 @@ vaadin-button:active {
     transform: scale(0.97) !important;
 }
 
-/* Custom Checkbox Alignment: Memastikan posisi label di atas komponen checkbox hanya pada form field yang memiliki label */
+/* Custom Checkbox Alignment */
 vaadin-checkbox[has-label] {
     display: inline-flex;
     flex-direction: column;
@@ -208,8 +294,30 @@ vaadin-checkbox:not([has-label]) {
     margin: 0;
 }
 
-/* ===== Distinct & Premium Styling for Read-Only Form Fields ===== */
-vaadin-text-field[readonly]:not(.bandbox-display)::part(input-field),
+/* ===== Styling for Editable and Read-Only Form Fields ===== */
+
+/* 1. Editable Fields */
+vaadin-text-field:not([readonly])::part(input-field),
+vaadin-text-field:not(.bandbox-readonly):not([readonly])::part(input-field),
+vaadin-text-area:not([readonly])::part(input-field),
+vaadin-combo-box:not([readonly])::part(input-field),
+vaadin-date-picker:not([readonly])::part(input-field),
+vaadin-time-picker:not([readonly])::part(input-field),
+vaadin-date-time-picker:not([readonly])::part(input-field),
+vaadin-number-field:not([readonly])::part(input-field),
+vaadin-integer-field:not([readonly])::part(input-field),
+vaadin-big-decimal-field:not([readonly])::part(input-field),
+vaadin-email-field:not([readonly])::part(input-field),
+vaadin-password-field:not([readonly])::part(input-field),
+vaadin-select:not([readonly])::part(input-field),
+vaadin-custom-field:not([readonly])::part(input-field) {
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+/* 2. Read-Only Fields */
+vaadin-text-field[readonly]::part(input-field),
 vaadin-text-field.bandbox-readonly::part(input-field),
 vaadin-text-area[readonly]::part(input-field),
 vaadin-combo-box[readonly]::part(input-field),
@@ -223,16 +331,15 @@ vaadin-email-field[readonly]::part(input-field),
 vaadin-password-field[readonly]::part(input-field),
 vaadin-select[readonly]::part(input-field),
 vaadin-custom-field[readonly]::part(input-field) {
-    background-color: #f1f5f9 !important;
-    border: 1px dashed #94a3b8 !important;
+    background-color: #e2e8f0 !important;
+    border: none !important;
     border-radius: var(--lumo-border-radius-m) !important;
-    color: #475569 !important;
-    cursor: not-allowed !important;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+    box-shadow: none !important;
+    cursor: default !important;
 }
 
-vaadin-text-field[readonly]:not(.bandbox-display) input,
-vaadin-text-field[readonly]:not(.bandbox-display)::part(value),
+vaadin-text-field[readonly] input,
+vaadin-text-field[readonly]::part(value),
 vaadin-text-field.bandbox-readonly input,
 vaadin-text-field.bandbox-readonly::part(value),
 vaadin-text-area[readonly] textarea,
@@ -256,13 +363,13 @@ vaadin-email-field[readonly]::part(value),
 vaadin-password-field[readonly] input,
 vaadin-password-field[readonly]::part(value),
 vaadin-select[readonly]::part(value) {
-    color: #334155 !important;
+    color: #1e293b !important;
     font-weight: 600 !important;
-    cursor: not-allowed !important;
-    -webkit-text-fill-color: #334155 !important;
+    -webkit-text-fill-color: #1e293b !important;
+    cursor: default !important;
 }
 
-vaadin-text-field[readonly]:not(.bandbox-display)::part(label),
+vaadin-text-field[readonly]::part(label),
 vaadin-text-field.bandbox-readonly::part(label),
 vaadin-text-area[readonly]::part(label),
 vaadin-combo-box[readonly]::part(label),
@@ -275,37 +382,26 @@ vaadin-big-decimal-field[readonly]::part(label),
 vaadin-email-field[readonly]::part(label),
 vaadin-password-field[readonly]::part(label),
 vaadin-select[readonly]::part(label) {
-    color: #64748b !important;
-    font-style: normal !important;
-}
-
-vaadin-text-field[readonly]:not(.bandbox-display)::part(label)::after,
-vaadin-text-field.bandbox-readonly::part(label)::after,
-vaadin-text-area[readonly]::part(label)::after,
-vaadin-combo-box[readonly]::part(label)::after,
-vaadin-date-picker[readonly]::part(label)::after,
-vaadin-time-picker[readonly]::part(label)::after,
-vaadin-date-time-picker[readonly]::part(label)::after,
-vaadin-number-field[readonly]::part(label)::after,
-vaadin-integer-field[readonly]::part(label)::after,
-vaadin-big-decimal-field[readonly]::part(label)::after,
-vaadin-email-field[readonly]::part(label)::after,
-vaadin-password-field[readonly]::part(label)::after,
-vaadin-select[readonly]::part(label)::after {
-    content: " 🔒";
-    font-size: 0.75rem;
-    opacity: 0.7;
+    color: #475569 !important;
 }
 
 /* =========================================================================================
    MODAL PERINGATAN SERVER DOWN / KONEKSI TERPUTUS (Vaadin 24 Connection Indicator & Reconnect)
    ========================================================================================= */
 
-/* Ubah status indicator/banner menjadi Overlay Modal Penuh menutup layar */
+@keyframes reconnectModalDelayedShow {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
 vaadin-connection-indicator[reconnecting],
 vaadin-connection-indicator[offline],
-vaadin-connection-indicator[connection-lost],
-.v-reconnect-dialog {
+vaadin-connection-indicator[connection-lost] {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -316,20 +412,27 @@ vaadin-connection-indicator[connection-lost],
     background: rgba(15, 23, 42, 0.85) !important;
     backdrop-filter: blur(6px) !important;
     -webkit-backdrop-filter: blur(6px) !important;
-    z-index: 9999999 !important;
+    /* z-index setinggi ini sebenarnya gak perlu; 999999 sudah lebih dari cukup
+       untuk menang dari overlay/dialog Vaadin manapun yang wajar */
+    z-index: 999999 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     transform: none !important;
     margin: 0 !important;
     pointer-events: auto !important;
+    /* Delay 2 detik sebelum modal ini kelihatan, supaya koneksi yang cuma
+       "kedip" sebentar (network blip) gak langsung nge-block penuh layar.
+       Ini cuma mitigasi visual -- perilaku "tiered/informed" yang sesungguhnya
+       sebaiknya diatur lewat Java: UI.getCurrent().getReconnectDialogConfiguration()
+       .setDialogGracePeriod(...) */
+    opacity: 0;
+    animation: reconnectModalDelayedShow 0.3s ease-in 2s forwards;
 }
 
-/* Kotak pesan putih di tengah layar (Desain Card Peringatan) */
 vaadin-connection-indicator[reconnecting] .v-status-message,
 vaadin-connection-indicator[offline] .v-status-message,
-vaadin-connection-indicator[connection-lost] .v-status-message,
-.v-reconnect-dialog .text {
+vaadin-connection-indicator[connection-lost] .v-status-message {
     background: #ffffff !important;
     color: #1e293b !important;
     padding: 2rem 2.5rem !important;
@@ -348,16 +451,20 @@ vaadin-connection-indicator[connection-lost] .v-status-message,
     line-height: 1.5 !important;
 }
 
-/* Sembunyikan loading spinner kecil bawaan jika ada */
 vaadin-connection-indicator .v-loading-indicator {
     display: none !important;
 }
 
-/* Sub-teks instruksi di bawah pesan status utama */
+/* NOTE: teks di bawah ini di-inject lewat CSS content, artinya:
+   - gak bisa di-copy user
+   - gak konsisten kebaca screen reader
+   - kalau elemen bawaan Vaadin sudah punya teksnya sendiri, bisa dobel.
+   Untuk perbaikan menyeluruh, pindahkan teks ini ke Java/i18n
+   (custom ReconnectDialogConfiguration atau komponen dialog sendiri),
+   CSS ::after cukup dipakai sebagai fallback sementara. */
 vaadin-connection-indicator[reconnecting] .v-status-message::after,
 vaadin-connection-indicator[offline] .v-status-message::after,
-vaadin-connection-indicator[connection-lost] .v-status-message::after,
-.v-reconnect-dialog .text::after {
+vaadin-connection-indicator[connection-lost] .v-status-message::after {
     content: "Server sedang tidak aktif atau koneksi terputus. Silakan periksa jaringan Anda atau tekan F5 untuk memuat ulang halaman.";
     display: block !important;
     font-size: 0.9rem !important;
@@ -366,5 +473,3 @@ vaadin-connection-indicator[connection-lost] .v-status-message::after,
     margin-top: 0.5rem !important;
     line-height: 1.4 !important;
 }
-
-

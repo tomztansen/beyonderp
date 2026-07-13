@@ -32,6 +32,111 @@ public class StandardGridUtils {
     }
 
     /**
+     * Returns the global client-side JavaScript snippet that enables 1-click & Alt-click
+     * cell clipboard copy on every <vaadin-grid-cell-content> across all grids.
+     */
+    public static String getGlobalCellCopyJs() {
+        return "if (window._vaadinGridCellCopyInitialized) return;\n"
+                + "window._vaadinGridCellCopyInitialized = true;\n"
+                + "const style = document.createElement('style');\n"
+                + "style.innerHTML = `\n"
+                + "  vaadin-grid-cell-content { position: relative !important; }\n"
+                + "  .grid-cell-copy-btn {\n"
+                + "    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);\n"
+                + "    width: 22px; height: 22px; background-color: rgba(241, 245, 249, 0.95);\n"
+                + "    border: 1px solid #cbd5e1; border-radius: 4px; display: none;\n"
+                + "    align-items: center; justify-content: center; cursor: pointer;\n"
+                + "    z-index: 10; color: #475569; font-size: 11px;\n"
+                + "    box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: all 0.15s ease;\n"
+                + "  }\n"
+                + "  .grid-cell-copy-btn:hover { background-color: #e2e8f0; color: #1e293b; transform: translateY(-50%) scale(1.08); }\n"
+                + "  vaadin-grid-cell-content:hover .grid-cell-copy-btn { display: flex !important; }\n"
+                + "  #grid-cell-copy-toast {\n"
+                + "    position: fixed; bottom: 24px; right: 24px; background: #1e293b; color: #f8fafc;\n"
+                + "    padding: 10px 16px; border-radius: 8px; font-size: 13px; font-family: sans-serif;\n"
+                + "    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); z-index: 999999;\n"
+                + "    transition: opacity 0.3s ease, transform 0.3s ease; opacity: 0; transform: translateY(10px);\n"
+                + "    pointer-events: none; display: flex; align-items: center; gap: 8px;\n"
+                + "  }\n"
+                + "`;\n"
+                + "document.head.appendChild(style);\n"
+                + "window.showGridCopyToast = function(message) {\n"
+                + "  let toast = document.getElementById('grid-cell-copy-toast');\n"
+                + "  if (!toast) { toast = document.createElement('div'); toast.id = 'grid-cell-copy-toast'; document.body.appendChild(toast); }\n"
+                + "  toast.innerHTML = '<span style=\"font-size: 16px;\">📋</span> <span>' + message + '</span>';\n"
+                + "  toast.style.opacity = '1'; toast.style.transform = 'translateY(0)';\n"
+                + "  if (toast.timeoutId) clearTimeout(toast.timeoutId);\n"
+                + "  toast.timeoutId = setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateY(10px)'; }, 2500);\n"
+                + "};\n"
+                + "function extractCellText(cellContent) {\n"
+                + "  if (!cellContent) return '';\n"
+                + "  const clone = cellContent.cloneNode(true);\n"
+                + "  const btns = clone.querySelectorAll('.grid-cell-copy-btn, vaadin-checkbox, button, input');\n"
+                + "  btns.forEach(b => b.remove());\n"
+                + "  return (clone.innerText || clone.textContent || '').trim();\n"
+                + "}\n"
+                + "function copyTextToClipboard(text) {\n"
+                + "  if (!text) return;\n"
+                + "  if (navigator.clipboard && navigator.clipboard.writeText) {\n"
+                + "    navigator.clipboard.writeText(text).then(() => {\n"
+                + "      const shortText = text.length > 35 ? text.substring(0, 35) + '...' : text;\n"
+                + "      window.showGridCopyToast('Disalin ke clipboard: \"' + shortText + '\"');\n"
+                + "    }).catch(() => fallbackCopy(text));\n"
+                + "  } else { fallbackCopy(text); }\n"
+                + "}\n"
+                + "function fallbackCopy(text) {\n"
+                + "  const textArea = document.createElement('textarea');\n"
+                + "  textArea.value = text; textArea.style.position = 'fixed'; textArea.style.left = '-999999px';\n"
+                + "  document.body.appendChild(textArea); textArea.focus(); textArea.select();\n"
+                + "  try { document.execCommand('copy'); const shortText = text.length > 35 ? text.substring(0, 35) + '...' : text; window.showGridCopyToast('Disalin ke clipboard: \"' + shortText + '\"'); } catch (err) {}\n"
+                + "  document.body.removeChild(textArea);\n"
+                + "}\n"
+                + "document.addEventListener('mouseover', function(e) {\n"
+                + "  const path = e.composedPath ? e.composedPath() : [e.target];\n"
+                + "  const cellContent = path.find(el => el && el.tagName && el.tagName.toLowerCase() === 'vaadin-grid-cell-content');\n"
+                + "  if (!cellContent) return;\n"
+                + "  if (cellContent.closest('thead') || cellContent.closest('tfoot') || cellContent.getAttribute('slot')?.startsWith('header') || cellContent.getAttribute('slot')?.startsWith('footer')) return;\n"
+                + "  if (cellContent.querySelector('vaadin-checkbox, button, input, .grid-cell-copy-btn')) return;\n"
+                + "  const text = extractCellText(cellContent);\n"
+                + "  if (!text) return;\n"
+                + "  const btn = document.createElement('div'); btn.className = 'grid-cell-copy-btn'; btn.innerHTML = '📋'; btn.title = 'Salin teks cell (atau Alt+Klik pada cell)';\n"
+                + "  btn.addEventListener('click', function(clickEvent) { clickEvent.stopPropagation(); clickEvent.preventDefault(); const textToCopy = extractCellText(cellContent); if (textToCopy) copyTextToClipboard(textToCopy); });\n"
+                + "  cellContent.appendChild(btn);\n"
+                + "}, true);\n"
+                + "document.addEventListener('click', function(e) {\n"
+                + "  if (e.altKey || e.ctrlKey || e.shiftKey) {\n"
+                + "    const path = e.composedPath ? e.composedPath() : [e.target];\n"
+                + "    const cellContent = path.find(el => el && el.tagName && el.tagName.toLowerCase() === 'vaadin-grid-cell-content');\n"
+                + "    if (!cellContent) return;\n"
+                + "    if (cellContent.closest('thead') || cellContent.closest('tfoot') || cellContent.getAttribute('slot')?.startsWith('header') || cellContent.getAttribute('slot')?.startsWith('footer')) return;\n"
+                + "    const textToCopy = extractCellText(cellContent);\n"
+                + "    if (textToCopy) { e.stopPropagation(); e.preventDefault(); copyTextToClipboard(textToCopy); }\n"
+                + "  }\n"
+                + "}, true);\n"
+                + "document.addEventListener('contextmenu', function(e) {\n"
+                + "  const path = e.composedPath ? e.composedPath() : [e.target];\n"
+                + "  const cellContent = path.find(el => el && el.tagName && el.tagName.toLowerCase() === 'vaadin-grid-cell-content');\n"
+                + "  if (!cellContent) return;\n"
+                + "  if (cellContent.closest('thead') || cellContent.closest('tfoot') || cellContent.getAttribute('slot')?.startsWith('header') || cellContent.getAttribute('slot')?.startsWith('footer')) return;\n"
+                + "  const textToCopy = extractCellText(cellContent);\n"
+                + "  if (textToCopy) {\n"
+                + "    window._lastHoveredCellText = textToCopy;\n"
+                + "  }\n"
+                + "}, true);";
+    }
+
+    /**
+     * Enables cell clipboard copy feature on any Grid.
+     * Attaches both client-side hover/click copy and right-click context menu support.
+     */
+    public static void enableCellClipboardCopy(Grid<?> grid) {
+        if (grid == null) return;
+        try {
+            grid.getElement().executeJs(getGlobalCellCopyJs());
+        } catch (Exception ignored) {}
+    }
+
+    /**
      * Cleans up extra header rows (such as filter rows) and removes all columns.
      * This prevents accumulating empty header rows whenever a Grid is rebuilt.
      * 
@@ -41,6 +146,7 @@ public class StandardGridUtils {
     public static void cleanGridBeforeRebuild(Grid<?> grid) {
         if (grid == null)
             return;
+        enableCellClipboardCopy(grid);
 
         // Save current grid configuration
         Grid.SelectionMode selectionMode = grid.getSelectionMode();
@@ -97,6 +203,8 @@ public class StandardGridUtils {
             return () -> {
             };
         }
+
+        enableCellClipboardCopy(grid);
 
         // Enable column reordering and sorting
         grid.setColumnReorderingAllowed(true);

@@ -122,6 +122,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         grid.setAllRowsVisible(true);
         grid.setPageSize(500);
         grid.setDataProvider(createDataProvider());
+        com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(grid);
 
         if (childFormDef != null) {
             buildGridColumns();
