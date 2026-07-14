@@ -65,7 +65,7 @@ public class StandardActionToolbar extends HorizontalLayout {
                 .set("flex-wrap", "wrap")
                 .set("position", "sticky")
                 .set("top", "0")
-                .set("z-index", "1000");
+                .set("z-index", "50");
 
         getElement().addEventListener("mouseover", e -> {}).addEventData("element.style.boxShadow='0 8px 20px rgba(0,0,0,0.08)'; element.style.borderColor='#94a3b8'; element.style.background='linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)'");
         getElement().addEventListener("mouseout", e -> {}).addEventData("element.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)'; element.style.borderColor='#cbd5e1'; element.style.background='linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)'");

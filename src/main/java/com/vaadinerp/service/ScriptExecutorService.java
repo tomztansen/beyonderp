@@ -147,6 +147,16 @@ public class ScriptExecutorService {
         // Konversi syntax JS let -> def agar mudah bagi user jika copas JS
         scriptText = scriptText.replaceAll("\\blet\\s+", "def ");
 
+        // Auto-import untuk JSON utilities jika belum di-import oleh user
+        if (!scriptText.contains("import groovy.json.")) {
+            scriptText = "import groovy.json.JsonOutput;\nimport groovy.json.JsonSlurper;\n" + scriptText;
+        }
+
+        // Auto fallback jika user mengetik nama procedure tanpa tanda kutip (misal: executeProcedure(salesordertoproduction, ...))
+        if (!scriptText.contains("propertyMissing")) {
+            scriptText = scriptText + "\n\ndef propertyMissing(String name) { return name; }\n";
+        }
+
         final String finalScriptText = scriptText;
         String scriptId = "action_" + (act.getId() != null ? act.getId() : act.getActionCode()) + "_" + finalScriptText.hashCode();
 
@@ -163,6 +173,8 @@ public class ScriptExecutorService {
             binding.setVariable("header", headerBean != null ? headerBean : new HashMap<>());
             binding.setVariable("selectedRows", selectedGridRows != null ? selectedGridRows : new ArrayList<>());
             binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
+            binding.setVariable("JsonOutput", groovy.json.JsonOutput.class);
+            binding.setVariable("JsonSlurper", groovy.json.JsonSlurper.class);
 
             binding.setVariable("showYesNoDialog", new groovy.lang.Closure<Void>(null) {
                 public void doCall(String title, String message, Object callback) {
@@ -170,8 +182,8 @@ public class ScriptExecutorService {
                 }
             });
             binding.setVariable("executeProcedure", new groovy.lang.Closure<Boolean>(null) {
-                public boolean doCall(int procId, Object callbackOrJson, Object... rest) {
-                    return ctx.executeProcedure(procId, callbackOrJson, rest);
+                public boolean doCall(Object procRef, Object callbackOrJson, Object... rest) {
+                    return ctx.executeProcedure(procRef, callbackOrJson, rest);
                 }
             });
             binding.setVariable("showSuccess", new groovy.lang.Closure<Void>(null) {
@@ -185,8 +197,14 @@ public class ScriptExecutorService {
                 }
             });
             binding.setVariable("showMainTab", new groovy.lang.Closure<Void>(null) {
-                public void doCall(int tabId, String tabTitle, String url, String extra) {
-                    ctx.showMainTab(tabId, tabTitle, url, extra);
+                public void doCall(Object tabId, String tabTitle) {
+                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, null, null);
+                }
+                public void doCall(Object tabId, String tabTitle, String url) {
+                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, url, null);
+                }
+                public void doCall(Object tabId, String tabTitle, String url, String extra) {
+                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, url, extra);
                 }
             });
             binding.setVariable("getElementValue", new groovy.lang.Closure<List<Map<String, Object>>>(null) {
@@ -198,8 +216,9 @@ public class ScriptExecutorService {
             scriptInstance.setBinding(binding);
             scriptInstance.run();
         } catch (Exception e) {
-            System.err.println("Error executing action script [" + act.getActionCode() + "]: " + e.getMessage());
-            ctx.showError("Script Error (" + act.getActionCode() + ")", e.getMessage());
+            String cleanMsg = ctx.extractCleanErrorMessage(e);
+            System.err.println("Error executing action script [" + act.getActionCode() + "]: " + cleanMsg);
+            ctx.showError("Gagal Eksekusi Script (" + act.getActionCode() + ")", "<b>Pesan Error:</b><br/>" + cleanMsg);
         }
     }
 

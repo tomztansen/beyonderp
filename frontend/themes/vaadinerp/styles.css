@@ -135,7 +135,7 @@ vaadin-grid vaadin-text-field {
 
 /* Tighten tabsheet content area & safeguard vertical scrolling for long forms */
 vaadin-tabsheet>[role="tabpanel"] {
-    padding: 8px 4px !important;
+    padding: 0 4px !important;
     overflow-y: auto !important;
     height: 100%;
 }

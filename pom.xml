@@ -78,6 +78,16 @@
             <artifactId>groovy</artifactId>
             <version>4.0.21</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.groovy</groupId>
+            <artifactId>groovy-json</artifactId>
+            <version>4.0.21</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.groovy</groupId>
+            <artifactId>groovy-sql</artifactId>
+            <version>4.0.21</version>
+        </dependency>
     </dependencies>
 
     <dependencyManagement>

@@ -100,6 +100,7 @@ public class FormBuilderView extends VerticalLayout {
     private final Button propBtnEditLov = new Button("Edit LOV Config", VaadinIcon.EDIT.create());
     private final IntegerField propRowGroup = new IntegerField("Row Group");
     private final ComboBox<Integer> propColSpan = new ComboBox<>("Colspan (Lebar Kolom)");
+    private final ComboBox<String> propReadonlyMode = new ComboBox<>("Read-only Mode");
     private final Checkbox propIsRequired = new Checkbox("Required");
     private final Checkbox propIsReadonly = new Checkbox("Read-only");
     private final Checkbox propShowInGrid = new Checkbox("Show in Grid");
@@ -128,6 +129,7 @@ public class FormBuilderView extends VerticalLayout {
         int colSpan = 1;
         boolean isRequired;
         boolean isReadonly;
+        String readonlyMode = "NONE";
         boolean showInGrid = true;
         boolean hideInForm;
         boolean isDetail;
@@ -735,6 +737,16 @@ public class FormBuilderView extends VerticalLayout {
         propColSpan.setItems(1, 2, 3, 4, 6, 12);
         propColSpan.setClearButtonVisible(true);
 
+        propReadonlyMode.setItems("NONE", "EDIT", "ADD", "EDIT_AND_ADD");
+        propReadonlyMode.setItemLabelGenerator(item -> switch (item) {
+            case "NONE" -> "Bisa Add & Edit (Normal)";
+            case "EDIT" -> "Read-only saat Edit saja";
+            case "ADD" -> "Read-only saat Add saja";
+            case "EDIT_AND_ADD" -> "Selalu Read-only (Edit & Add)";
+            default -> item != null ? item : "Normal";
+        });
+        propReadonlyMode.setClearButtonVisible(false);
+
         FormLayout checkBoxLayout = new FormLayout();
         checkBoxLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 2));
         propIsSortable.setValue(true);
@@ -783,7 +795,7 @@ public class FormBuilderView extends VerticalLayout {
             }
         });
 
-        propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov, propBtnFilters, propBtnLovTargets, propRowGroup, propColSpan,
+        propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov, propBtnFilters, propBtnLovTargets, propRowGroup, propColSpan, propReadonlyMode,
                 propFormula, propDisplayFormat, propValidationRule, propSequenceCode, propBtnCustomValidation, checkBoxLayout,
                 propBtnOnAddScript);
 
@@ -830,6 +842,17 @@ public class FormBuilderView extends VerticalLayout {
                 rebuildCanvas();
             }
         });
+        propReadonlyMode.addValueChangeListener(e -> {
+            if (selectedField != null && (!isSelectingField || e.isFromClient())) {
+                String val = e.getValue();
+                selectedField.readonlyMode = (val == null || val.trim().isEmpty()) ? "NONE" : val;
+                selectedField.isReadonly = "EDIT_AND_ADD".equalsIgnoreCase(selectedField.readonlyMode);
+                if (e.isFromClient()) {
+                    propIsReadonly.setValue(selectedField.isReadonly);
+                }
+                rebuildCanvas();
+            }
+        });
         propIsRequired.addValueChangeListener(e -> {
             if (selectedField != null && e.isFromClient()) {
                 selectedField.isRequired = e.getValue();
@@ -839,6 +862,8 @@ public class FormBuilderView extends VerticalLayout {
         propIsReadonly.addValueChangeListener(e -> {
             if (selectedField != null && e.isFromClient()) {
                 selectedField.isReadonly = e.getValue();
+                selectedField.readonlyMode = e.getValue() ? "EDIT_AND_ADD" : "NONE";
+                propReadonlyMode.setValue(selectedField.readonlyMode);
                 rebuildCanvas();
             }
         });
@@ -1008,6 +1033,11 @@ public class FormBuilderView extends VerticalLayout {
                 propColSpan.setValue(temp.colSpan > 0 ? temp.colSpan : 1);
                 propIsRequired.setValue(temp.isRequired);
                 propIsReadonly.setValue(temp.isReadonly);
+                String rm = temp.readonlyMode;
+                if (rm == null || rm.trim().isEmpty() || "DEFAULT".equalsIgnoreCase(rm)) {
+                    rm = temp.isReadonly ? "EDIT_AND_ADD" : "NONE";
+                }
+                propReadonlyMode.setValue(rm);
                 if ("SUBFORM_GRID".equalsIgnoreCase(temp.componentType)) {
                     temp.showInGrid = false;
                 }
@@ -1313,6 +1343,44 @@ public class FormBuilderView extends VerticalLayout {
             badgesBox.add(hiddenBadge);
         }
         badgesBox.add(orderBadge, typeBadge);
+
+        if (temp.readonlyMode != null && !"NONE".equalsIgnoreCase(temp.readonlyMode) && !temp.readonlyMode.trim().isEmpty()) {
+            String roText = "RO: " + ("EDIT_AND_ADD".equalsIgnoreCase(temp.readonlyMode) ? "ALL" : temp.readonlyMode);
+            Span roBadge = new Span(roText);
+            roBadge.getStyle()
+                    .set("font-size", "0.6rem")
+                    .set("font-weight", "700")
+                    .set("background-color", "#fef3c7")
+                    .set("color", "#d97706")
+                    .set("padding", "2px 6px")
+                    .set("border-radius", "4px")
+                    .set("flex-shrink", "0");
+            badgesBox.add(roBadge);
+        } else if (temp.isReadonly) {
+            Span roBadge = new Span("RO: ALL");
+            roBadge.getStyle()
+                    .set("font-size", "0.6rem")
+                    .set("font-weight", "700")
+                    .set("background-color", "#fef3c7")
+                    .set("color", "#d97706")
+                    .set("padding", "2px 6px")
+                    .set("border-radius", "4px")
+                    .set("flex-shrink", "0");
+            badgesBox.add(roBadge);
+        }
+
+        if (temp.isRequired) {
+            Span reqBadge = new Span("*Req");
+            reqBadge.getStyle()
+                    .set("font-size", "0.6rem")
+                    .set("font-weight", "700")
+                    .set("background-color", "#fee2e2")
+                    .set("color", "#dc2626")
+                    .set("padding", "2px 6px")
+                    .set("border-radius", "4px")
+                    .set("flex-shrink", "0");
+            badgesBox.add(reqBadge);
+        }
 
         Button btnEdit = new Button(VaadinIcon.COG.create());
         btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
@@ -2155,6 +2223,7 @@ public class FormBuilderView extends VerticalLayout {
             field.setLovCode(temp.lovCode);
             field.setRequired(temp.isRequired);
             field.setReadonly(temp.isReadonly);
+            field.setReadonlyMode(temp.readonlyMode != null ? temp.readonlyMode : (temp.isReadonly ? "EDIT_AND_ADD" : "NONE"));
             field.setShowInGrid(temp.showInGrid);
             field.setHideInForm(temp.hideInForm);
             field.setDetail(temp.isDetail);
@@ -2993,6 +3062,7 @@ public class FormBuilderView extends VerticalLayout {
                     temp.colSpan = field.getColSpan() != null ? field.getColSpan() : 1;
                     temp.isRequired = field.isRequired();
                     temp.isReadonly = field.isReadonly();
+                    temp.readonlyMode = field.getReadonlyMode() != null ? field.getReadonlyMode() : (field.isReadonly() ? "EDIT_AND_ADD" : "NONE");
                     temp.showInGrid = field.isShowInGrid();
                     temp.hideInForm = field.isHideInForm();
                     temp.isDetail = field.isDetail();
@@ -3333,6 +3403,7 @@ public class FormBuilderView extends VerticalLayout {
 
                 if ("id".equalsIgnoreCase(colName) || (pkField.getValue() != null && pkField.getValue().equalsIgnoreCase(colName))) {
                     temp.isReadonly = true;
+                    temp.readonlyMode = "EDIT_AND_ADD";
                 }
                 if (col.get("is_nullable") != null && "NO".equalsIgnoreCase(col.get("is_nullable").toString()) && !temp.isReadonly) {
                     temp.isRequired = true;

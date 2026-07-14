@@ -959,6 +959,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             } finally {
                 isLoadingExistingData = false;
             }
+            updateFieldsReadonlyStatus(false);
             evaluateFormulas();
             
             // Fetch details
@@ -2341,6 +2342,18 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     ((com.vaadin.flow.component.HasValue<?, ?>) comp).clear();
                 } else if (comp instanceof com.vaadinerp.components.SubformGridField) {
                     ((com.vaadinerp.components.SubformGridField) comp).setValue(new ArrayList<>());
+                }
+            }
+        }
+        updateFieldsReadonlyStatus(true);
+    }
+
+    private void updateFieldsReadonlyStatus(boolean isNewRecord) {
+        if (currentFormDef != null && formComponents != null) {
+            for (FieldMeta field : currentFormDef.getFields()) {
+                Component comp = formComponents.get(field.getFieldName());
+                if (comp != null) {
+                    com.vaadinerp.components.ComponentFactory.applyReadonlyMode(comp, field, isNewRecord);
                 }
             }
         }
