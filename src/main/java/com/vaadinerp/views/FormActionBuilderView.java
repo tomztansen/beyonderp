@@ -34,6 +34,7 @@ public class FormActionBuilderView extends VerticalLayout {
     private final TextField actionCodeField = new TextField("Action Code (Unik)");
     private final TextField actionLabelField = new TextField("Label Tombol");
     private final ComboBox<String> targetScopeCombo = new ComboBox<>("Posisi Toolbar");
+    private final ComboBox<String> actionTypeCombo = new ComboBox<>("Tipe Aksi");
     private final ComboBox<String> iconNameCombo = new ComboBox<>("Ikon Tombol");
     private final ComboBox<String> buttonStyleCombo = new ComboBox<>("Gaya / Warna Tombol");
     private final ComboBox<String> sourceLovCodeCombo = new ComboBox<>("Sumber Data Pop-up (LOV / Form)");
@@ -41,6 +42,12 @@ public class FormActionBuilderView extends VerticalLayout {
     private final TextArea filterMappingField = new TextArea("Filter Mapping (Pop-up)");
     private final TextArea copyFilterMappingField = new TextArea("Copy Filter Mapping (2-Stage)");
     private final TextArea targetMappingField = new TextArea("Target Mapping");
+    private final TextField menuGroupField = new TextField("Menu Group (Dropdown)");
+    private final TextArea scriptContentField = new TextArea("Groovy / Action Script Context");
+    private final HorizontalLayout groovyHelperBar = new HorizontalLayout();
+    private final HorizontalLayout filterLayout = new HorizontalLayout();
+    private final HorizontalLayout copyFilterLayout = new HorizontalLayout();
+    private final HorizontalLayout targetLayout = new HorizontalLayout();
 
     private FormActionMeta currentAction;
 
@@ -86,13 +93,18 @@ public class FormActionBuilderView extends VerticalLayout {
     private HorizontalLayout buildToolbar() {
         HorizontalLayout toolbar = new HorizontalLayout();
         toolbar.setWidthFull();
+        toolbar.addClassName("sticky-toolbar");
         toolbar.getStyle()
                 .set("background-color", "#f3f4f6")
                 .set("border", "1px solid #e5e7eb")
                 .set("border-radius", "6px")
                 .set("padding", "6px 12px")
                 .set("align-items", "center")
-                .set("gap", "15px");
+                .set("gap", "15px")
+                .set("position", "sticky")
+                .set("top", "0")
+                .set("z-index", "1000")
+                .set("box-shadow", "0 4px 10px rgba(0,0,0,0.08)");
 
         Button btnNew = new Button("Baru", VaadinIcon.PLUS_CIRCLE.create(), e -> clearForm());
         btnNew.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -132,6 +144,10 @@ public class FormActionBuilderView extends VerticalLayout {
         targetScopeCombo.setItems("MASTER_TOOLBAR", "DETAIL_TOOLBAR", "ON_LOAD_NEW", "ON_DETAIL_ADD", "ON_LOAD_EDIT");
         targetScopeCombo.setValue("MASTER_TOOLBAR");
 
+        actionTypeCombo.setItems("POPUP_PICKER", "GROOVY_SCRIPT");
+        actionTypeCombo.setValue("POPUP_PICKER");
+        actionTypeCombo.addValueChangeListener(e -> updateEditorVisibility(e.getValue()));
+
         iconNameCombo.setItems("CHECK_SQUARE_O", "LIST_SELECT", "PLUS", "SEARCH", "CHECK", "DOWNLOAD", "UPLOAD", "COG", "TRASH", "STAR");
 
         buttonStyleCombo.setItems("PRIMARY", "SUCCESS", "ERROR", "TERTIARY");
@@ -151,6 +167,160 @@ public class FormActionBuilderView extends VerticalLayout {
         copySourceLovCodeCombo.setClearButtonVisible(true);
     }
 
+    private void createGroovyHelperBar() {
+        groovyHelperBar.removeAll();
+        groovyHelperBar.setWidthFull();
+        groovyHelperBar.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.BASELINE);
+        groovyHelperBar.getStyle().set("margin-top", "8px").set("background-color", "#f8fafc").set("padding", "8px 12px").set("border-radius", "6px").set("border", "1px dashed #cbd5e1");
+        
+        Button cheatSheetBtn = new Button("📖 Panduan & Sintaks Groovy (Cheat Sheet)", e -> showGroovyCheatSheetDialog());
+        cheatSheetBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL, com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
+        
+        ComboBox<String> snippetCombo = new ComboBox<>("⚡ Sisipkan Template Cepat ke Script");
+        snippetCombo.setItems(
+            "1. Cek Pilihan (Hentikan jika tidak ada baris yang dipilih)",
+            "2. Dialog Konfirmasi + Eksekusi Stored Procedure",
+            "3. Looping ID + Panggil Procedure + Buka Tab Baru",
+            "4. Tampilkan Notifikasi Sukses / Error"
+        );
+        snippetCombo.setWidth("340px");
+        snippetCombo.addValueChangeListener(e -> {
+            String val = e.getValue();
+            if (val != null) {
+                insertSnippetToScript(val);
+                snippetCombo.clear();
+            }
+        });
+
+        groovyHelperBar.add(cheatSheetBtn, snippetCombo);
+    }
+
+    private void showGroovyCheatSheetDialog() {
+        com.vaadin.flow.component.dialog.Dialog dlg = new com.vaadin.flow.component.dialog.Dialog();
+        dlg.setHeaderTitle("📖 Panduan & Daftar Sintaks Groovy Action DSL");
+        dlg.setWidth("750px");
+
+        com.vaadin.flow.component.html.Div content = new com.vaadin.flow.component.html.Div();
+        content.getStyle().set("max-height", "70vh").set("overflow-y", "auto").set("line-height", "1.6").set("font-size", "14px");
+
+        String html = """
+            <p><b>Daftar Fungsi (DSL Macro & Context Methods):</b></p>
+            <table border='1' cellpadding='6' style='border-collapse: collapse; width: 100%; border-color: #cbd5e1;'>
+              <tr style='background-color: #f1f5f9;'>
+                <th style='text-align: left;'>Sintaks / Fungsi</th>
+                <th style='text-align: left;'>Keterangan & Kegunaan</th>
+              </tr>
+              <tr>
+                <td><code>getElementValue("grid1", true)</code><br/><i>atau</i> <code>selectedRows</code></td>
+                <td>Mengambil daftar baris data (Map) yang sedang dicentang/pilih oleh user pada tabel grid aktif.</td>
+              </tr>
+              <tr>
+                <td><code>ctx.userId</code><br/><i>atau</i> <code>@app{userid}</code></td>
+                <td>Mengambil Username atau ID pengguna yang sedang login saat ini untuk keperluan parameter prosedur/audit.</td>
+              </tr>
+              <tr>
+                <td><code>showYesNoDialog("Judul", "Pesan", callback)</code></td>
+                <td>Menampilkan dialog konfirmasi Yes / No. Perintah di dalam <code>callback</code> hanya dijalankan jika user klik Yes.</td>
+              </tr>
+              <tr>
+                <td><code>executeProcedure(procId, callback, jsonParams, userId)</code></td>
+                <td>Menjalankan Stored Procedure di server database secara aman dan mengembalikan status sukses (true/false) ke callback.</td>
+              </tr>
+              <tr>
+                <td><code>showSuccess("Judul", "Pesan")</code></td>
+                <td>Menampilkan notifikasi Lumo berwarna hijau (Sukses) di posisi atas layar user.</td>
+              </tr>
+              <tr>
+                <td><code>showError("Judul", "Pesan")</code></td>
+                <td>Menampilkan notifikasi Lumo berwarna merah (Error) di posisi atas layar user.</td>
+              </tr>
+              <tr>
+                <td><code>showMainTab(tabId, "Judul Tab", url, extra)</code></td>
+                <td>Membuka atau berpindah secara dinamis ke tab/halaman menu ERP lain setelah aksi selesai.</td>
+              </tr>
+            </table>
+            <br/>
+            <p><b>💡 Tips Penting:</b></p>
+            <ul>
+              <li>Gunakan <code>return</code> di dalam kondisi <code>if (!selectedRows)</code> untuk menghentikan eksekusi script seketika jika prasyarat tidak terpenuhi.</li>
+              <li>Untuk mengambil nilai kolom tertentu dari sebuah baris dalam loop: <code>row.salesid</code> atau <code>row['salesid']</code>.</li>
+            </ul>
+            """;
+        content.add(new com.vaadin.flow.component.Html("<div>" + html + "</div>"));
+        dlg.add(content);
+
+        Button closeBtn = new Button("Tutup", e -> dlg.close());
+        closeBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
+        dlg.getFooter().add(closeBtn);
+        dlg.open();
+    }
+
+    private void insertSnippetToScript(String snippetType) {
+        String currentText = scriptContentField.getValue() != null ? scriptContentField.getValue() : "";
+        String template = "";
+        if (snippetType.startsWith("1.")) {
+            template = """
+                def selectedRows = getElementValue("grid1", true)
+                if (!selectedRows || selectedRows.isEmpty()) {
+                    showError("Peringatan", "Silakan pilih atau centang minimal satu baris data terlebih dahulu!")
+                    return
+                }
+                """;
+        } else if (snippetType.startsWith("2.")) {
+            template = """
+                showYesNoDialog("Konfirmasi Eksekusi", "Apakah Anda yakin ingin melanjutkan proses pada data terpilih?", {
+                    executeProcedure(3, { status ->
+                        if (status) {
+                            showSuccess("Berhasil", "Prosedur berhasil dijalankan di database!")
+                        }
+                    }, "{}", ctx.userId)
+                })
+                """;
+        } else if (snippetType.startsWith("3.")) {
+            template = """
+                def selectedRows = getElementValue("grid1", true)
+                if (!selectedRows || selectedRows.isEmpty()) {
+                    showError("Peringatan", "Silakan pilih minimal 1 baris data!")
+                    return
+                }
+                def ids = []
+                for (def row in selectedRows) {
+                    ids.push(row.id)
+                }
+                showYesNoDialog("Release Confirmation", "Lanjutkan rilis untuk " + ids.size() + " data terpilih?", {
+                    executeProcedure(3, { status ->
+                        if (status) {
+                            showSuccess("Sukses", "Data berhasil dirilis!")
+                            showMainTab(691, "Sales Line - Production Order", null, null)
+                        }
+                    }, groovy.json.JsonOutput.toJson(ids), ctx.userId)
+                })
+                """;
+        } else if (snippetType.startsWith("4.")) {
+            template = """
+                showSuccess("Pemberitahuan", "Aksi Groovy berhasil dijalankan tanpa kendala.")
+                """;
+        }
+
+        if (!currentText.isBlank()) {
+            scriptContentField.setValue(currentText + "\n\n" + template.stripIndent());
+        } else {
+            scriptContentField.setValue(template.stripIndent());
+        }
+    }
+
+    private void updateEditorVisibility(String actionType) {
+        boolean isGroovy = "GROOVY_SCRIPT".equalsIgnoreCase(actionType);
+        groovyHelperBar.setVisible(isGroovy);
+        scriptContentField.setVisible(isGroovy);
+
+        sourceLovCodeCombo.setVisible(!isGroovy);
+        filterLayout.setVisible(!isGroovy);
+        copySourceLovCodeCombo.setVisible(!isGroovy);
+        copyFilterLayout.setVisible(!isGroovy);
+        targetLayout.setVisible(!isGroovy);
+    }
+
     private void setupGrid() {
         grid.setSizeFull();
         grid.addColumn(a -> a.getFormMeta() != null ? a.getFormMeta().getFormCode() : "[Katalog Global]")
@@ -158,6 +328,8 @@ public class FormActionBuilderView extends VerticalLayout {
         grid.addColumn(FormActionMeta::getActionCode).setHeader("Action Code").setSortable(true).setAutoWidth(true);
         grid.addColumn(FormActionMeta::getActionLabel).setHeader("Label Tombol").setAutoWidth(true);
         grid.addColumn(FormActionMeta::getTargetScope).setHeader("Posisi").setAutoWidth(true);
+        grid.addColumn(FormActionMeta::getActionType).setHeader("Tipe Aksi").setAutoWidth(true);
+        grid.addColumn(FormActionMeta::getMenuGroup).setHeader("Menu Group").setAutoWidth(true);
         grid.addColumn(FormActionMeta::getSourceLovCode).setHeader("Source LOV").setAutoWidth(true);
 
         grid.asSingleSelect().addValueChangeListener(event -> {
@@ -181,6 +353,7 @@ public class FormActionBuilderView extends VerticalLayout {
         actionCodeField.setWidthFull();
         actionLabelField.setWidthFull();
         targetScopeCombo.setWidthFull();
+        actionTypeCombo.setWidthFull();
         iconNameCombo.setWidthFull();
         buttonStyleCombo.setWidthFull();
         sourceLovCodeCombo.setWidthFull();
@@ -189,27 +362,41 @@ public class FormActionBuilderView extends VerticalLayout {
         filterMappingField.setWidthFull();
         filterMappingField.setPlaceholder("Contoh: status:'Active',customer_id:header.cust_code");
         filterMappingField.setHeight("70px");
-        HorizontalLayout filterLayout = new HorizontalLayout(filterMappingField, createBuilderButton(filterMappingField, false));
+        filterLayout.removeAll();
+        filterLayout.add(filterMappingField, createBuilderButton(filterMappingField, false));
         filterLayout.setWidthFull();
         filterLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.END);
 
         copyFilterMappingField.setWidthFull();
         copyFilterMappingField.setPlaceholder("Contoh: item_id:picked.id");
         copyFilterMappingField.setHeight("70px");
-        HorizontalLayout copyFilterLayout = new HorizontalLayout(copyFilterMappingField, createBuilderButton(copyFilterMappingField, false));
+        copyFilterLayout.removeAll();
+        copyFilterLayout.add(copyFilterMappingField, createBuilderButton(copyFilterMappingField, false));
         copyFilterLayout.setWidthFull();
         copyFilterLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.END);
 
         targetMappingField.setWidthFull();
         targetMappingField.setPlaceholder("Contoh: item_code:code,price:sell_price,qty:1");
         targetMappingField.setHeight("80px");
-        HorizontalLayout targetLayout = new HorizontalLayout(targetMappingField, createBuilderButton(targetMappingField, true));
+        targetLayout.removeAll();
+        targetLayout.add(targetMappingField, createBuilderButton(targetMappingField, true));
         targetLayout.setWidthFull();
         targetLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.END);
 
-        editor.add(formCodeCombo, actionCodeField, actionLabelField, targetScopeCombo,
+        menuGroupField.setWidthFull();
+        menuGroupField.setPlaceholder("Contoh: Action (kosongkan untuk tombol biasa)");
+
+        createGroovyHelperBar();
+
+        scriptContentField.setWidthFull();
+        scriptContentField.setPlaceholder("Groovy / Action Context script. Contoh: def rows = ctx.getGridData('grid1', true); ...");
+        scriptContentField.setHeight("180px");
+
+        editor.add(formCodeCombo, actionCodeField, actionLabelField, menuGroupField, targetScopeCombo, actionTypeCombo,
                 iconNameCombo, buttonStyleCombo, sourceLovCodeCombo, filterLayout, 
-                copySourceLovCodeCombo, copyFilterLayout, targetLayout);
+                copySourceLovCodeCombo, copyFilterLayout, targetLayout, groovyHelperBar, scriptContentField);
+
+        updateEditorVisibility("POPUP_PICKER");
 
         return editor;
     }
@@ -235,6 +422,7 @@ public class FormActionBuilderView extends VerticalLayout {
         actionCodeField.setValue(action.getActionCode() != null ? action.getActionCode() : "");
         actionLabelField.setValue(action.getActionLabel() != null ? action.getActionLabel() : "");
         targetScopeCombo.setValue(action.getTargetScope() != null ? action.getTargetScope() : "DETAIL_TOOLBAR");
+        actionTypeCombo.setValue(action.getActionType() != null ? action.getActionType() : "POPUP_PICKER");
         iconNameCombo.setValue(action.getIconName());
         buttonStyleCombo.setValue(action.getButtonStyle() != null ? action.getButtonStyle() : "PRIMARY");
         sourceLovCodeCombo.setValue(action.getSourceLovCode());
@@ -242,6 +430,8 @@ public class FormActionBuilderView extends VerticalLayout {
         filterMappingField.setValue(action.getFilterMapping() != null ? action.getFilterMapping() : "");
         copyFilterMappingField.setValue(action.getCopyFilterMapping() != null ? action.getCopyFilterMapping() : "");
         targetMappingField.setValue(action.getTargetMapping() != null ? action.getTargetMapping() : "");
+        menuGroupField.setValue(action.getMenuGroup() != null ? action.getMenuGroup() : "");
+        scriptContentField.setValue(action.getScriptContent() != null ? action.getScriptContent() : "");
     }
 
     private void clearForm() {
@@ -251,6 +441,7 @@ public class FormActionBuilderView extends VerticalLayout {
         actionCodeField.clear();
         actionLabelField.clear();
         targetScopeCombo.setValue("MASTER_TOOLBAR");
+        actionTypeCombo.setValue("POPUP_PICKER");
         iconNameCombo.clear();
         buttonStyleCombo.setValue("PRIMARY");
         sourceLovCodeCombo.clear();
@@ -258,6 +449,8 @@ public class FormActionBuilderView extends VerticalLayout {
         filterMappingField.clear();
         copyFilterMappingField.clear();
         targetMappingField.clear();
+        menuGroupField.clear();
+        scriptContentField.clear();
     }
 
     private void saveAction() {
@@ -283,6 +476,7 @@ public class FormActionBuilderView extends VerticalLayout {
         currentAction.setActionCode(actionCodeField.getValue().trim());
         currentAction.setActionLabel(actionLabelField.getValue().trim());
         currentAction.setTargetScope(targetScopeCombo.getValue());
+        currentAction.setActionType(actionTypeCombo.getValue() != null ? actionTypeCombo.getValue() : "POPUP_PICKER");
         currentAction.setIconName(iconNameCombo.getValue());
         currentAction.setButtonStyle(buttonStyleCombo.getValue());
         currentAction.setSourceLovCode(sourceLovCodeCombo.getValue());
@@ -290,6 +484,8 @@ public class FormActionBuilderView extends VerticalLayout {
         currentAction.setFilterMapping(filterMappingField.getValue());
         currentAction.setCopyFilterMapping(copyFilterMappingField.getValue());
         currentAction.setTargetMapping(targetMappingField.getValue());
+        currentAction.setMenuGroup(menuGroupField.getValue() != null ? menuGroupField.getValue().trim() : null);
+        currentAction.setScriptContent(scriptContentField.getValue() != null ? scriptContentField.getValue() : null);
 
         try {
             actionRepository.save(currentAction);

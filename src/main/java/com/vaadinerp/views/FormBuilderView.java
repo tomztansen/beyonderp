@@ -2596,13 +2596,18 @@ public class FormBuilderView extends VerticalLayout {
     private void buildToolbar() {
         toolbar.removeAll();
         toolbar.setWidthFull();
+        toolbar.addClassName("sticky-toolbar");
         toolbar.getStyle()
                 .set("background-color", "#f3f4f6")
                 .set("border", "1px solid #e5e7eb")
                 .set("border-radius", "6px")
                 .set("padding", "6px 12px")
                 .set("align-items", "center")
-                .set("gap", "15px");
+                .set("gap", "15px")
+                .set("position", "sticky")
+                .set("top", "0")
+                .set("z-index", "1000")
+                .set("box-shadow", "0 4px 10px rgba(0,0,0,0.08)");
 
         // 1. TAMBAH BUTTON
         Button btnNew = new Button("Tambah");

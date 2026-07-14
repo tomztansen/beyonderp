@@ -410,7 +410,7 @@ public class PortalView extends AppLayout {
         appMenuRepository.save(actionMenu);
 
         if (roleMenuPermissionRepository != null) {
-            for (String rCode : java.util.List.of("STAFF", "ADMIN", "SUPER_ADMIN")) {
+            for (String rCode : java.util.List.of("SUPER_ADMIN")) {
                 if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, "FORM_ACTION_BUILDER").isEmpty()) {
                     RoleMenuPermission p = new RoleMenuPermission();
                     p.setRoleCode(rCode);
@@ -481,12 +481,13 @@ public class PortalView extends AppLayout {
 
         ensureMenuExists("GRP_SYSTEM", "Sistem & Keamanan", null, "COG", 30, "GROUP");
         ensureMenuExists("FIELD_AUDIT_LOG", "Field Audit Log Viewer", "GRP_SYSTEM", "CLOCK", 20, "ITEM");
-        
+
         AppMenu fieldLogMenu = appMenuRepository.findById("FIELD_AUDIT_LOG").orElse(null);
         String actualSysParent = fieldLogMenu != null && fieldLogMenu.getParentMenuCode() != null
                 ? fieldLogMenu.getParentMenuCode()
                 : (appMenuRepository.existsById("SYS_FORM") ? "SYS_FORM" : "GRP_SYSTEM");
-        ensureAdminOnlyMenuExists("AUDIT_TRAIL_RESTORE", "Audit Trail & Restore Center", actualSysParent, "SHIELD", 25, "ITEM");
+        ensureAdminOnlyMenuExists("AUDIT_TRAIL_RESTORE", "Audit Trail & Restore Center", actualSysParent, "SHIELD", 25,
+                "ITEM");
 
         ensureMenuExists("GRP_MFG", "Manufaktur & Produksi", null, "FACTORY", 15, "GROUP");
         ensureMenuExists("PRODUCTION_SCHEDULER", "Production Gantt Scheduler", "GRP_MFG", "CALENDAR_CLOCK", 10, "ITEM");
@@ -524,7 +525,8 @@ public class PortalView extends AppLayout {
 
             AppMenu m = appMenuRepository.findById(code).orElse(null);
             if (m == null) {
-                // Menu untuk form ini sudah tidak ada atau telah dihapus oleh admin dari Manajemen Menu.
+                // Menu untuk form ini sudah tidak ada atau telah dihapus oleh admin dari
+                // Manajemen Menu.
                 // Jangan buat ulang secara otomatis agar menu yang dihapus tetap terhapus.
                 continue;
             }
@@ -577,7 +579,8 @@ public class PortalView extends AppLayout {
         }
     }
 
-    private void ensureAdminOnlyMenuExists(String code, String title, String parentCode, String icon, int order, String type) {
+    private void ensureAdminOnlyMenuExists(String code, String title, String parentCode, String icon, int order,
+            String type) {
         AppMenu m = appMenuRepository.findById(code).orElseGet(AppMenu::new);
         m.setMenuCode(code);
         m.setMenuTitle(title);
@@ -605,7 +608,7 @@ public class PortalView extends AppLayout {
             if (appRoleRepository != null) {
                 for (com.vaadinerp.security.entity.AppRole r : appRoleRepository.findAll()) {
                     if (r.getRoleCode() != null && r.getRoleCode().toUpperCase().contains("ADMIN") &&
-                        roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), code).isEmpty()) {
+                            roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), code).isEmpty()) {
                         RoleMenuPermission perm = new RoleMenuPermission();
                         perm.setRoleCode(r.getRoleCode());
                         perm.setMenuCode(code);
@@ -888,7 +891,8 @@ public class PortalView extends AppLayout {
             case "AUDIT_TRAIL_RESTORE" -> new AuditTrailView(dynamicDataService, dynamicDataService.getJdbcTemplate());
             case "PRODUCTION_SCHEDULER" -> new ProductionSchedulerView(dynamicDataService);
             case "SECURITY_ADMIN" -> new UserAuthorityAdminView(appUserRepository, appRoleRepository, appMenuRepository,
-                    roleMenuPermissionRepository, appUserFavoriteMenuRepository, formMetaRepository, reportMetaRepository, securityService);
+                    roleMenuPermissionRepository, appUserFavoriteMenuRepository, formMetaRepository,
+                    reportMetaRepository, securityService);
             default -> {
                 Optional<FormMeta> optForm = formMetaRepository.findById(code);
                 if (optForm.isPresent()) {
