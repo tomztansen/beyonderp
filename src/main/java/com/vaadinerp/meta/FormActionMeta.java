@@ -55,4 +55,10 @@ public class FormActionMeta {
 
     @Column(name = "copy_filter_mapping", length = 1000)
     private String copyFilterMapping; // e.g. {"item_id": "picked.id"}
+
+    @Column(name = "menu_group", length = 100)
+    private String menuGroup; // e.g. "Release Options" (jika diisi, dirender sebagai Dropdown/MenuBar)
+
+    @Column(name = "script_content", length = 5000)
+    private String scriptContent; // Groovy/DSL script untuk action_type = GROOVY_SCRIPT
 }

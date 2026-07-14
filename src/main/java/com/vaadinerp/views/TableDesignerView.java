@@ -152,6 +152,18 @@ public class TableDesignerView extends VerticalLayout {
         });
         HorizontalLayout colHdr = new HorizontalLayout(new H4("Rancang Kolom Tabel"), btnResetColGrid, StandardGridUtils.createExportExcelButton(columnsGrid, "designer_columns_export"));
         colHdr.setAlignItems(Alignment.CENTER);
+        colHdr.setWidthFull();
+        colHdr.addClassName("sticky-toolbar");
+        colHdr.getStyle()
+                .set("background-color", "#f3f4f6")
+                .set("border", "1px solid #e5e7eb")
+                .set("border-radius", "6px")
+                .set("padding", "8px 12px")
+                .set("gap", "15px")
+                .set("position", "sticky")
+                .set("top", "0")
+                .set("z-index", "1000")
+                .set("box-shadow", "0 4px 10px rgba(0,0,0,0.08)");
         add(title, tableNameField, includeAuditColsCheckbox, colHdr, colInputLayout, columnsGrid, enableTriggerCheckbox, triggerPanel, btnBuild);
     }
 

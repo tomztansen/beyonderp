@@ -662,7 +662,20 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         if (currentFormDef == null || dynamicDataService == null) return;
         List<com.vaadinerp.meta.FormActionMeta> masterActions = dynamicDataService.getFormActions(currentFormDef.getFormCode(),
                 "MASTER_TOOLBAR");
+        if (masterActions == null || masterActions.isEmpty()) return;
+
+        java.util.Map<String, java.util.List<com.vaadinerp.meta.FormActionMeta>> groupedActions = new java.util.LinkedHashMap<>();
+        List<com.vaadinerp.meta.FormActionMeta> standaloneActions = new ArrayList<>();
+
         for (com.vaadinerp.meta.FormActionMeta act : masterActions) {
+            if (act.getMenuGroup() != null && !act.getMenuGroup().isBlank()) {
+                groupedActions.computeIfAbsent(act.getMenuGroup().trim(), k -> new ArrayList<>()).add(act);
+            } else {
+                standaloneActions.add(act);
+            }
+        }
+
+        for (com.vaadinerp.meta.FormActionMeta act : standaloneActions) {
             com.vaadin.flow.component.icon.Icon icon = null;
             if (act.getIconName() != null && !act.getIconName().isBlank()) {
                 try {
@@ -672,19 +685,63 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             }
             Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
             actBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
-            actBtn.addClickListener(e -> {
-                Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : new HashMap<>();
-                com.vaadinerp.components.DynamicPickerPopupDialog dlg = new com.vaadinerp.components.DynamicPickerPopupDialog(
-                        act, dynamicDataService, headerBean, selectedRecords -> {
-                            for (Map<String, Object> srcRec : selectedRecords) {
-                                applyTargetMapping(headerBean, srcRec, act.getTargetMapping());
-                            }
-                            if (formBinder != null)
-                                formBinder.readBean(headerBean);
-                        });
-                dlg.open();
-            });
+            actBtn.addClickListener(e -> executeToolbarAction(act));
             extraActionsContainer.add(actBtn);
+        }
+
+        for (Map.Entry<String, List<com.vaadinerp.meta.FormActionMeta>> entry : groupedActions.entrySet()) {
+            com.vaadin.flow.component.menubar.MenuBar menuBar = new com.vaadin.flow.component.menubar.MenuBar();
+            menuBar.addThemeVariants(com.vaadin.flow.component.menubar.MenuBarVariant.LUMO_PRIMARY);
+            
+            HorizontalLayout menuBtnLayout = new HorizontalLayout();
+            menuBtnLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
+            menuBtnLayout.setSpacing(true);
+            com.vaadin.flow.component.icon.Icon grpIcon = VaadinIcon.FILE_TEXT.create();
+            grpIcon.setSize("16px");
+            com.vaadin.flow.component.icon.Icon chevronIcon = VaadinIcon.CHEVRON_DOWN.create();
+            chevronIcon.setSize("14px");
+            menuBtnLayout.add(grpIcon, new com.vaadin.flow.component.html.Span(entry.getKey()), chevronIcon);
+            com.vaadin.flow.component.contextmenu.MenuItem parentItem = menuBar.addItem(menuBtnLayout);
+            
+            com.vaadin.flow.component.contextmenu.SubMenu subMenu = parentItem.getSubMenu();
+            for (com.vaadinerp.meta.FormActionMeta act : entry.getValue()) {
+                com.vaadin.flow.component.icon.Icon icon = null;
+                if (act.getIconName() != null && !act.getIconName().isBlank()) {
+                    try {
+                        icon = VaadinIcon.valueOf(act.getIconName().toUpperCase()).create();
+                    } catch (Exception ignored) {
+                    }
+                }
+                if (icon == null) {
+                    icon = VaadinIcon.FILE_TEXT.create();
+                }
+                icon.setSize("16px");
+                subMenu.addItem(new HorizontalLayout(icon, new com.vaadin.flow.component.html.Span(act.getActionLabel())), e -> executeToolbarAction(act));
+            }
+            extraActionsContainer.add(menuBar);
+        }
+    }
+
+    private void executeToolbarAction(com.vaadinerp.meta.FormActionMeta act) {
+        Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : new HashMap<>();
+        List<Map<String, Object>> selectedRows = new ArrayList<>();
+        if (grid != null && grid.getSelectedItems() != null) {
+            selectedRows.addAll(grid.getSelectedItems());
+        }
+        if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType()) || (act.getScriptContent() != null && !act.getScriptContent().isBlank())) {
+            if (dynamicDataService != null && dynamicDataService.getScriptExecutorService() != null) {
+                dynamicDataService.getScriptExecutorService().executeActionScript(act, headerBean, selectedRows, this);
+            }
+        } else {
+            com.vaadinerp.components.DynamicPickerPopupDialog dlg = new com.vaadinerp.components.DynamicPickerPopupDialog(
+                    act, dynamicDataService, headerBean, selectedRecords -> {
+                        for (Map<String, Object> srcRec : selectedRecords) {
+                            applyTargetMapping(headerBean, srcRec, act.getTargetMapping());
+                        }
+                        if (formBinder != null)
+                            formBinder.readBean(headerBean);
+                    });
+            dlg.open();
         }
     }
 
@@ -854,17 +911,62 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 if (field.isHideInForm()) {
                     input.setVisible(false);
                 }
-                rowLayout.add(input);
-                formComponents.put(field.getFieldName(), input);
-                bindComponent(formBinder, input, field);
 
                 int span = (field.getColSpan() != null && field.getColSpan() > 0) ? field.getColSpan() : 1;
                 if ("TEXTAREA".equalsIgnoreCase(field.getComponentType()) && (field.getColSpan() == null || field.getColSpan() <= 1)) {
                     span = cols;
                 }
-                if (span > 1) {
-                    rowLayout.setColspan(input, Math.min(span, cols));
+
+                // Checkbox: bungkus dengan Div agar label muncul di ATAS (sama persis seperti TextField/ComboBox)
+                // sehingga checkbox square sejajar satu baris dengan input box di sampingnya
+                if (input instanceof com.vaadin.flow.component.checkbox.Checkbox cb) {
+                    String cbLabel = cb.getLabel();
+                    cb.setLabel(null); // hapus label dari checkbox agar tidak duplikat
+
+                    com.vaadin.flow.component.html.Span labelSpan = new com.vaadin.flow.component.html.Span(cbLabel != null ? cbLabel : "");
+                    labelSpan.getStyle()
+                            .set("color", "var(--lumo-secondary-text-color)")
+                            .set("font-weight", "500")
+                            .set("font-size", "var(--lumo-font-size-s)")
+                            .set("line-height", "1")
+                            .set("padding-top", "var(--lumo-space-m)")
+                            .set("padding-bottom", "var(--lumo-space-xs)")
+                            .set("overflow", "hidden")
+                            .set("white-space", "nowrap")
+                            .set("text-overflow", "ellipsis")
+                            .set("align-self", "flex-start");
+
+                    com.vaadin.flow.component.html.Div cbBox = new com.vaadin.flow.component.html.Div(cb);
+                    cbBox.getStyle()
+                            .set("height", "var(--lumo-size-m, 36px)")
+                            .set("min-height", "var(--lumo-size-m, 36px)")
+                            .set("display", "flex")
+                            .set("align-items", "center")
+                            .set("justify-content", "flex-start")
+                            .set("width", "100%");
+
+                    com.vaadin.flow.component.html.Div cbWrapper = new com.vaadin.flow.component.html.Div(labelSpan, cbBox);
+                    cbWrapper.getStyle()
+                            .set("display", "flex")
+                            .set("flex-direction", "column")
+                            .set("justify-content", "flex-start")
+                            .set("align-items", "flex-start")
+                            .set("width", "100%");
+
+                    rowLayout.add(cbWrapper);
+                    if (span > 1) {
+                        rowLayout.setColspan(cbWrapper, Math.min(span, cols));
+                    }
+                } else {
+                    rowLayout.add(input);
+                    if (span > 1) {
+                        rowLayout.setColspan(input, Math.min(span, cols));
+                    }
                 }
+
+                formComponents.put(field.getFieldName(), input);
+                bindComponent(formBinder, input, field);
+
                 if ("TEXTAREA".equalsIgnoreCase(field.getComponentType()) && input instanceof com.vaadin.flow.component.textfield.TextArea ta) {
                     ta.getStyle().set("resize", "vertical");
                 }

@@ -128,6 +128,81 @@ public class ScriptExecutorService {
         }
     }
 
+    public void executeActionScript(com.vaadinerp.meta.FormActionMeta act,
+                                    Map<String, Object> headerBean,
+                                    List<Map<String, Object>> selectedGridRows,
+                                    com.vaadin.flow.component.Component currentView) {
+        if (act == null || act.getScriptContent() == null || act.getScriptContent().isBlank()) {
+            return;
+        }
+        String scriptText = act.getScriptContent().trim();
+
+        ActionContext ctx = new ActionContext(dataServiceProvider.getIfAvailable(), headerBean, selectedGridRows, currentView);
+
+        // Ganti macro @gridtable{...} dengan ctx.getElementValue('...', true)
+        scriptText = scriptText.replaceAll("@gridtable\\{([^}]+)\\}", "ctx.getElementValue('$1', true)");
+        // Ganti macro @app{userid} dengan ctx.getUserId()
+        scriptText = scriptText.replaceAll("@app\\{userid\\}", "ctx.getUserId()");
+
+        // Konversi syntax JS let -> def agar mudah bagi user jika copas JS
+        scriptText = scriptText.replaceAll("\\blet\\s+", "def ");
+
+        final String finalScriptText = scriptText;
+        String scriptId = "action_" + (act.getId() != null ? act.getId() : act.getActionCode()) + "_" + finalScriptText.hashCode();
+
+        try {
+            Class<? extends Script> scriptClass = scriptCache.computeIfAbsent(scriptId, id -> {
+                GroovyShell shell = new GroovyShell(compilerConfiguration);
+                return shell.parse(finalScriptText).getClass();
+            });
+
+            Script scriptInstance = scriptClass.getDeclaredConstructor().newInstance();
+
+            Binding binding = new Binding();
+            binding.setVariable("ctx", ctx);
+            binding.setVariable("header", headerBean != null ? headerBean : new HashMap<>());
+            binding.setVariable("selectedRows", selectedGridRows != null ? selectedGridRows : new ArrayList<>());
+            binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
+
+            binding.setVariable("showYesNoDialog", new groovy.lang.Closure<Void>(null) {
+                public void doCall(String title, String message, Object callback) {
+                    ctx.showYesNoDialog(title, message, callback);
+                }
+            });
+            binding.setVariable("executeProcedure", new groovy.lang.Closure<Boolean>(null) {
+                public boolean doCall(int procId, Object callbackOrJson, Object... rest) {
+                    return ctx.executeProcedure(procId, callbackOrJson, rest);
+                }
+            });
+            binding.setVariable("showSuccess", new groovy.lang.Closure<Void>(null) {
+                public void doCall(String title, String message) {
+                    ctx.showSuccess(title, message);
+                }
+            });
+            binding.setVariable("showError", new groovy.lang.Closure<Void>(null) {
+                public void doCall(String title, String message) {
+                    ctx.showError(title, message);
+                }
+            });
+            binding.setVariable("showMainTab", new groovy.lang.Closure<Void>(null) {
+                public void doCall(int tabId, String tabTitle, String url, String extra) {
+                    ctx.showMainTab(tabId, tabTitle, url, extra);
+                }
+            });
+            binding.setVariable("getElementValue", new groovy.lang.Closure<List<Map<String, Object>>>(null) {
+                public List<Map<String, Object>> doCall(String ref, boolean selected) {
+                    return ctx.getElementValue(ref, selected);
+                }
+            });
+
+            scriptInstance.setBinding(binding);
+            scriptInstance.run();
+        } catch (Exception e) {
+            System.err.println("Error executing action script [" + act.getActionCode() + "]: " + e.getMessage());
+            ctx.showError("Script Error (" + act.getActionCode() + ")", e.getMessage());
+        }
+    }
+
     public void clearCache(String scriptId) {
         scriptCache.remove(scriptId);
     }

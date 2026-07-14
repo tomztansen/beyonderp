@@ -774,6 +774,11 @@ public class ComponentFactory {
             case "BOOL":
                 Checkbox checkbox = new Checkbox(label);
                 checkbox.setReadOnly(field.isReadonly());
+                checkbox.getStyle()
+                        .set("margin", "0")
+                        .set("padding", "0")
+                        .set("cursor", "pointer")
+                        .set("align-self", "flex-start");
                 return checkbox;
             case "TEXTAREA":
                 TextArea textArea = new TextArea(label);

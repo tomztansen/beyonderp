@@ -280,18 +280,20 @@ vaadin-button:active {
     transform: scale(0.97) !important;
 }
 
-/* Custom Checkbox Alignment */
-vaadin-checkbox[has-label] {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
+/* Custom Checkbox Alignment (Satu Baris Sejajar Dengan Komponen di Sampingnya) */
+vaadin-checkbox {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    margin: 0 !important;
 }
 
-vaadin-checkbox:not([has-label]) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0;
+/* Pastikan checkbox di dalam FormItem sejajar dengan input box di sampingnya */
+vaadin-form-item vaadin-checkbox {
+    height: var(--lumo-size-m, 36px) !important;
+    min-height: var(--lumo-size-m, 36px) !important;
+    display: inline-flex !important;
+    align-items: center !important;
 }
 
 /* ===== Styling for Editable and Read-Only Form Fields ===== */
@@ -548,4 +550,25 @@ vaadin-connection-indicator[connection-lost] .v-status-message::after {
     color: #64748b !important;
     margin-top: 0.5rem !important;
     line-height: 1.4 !important;
+}
+
+/* ==========================================================================
+   STICKY ACTION TOOLBAR (TOOLBAR TETAP DI ATAS SAAT SCROLL)
+   ========================================================================== */
+com-vaadinerp-components-standardactiontoolbar,
+.sticky-toolbar,
+vaadin-horizontal-layout[style*="f8fafc"],
+vaadin-horizontal-layout[style*="f3f4f6"] {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1000 !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+    transition: box-shadow 0.2s ease !important;
+}
+
+/* Pastikan slot content AppLayout & container parent mendukung sifat position: sticky */
+vaadin-app-layout::part(content) {
+    overflow: auto !important;
 }
