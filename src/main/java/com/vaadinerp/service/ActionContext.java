@@ -15,8 +15,10 @@ import java.util.*;
 import java.util.function.Consumer;
 
 /**
- * ActionContext (ctx) - Helper object disuntikkan ke dalam eksekusi Groovy Script (Extra Toolbar).
- * Menyediakan dukungan penuh untuk macro @gridtable{...}, @app{userid}, dan metode DSL UI.
+ * ActionContext (ctx) - Helper object disuntikkan ke dalam eksekusi Groovy
+ * Script (Extra Toolbar).
+ * Menyediakan dukungan penuh untuk macro @gridtable{...}, @app{userid}, dan
+ * metode DSL UI.
  */
 public class ActionContext {
 
@@ -26,9 +28,9 @@ public class ActionContext {
     private final Component currentView;
 
     public ActionContext(DynamicDataService dataService,
-                         Map<String, Object> headerBean,
-                         List<Map<String, Object>> selectedGridRows,
-                         Component currentView) {
+            Map<String, Object> headerBean,
+            List<Map<String, Object>> selectedGridRows,
+            Component currentView) {
         this.dataService = dataService;
         this.headerBean = headerBean != null ? headerBean : new HashMap<>();
         this.selectedGridRows = selectedGridRows != null ? selectedGridRows : new ArrayList<>();
@@ -56,8 +58,9 @@ public class ActionContext {
         Command openDialog = () -> {
             ConfirmDialog dialog = new ConfirmDialog();
             dialog.setHeader(title != null ? title : "Konfirmasi");
-            
-            if (message != null && (message.contains("<br") || message.contains("</br>") || message.contains("<b") || message.contains("<span"))) {
+
+            if (message != null && (message.contains("<br") || message.contains("</br>") || message.contains("<b")
+                    || message.contains("<span"))) {
                 String cleanHtml = message.replace("</br>", "<br/>");
                 dialog.setText(new Html("<div>" + cleanHtml + "</div>"));
             } else {
@@ -95,12 +98,13 @@ public class ActionContext {
         }
     }
 
-    public boolean executeProcedure(int procedureId, Object callbackOrJson, Object... rest) {
+    public boolean executeProcedure(Object procRef, Object callbackOrJson, Object... rest) {
         String jsonParams = null;
         String userId = getUserId();
         Object callback = null;
 
-        if (callbackOrJson instanceof Closure<?> || callbackOrJson instanceof Runnable || callbackOrJson instanceof Consumer) {
+        if (callbackOrJson instanceof Closure<?> || callbackOrJson instanceof Runnable
+                || callbackOrJson instanceof Consumer) {
             callback = callbackOrJson;
             if (rest.length > 0 && rest[0] != null) {
                 jsonParams = rest[0].toString();
@@ -118,11 +122,33 @@ public class ActionContext {
         boolean status = true;
         try {
             if (dataService != null && dataService.getJdbcTemplate() != null) {
-                System.out.println("Executing Procedure [" + procedureId + "] with params: " + jsonParams + " by user: " + userId);
+                String procName = null;
+                if (procRef instanceof Number num) {
+                    if (num.intValue() == 3) {
+                        procName = "dynamic.salesordertoproduction";
+                    } else {
+                        procName = "dynamic.proc_" + num.intValue();
+                    }
+                } else if (procRef != null) {
+                    procName = procRef.toString().trim();
+                    if ("3".equals(procName)) {
+                        procName = "dynamic.salesordertoproduction";
+                    } else if (!procName.contains(".")) {
+                        procName = "dynamic." + procName;
+                    }
+                }
+
+                if (procName != null && !procName.isEmpty()) {
+                    System.out.println("Executing Procedure [" + procName + "] with params: " + jsonParams
+                            + " by user: " + userId);
+                    dataService.getJdbcTemplate().update("CALL " + procName + "(?::json, ?)", jsonParams, userId);
+                }
             }
         } catch (Exception ex) {
             status = false;
-            System.err.println("Procedure execution failed: " + ex.getMessage());
+            String cleanMsg = extractCleanErrorMessage(ex);
+            System.err.println("Procedure execution failed: " + cleanMsg);
+            showError("Gagal Eksekusi Procedure", "<b>Error:</b><br/>" + cleanMsg);
         }
 
         if (callback instanceof Closure<?> closure) {
@@ -136,6 +162,45 @@ public class ActionContext {
         }
 
         return status;
+    }
+
+    public String extractCleanErrorMessage(Throwable ex) {
+        Throwable current = ex;
+        String message = ex.getMessage();
+        while (current != null) {
+            if (current instanceof java.sql.SQLException sqlEx) {
+                if (sqlEx.getMessage() != null && !sqlEx.getMessage().isBlank()) {
+                    message = sqlEx.getMessage();
+                    break;
+                }
+            }
+            current = current.getCause();
+        }
+
+        if (message == null)
+            return "Terjadi kesalahan yang tidak diketahui.";
+
+        int errIdx = message.indexOf("ERROR:");
+        if (errIdx == -1)
+            errIdx = message.indexOf("Error:");
+        if (errIdx == -1)
+            errIdx = message.indexOf("error:");
+
+        if (errIdx != -1) {
+            String clean = message.substring(errIdx + 6).trim();
+            int nlIdx = clean.indexOf('\n');
+            if (nlIdx != -1) {
+                clean = clean.substring(0, nlIdx).trim();
+            }
+            return clean;
+        }
+
+        if (message.contains("; ")) {
+            String[] parts = message.split("; ");
+            return parts[parts.length - 1].trim();
+        }
+
+        return message;
     }
 
     public void showSuccess(String title, String message) {
@@ -175,13 +240,40 @@ public class ActionContext {
     }
 
     public void showMainTab(int tabId, String tabTitle, String url, String extra) {
+        showMainTab(String.valueOf(tabId), tabTitle, url, extra);
+    }
+
+    public void showMainTab(String tabIdOrCode, String tabTitle, String url, String extra) {
         UI ui = UI.getCurrent();
         if (ui == null && currentView != null && currentView.getUI().isPresent()) {
             ui = currentView.getUI().get();
         }
-        if (ui != null) {
-            ui.access(() -> {
-                Notification.show("Membuka Tab [" + tabTitle + " (ID: " + tabId + ")]...", 3000, Notification.Position.MIDDLE);
+        final UI finalUi = ui;
+        if (finalUi != null) {
+            finalUi.access(() -> {
+                Component comp = currentView;
+                com.vaadinerp.views.PortalView portal = null;
+                while (comp != null) {
+                    if (comp instanceof com.vaadinerp.views.PortalView pv) {
+                        portal = pv;
+                        break;
+                    }
+                    comp = comp.getParent().orElse(null);
+                }
+                if (portal == null) {
+                    for (Component c : finalUi.getChildren().toList()) {
+                        if (c instanceof com.vaadinerp.views.PortalView pv) {
+                            portal = pv;
+                            break;
+                        }
+                    }
+                }
+                if (portal != null) {
+                    portal.openTabByCode(tabIdOrCode != null ? tabIdOrCode : tabTitle, tabTitle);
+                } else {
+                    Notification.show("Membuka Tab [" + tabTitle + " (ID: " + tabIdOrCode + ")]...", 3000,
+                            Notification.Position.MIDDLE);
+                }
             });
         }
     }
@@ -197,7 +289,8 @@ public class ActionContext {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return "admin";
     }
 

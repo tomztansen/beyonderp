@@ -46,6 +46,48 @@ public class FieldMeta {
     @Column(name = "is_readonly")
     private boolean isReadonly;
 
+    @Column(name = "readonly_mode", length = 20)
+    private String readonlyMode; // NONE, ADD, EDIT, EDIT_AND_ADD
+
+    public boolean isReadonly() {
+        if (readonlyMode != null && !readonlyMode.trim().isEmpty() && !"DEFAULT".equalsIgnoreCase(readonlyMode)) {
+            if ("EDIT_AND_ADD".equalsIgnoreCase(readonlyMode) || "BOTH".equalsIgnoreCase(readonlyMode)) {
+                return true;
+            }
+            if ("NONE".equalsIgnoreCase(readonlyMode)) {
+                return false;
+            }
+        }
+        return isReadonly;
+    }
+
+    public void setReadonly(boolean isReadonly) {
+        this.isReadonly = isReadonly;
+        if (this.readonlyMode == null || this.readonlyMode.trim().isEmpty() || "DEFAULT".equalsIgnoreCase(this.readonlyMode)) {
+            this.readonlyMode = isReadonly ? "EDIT_AND_ADD" : "NONE";
+        }
+    }
+
+    public boolean isReadonlyFor(boolean isNewRecord) {
+        String mode = this.readonlyMode;
+        if (mode == null || mode.trim().isEmpty() || "DEFAULT".equalsIgnoreCase(mode)) {
+            return this.isReadonly;
+        }
+        if ("EDIT_AND_ADD".equalsIgnoreCase(mode) || "BOTH".equalsIgnoreCase(mode)) {
+            return true;
+        }
+        if ("NONE".equalsIgnoreCase(mode)) {
+            return false;
+        }
+        if ("EDIT".equalsIgnoreCase(mode)) {
+            return !isNewRecord; // readonly saat edit (!isNewRecord)
+        }
+        if ("ADD".equalsIgnoreCase(mode)) {
+            return isNewRecord; // readonly saat add (isNewRecord)
+        }
+        return this.isReadonly;
+    }
+
     @Column(name = "lov_code", length = 50)
     private String lovCode;
 

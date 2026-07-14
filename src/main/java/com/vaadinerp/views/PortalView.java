@@ -387,14 +387,14 @@ public class PortalView extends AppLayout {
 
         // Pastikan menu Report & Cetak selalu ada
         ensureMenuExists("GRP_REPORTS", "Report & Cetak", null, "FILE_TEXT", 20, "GROUP");
-        ensureMenuExists("REPORT_BUILDER", "Report Designer", "GRP_REPORTS", "EDIT", 10, "ITEM");
+        ensureAdminOnlyMenuExists("REPORT_BUILDER", "Report Designer", "GRP_REPORTS", "EDIT", 10, "ITEM");
         ensureMenuExists("REPORT_VIEWER", "Report Viewer", "GRP_REPORTS", "PRINT", 20, "ITEM");
 
         // Pastikan LOV Builder selalu ada (di bawah SYS_FORM jika ada, atau root)
         String sysParent = appMenuRepository.existsById("SYS_FORM") ? "SYS_FORM"
                 : (appMenuRepository.existsById("GRP_DEV_TOOLS") ? "GRP_DEV_TOOLS" : null);
-        ensureMenuExists("LOV_BUILDER", "LOV Metadata Builder", sysParent, "LIST", 30, "ITEM");
-        ensureMenuExists("STANDARD_FORMAT", "Konfigurasi Format Standar", sysParent, "SLIDERS", 40, "ITEM");
+        ensureAdminOnlyMenuExists("LOV_BUILDER", "LOV Metadata Builder", sysParent, "LIST", 30, "ITEM");
+        ensureAdminOnlyMenuExists("STANDARD_FORMAT", "Konfigurasi Format Standar", sysParent, "SLIDERS", 40, "ITEM");
 
         AppMenu lov = appMenuRepository.findById("LOV_BUILDER").orElse(null);
         String targetParent = (lov != null && lov.getParentMenuCode() != null) ? lov.getParentMenuCode() : sysParent;
@@ -410,7 +410,7 @@ public class PortalView extends AppLayout {
         appMenuRepository.save(actionMenu);
 
         if (roleMenuPermissionRepository != null) {
-            for (String rCode : java.util.List.of("SUPER_ADMIN")) {
+            for (String rCode : java.util.List.of("SUPER_ADMIN", "ADMIN")) {
                 if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, "FORM_ACTION_BUILDER").isEmpty()) {
                     RoleMenuPermission p = new RoleMenuPermission();
                     p.setRoleCode(rCode);
@@ -424,8 +424,8 @@ public class PortalView extends AppLayout {
             }
             if (appRoleRepository != null) {
                 for (com.vaadinerp.security.entity.AppRole r : appRoleRepository.findAll()) {
-                    if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), "FORM_ACTION_BUILDER")
-                            .isEmpty()) {
+                    if (r.getRoleCode() != null && r.getRoleCode().toUpperCase().contains("ADMIN")
+                            && roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), "FORM_ACTION_BUILDER").isEmpty()) {
                         RoleMenuPermission p = new RoleMenuPermission();
                         p.setRoleCode(r.getRoleCode());
                         p.setMenuCode("FORM_ACTION_BUILDER");
@@ -450,7 +450,7 @@ public class PortalView extends AppLayout {
         appMenuRepository.save(seqMenu);
 
         if (roleMenuPermissionRepository != null) {
-            for (String rCode : java.util.List.of("STAFF", "ADMIN", "SUPER_ADMIN")) {
+            for (String rCode : java.util.List.of("ADMIN", "SUPER_ADMIN")) {
                 if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, "MD_SEQUENCE").isEmpty()) {
                     RoleMenuPermission p = new RoleMenuPermission();
                     p.setRoleCode(rCode);
@@ -464,8 +464,8 @@ public class PortalView extends AppLayout {
             }
             if (appRoleRepository != null) {
                 for (com.vaadinerp.security.entity.AppRole r : appRoleRepository.findAll()) {
-                    if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), "MD_SEQUENCE")
-                            .isEmpty()) {
+                    if (r.getRoleCode() != null && r.getRoleCode().toUpperCase().contains("ADMIN")
+                            && roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), "MD_SEQUENCE").isEmpty()) {
                         RoleMenuPermission p = new RoleMenuPermission();
                         p.setRoleCode(r.getRoleCode());
                         p.setMenuCode("MD_SEQUENCE");
@@ -480,7 +480,7 @@ public class PortalView extends AppLayout {
         }
 
         ensureMenuExists("GRP_SYSTEM", "Sistem & Keamanan", null, "COG", 30, "GROUP");
-        ensureMenuExists("FIELD_AUDIT_LOG", "Field Audit Log Viewer", "GRP_SYSTEM", "CLOCK", 20, "ITEM");
+        ensureAdminOnlyMenuExists("FIELD_AUDIT_LOG", "Field Audit Log Viewer", "GRP_SYSTEM", "CLOCK", 20, "ITEM");
 
         AppMenu fieldLogMenu = appMenuRepository.findById("FIELD_AUDIT_LOG").orElse(null);
         String actualSysParent = fieldLogMenu != null && fieldLogMenu.getParentMenuCode() != null
@@ -493,7 +493,8 @@ public class PortalView extends AppLayout {
         ensureMenuExists("PRODUCTION_SCHEDULER", "Production Gantt Scheduler", "GRP_MFG", "CALENDAR_CLOCK", 10, "ITEM");
         if (roleMenuPermissionRepository != null) {
             for (String rCode : java.util.List.of("STAFF", "ADMIN", "SUPER_ADMIN")) {
-                if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, "PRODUCTION_SCHEDULER").isEmpty()) {
+                if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode("SUPER_ADMIN", "PRODUCTION_SCHEDULER").isEmpty()
+                        && roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, "PRODUCTION_SCHEDULER").isEmpty()) {
                     RoleMenuPermission p = new RoleMenuPermission();
                     p.setRoleCode(rCode);
                     p.setMenuCode("PRODUCTION_SCHEDULER");
@@ -538,7 +539,8 @@ public class PortalView extends AppLayout {
             appMenuRepository.save(m);
             order += 10;
 
-            if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode("STAFF", code).isEmpty()) {
+            if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode("SUPER_ADMIN", code).isEmpty()
+                    && roleMenuPermissionRepository.findByRoleCodeAndMenuCode("STAFF", code).isEmpty()) {
                 RoleMenuPermission perm = new RoleMenuPermission();
                 perm.setRoleCode("STAFF");
                 perm.setMenuCode(code);
@@ -547,6 +549,23 @@ public class PortalView extends AppLayout {
                 perm.setCanDelete(false);
                 perm.setCanPrint(true);
                 roleMenuPermissionRepository.save(perm);
+            }
+        }
+
+        if (roleMenuPermissionRepository != null) {
+            java.util.List<String> adminTools = java.util.List.of("LOV_BUILDER", "STANDARD_FORMAT",
+                    "FORM_ACTION_BUILDER", "MD_SEQUENCE", "FIELD_AUDIT_LOG", "REPORT_BUILDER",
+                    "AUDIT_TRAIL_RESTORE", "DB_EXPLORER", "SECURITY_ADMIN", "FORM_BUILDER");
+            for (String toolCode : adminTools) {
+                for (RoleMenuPermission p : roleMenuPermissionRepository.findAll()) {
+                    if (toolCode.equalsIgnoreCase(p.getMenuCode())) {
+                        String r = p.getRoleCode();
+                        if (r != null && !"SUPER_ADMIN".equalsIgnoreCase(r) && !"ADMIN".equalsIgnoreCase(r)
+                                && !r.toUpperCase().contains("ADMIN")) {
+                            roleMenuPermissionRepository.delete(p);
+                        }
+                    }
+                }
             }
         }
     }
@@ -567,6 +586,7 @@ public class PortalView extends AppLayout {
             appMenuRepository.save(m);
         }
         if (!"GROUP".equals(type) && roleMenuPermissionRepository != null
+                && roleMenuPermissionRepository.findByRoleCodeAndMenuCode("SUPER_ADMIN", code).isEmpty()
                 && roleMenuPermissionRepository.findByRoleCodeAndMenuCode("STAFF", code).isEmpty()) {
             RoleMenuPermission perm = new RoleMenuPermission();
             perm.setRoleCode("STAFF");
@@ -873,7 +893,7 @@ public class PortalView extends AppLayout {
         }
     }
 
-    private void openMenuTab(AppMenu menu) {
+    public void openMenuTab(AppMenu menu) {
         String code = menu.getMenuCode();
         String title = menu.getMenuTitle();
 
@@ -948,6 +968,52 @@ public class PortalView extends AppLayout {
         };
 
         openTab(code, title, content);
+    }
+
+    public void openTabByCode(String code, String title) {
+        if (code == null || code.isBlank()) return;
+        if (openTabs.containsKey(code)) {
+            tabSheet.setSelectedTab(openTabs.get(code));
+            return;
+        }
+        String targetCode = code;
+        String targetTitle = title != null && !title.isBlank() ? title : code;
+
+        Optional<FormMeta> optForm = formMetaRepository.findById(targetCode);
+        if (optForm.isEmpty()) {
+            for (FormMeta fm : formMetaRepository.findAll()) {
+                if (fm.getFormCode() != null && fm.getFormCode().equalsIgnoreCase(targetCode)) {
+                    optForm = Optional.of(fm);
+                    targetCode = fm.getFormCode();
+                    break;
+                } else if (title != null && fm.getFormTitle() != null && fm.getFormTitle().equalsIgnoreCase(title.trim())) {
+                    optForm = Optional.of(fm);
+                    targetCode = fm.getFormCode();
+                    break;
+                }
+            }
+        }
+        if (optForm.isEmpty()) {
+            for (AppMenu m : appMenuRepository.findAll()) {
+                if (m.getMenuCode() != null && m.getMenuCode().equalsIgnoreCase(targetCode)) {
+                    targetCode = m.getMenuCode();
+                    if (title == null || title.isBlank()) targetTitle = m.getMenuTitle();
+                    break;
+                } else if (title != null && m.getMenuTitle() != null && m.getMenuTitle().equalsIgnoreCase(title.trim())) {
+                    targetCode = m.getMenuCode();
+                    targetTitle = m.getMenuTitle();
+                    break;
+                }
+            }
+        } else {
+            if (title != null && !title.isBlank()) targetTitle = title;
+            else if (optForm.get().getFormTitle() != null) targetTitle = optForm.get().getFormTitle();
+        }
+
+        AppMenu menu = new AppMenu();
+        menu.setMenuCode(targetCode);
+        menu.setMenuTitle(targetTitle);
+        openMenuTab(menu);
     }
 
     private void openChangePasswordDialog() {

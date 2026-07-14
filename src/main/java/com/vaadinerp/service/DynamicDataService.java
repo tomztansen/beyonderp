@@ -833,6 +833,48 @@ public class DynamicDataService {
         jdbcTemplate.execute("DROP FUNCTION IF EXISTS dynamic.fn_" + rawTableName + "_" + triggerName + " CASCADE");
     }
 
+    public List<Map<String, Object>> fetchDatabaseRoutines(String schemaFilter) {
+        try {
+            String sql = "SELECT n.nspname AS schema_name, p.proname AS procedure_name, " +
+                         "pg_get_function_identity_arguments(p.oid) AS identity_args, " +
+                         "pg_get_function_arguments(p.oid) AS full_args, " +
+                         "CASE WHEN p.prokind = 'p' THEN 'PROCEDURE' ELSE 'FUNCTION' END AS routine_type, " +
+                         "p.oid AS oid " +
+                         "FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid " +
+                         "WHERE n.nspname IN ('dynamic', 'public') AND p.prokind IN ('p', 'f') ";
+            if (schemaFilter != null && !schemaFilter.trim().isEmpty() && !"ALL".equalsIgnoreCase(schemaFilter)) {
+                sql += " AND n.nspname = '" + schemaFilter.trim().toLowerCase() + "' ";
+            }
+            sql += " ORDER BY n.nspname, p.proname, identity_args";
+            return jdbcTemplate.queryForList(sql);
+        } catch (Exception e) {
+            log.error("Gagal memuat list routine/procedure: " + e.getMessage(), e);
+            return new ArrayList<>();
+        }
+    }
+
+    public String fetchRoutineDefinitionByOid(Long oid) {
+        if (oid == null) return "";
+        try {
+            String def = jdbcTemplate.queryForObject("SELECT pg_get_functiondef(?)", String.class, oid);
+            return def != null ? def : "";
+        } catch (Exception e) {
+            log.error("Gagal memuat definisi routine oid {}: {}", oid, e.getMessage());
+            return "";
+        }
+    }
+
+    @Transactional
+    public void executeProcedureScript(String sqlScript) {
+        if (!isCurrentUserSuperAdmin()) {
+            throw new SecurityException("Akses ditolak: Hanya SUPER_ADMIN yang boleh membuat, mengubah, atau menghapus procedure/function!");
+        }
+        if (sqlScript == null || sqlScript.trim().isEmpty()) {
+            throw new IllegalArgumentException("Script SQL tidak boleh kosong.");
+        }
+        jdbcTemplate.execute(sqlScript);
+    }
+
     public List<Map<String, Object>> fetchTableConstraints(String tableName) {
         if (tableName == null || tableName.trim().isEmpty()) {
             return new ArrayList<>();
@@ -1277,7 +1319,7 @@ public class DynamicDataService {
                 }
                 if (fieldName.equalsIgnoreCase("inputby") || fieldName.equalsIgnoreCase("inputdt") ||
                     fieldName.equalsIgnoreCase("updateby") || fieldName.equalsIgnoreCase("updatedt")) continue;
-                if (!field.isSaveOnInsert()) continue;
+                if (!field.isSaveOnInsert() && (field.getSequenceCode() == null || field.getSequenceCode().trim().isEmpty())) continue;
                 if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) continue; // Skip subform grid columns
                 if (data.containsKey(fieldName)) {
                     columns.add(fieldName);
@@ -3154,6 +3196,20 @@ public class DynamicDataService {
             }
         } else {
             // INSERT Master with KeyHolder
+            if (formMeta.getFields() != null) {
+                for (FieldMeta field : formMeta.getFields()) {
+                    if (!field.isDetail() && field.getSequenceCode() != null && !field.getSequenceCode().trim().isEmpty()) {
+                        String fieldName = field.getFieldName();
+                        Object val = masterData.get(fieldName);
+                        if (val == null || val.toString().trim().isEmpty() || val.toString().startsWith("[AUTO") || val.toString().startsWith("⚡")) {
+                            String genNum = generateNextSequence(field.getSequenceCode());
+                            masterData.put(fieldName, genNum);
+                            log.info("Auto-generated sequence '{}' for master field '{}' -> {}", field.getSequenceCode(), fieldName, genNum);
+                        }
+                    }
+                }
+            }
+
             StringJoiner columns = new StringJoiner(", ");
             StringJoiner valuesParam = new StringJoiner(", ");
             List<Object> args = new ArrayList<>();
@@ -3164,7 +3220,7 @@ public class DynamicDataService {
                 if (fieldName.equalsIgnoreCase(masterPk)) continue;
                 if (fieldName.equalsIgnoreCase("inputby") || fieldName.equalsIgnoreCase("inputdt") ||
                     fieldName.equalsIgnoreCase("updateby") || fieldName.equalsIgnoreCase("updatedt")) continue;
-                if (!field.isSaveOnInsert()) continue;
+                if (!field.isSaveOnInsert() && (field.getSequenceCode() == null || field.getSequenceCode().trim().isEmpty())) continue;
                 if (masterData.containsKey(fieldName)) {
                     columns.add(fieldName);
                     valuesParam.add("?");
@@ -3374,6 +3430,20 @@ public class DynamicDataService {
                     }
                 } else {
                     // INSERT detail row
+                    if (formMeta.getFields() != null) {
+                        for (FieldMeta field : formMeta.getFields()) {
+                            if (field.isDetail() && field.getSequenceCode() != null && !field.getSequenceCode().trim().isEmpty()) {
+                                String fieldName = field.getFieldName();
+                                Object val = row.get(fieldName);
+                                if (val == null || val.toString().trim().isEmpty() || val.toString().startsWith("[AUTO") || val.toString().startsWith("⚡")) {
+                                    String genNum = generateNextSequence(field.getSequenceCode());
+                                    row.put(fieldName, genNum);
+                                    log.info("Auto-generated sequence '{}' for detail field '{}' -> {}", field.getSequenceCode(), fieldName, genNum);
+                                }
+                            }
+                        }
+                    }
+
                     StringJoiner columns = new StringJoiner(", ");
                     StringJoiner valuesParam = new StringJoiner(", ");
                     List<Object> args = new ArrayList<>();
@@ -3390,7 +3460,7 @@ public class DynamicDataService {
                         }
                         if (fieldName.equalsIgnoreCase("inputby") || fieldName.equalsIgnoreCase("inputdt") ||
                             fieldName.equalsIgnoreCase("updateby") || fieldName.equalsIgnoreCase("updatedt")) continue;
-                        if (!field.isSaveOnInsert()) continue;
+                        if (!field.isSaveOnInsert() && (field.getSequenceCode() == null || field.getSequenceCode().trim().isEmpty())) continue;
                         if (row.containsKey(fieldName)) {
                             columns.add(fieldName);
                             valuesParam.add("?");

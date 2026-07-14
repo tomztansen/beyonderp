@@ -1044,4 +1044,44 @@ public class ComponentFactory {
                 return defaultField;
         }
     }
+
+    public static void applyReadonlyMode(Component component, FieldMeta field, boolean isNewRecord) {
+        if (component == null || field == null) return;
+        boolean ro = field.isReadonlyFor(isNewRecord);
+
+        // Jika auto-sequence aktif, jangan ubah read-only dari true ke false
+        if (component instanceof com.vaadin.flow.component.textfield.TextField tf) {
+            if (field.getSequenceCode() != null && !field.getSequenceCode().trim().isEmpty()) {
+                tf.setReadOnly(true);
+            } else {
+                tf.setReadOnly(ro);
+            }
+        } else if (component instanceof FormattedIntegerField i) {
+            i.setReadOnly(ro);
+        } else if (component instanceof FormattedBigDecimalField b) {
+            b.setReadOnly(ro);
+        } else if (component instanceof com.vaadin.flow.component.datepicker.DatePicker dp) {
+            dp.setReadOnly(ro);
+        } else if (component instanceof com.vaadin.flow.component.datetimepicker.DateTimePicker dtp) {
+            dtp.setReadOnly(ro);
+        } else if (component instanceof com.vaadin.flow.component.timepicker.TimePicker tp) {
+            tp.setReadOnly(ro);
+        } else if (component instanceof com.vaadin.flow.component.checkbox.Checkbox cb) {
+            cb.setReadOnly(ro);
+        } else if (component instanceof com.vaadin.flow.component.textfield.TextArea ta) {
+            ta.setReadOnly(ro);
+        } else if (component instanceof com.vaadin.flow.component.combobox.ComboBox<?> cob) {
+            cob.setReadOnly(ro);
+        } else if (component instanceof com.vaadin.flow.component.select.Select<?> sel) {
+            sel.setEnabled(!ro);
+        } else if (component instanceof com.vaadin.flow.component.combobox.MultiSelectComboBox<?> mcb) {
+            mcb.setReadOnly(ro);
+        } else if (component instanceof SubformGridField sg) {
+            sg.setReadOnly(ro);
+        } else if (component instanceof BandboxField bf) {
+            bf.setReadOnly(ro);
+        } else if (component instanceof FileUploadField fu) {
+            fu.setReadOnly(ro);
+        }
+    }
 }

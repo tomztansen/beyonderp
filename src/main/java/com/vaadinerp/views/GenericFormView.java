@@ -650,6 +650,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             } finally {
                 isLoadingExistingData = false;
             }
+            updateFieldsReadonlyStatus(false);
             loadSubformGridData(formValues);
             evaluateFormulas();
             tabSheet.setSelectedTab(transaksiTab);
@@ -1872,6 +1873,18 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             }
         }
         clearSubformGrids();
+        updateFieldsReadonlyStatus(true);
+    }
+
+    private void updateFieldsReadonlyStatus(boolean isNewRecord) {
+        if (currentFormDef != null && formComponents != null) {
+            for (FieldMeta field : currentFormDef.getFields()) {
+                Component comp = formComponents.get(field.getFieldName());
+                if (comp != null) {
+                    com.vaadinerp.components.ComponentFactory.applyReadonlyMode(comp, field, isNewRecord);
+                }
+            }
+        }
     }
 
     private void clearSubformGrids() {
