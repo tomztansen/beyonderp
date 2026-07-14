@@ -17,6 +17,7 @@ public class FormattedBigDecimalField extends CustomField<BigDecimal> {
     public FormattedBigDecimalField(String label) {
         setLabel(label);
         textField.setWidthFull();
+        textField.setAllowedCharPattern("[0-9\\-+.,eE]");
         add(textField);
 
         textField.addBlurListener(e -> {

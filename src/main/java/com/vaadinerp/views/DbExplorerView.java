@@ -20,6 +20,7 @@ import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.checkbox.CheckboxGroup;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.router.Route;
 import com.vaadinerp.service.DynamicDataService;
 import com.vaadinerp.service.DynamicDataService.TriggerDefinition;
@@ -782,7 +783,7 @@ public class DbExplorerView extends VerticalLayout {
 
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(colTitle);
-        dialog.setWidth("500px");
+        dialog.setWidth("520px");
 
         VerticalLayout layout = new VerticalLayout();
         layout.setSizeFull();
@@ -790,12 +791,16 @@ public class DbExplorerView extends VerticalLayout {
 
         TextField nameField = new TextField("Nama Kolom");
         ComboBox<String> typeField = new ComboBox<>("Tipe Data SQL");
-        typeField.setItems("VARCHAR(255)", "VARCHAR(50)", "SERIAL", "BIGSERIAL", "TEXT", "INTEGER", "BIGINT",
-                "DECIMAL(19,2)", "DATE", "TIMESTAMP",
-                "BOOLEAN");
+        typeField.setItems("VARCHAR(255)", "VARCHAR(100)", "VARCHAR(50)", "VARCHAR", "TEXT", "INTEGER", "BIGINT", "SERIAL", "BIGSERIAL",
+                "DECIMAL(19,2)", "DATE", "TIMESTAMP", "BOOLEAN");
         typeField.setAllowCustomValue(true);
         typeField.addCustomValueSetListener(e -> typeField.setValue(e.getDetail()));
         typeField.setValue("VARCHAR(255)");
+
+        IntegerField lengthField = new IntegerField("Panjang Karakter (Khusus VARCHAR / CHAR)");
+        lengthField.setPlaceholder("e.g. 255, 100, 50, 500");
+        lengthField.setClearButtonVisible(true);
+        lengthField.setHelperText("Isi angka untuk memperbarui batas panjang karakter (misal: 150 -> menjadi VARCHAR(150))");
 
         Checkbox nullableField = new Checkbox("Nullable (Bolehkah Kosong?)");
         nullableField.setValue(true);
@@ -805,13 +810,22 @@ public class DbExplorerView extends VerticalLayout {
 
         if (isEdit && existingRow != null) {
             String oldName = existingRow.get("column_name") != null ? existingRow.get("column_name").toString() : "";
-            String oldType = existingRow.get("data_type") != null
-                    ? existingRow.get("data_type").toString().toUpperCase()
-                    : "VARCHAR(255)";
+            String oldType = existingRow.get("formatted_type") != null
+                    ? existingRow.get("formatted_type").toString().toUpperCase()
+                    : (existingRow.get("data_type") != null ? existingRow.get("data_type").toString().toUpperCase() : "VARCHAR(255)");
+            if ("CHARACTER VARYING".equals(oldType)) {
+                oldType = "VARCHAR(255)";
+            }
             boolean oldNull = "YES".equalsIgnoreCase(
                     existingRow.get("is_nullable") != null ? existingRow.get("is_nullable").toString() : "YES");
             String oldDef = existingRow.get("column_default") != null ? existingRow.get("column_default").toString()
                     : "";
+
+            if (existingRow.get("character_maximum_length") != null && !"null".equals(existingRow.get("character_maximum_length").toString())) {
+                try {
+                    lengthField.setValue(Integer.parseInt(existingRow.get("character_maximum_length").toString()));
+                } catch (Exception ignore) {}
+            }
 
             nameField.setValue(oldName);
             typeField.setValue(oldType);
@@ -820,7 +834,7 @@ public class DbExplorerView extends VerticalLayout {
         }
 
         FormLayout form = new FormLayout();
-        form.add(nameField, typeField, defaultField);
+        form.add(nameField, typeField, lengthField, defaultField);
         layout.add(form, nullableField);
 
         if (!isEdit) {
@@ -856,16 +870,27 @@ public class DbExplorerView extends VerticalLayout {
                 return;
             }
 
+            if (lengthField.getValue() != null && lengthField.getValue() > 0) {
+                String upperType = type.trim().toUpperCase();
+                if (upperType.startsWith("VARCHAR") || upperType.equals("CHARACTER VARYING")) {
+                    type = "VARCHAR(" + lengthField.getValue() + ")";
+                } else if (upperType.startsWith("CHAR") || upperType.equals("CHARACTER")) {
+                    type = "CHAR(" + lengthField.getValue() + ")";
+                } else if (!type.contains("(")) {
+                    type = type.trim() + "(" + lengthField.getValue() + ")";
+                }
+            }
+
             try {
                 if (isEdit && existingRow != null) {
                     String oldCol = existingRow.get("column_name") != null ? existingRow.get("column_name").toString()
                             : "";
                     dynamicDataService.alterTableColumn(this.currentTable, oldCol, name, type, isNull, defVal);
-                    Notification.show("Kolom " + name + " berhasil diperbarui secara fisik!", 3000,
+                    Notification.show("Kolom " + name + " berhasil diperbarui secara fisik menjadi " + type + "!", 3000,
                             Notification.Position.TOP_CENTER);
                 } else {
                     dynamicDataService.addTableColumn(this.currentTable, name, type, isNull, defVal);
-                    Notification.show("Kolom " + name + " berhasil ditambahkan secara fisik!", 3000,
+                    Notification.show("Kolom " + name + " berhasil ditambahkan secara fisik (" + type + ")!", 3000,
                             Notification.Position.TOP_CENTER);
                 }
                 loadTableData(this.currentTable);
@@ -944,8 +969,13 @@ public class DbExplorerView extends VerticalLayout {
                     .addColumn(row -> row.get("column_name") != null ? row.get("column_name").toString() : "")
                     .setHeader("Nama Kolom");
             Grid.Column<Map<String, Object>> c2 = schemaGrid
-                    .addColumn(row -> row.get("data_type") != null ? row.get("data_type").toString() : "")
+                    .addColumn(row -> row.get("formatted_type") != null ? row.get("formatted_type").toString()
+                            : (row.get("data_type") != null ? row.get("data_type").toString() : ""))
                     .setHeader("Tipe Data SQL");
+            Grid.Column<Map<String, Object>> cLen = schemaGrid
+                    .addColumn(row -> row.get("character_maximum_length") != null && !"null".equals(row.get("character_maximum_length").toString())
+                            ? row.get("character_maximum_length").toString() : "-")
+                    .setHeader("Max Length").setWidth("120px").setFlexGrow(0);
             Grid.Column<Map<String, Object>> c3 = schemaGrid
                     .addColumn(row -> row.get("is_nullable") != null ? row.get("is_nullable").toString() : "")
                     .setHeader("Nullable");
@@ -957,7 +987,7 @@ public class DbExplorerView extends VerticalLayout {
                 String colName = row.get("column_name") != null ? row.get("column_name").toString() : "";
                 Button btnEdit = new Button(VaadinIcon.EDIT.create());
                 btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
-                btnEdit.setTooltipText("Edit Kolom");
+                btnEdit.setTooltipText("Edit Kolom & Panjang Karakter");
                 btnEdit.addClickListener(e -> openColumnDialog(row));
 
                 Button btnDel = new Button(VaadinIcon.TRASH.create());
@@ -969,7 +999,8 @@ public class DbExplorerView extends VerticalLayout {
             }).setHeader("Aksi").setWidth("110px").setFlexGrow(0);
 
             schemaColMap.put(c1, "column_name");
-            schemaColMap.put(c2, "data_type");
+            schemaColMap.put(c2, "formatted_type");
+            schemaColMap.put(cLen, "character_maximum_length");
             schemaColMap.put(c3, "is_nullable");
             schemaColMap.put(c4, "column_default");
 

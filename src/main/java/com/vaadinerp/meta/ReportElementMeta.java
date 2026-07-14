@@ -25,7 +25,7 @@ public class ReportElementMeta {
     @Column(name = "element_type", length = 20)
     private String elementType; // LABEL, FIELD, SYSTEM
 
-    @Column(name = "element_value", length = 250)
+    @Column(name = "element_value", columnDefinition = "TEXT")
     private String elementValue; // Static text, column name, or system function
 
     @Column(name = "column_width", length = 20)

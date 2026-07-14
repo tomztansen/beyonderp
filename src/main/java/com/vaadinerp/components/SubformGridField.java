@@ -87,6 +87,47 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         toolbar.setWidthFull();
         toolbar.setSpacing(true);
 
+        // btnAdd.addThemeVariants(ButtonVariant.LUMO_TERTIARY,
+        // ButtonVariant.LUMO_SMALL);
+        // btnAdd.getStyle().set("font-weight", "500").set("color", "#374151");
+        // if (btnAdd.getIcon() instanceof com.vaadin.flow.component.icon.Icon icAdd) {
+        // icAdd.getStyle().set("color", "#22c55e").set("font-size", "1.1rem");
+        // }
+
+        // btnDelete.addThemeVariants(ButtonVariant.LUMO_TERTIARY,
+        // ButtonVariant.LUMO_SMALL);
+        // btnDelete.getStyle().set("font-weight", "500").set("color", "#374151");
+        // if (btnDelete.getIcon() instanceof com.vaadin.flow.component.icon.Icon icDel)
+        // {
+        // icDel.getStyle().set("color", "#ef4444").set("font-size", "1.1rem");
+        // }
+
+        // Button btnResetSubformGrid = new Button("Reset Layout Grid",
+        // VaadinIcon.ROTATE_LEFT.create());
+        // btnResetSubformGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY,
+        // ButtonVariant.LUMO_SMALL);
+        // btnResetSubformGrid.getStyle().set("font-weight", "500").set("color",
+        // "#374151");
+        // if (btnResetSubformGrid.getIcon() instanceof
+        // com.vaadin.flow.component.icon.Icon icReset) {
+        // icReset.getStyle().set("color", "#3b82f6").set("font-size", "1.1rem");
+        // }
+        // btnResetSubformGrid.addClickListener(e -> {
+        // if (childFormDef != null) {
+        // dataService.resetUserGridOrder(childFormDef.getFormCode(), "subformGrid");
+        // grid.setSelectionMode(Grid.SelectionMode.MULTI);
+        // columnToFieldNameMap.clear();
+        // colGetterMap.clear();
+        // editorComponents.clear();
+        // filterValues.clear();
+        // buildGridColumns();
+        // Notification.show("Layout grid subform dikembalikan ke default!", 2000,
+        // Notification.Position.BOTTOM_END);
+        // }
+        // });
+
+        // extraActionsContainer.setSpacing(true);
+
         btnAdd.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
 
         btnDelete.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
@@ -108,11 +149,17 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         });
 
         extraActionsContainer.setSpacing(true);
+
         toolbar.add(btnAdd, btnDelete, extraActionsContainer);
 
         refreshExtraActions();
 
-        com.vaadin.flow.component.html.Anchor btnExportSubformExcel = com.vaadinerp.components.StandardGridUtils.createExportExcelButton(grid, this.fieldMeta != null && this.fieldMeta.getFieldName() != null ? this.fieldMeta.getFieldName() + "_export" : "subform_export", colGetterMap);
+        com.vaadin.flow.component.html.Anchor btnExportSubformExcel = com.vaadinerp.components.StandardGridUtils
+                .createExportExcelButton(grid,
+                        this.fieldMeta != null && this.fieldMeta.getFieldName() != null
+                                ? this.fieldMeta.getFieldName() + "_export"
+                                : "subform_export",
+                        colGetterMap);
         btnExportSubformExcel.getStyle().set("margin-left", "auto");
         toolbar.add(btnExportSubformExcel, btnResetSubformGrid);
 
@@ -137,44 +184,121 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
     public void refreshExtraActions() {
         extraActionsContainer.removeAll();
-        if (dataService == null) return;
+        if (dataService == null)
+            return;
         List<com.vaadinerp.meta.FormActionMeta> actions = new ArrayList<>();
         if (fieldMeta.getLovCode() != null) {
             actions.addAll(dataService.getFormActions(fieldMeta.getLovCode(), "DETAIL_TOOLBAR"));
         }
         if (fieldMeta.getFormMeta() != null && fieldMeta.getFormMeta().getFormCode() != null) {
-            for (com.vaadinerp.meta.FormActionMeta act : dataService.getFormActions(fieldMeta.getFormMeta().getFormCode(), "DETAIL_TOOLBAR")) {
-                if (actions.stream().noneMatch(a -> (a.getId() != null && a.getId().equals(act.getId())) || (a.getActionCode() != null && a.getActionCode().equalsIgnoreCase(act.getActionCode())))) {
+            for (com.vaadinerp.meta.FormActionMeta act : dataService
+                    .getFormActions(fieldMeta.getFormMeta().getFormCode(), "DETAIL_TOOLBAR")) {
+                if (actions.stream().noneMatch(a -> (a.getId() != null && a.getId().equals(act.getId()))
+                        || (a.getActionCode() != null && a.getActionCode().equalsIgnoreCase(act.getActionCode())))) {
                     actions.add(act);
                 }
             }
         }
+        java.util.Map<String, java.util.List<com.vaadinerp.meta.FormActionMeta>> groupedActions = new java.util.LinkedHashMap<>();
+        List<com.vaadinerp.meta.FormActionMeta> standaloneActions = new ArrayList<>();
+
         for (com.vaadinerp.meta.FormActionMeta act : actions) {
+            if (act.getMenuGroup() != null && !act.getMenuGroup().isBlank()) {
+                groupedActions.computeIfAbsent(act.getMenuGroup().trim(), k -> new ArrayList<>()).add(act);
+            } else {
+                standaloneActions.add(act);
+            }
+        }
+
+        for (com.vaadinerp.meta.FormActionMeta act : standaloneActions) {
             com.vaadin.flow.component.icon.Icon icon = null;
             if (act.getIconName() != null && !act.getIconName().isBlank()) {
                 try {
                     icon = com.vaadin.flow.component.icon.VaadinIcon.valueOf(act.getIconName().toUpperCase()).create();
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
+            }
+            if (icon != null) {
+                icon.getStyle().set("color", "white").set("font-size", "1.1rem");
             }
             Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
-            actBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
+            actBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
             actBtn.addClickListener(e -> {
                 if (grid.getEditor().isOpen()) {
                     grid.getEditor().cancel();
                 }
-                Map<String, Object> headerBean = headerRecordSupplier != null && headerRecordSupplier.get() != null ? headerRecordSupplier.get() : new HashMap<>();
-                DynamicPickerPopupDialog dlg = new DynamicPickerPopupDialog(act, dataService, headerBean, selectedRecords -> {
-                    for (Map<String, Object> srcRec : selectedRecords) {
-                        Map<String, Object> newRow = new HashMap<>();
-                        newRow.put("_tempId", java.util.UUID.randomUUID().toString());
-                        applyTargetMapping(newRow, srcRec, act.getTargetMapping());
-                        items.add(newRow);
-                    }
-                    grid.getDataProvider().refreshAll();
-                });
+                Map<String, Object> headerBean = headerRecordSupplier != null && headerRecordSupplier.get() != null
+                        ? headerRecordSupplier.get()
+                        : new HashMap<>();
+                DynamicPickerPopupDialog dlg = new DynamicPickerPopupDialog(act, dataService, headerBean,
+                        selectedRecords -> {
+                            for (Map<String, Object> srcRec : selectedRecords) {
+                                Map<String, Object> newRow = new HashMap<>();
+                                newRow.put("_tempId", java.util.UUID.randomUUID().toString());
+                                applyTargetMapping(newRow, srcRec, act.getTargetMapping());
+                                items.add(newRow);
+                            }
+                            grid.getDataProvider().refreshAll();
+                        });
                 dlg.open();
             });
             extraActionsContainer.add(actBtn);
+        }
+
+        for (Map.Entry<String, List<com.vaadinerp.meta.FormActionMeta>> entry : groupedActions.entrySet()) {
+            com.vaadin.flow.component.menubar.MenuBar menuBar = new com.vaadin.flow.component.menubar.MenuBar();
+            menuBar.addThemeVariants(com.vaadin.flow.component.menubar.MenuBarVariant.LUMO_SMALL,
+                    com.vaadin.flow.component.menubar.MenuBarVariant.LUMO_PRIMARY);
+
+            HorizontalLayout menuBtnLayout = new HorizontalLayout();
+            menuBtnLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
+            menuBtnLayout.setSpacing(true);
+            com.vaadin.flow.component.icon.Icon grpIcon = VaadinIcon.FILE_TEXT.create();
+            grpIcon.getStyle().set("color", "white").set("font-size", "1.1rem");
+            com.vaadin.flow.component.icon.Icon chevronIcon = VaadinIcon.CHEVRON_DOWN.create();
+            chevronIcon.setSize("12px");
+            chevronIcon.getStyle().set("color", "white");
+            com.vaadin.flow.component.html.Span grpSpan = new com.vaadin.flow.component.html.Span(entry.getKey());
+            grpSpan.getStyle().set("font-weight", "500").set("color", "white");
+            menuBtnLayout.add(grpIcon, grpSpan, chevronIcon);
+            com.vaadin.flow.component.contextmenu.MenuItem parentItem = menuBar.addItem(menuBtnLayout);
+
+            com.vaadin.flow.component.contextmenu.SubMenu subMenu = parentItem.getSubMenu();
+            for (com.vaadinerp.meta.FormActionMeta act : entry.getValue()) {
+                com.vaadin.flow.component.icon.Icon icon = null;
+                if (act.getIconName() != null && !act.getIconName().isBlank()) {
+                    try {
+                        icon = VaadinIcon.valueOf(act.getIconName().toUpperCase()).create();
+                    } catch (Exception ignored) {
+                    }
+                }
+                if (icon == null) {
+                    icon = VaadinIcon.FILE_TEXT.create();
+                }
+                icon.getStyle().set("color", "#2563eb").set("font-size", "1rem");
+                subMenu.addItem(
+                        new HorizontalLayout(icon, new com.vaadin.flow.component.html.Span(act.getActionLabel())),
+                        e -> {
+                            if (grid.getEditor().isOpen()) {
+                                grid.getEditor().cancel();
+                            }
+                            Map<String, Object> headerBean = headerRecordSupplier != null
+                                    && headerRecordSupplier.get() != null ? headerRecordSupplier.get()
+                                            : new HashMap<>();
+                            DynamicPickerPopupDialog dlg = new DynamicPickerPopupDialog(act, dataService, headerBean,
+                                    selectedRecords -> {
+                                        for (Map<String, Object> srcRec : selectedRecords) {
+                                            Map<String, Object> newRow = new HashMap<>();
+                                            newRow.put("_tempId", java.util.UUID.randomUUID().toString());
+                                            applyTargetMapping(newRow, srcRec, act.getTargetMapping());
+                                            items.add(newRow);
+                                        }
+                                        grid.getDataProvider().refreshAll();
+                                    });
+                            dlg.open();
+                        });
+            }
+            extraActionsContainer.add(menuBar);
         }
     }
 
@@ -205,7 +329,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             if (headerRecordSupplier != null) {
                 headerData = headerRecordSupplier.get();
             }
-            if (dataService != null && dataService.getScriptExecutorService() != null && this.fieldMeta != null && this.fieldMeta.getOnAddScript() != null) {
+            if (dataService != null && dataService.getScriptExecutorService() != null && this.fieldMeta != null
+                    && this.fieldMeta.getOnAddScript() != null) {
                 try {
                     dataService.getScriptExecutorService().executeOnAddScript(
                             this.fieldMeta, newRow, currentRowIndex, headerData, items);
@@ -451,7 +576,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         for (FieldMeta field : childFields) {
             String fieldName = field.getFieldName();
             java.util.function.Function<Map<String, Object>, String> valueGetter = map -> {
-                String formatted = ComponentFactory.formatFieldValueWithLov(field, getCaseInsensitiveVal(map, fieldName), dataService);
+                String formatted = ComponentFactory.formatFieldValueWithLov(field,
+                        getCaseInsensitiveVal(map, fieldName), dataService);
                 return formatted != null ? formatted : "";
             };
             Grid.Column<Map<String, Object>> col = grid
@@ -478,7 +604,9 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             if (field.getFilters() != null) {
                 for (com.vaadinerp.meta.FieldFilterMeta filter : field.getFilters()) {
                     if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
-                        FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(), filter.getComparisonOperator());
+                        FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
+                                filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(),
+                                filter.getComparisonOperator());
                         applyFilterToSubformEditor(editorComp, condition);
                     } else if ("FIELD".equalsIgnoreCase(filter.getSourceType())) {
                         String sourceFieldName = filter.getSourceName();
@@ -486,12 +614,16 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                         if (sourceComp instanceof HasValue) {
                             Object val = ((HasValue<?, ?>) sourceComp).getValue();
                             if (val != null) {
-                                FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), val, filter.getLogicalOperator(), filter.getComparisonOperator());
+                                FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
+                                        filter.getFilterColumn(), val, filter.getLogicalOperator(),
+                                        filter.getComparisonOperator());
                                 applyFilterToSubformEditor(editorComp, condition);
                             }
                         } else {
                             // Fallback jika user salah pilih FIELD untuk static value di Form Builder
-                            FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(), filter.getComparisonOperator());
+                            FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
+                                    filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(),
+                                    filter.getComparisonOperator());
                             applyFilterToSubformEditor(editorComp, condition);
                         }
                     }
@@ -523,9 +655,12 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             col.setComparator((map1, map2) -> {
                 Object val1 = getCaseInsensitiveVal(map1, fieldName);
                 Object val2 = getCaseInsensitiveVal(map2, fieldName);
-                if (val1 == null && val2 == null) return 0;
-                if (val1 == null) return -1;
-                if (val2 == null) return 1;
+                if (val1 == null && val2 == null)
+                    return 0;
+                if (val1 == null)
+                    return -1;
+                if (val2 == null)
+                    return 1;
                 String lovCode = field.getLovCode();
                 if (lovCode != null && !lovCode.trim().isEmpty()) {
                     String s1 = ComponentFactory.formatFieldValueWithLov(field, val1, dataService);
@@ -696,13 +831,14 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 return ((Number) rawVal).intValue() != 0;
             }
             String str = rawVal.toString().trim().toLowerCase();
-            return "true".equals(str) || "1".equals(str) || "t".equals(str) || "yes".equals(str) || "y".equals(str) || "on".equals(str);
+            return "true".equals(str) || "1".equals(str) || "t".equals(str) || "yes".equals(str) || "y".equals(str)
+                    || "on".equals(str);
         }
         if (comp instanceof TextField || comp instanceof com.vaadin.flow.component.textfield.TextArea ||
-            comp instanceof com.vaadin.flow.component.combobox.ComboBox ||
-            comp instanceof com.vaadin.flow.component.select.Select ||
-            comp instanceof com.vaadin.flow.component.listbox.ListBox ||
-            comp instanceof com.vaadin.flow.component.radiobutton.RadioButtonGroup) {
+                comp instanceof com.vaadin.flow.component.combobox.ComboBox ||
+                comp instanceof com.vaadin.flow.component.select.Select ||
+                comp instanceof com.vaadin.flow.component.listbox.ListBox ||
+                comp instanceof com.vaadin.flow.component.radiobutton.RadioButtonGroup) {
             return rawVal.toString();
         }
         if (comp instanceof com.vaadin.flow.component.textfield.IntegerField
@@ -791,7 +927,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     private void applyFilterToSubformEditor(Component editorComp, FilterCondition condition) {
-        if (editorComp == null) return;
+        if (editorComp == null)
+            return;
         if (editorComp instanceof BandboxField) {
             ((BandboxField<?, ?>) editorComp).setFilterValue(condition);
         } else if (editorComp instanceof LovComboBox) {
@@ -879,7 +1016,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 }
             }
         }
-        java.util.List<com.vaadin.flow.component.grid.GridSortOrder<Map<String, Object>>> currentSort = grid.getSortOrder();
+        java.util.List<com.vaadin.flow.component.grid.GridSortOrder<Map<String, Object>>> currentSort = grid
+                .getSortOrder();
         grid.setDataProvider(createDataProvider());
         if (currentSort != null && !currentSort.isEmpty()) {
             grid.sort(currentSort);
@@ -899,7 +1037,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     private void applyTargetMapping(Map<String, Object> destRow, Map<String, Object> srcRecord, String targetMapping) {
-        if (targetMapping == null || targetMapping.trim().isEmpty()) return;
+        if (targetMapping == null || targetMapping.trim().isEmpty())
+            return;
         String clean = targetMapping.trim();
         if (clean.startsWith("{") && clean.endsWith("}")) {
             clean = clean.substring(1, clean.length() - 1).trim();
@@ -907,7 +1046,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         String[] pairs = clean.split(",");
         for (String pair : pairs) {
             String[] kv = pair.split(":");
-            if (kv.length < 2) kv = pair.split("=");
+            if (kv.length < 2)
+                kv = pair.split("=");
             if (kv.length == 2) {
                 String destCol = kv[0].replaceAll("[\"']", "").trim();
                 String srcCol = kv[1].replaceAll("[\"']", "").trim();
@@ -927,7 +1067,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     private void putCaseInsensitiveVal(Map<String, Object> map, String key, Object value) {
-        if (map == null || key == null) return;
+        if (map == null || key == null)
+            return;
         for (String k : map.keySet()) {
             if (k != null && k.equalsIgnoreCase(key)) {
                 map.put(k, value);
@@ -945,14 +1086,18 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     private Object getCaseInsensitiveVal(Map<String, Object> map, String key) {
-        if (map == null || key == null) return null;
-        if (map.containsKey(key)) return map.get(key);
+        if (map == null || key == null)
+            return null;
+        if (map.containsKey(key))
+            return map.get(key);
         for (Map.Entry<String, Object> e : map.entrySet()) {
-            if (e.getKey() != null && e.getKey().equalsIgnoreCase(key)) return e.getValue();
+            if (e.getKey() != null && e.getKey().equalsIgnoreCase(key))
+                return e.getValue();
         }
         String cleanKey = key.replaceAll("[_\\s-]+", "");
         for (Map.Entry<String, Object> e : map.entrySet()) {
-            if (e.getKey() != null && e.getKey().replaceAll("[_\\s-]+", "").equalsIgnoreCase(cleanKey)) return e.getValue();
+            if (e.getKey() != null && e.getKey().replaceAll("[_\\s-]+", "").equalsIgnoreCase(cleanKey))
+                return e.getValue();
         }
         return null;
     }
