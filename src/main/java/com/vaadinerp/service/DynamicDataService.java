@@ -656,13 +656,30 @@ public class DynamicDataService {
         try {
             String rawName = trimmed.contains(".") ? trimmed.substring(trimmed.indexOf(".") + 1) : trimmed;
             List<Map<String, Object>> res = jdbcTemplate.queryForList(
-                "SELECT column_name, data_type, is_nullable, column_default " +
+                "SELECT column_name, data_type, character_maximum_length, numeric_precision, numeric_scale, is_nullable, column_default " +
                 "FROM information_schema.columns " +
                 "WHERE table_schema IN ('dynamic', 'public') AND table_name = ? " +
                 "ORDER BY ordinal_position",
                 rawName.toLowerCase()
             );
             if (!res.isEmpty()) {
+                for (Map<String, Object> row : res) {
+                    String dt = row.get("data_type") != null ? row.get("data_type").toString().toUpperCase() : "";
+                    Object maxLen = row.get("character_maximum_length");
+                    Object prec = row.get("numeric_precision");
+                    Object scale = row.get("numeric_scale");
+                    if (("CHARACTER VARYING".equals(dt) || "VARCHAR".equals(dt) || "CHAR".equals(dt) || "CHARACTER".equals(dt)) && maxLen != null && !"null".equals(maxLen.toString())) {
+                        row.put("formatted_type", "VARCHAR(" + maxLen + ")");
+                    } else if ("NUMERIC".equals(dt) || "DECIMAL".equals(dt)) {
+                        if (prec != null && !"null".equals(prec.toString())) {
+                            row.put("formatted_type", "DECIMAL(" + prec + "," + (scale != null && !"null".equals(scale.toString()) ? scale : "0") + ")");
+                        } else {
+                            row.put("formatted_type", dt);
+                        }
+                    } else {
+                        row.put("formatted_type", dt);
+                    }
+                }
                 return res;
             }
             return fetchSchemaDetailsForQuery(trimmed);

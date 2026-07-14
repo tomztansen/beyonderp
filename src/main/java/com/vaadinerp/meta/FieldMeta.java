@@ -124,7 +124,7 @@ public class FieldMeta {
     @Column(name = "is_audit_log")
     private Boolean isAuditLog = false;
 
-    @Column(name = "on_add_script", length = 2000)
+    @Column(name = "on_add_script", columnDefinition = "TEXT")
     private String onAddScript;
 
     public boolean isDetail() {

@@ -44,21 +44,21 @@ public class FormActionMeta {
     @Column(name = "source_lov_code", length = 50)
     private String sourceLovCode; // e.g. "MASTER_ITEM"
 
-    @Column(name = "filter_mapping", length = 1000)
+    @Column(name = "filter_mapping", columnDefinition = "TEXT")
     private String filterMapping; // JSON mapping e.g. {"status": "'Active'"} or {"customer_id": "header.customer_code"}
 
-    @Column(name = "target_mapping", length = 1000)
+    @Column(name = "target_mapping", columnDefinition = "TEXT")
     private String targetMapping; // JSON mapping e.g. {"item_code": "item_code", "price": "unit_price"}
 
     @Column(name = "copy_source_lov_code", length = 50)
     private String copySourceLovCode; // e.g. "BOM_DETAIL"
 
-    @Column(name = "copy_filter_mapping", length = 1000)
+    @Column(name = "copy_filter_mapping", columnDefinition = "TEXT")
     private String copyFilterMapping; // e.g. {"item_id": "picked.id"}
 
     @Column(name = "menu_group", length = 100)
     private String menuGroup; // e.g. "Release Options" (jika diisi, dirender sebagai Dropdown/MenuBar)
 
-    @Column(name = "script_content", length = 5000)
+    @Column(name = "script_content", columnDefinition = "TEXT")
     private String scriptContent; // Groovy/DSL script untuk action_type = GROOVY_SCRIPT
 }

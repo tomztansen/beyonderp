@@ -233,13 +233,25 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         detailTitle.getStyle().set("margin", "0");
         
         Button btnAddRow = new Button("Tambah Baris", VaadinIcon.PLUS.create());
-        btnAddRow.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
+        btnAddRow.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        btnAddRow.getStyle().set("font-weight", "500").set("color", "#374151");
+        if (btnAddRow.getIcon() instanceof com.vaadin.flow.component.icon.Icon icAdd) {
+            icAdd.getStyle().set("color", "#22c55e").set("font-size", "1.1rem");
+        }
         
         Button btnDeleteRow = new Button("Hapus Baris", VaadinIcon.TRASH.create());
-        btnDeleteRow.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
+        btnDeleteRow.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        btnDeleteRow.getStyle().set("font-weight", "500").set("color", "#374151");
+        if (btnDeleteRow.getIcon() instanceof com.vaadin.flow.component.icon.Icon icDel) {
+            icDel.getStyle().set("color", "#ef4444").set("font-size", "1.1rem");
+        }
 
         Button btnResetDetailsGrid = new Button("Reset Layout Grid", VaadinIcon.ROTATE_LEFT.create());
         btnResetDetailsGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        btnResetDetailsGrid.getStyle().set("font-weight", "500").set("color", "#374151");
+        if (btnResetDetailsGrid.getIcon() instanceof com.vaadin.flow.component.icon.Icon icReset) {
+            icReset.getStyle().set("color", "#3b82f6").set("font-size", "1.1rem");
+        }
         btnResetDetailsGrid.addClickListener(e -> {
             if (currentFormDef != null) {
                 dynamicDataService.resetUserGridOrder(currentFormCode, "detailsGrid");
@@ -421,8 +433,12 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     icon = VaadinIcon.valueOf(act.getIconName().toUpperCase()).create();
                 } catch (Exception ignored) {}
             }
+            if (icon != null) {
+                icon.getStyle().set("color", "#2563eb").set("font-size", "1.1rem");
+            }
             Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
-            actBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
+            actBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+            actBtn.getStyle().set("font-weight", "500").set("color", "#374151");
             actBtn.addClickListener(e -> {
                 if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType()) || (act.getScriptContent() != null && !act.getScriptContent().isBlank())) {
                     executeToolbarAction(act);
@@ -450,16 +466,18 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         for (Map.Entry<String, List<com.vaadinerp.meta.FormActionMeta>> entry : groupedActions.entrySet()) {
             com.vaadin.flow.component.menubar.MenuBar menuBar = new com.vaadin.flow.component.menubar.MenuBar();
-            menuBar.addThemeVariants(com.vaadin.flow.component.menubar.MenuBarVariant.LUMO_SMALL, com.vaadin.flow.component.menubar.MenuBarVariant.LUMO_PRIMARY);
+            menuBar.addThemeVariants(com.vaadin.flow.component.menubar.MenuBarVariant.LUMO_SMALL, com.vaadin.flow.component.menubar.MenuBarVariant.LUMO_TERTIARY);
             
             HorizontalLayout menuBtnLayout = new HorizontalLayout();
             menuBtnLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
             menuBtnLayout.setSpacing(true);
             com.vaadin.flow.component.icon.Icon grpIcon = VaadinIcon.FILE_TEXT.create();
-            grpIcon.setSize("14px");
+            grpIcon.getStyle().set("color", "#2563eb").set("font-size", "1.1rem");
             com.vaadin.flow.component.icon.Icon chevronIcon = VaadinIcon.CHEVRON_DOWN.create();
             chevronIcon.setSize("12px");
-            menuBtnLayout.add(grpIcon, new com.vaadin.flow.component.html.Span(entry.getKey()), chevronIcon);
+            com.vaadin.flow.component.html.Span grpSpan = new com.vaadin.flow.component.html.Span(entry.getKey());
+            grpSpan.getStyle().set("font-weight", "500").set("color", "#374151");
+            menuBtnLayout.add(grpIcon, grpSpan, chevronIcon);
             com.vaadin.flow.component.contextmenu.MenuItem parentItem = menuBar.addItem(menuBtnLayout);
             
             com.vaadin.flow.component.contextmenu.SubMenu subMenu = parentItem.getSubMenu();
@@ -473,7 +491,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 if (icon == null) {
                     icon = VaadinIcon.FILE_TEXT.create();
                 }
-                icon.setSize("14px");
+                icon.getStyle().set("color", "#2563eb").set("font-size", "1rem");
                 com.vaadin.flow.component.Component itemLabel = new HorizontalLayout(icon, new com.vaadin.flow.component.html.Span(act.getActionLabel()));
                 subMenu.addItem(itemLabel, e -> {
                     if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType()) || (act.getScriptContent() != null && !act.getScriptContent().isBlank())) {
@@ -1003,24 +1021,30 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     icon = VaadinIcon.valueOf(act.getIconName().toUpperCase()).create();
                 } catch (Exception ignored) {}
             }
+            if (icon != null) {
+                icon.getStyle().set("color", "#2563eb").set("font-size", "1.2rem");
+            }
             Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
-            actBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            actBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            actBtn.getStyle().set("font-weight", "500").set("color", "#374151");
             actBtn.addClickListener(e -> executeToolbarAction(act));
             extraActionsContainer.add(actBtn);
         }
 
         for (Map.Entry<String, List<com.vaadinerp.meta.FormActionMeta>> entry : groupedActions.entrySet()) {
             com.vaadin.flow.component.menubar.MenuBar menuBar = new com.vaadin.flow.component.menubar.MenuBar();
-            menuBar.addThemeVariants(com.vaadin.flow.component.menubar.MenuBarVariant.LUMO_PRIMARY);
+            menuBar.addThemeVariants(com.vaadin.flow.component.menubar.MenuBarVariant.LUMO_TERTIARY);
             
             HorizontalLayout menuBtnLayout = new HorizontalLayout();
             menuBtnLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
             menuBtnLayout.setSpacing(true);
             com.vaadin.flow.component.icon.Icon grpIcon = VaadinIcon.FILE_TEXT.create();
-            grpIcon.setSize("16px");
+            grpIcon.getStyle().set("color", "#2563eb").set("font-size", "1.2rem");
             com.vaadin.flow.component.icon.Icon chevronIcon = VaadinIcon.CHEVRON_DOWN.create();
             chevronIcon.setSize("14px");
-            menuBtnLayout.add(grpIcon, new com.vaadin.flow.component.html.Span(entry.getKey()), chevronIcon);
+            com.vaadin.flow.component.html.Span grpSpan = new com.vaadin.flow.component.html.Span(entry.getKey());
+            grpSpan.getStyle().set("font-weight", "500").set("color", "#374151");
+            menuBtnLayout.add(grpIcon, grpSpan, chevronIcon);
             com.vaadin.flow.component.contextmenu.MenuItem parentItem = menuBar.addItem(menuBtnLayout);
             
             com.vaadin.flow.component.contextmenu.SubMenu subMenu = parentItem.getSubMenu();
@@ -1034,7 +1058,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 if (icon == null) {
                     icon = VaadinIcon.FILE_TEXT.create();
                 }
-                icon.setSize("16px");
+                icon.getStyle().set("color", "#2563eb").set("font-size", "1rem");
                 subMenu.addItem(new HorizontalLayout(icon, new com.vaadin.flow.component.html.Span(act.getActionLabel())), e -> executeToolbarAction(act));
             }
             extraActionsContainer.add(menuBar);

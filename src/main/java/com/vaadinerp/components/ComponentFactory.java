@@ -658,18 +658,23 @@ public class ComponentFactory {
 
         if (comp instanceof IntegerField intField) {
             intField.setPlaceholder("");
+            intField.getElement().setAttribute("allowed-char-pattern", "[0-9\\-+]");
             if (prefix != null)
                 intField.setPrefixComponent(prefix);
             if (suffix != null)
                 intField.setSuffixComponent(suffix);
         } else if (comp instanceof BigDecimalField decField) {
             decField.setPlaceholder("");
+            decField.getElement().setAttribute("allowed-char-pattern", "[0-9\\-+.,eE]");
             if (prefix != null)
                 decField.setPrefixComponent(prefix);
             if (suffix != null)
                 decField.setSuffixComponent(suffix);
         } else if (comp instanceof TextField txtField) {
             txtField.setPlaceholder("");
+            if (cleanFmt.contains("#") || cleanFmt.contains("0")) {
+                txtField.setAllowedCharPattern("[0-9\\-+.,eE]");
+            }
             if (prefix != null)
                 txtField.setPrefixComponent(prefix);
             if (suffix != null)

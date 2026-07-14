@@ -684,24 +684,30 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 } catch (Exception ignored) {
                 }
             }
+            if (icon != null) {
+                icon.getStyle().set("color", "#2563eb").set("font-size", "1.2rem");
+            }
             Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
-            actBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
+            actBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
+            actBtn.getStyle().set("font-weight", "500").set("color", "#374151");
             actBtn.addClickListener(e -> executeToolbarAction(act));
             extraActionsContainer.add(actBtn);
         }
 
         for (Map.Entry<String, List<com.vaadinerp.meta.FormActionMeta>> entry : groupedActions.entrySet()) {
             com.vaadin.flow.component.menubar.MenuBar menuBar = new com.vaadin.flow.component.menubar.MenuBar();
-            menuBar.addThemeVariants(com.vaadin.flow.component.menubar.MenuBarVariant.LUMO_PRIMARY);
+            menuBar.addThemeVariants(com.vaadin.flow.component.menubar.MenuBarVariant.LUMO_TERTIARY);
             
             HorizontalLayout menuBtnLayout = new HorizontalLayout();
             menuBtnLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
             menuBtnLayout.setSpacing(true);
             com.vaadin.flow.component.icon.Icon grpIcon = VaadinIcon.FILE_TEXT.create();
-            grpIcon.setSize("16px");
+            grpIcon.getStyle().set("color", "#2563eb").set("font-size", "1.2rem");
             com.vaadin.flow.component.icon.Icon chevronIcon = VaadinIcon.CHEVRON_DOWN.create();
             chevronIcon.setSize("14px");
-            menuBtnLayout.add(grpIcon, new com.vaadin.flow.component.html.Span(entry.getKey()), chevronIcon);
+            com.vaadin.flow.component.html.Span grpSpan = new com.vaadin.flow.component.html.Span(entry.getKey());
+            grpSpan.getStyle().set("font-weight", "500").set("color", "#374151");
+            menuBtnLayout.add(grpIcon, grpSpan, chevronIcon);
             com.vaadin.flow.component.contextmenu.MenuItem parentItem = menuBar.addItem(menuBtnLayout);
             
             com.vaadin.flow.component.contextmenu.SubMenu subMenu = parentItem.getSubMenu();
@@ -716,7 +722,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 if (icon == null) {
                     icon = VaadinIcon.FILE_TEXT.create();
                 }
-                icon.setSize("16px");
+                icon.getStyle().set("color", "#2563eb").set("font-size", "1rem");
                 subMenu.addItem(new HorizontalLayout(icon, new com.vaadin.flow.component.html.Span(act.getActionLabel())), e -> executeToolbarAction(act));
             }
             extraActionsContainer.add(menuBar);

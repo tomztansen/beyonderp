@@ -16,6 +16,7 @@ public class FormattedIntegerField extends CustomField<Integer> {
     public FormattedIntegerField(String label) {
         setLabel(label);
         textField.setWidthFull();
+        textField.setAllowedCharPattern("[0-9\\-+.,]");
         add(textField);
 
         textField.addBlurListener(e -> {

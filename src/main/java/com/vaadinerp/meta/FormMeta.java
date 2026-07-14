@@ -25,7 +25,7 @@ public class FormMeta {
     @Column(name = "table_name", length = 100)
     private String tableName;
 
-    @Column(name = "view_table", length = 1000)
+    @Column(name = "view_table", columnDefinition = "TEXT")
     private String viewTable;
 
     @Column(name = "primary_key", length = 50)
@@ -52,7 +52,7 @@ public class FormMeta {
     @Column(name = "detail_foreign_key", length = 50)
     private String detailForeignKey;
 
-    @Column(name = "extra_toolbars", length = 500)
+    @Column(name = "extra_toolbars", columnDefinition = "TEXT")
     private String extraToolbars;
 
     @OneToMany(mappedBy = "formMeta", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
