@@ -604,13 +604,40 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             if (field.getFilters() != null) {
                 for (com.vaadinerp.meta.FieldFilterMeta filter : field.getFilters()) {
                     if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
+                        Object staticVal = filter.getSourceName();
+                        String lookupKey = staticVal != null ? staticVal.toString() : "";
+                        if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.") || lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail.")) {
+                            if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")) {
+                                lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                            } else {
+                                lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
+                            }
+                            if (headerRecordSupplier != null && headerRecordSupplier.get() != null) {
+                                Object hv = getCaseInsensitiveVal(headerRecordSupplier.get(), lookupKey);
+                                if (hv == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                                    hv = getCaseInsensitiveVal(headerRecordSupplier.get(), "unique".equalsIgnoreCase(lookupKey) ? "isunique" : "unique");
+                                }
+                                if (hv != null) staticVal = hv;
+                            }
+                        }
                         FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
-                                filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(),
+                                filter.getFilterColumn(), staticVal, filter.getLogicalOperator(),
                                 filter.getComparisonOperator());
                         applyFilterToSubformEditor(editorComp, condition);
                     } else if ("FIELD".equalsIgnoreCase(filter.getSourceType())) {
                         String sourceFieldName = filter.getSourceName();
-                        Component sourceComp = editorComponents.get(sourceFieldName);
+                        String lookupKey = sourceFieldName;
+                        if (lookupKey != null && (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header."))) {
+                            lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                        } else if (lookupKey != null && (lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail."))) {
+                            lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
+                        }
+                        Component sourceComp = lookupKey != null ? editorComponents.get(lookupKey) : null;
+                        if (sourceComp == null && sourceFieldName != null) sourceComp = editorComponents.get(sourceFieldName);
+                        if (sourceComp == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                            sourceComp = editorComponents.get("unique");
+                            if (sourceComp == null) sourceComp = editorComponents.get("isunique");
+                        }
                         if (sourceComp instanceof HasValue) {
                             Object val = ((HasValue<?, ?>) sourceComp).getValue();
                             if (val != null) {
@@ -620,9 +647,16 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                                 applyFilterToSubformEditor(editorComp, condition);
                             }
                         } else {
-                            // Fallback jika user salah pilih FIELD untuk static value di Form Builder
+                            Object fallbackVal = filter.getSourceName();
+                            if (headerRecordSupplier != null && headerRecordSupplier.get() != null && lookupKey != null) {
+                                Object hv = getCaseInsensitiveVal(headerRecordSupplier.get(), lookupKey);
+                                if (hv == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                                    hv = getCaseInsensitiveVal(headerRecordSupplier.get(), "unique".equalsIgnoreCase(lookupKey) ? "isunique" : "unique");
+                                }
+                                if (hv != null) fallbackVal = hv;
+                            }
                             FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
-                                    filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(),
+                                    filter.getFilterColumn(), fallbackVal, filter.getLogicalOperator(),
                                     filter.getComparisonOperator());
                             applyFilterToSubformEditor(editorComp, condition);
                         }
@@ -891,7 +925,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     public void setParentFieldValue(String parentFieldName, Object value) {
-        if (childFormDef == null)
+        if (childFormDef == null || parentFieldName == null)
             return;
         for (FieldMeta field : childFormDef.getFields()) {
             if (field.getFilters() != null) {
@@ -899,24 +933,65 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     if ("FIELD".equalsIgnoreCase(filter.getSourceType())) {
                         Component editorComp = editorComponents.get(field.getFieldName());
                         if (editorComp != null) {
-                            if (parentFieldName.equalsIgnoreCase(filter.getSourceName())) {
+                            String srcName = filter.getSourceName();
+                            String lookupKey = srcName;
+                            if (lookupKey != null && (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header."))) {
+                                lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                            } else if (lookupKey != null && (lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail."))) {
+                                lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
+                            }
+                            boolean isMatch = parentFieldName.equalsIgnoreCase(srcName)
+                                    || (lookupKey != null && parentFieldName.equalsIgnoreCase(lookupKey))
+                                    || ("unique".equalsIgnoreCase(parentFieldName) && "isunique".equalsIgnoreCase(lookupKey))
+                                    || ("isunique".equalsIgnoreCase(parentFieldName) && "unique".equalsIgnoreCase(lookupKey));
+
+                            if (isMatch) {
                                 FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
                                         filter.getFilterColumn(), value, filter.getLogicalOperator(),
                                         filter.getComparisonOperator());
                                 applyFilterToSubformEditor(editorComp, condition);
-                            } else if (editorComponents.get(filter.getSourceName()) == null) {
-                                // Fallback jika user salah pilih FIELD untuk static value
-                                FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
-                                        filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(),
-                                        filter.getComparisonOperator());
-                                applyFilterToSubformEditor(editorComp, condition);
+                            } else if (lookupKey != null && editorComponents.get(lookupKey) == null && (srcName == null || editorComponents.get(srcName) == null)) {
+                                Object fallbackVal = srcName;
+                                boolean foundInSupplier = false;
+                                if (headerRecordSupplier != null && headerRecordSupplier.get() != null) {
+                                    Object hv = getCaseInsensitiveVal(headerRecordSupplier.get(), lookupKey);
+                                    if (hv == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                                        hv = getCaseInsensitiveVal(headerRecordSupplier.get(), "unique".equalsIgnoreCase(lookupKey) ? "isunique" : "unique");
+                                    }
+                                    if (hv != null) {
+                                        fallbackVal = hv;
+                                        foundInSupplier = true;
+                                    }
+                                }
+                                if (foundInSupplier) {
+                                    FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
+                                            filter.getFilterColumn(), fallbackVal, filter.getLogicalOperator(),
+                                            filter.getComparisonOperator());
+                                    applyFilterToSubformEditor(editorComp, condition);
+                                }
                             }
                         }
                     } else if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
                         Component editorComp = editorComponents.get(field.getFieldName());
                         if (editorComp != null) {
+                            Object staticVal = filter.getSourceName();
+                            String lookupKey = staticVal != null ? staticVal.toString() : "";
+                            if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.") || lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail.")) {
+                                if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")) {
+                                    lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                                } else {
+                                    lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
+                                }
+                                if (headerRecordSupplier != null && headerRecordSupplier.get() != null) {
+                                    Object hv = getCaseInsensitiveVal(headerRecordSupplier.get(), lookupKey);
+                                    if (hv == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                                        hv = getCaseInsensitiveVal(headerRecordSupplier.get(), "unique".equalsIgnoreCase(lookupKey) ? "isunique" : "unique");
+                                    }
+                                    if (hv != null) staticVal = hv;
+                                }
+                            }
                             FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
-                                    filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(),
+                                    filter.getFilterColumn(), staticVal, filter.getLogicalOperator(),
                                     filter.getComparisonOperator());
                             applyFilterToSubformEditor(editorComp, condition);
                         }

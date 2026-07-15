@@ -857,6 +857,56 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         }
     }
 
+    public void applyInitialParameters(Object extra) {
+        if (extra == null) return;
+        if (extra instanceof String strExtra) {
+            String trimmed = strExtra.trim();
+            if ("HIDE_HISTORIS".equalsIgnoreCase(trimmed) || "HIDE_HISTORY".equalsIgnoreCase(trimmed)) {
+                hideHistorisTab();
+                return;
+            }
+            if (trimmed.contains("=")) {
+                String[] pairs = trimmed.split("[&,]");
+                for (String pair : pairs) {
+                    String[] kv = pair.split("=");
+                    if (kv.length == 2) {
+                        applySingleParameter(kv[0].trim(), kv[1].trim());
+                    }
+                }
+            }
+        } else if (extra instanceof Map<?, ?> mapExtra) {
+            for (Map.Entry<?, ?> entry : mapExtra.entrySet()) {
+                String key = entry.getKey() != null ? entry.getKey().toString().trim() : "";
+                Object val = entry.getValue();
+                if (key.isEmpty()) continue;
+                if ("HIDE_HISTORIS".equalsIgnoreCase(key) || "HIDE_HISTORY".equalsIgnoreCase(key)
+                        || "HIDEHISTORIS".equalsIgnoreCase(key.replace("_", "")) || "HIDEHISTORY".equalsIgnoreCase(key.replace("_", ""))) {
+                    if (val == null || "true".equalsIgnoreCase(val.toString()) || "HIDE_HISTORIS".equalsIgnoreCase(val.toString()) || "1".equals(val.toString())) {
+                        hideHistorisTab();
+                    }
+                } else {
+                    applySingleParameter(key, val);
+                }
+            }
+        }
+    }
+
+    private void applySingleParameter(String key, Object val) {
+        if (formComponents == null || key == null || key.isEmpty() || val == null) return;
+        Component comp = formComponents.get(key);
+        if (comp == null) {
+            for (Map.Entry<String, Component> entry : formComponents.entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(key)) {
+                    comp = entry.getValue();
+                    break;
+                }
+            }
+        }
+        if (comp instanceof com.vaadin.flow.component.HasValue) {
+            presetFieldFromQuery(comp, val);
+        }
+    }
+
     private void presetFieldFromQuery(Component targetComponent, Object value) {
         if (targetComponent instanceof com.vaadin.flow.component.HasValue && value != null) {
             @SuppressWarnings("unchecked")
@@ -1008,7 +1058,16 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
                     if ("FIELD".equalsIgnoreCase(filter.getSourceType())) {
                         String sourceFieldName = filter.getSourceName();
-                        Component sourceComponent = formComponents.get(sourceFieldName);
+                        String lookupKey = sourceFieldName;
+                        if (lookupKey != null && (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header."))) {
+                            lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                        }
+                        Component sourceComponent = lookupKey != null ? formComponents.get(lookupKey) : null;
+                        if (sourceComponent == null && sourceFieldName != null) sourceComponent = formComponents.get(sourceFieldName);
+                        if (sourceComponent == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                            sourceComponent = formComponents.get("unique");
+                            if (sourceComponent == null) sourceComponent = formComponents.get("isunique");
+                        }
                         if (sourceComponent instanceof com.vaadin.flow.component.HasValue) {
                             @SuppressWarnings("unchecked")
                             com.vaadin.flow.component.HasValue<?, Object> hasValueSource = (com.vaadin.flow.component.HasValue<?, Object>) sourceComponent;
@@ -1028,15 +1087,35 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                                 applyFilterToComponent(targetComponent, condition);
                             }
                         } else {
-                            // Fallback: Jika field tidak ditemukan di form, perlakukan sebagai STATIC value (atasi human error saat salah pilih FIELD di Form Builder)
+                            Map<String, Object> currentRecordData = formBinder != null ? formBinder.getBean() : null;
+                            Object fallbackVal = filter.getSourceName();
+                            if (currentRecordData != null && lookupKey != null && currentRecordData.containsKey(lookupKey)) {
+                                fallbackVal = currentRecordData.get(lookupKey);
+                            }
                             com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(
-                                    String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(),
+                                    String.valueOf(filter.getId()), filter.getFilterColumn(), fallbackVal,
                                     filter.getLogicalOperator(), filter.getComparisonOperator());
                             applyFilterToComponent(targetComponent, condition);
                         }
                     } else if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
+                        Object staticVal = filter.getSourceName();
+                        String lookupKey = staticVal != null ? staticVal.toString() : "";
+                        if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")) {
+                            lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                            Component sc = formComponents.get(lookupKey);
+                            if (sc == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                                sc = formComponents.get("unique");
+                                if (sc == null) sc = formComponents.get("isunique");
+                            }
+                            Map<String, Object> currentRecordData = formBinder != null ? formBinder.getBean() : null;
+                            if (sc instanceof com.vaadin.flow.component.HasValue<?, ?> hv) {
+                                staticVal = hv.getValue();
+                            } else if (currentRecordData != null && currentRecordData.containsKey(lookupKey)) {
+                                staticVal = currentRecordData.get(lookupKey);
+                            }
+                        }
                         com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(
-                                String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(),
+                                String.valueOf(filter.getId()), filter.getFilterColumn(), staticVal,
                                 filter.getLogicalOperator(), filter.getComparisonOperator());
                         applyFilterToComponent(targetComponent, condition);
                     } else if ("QUERY".equalsIgnoreCase(filter.getSourceType())) {
@@ -1691,8 +1770,11 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 component instanceof com.vaadin.flow.component.combobox.ComboBox ||
                 component instanceof com.vaadin.flow.component.select.Select ||
                 component instanceof com.vaadin.flow.component.listbox.ListBox ||
-                component instanceof com.vaadin.flow.component.radiobutton.RadioButtonGroup) {
-            return (V) value.toString();
+                component instanceof com.vaadin.flow.component.radiobutton.RadioButtonGroup ||
+                component instanceof com.vaadinerp.components.LovComboBox ||
+                component instanceof com.vaadinerp.components.LovSelect ||
+                component instanceof com.vaadinerp.components.BandboxField) {
+            return (V) (value != null ? value.toString() : null);
         }
         try {
             return (V) value;

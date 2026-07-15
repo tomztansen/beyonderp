@@ -2008,20 +2008,71 @@ public class FormBuilderView extends VerticalLayout {
         logicalOpField.setWidth("80px");
 
         ComboBox<String> comparisonOpField = new ComboBox<>("Operator");
-        comparisonOpField.setItems("=", ">", "<", ">=", "<=", "LIKE", "ILIKE", "!=");
+        comparisonOpField.setItems("=", ">", "<", ">=", "<=", "LIKE", "ILIKE", "!=", "IS NULL", "IS NOT NULL");
         comparisonOpField.setValue("=");
-        comparisonOpField.setWidth("100px");
+        comparisonOpField.setWidth("110px");
 
-        TextField filterColField = new TextField("Target Kolom");
-        filterColField.setPlaceholder("e.g. parent_code");
+        ComboBox<String> filterColField = new ComboBox<>("Target Kolom (dari LOV)");
+        filterColField.setAllowCustomValue(true);
+        filterColField.addCustomValueSetListener(e -> filterColField.setValue(e.getDetail()));
+        filterColField.setPlaceholder("Pilih / ketik kolom target...");
+        filterColField.setWidth("180px");
+        if (fieldTemp.lovCode != null && !fieldTemp.lovCode.trim().isEmpty()) {
+            try {
+                java.util.List<String> cols = getLovColumns(fieldTemp.lovCode);
+                if (cols != null) {
+                    java.util.List<String> cleanCols = cols.stream().filter(c -> c != null && !c.startsWith("_")).collect(java.util.stream.Collectors.toList());
+                    filterColField.setItems(cleanCols);
+                }
+            } catch (Exception ignored) {}
+        }
 
         ComboBox<String> sourceTypeField = new ComboBox<>("Source Type");
         sourceTypeField.setItems("FIELD", "QUERY", "STATIC");
         sourceTypeField.setValue("FIELD");
-        sourceTypeField.setWidth("100px");
+        sourceTypeField.setWidth("110px");
 
-        TextField sourceNameField = new TextField("Source Name / Value");
-        sourceNameField.setPlaceholder("e.g. parent");
+        ComboBox<String> sourceNameField = new ComboBox<>("Source Name / Value");
+        sourceNameField.setAllowCustomValue(true);
+        sourceNameField.addCustomValueSetListener(e -> sourceNameField.setValue(e.getDetail()));
+        sourceNameField.setPlaceholder("Pilih / ketik sumber...");
+        sourceNameField.setWidth("180px");
+
+        java.util.List<String> formFieldNames = fieldsList.stream()
+                .map(f -> f.fieldName)
+                .filter(n -> n != null && !n.trim().isEmpty())
+                .collect(java.util.stream.Collectors.toList());
+        sourceNameField.setItems(formFieldNames);
+
+        sourceTypeField.addValueChangeListener(e -> {
+            String st = e.getValue();
+            if ("FIELD".equals(st)) {
+                sourceNameField.setItems(formFieldNames);
+                sourceNameField.setPlaceholder("Pilih field di form ini...");
+            } else if ("STATIC".equals(st)) {
+                sourceNameField.setItems("NULL", "true", "false", "ACTIVE", "1", "0");
+                sourceNameField.setPlaceholder("Ketik / pilih nilai statis...");
+            } else {
+                sourceNameField.setItems(new ArrayList<>());
+                sourceNameField.setPlaceholder("Ketik parameter query...");
+            }
+        });
+
+        comparisonOpField.addValueChangeListener(e -> {
+            String op = e.getValue();
+            if ("IS NULL".equals(op) || "IS NOT NULL".equals(op)) {
+                sourceTypeField.setValue("STATIC");
+                sourceNameField.setValue("(" + op + ")");
+                sourceNameField.setEnabled(false);
+                sourceTypeField.setEnabled(false);
+            } else {
+                sourceNameField.setEnabled(true);
+                sourceTypeField.setEnabled(true);
+                if ("STATIC".equals(sourceTypeField.getValue()) && sourceNameField.getValue() != null && sourceNameField.getValue().startsWith("(IS ")) {
+                    sourceNameField.clear();
+                }
+            }
+        });
 
         Grid<FieldFilterMetaTemp> filtersGrid = new Grid<>();
         filtersGrid.setSizeFull();
@@ -2044,6 +2095,11 @@ public class FormBuilderView extends VerticalLayout {
             currentEditing[0] = null;
             filterColField.clear();
             sourceNameField.clear();
+            logicalOpField.setValue("AND");
+            comparisonOpField.setValue("=");
+            sourceTypeField.setValue("FIELD");
+            sourceNameField.setEnabled(true);
+            sourceTypeField.setEnabled(true);
             btnAddFilter.setText("Tambah");
             btnAddFilter.setIcon(VaadinIcon.PLUS.create());
             btnCancelEdit.setVisible(false);
@@ -2090,6 +2146,11 @@ public class FormBuilderView extends VerticalLayout {
             String srcName = sourceNameField.getValue().trim();
             String logOp = logicalOpField.getValue();
             String compOp = comparisonOpField.getValue();
+
+            if ("IS NULL".equals(compOp) || "IS NOT NULL".equals(compOp)) {
+                if (srcName.isEmpty()) srcName = "(" + compOp + ")";
+                if (srcType == null) srcType = "STATIC";
+            }
 
             if (col.isEmpty() || srcName.isEmpty()) {
                 Notification.show("Kolom target dan Nama sumber tidak boleh kosong!", 3000,

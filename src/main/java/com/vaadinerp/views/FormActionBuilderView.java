@@ -835,12 +835,24 @@ public class FormActionBuilderView extends VerticalLayout {
             targetCol.setWidth("150px");
 
             ComboBox<String> typeCombo = new ComboBox<>();
-            typeCombo.setItems("Literal", "header.", "picked.");
+            typeCombo.setItems("Literal", "header.", "picked.", "IS NULL", "IS NOT NULL");
             typeCombo.setValue("Literal");
-            typeCombo.setWidth("120px");
+            typeCombo.setWidth("130px");
 
             TextField valField = new TextField("Value");
             valField.setWidth("150px");
+
+            typeCombo.addValueChangeListener(ev -> {
+                String selected = ev.getValue();
+                if ("IS NULL".equals(selected) || "IS NOT NULL".equals(selected)) {
+                    valField.clear();
+                    valField.setEnabled(false);
+                    valField.setPlaceholder("(" + selected + ")");
+                } else {
+                    valField.setEnabled(true);
+                    valField.setPlaceholder("");
+                }
+            });
 
             row.add(targetCol, new com.vaadin.flow.component.html.Span("="), typeCombo, valField, btnRemove);
         }
@@ -866,14 +878,21 @@ public class FormActionBuilderView extends VerticalLayout {
                     ComboBox<String> type = (ComboBox<String>) row.getComponentAt(2);
                     TextField val = (TextField) row.getComponentAt(3);
                     
-                    if (target.getValue() != null && !target.getValue().isBlank() && val.getValue() != null && !val.getValue().isBlank()) {
-                        String valStr = val.getValue().trim();
-                        if ("Literal".equals(type.getValue())) {
-                            if (!valStr.startsWith("'") && !valStr.endsWith("'")) valStr = "'" + valStr + "'";
-                        } else {
-                            valStr = type.getValue() + valStr;
+                    if (target.getValue() != null && !target.getValue().isBlank()) {
+                        String colName = target.getValue().trim();
+                        if ("IS NULL".equals(type.getValue())) {
+                            pairs.add(colName + ":IS NULL");
+                        } else if ("IS NOT NULL".equals(type.getValue())) {
+                            pairs.add(colName + ":IS NOT NULL");
+                        } else if (val.getValue() != null && !val.getValue().isBlank()) {
+                            String valStr = val.getValue().trim();
+                            if ("Literal".equals(type.getValue())) {
+                                if (!valStr.startsWith("'") && !valStr.endsWith("'")) valStr = "'" + valStr + "'";
+                            } else {
+                                valStr = type.getValue() + valStr;
+                            }
+                            pairs.add(colName + ":" + valStr);
                         }
-                        pairs.add(target.getValue().trim() + ":" + valStr);
                     }
                 }
             }
@@ -921,7 +940,15 @@ public class FormActionBuilderView extends VerticalLayout {
                     TextField val = (TextField) row.getComponentAt(3);
                     
                     target.setValue(k);
-                    if (v.startsWith("header.") || v.startsWith("\"header.")) {
+                    if ("IS NULL".equalsIgnoreCase(v) || "'IS NULL'".equalsIgnoreCase(v) || "\"IS NULL\"".equalsIgnoreCase(v) || "IS_NULL".equalsIgnoreCase(v)) {
+                        type.setValue("IS NULL");
+                        val.clear();
+                        val.setEnabled(false);
+                    } else if ("IS NOT NULL".equalsIgnoreCase(v) || "'IS NOT NULL'".equalsIgnoreCase(v) || "\"IS NOT NULL\"".equalsIgnoreCase(v) || "IS_NOT_NULL".equalsIgnoreCase(v)) {
+                        type.setValue("IS NOT NULL");
+                        val.clear();
+                        val.setEnabled(false);
+                    } else if (v.startsWith("header.") || v.startsWith("\"header.")) {
                         type.setValue("header.");
                         val.setValue(v.replace("\"", "").substring(7));
                     } else if (v.startsWith("picked.") || v.startsWith("\"picked.")) {

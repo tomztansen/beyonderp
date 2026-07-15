@@ -1232,6 +1232,120 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
             formLayout.add(rowLayout);
         }
+
+        // Setup cascading from master fields to detail editors and SubformGridField components
+        for (FieldMeta field : formDef.getFields()) {
+            Component sourceComponent = formComponents.get(field.getFieldName());
+            if (sourceComponent instanceof com.vaadin.flow.component.HasValue) {
+                @SuppressWarnings("unchecked")
+                com.vaadin.flow.component.HasValue<?, Object> hasValueSource = (com.vaadin.flow.component.HasValue<?, Object>) sourceComponent;
+                hasValueSource.addValueChangeListener(event -> {
+                    Object newValue = event.getValue();
+                    applyMasterFiltersToDetailEditors(formDef);
+                    for (Component comp : formComponents.values()) {
+                        if (comp instanceof com.vaadinerp.components.SubformGridField sgf) {
+                            sgf.setParentFieldValue(field.getFieldName(), newValue);
+                        }
+                    }
+                    for (Component comp : detailEditorComponents.values()) {
+                        if (comp instanceof com.vaadinerp.components.SubformGridField sgf) {
+                            sgf.setParentFieldValue(field.getFieldName(), newValue);
+                        }
+                    }
+                });
+            }
+        }
+
+        if (queryParameters != null && !queryParameters.getParameters().isEmpty()) {
+            Map<String, Object> bean = formBinder.getBean();
+            if (bean == null) {
+                bean = new HashMap<>();
+                formBinder.setBean(bean);
+            }
+            for (Map.Entry<String, java.util.List<String>> entry : queryParameters.getParameters().entrySet()) {
+                String fieldName = entry.getKey();
+                Component comp = formComponents.get(fieldName);
+                if (comp instanceof com.vaadin.flow.component.HasValue && entry.getValue() != null
+                        && !entry.getValue().isEmpty()) {
+                    presetFieldFromQuery(comp, entry.getValue().get(0));
+                }
+            }
+        }
+    }
+
+    public void applyInitialParameters(Object extra) {
+        if (extra == null) return;
+        if (extra instanceof String strExtra) {
+            String trimmed = strExtra.trim();
+            if ("HIDE_HISTORIS".equalsIgnoreCase(trimmed) || "HIDE_HISTORY".equalsIgnoreCase(trimmed)) {
+                hideHistorisTab();
+                return;
+            }
+            if (trimmed.contains("=")) {
+                String[] pairs = trimmed.split("[&,]");
+                for (String pair : pairs) {
+                    String[] kv = pair.split("=");
+                    if (kv.length == 2) {
+                        applySingleParameter(kv[0].trim(), kv[1].trim());
+                    }
+                }
+            }
+        } else if (extra instanceof Map<?, ?> mapExtra) {
+            for (Map.Entry<?, ?> entry : mapExtra.entrySet()) {
+                String key = entry.getKey() != null ? entry.getKey().toString().trim() : "";
+                Object val = entry.getValue();
+                if (key.isEmpty()) continue;
+                if ("HIDE_HISTORIS".equalsIgnoreCase(key) || "HIDE_HISTORY".equalsIgnoreCase(key)
+                        || "HIDEHISTORIS".equalsIgnoreCase(key.replace("_", "")) || "HIDEHISTORY".equalsIgnoreCase(key.replace("_", ""))) {
+                    if (val == null || "true".equalsIgnoreCase(val.toString()) || "HIDE_HISTORIS".equalsIgnoreCase(val.toString()) || "1".equals(val.toString())) {
+                        hideHistorisTab();
+                    }
+                } else {
+                    applySingleParameter(key, val);
+                }
+            }
+        }
+    }
+
+    private void applySingleParameter(String key, Object val) {
+        if (formComponents == null || key == null || key.isEmpty() || val == null) return;
+        Component comp = formComponents.get(key);
+        if (comp == null && detailEditorComponents != null) {
+            comp = detailEditorComponents.get(key);
+        }
+        if (comp == null) {
+            for (Map.Entry<String, Component> entry : formComponents.entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(key)) {
+                    comp = entry.getValue();
+                    break;
+                }
+            }
+        }
+        if (comp == null && detailEditorComponents != null) {
+            for (Map.Entry<String, Component> entry : detailEditorComponents.entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(key)) {
+                    comp = entry.getValue();
+                    break;
+                }
+            }
+        }
+        if (comp instanceof com.vaadin.flow.component.HasValue) {
+            presetFieldFromQuery(comp, val);
+        }
+    }
+
+    private void presetFieldFromQuery(Component targetComponent, Object value) {
+        if (targetComponent instanceof com.vaadin.flow.component.HasValue && value != null) {
+            @SuppressWarnings("unchecked")
+            com.vaadin.flow.component.HasValue<?, Object> hasValue = (com.vaadin.flow.component.HasValue<?, Object>) targetComponent;
+            Object converted = convertToFieldValue(value, targetComponent);
+            if (converted != null) {
+                try {
+                    hasValue.setValue(converted);
+                } catch (Exception ignored) {
+                }
+            }
+        }
     }
 
     private void buildMasterGrid(FormMeta formDef) {
@@ -1675,9 +1789,27 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
                     if ("FIELD".equalsIgnoreCase(filter.getSourceType())) {
                         String sourceFieldName = filter.getSourceName();
-                        Component sourceComponent = formComponents.get(sourceFieldName);
-                        if (sourceComponent == null && field.isDetail()) {
-                            sourceComponent = detailEditorComponents.get(sourceFieldName);
+                        String lookupKey = sourceFieldName;
+                        if (lookupKey != null && (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header."))) {
+                            lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                        } else if (lookupKey != null && (lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail."))) {
+                            lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
+                        }
+                        Component sourceComponent = lookupKey != null ? formComponents.get(lookupKey) : null;
+                        if (sourceComponent == null && field.isDetail() && lookupKey != null) {
+                            sourceComponent = detailEditorComponents.get(lookupKey);
+                        }
+                        if (sourceComponent == null && sourceFieldName != null) {
+                            sourceComponent = formComponents.get(sourceFieldName);
+                            if (sourceComponent == null && field.isDetail()) sourceComponent = detailEditorComponents.get(sourceFieldName);
+                        }
+                        if (sourceComponent == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                            sourceComponent = formComponents.get("unique");
+                            if (sourceComponent == null) sourceComponent = formComponents.get("isunique");
+                            if (sourceComponent == null && field.isDetail()) {
+                                sourceComponent = detailEditorComponents.get("unique");
+                                if (sourceComponent == null) sourceComponent = detailEditorComponents.get("isunique");
+                            }
                         }
                         
                         if (sourceComponent instanceof HasValue) {
@@ -1696,12 +1828,41 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                                 applyFilterToComponent(targetComponent, condition);
                             }
                         } else {
-                            // Fallback jika user salah pilih FIELD untuk static value di Form Builder
-                            com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(), filter.getComparisonOperator());
+                            Map<String, Object> currentMasterRecordData = formBinder != null ? formBinder.getBean() : null;
+                            Object fallbackVal = filter.getSourceName();
+                            if (currentMasterRecordData != null && lookupKey != null && currentMasterRecordData.containsKey(lookupKey)) {
+                                fallbackVal = currentMasterRecordData.get(lookupKey);
+                            }
+                            com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), fallbackVal, filter.getLogicalOperator(), filter.getComparisonOperator());
                             applyFilterToComponent(targetComponent, condition);
                         }
                     } else if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
-                        com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(), filter.getComparisonOperator());
+                        Object staticVal = filter.getSourceName();
+                        String lookupKey = staticVal != null ? staticVal.toString() : "";
+                        if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.") || lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail.")) {
+                            if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")) {
+                                lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                            } else {
+                                lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
+                            }
+                            Component sc = formComponents.get(lookupKey);
+                            if (sc == null && field.isDetail()) sc = detailEditorComponents.get(lookupKey);
+                            if (sc == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                                sc = formComponents.get("unique");
+                                if (sc == null) sc = formComponents.get("isunique");
+                                if (sc == null && field.isDetail()) {
+                                    sc = detailEditorComponents.get("unique");
+                                    if (sc == null) sc = detailEditorComponents.get("isunique");
+                                }
+                            }
+                            Map<String, Object> currentMasterRecordData = formBinder != null ? formBinder.getBean() : null;
+                            if (sc instanceof com.vaadin.flow.component.HasValue<?, ?> hv) {
+                                staticVal = hv.getValue();
+                            } else if (currentMasterRecordData != null && currentMasterRecordData.containsKey(lookupKey)) {
+                                staticVal = currentMasterRecordData.get(lookupKey);
+                            }
+                        }
+                        com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), staticVal, filter.getLogicalOperator(), filter.getComparisonOperator());
                         applyFilterToComponent(targetComponent, condition);
                     } else if ("QUERY".equalsIgnoreCase(filter.getSourceType())) {
                         String paramName = filter.getSourceName();
@@ -2215,8 +2376,11 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             component instanceof com.vaadin.flow.component.combobox.ComboBox ||
             component instanceof com.vaadin.flow.component.select.Select ||
             component instanceof com.vaadin.flow.component.listbox.ListBox ||
-            component instanceof com.vaadin.flow.component.radiobutton.RadioButtonGroup) {
-            return (V) value.toString();
+            component instanceof com.vaadin.flow.component.radiobutton.RadioButtonGroup ||
+            component instanceof com.vaadinerp.components.LovComboBox ||
+            component instanceof com.vaadinerp.components.LovSelect ||
+            component instanceof com.vaadinerp.components.BandboxField) {
+            return (V) (value != null ? value.toString() : null);
         }
         return (V) value;
     }
@@ -2409,18 +2573,68 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     for (com.vaadinerp.meta.FieldFilterMeta filter : field.getFilters()) {
                         if ("FIELD".equalsIgnoreCase(filter.getSourceType())) {
                             String sourceFieldName = filter.getSourceName();
-                            Component sourceComponent = formComponents.get(sourceFieldName);
+                            String lookupKey = sourceFieldName;
+                            if (lookupKey != null && (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header."))) {
+                                lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                            } else if (lookupKey != null && (lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail."))) {
+                                lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
+                            }
+                            Component sourceComponent = lookupKey != null ? formComponents.get(lookupKey) : null;
+                            if (sourceComponent == null && lookupKey != null) {
+                                sourceComponent = detailEditorComponents.get(lookupKey);
+                            }
+                            if (sourceComponent == null && sourceFieldName != null) {
+                                sourceComponent = formComponents.get(sourceFieldName);
+                                if (sourceComponent == null) sourceComponent = detailEditorComponents.get(sourceFieldName);
+                            }
+                            if (sourceComponent == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                                sourceComponent = formComponents.get("unique");
+                                if (sourceComponent == null) sourceComponent = formComponents.get("isunique");
+                                if (sourceComponent == null) {
+                                    sourceComponent = detailEditorComponents.get("unique");
+                                    if (sourceComponent == null) sourceComponent = detailEditorComponents.get("isunique");
+                                }
+                            }
                             if (sourceComponent instanceof HasValue) {
                                 Object val = ((HasValue<?, ?>) sourceComponent).getValue();
                                 com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), val, filter.getLogicalOperator(), filter.getComparisonOperator());
                                 applyFilterToComponent(targetComponent, condition);
                             } else {
-                                // Fallback jika user salah pilih FIELD untuk static value
-                                com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(), filter.getComparisonOperator());
+                                Map<String, Object> currentMasterRecordData = formBinder != null ? formBinder.getBean() : null;
+                                Object fallbackVal = filter.getSourceName();
+                                if (currentMasterRecordData != null && lookupKey != null && currentMasterRecordData.containsKey(lookupKey)) {
+                                    fallbackVal = currentMasterRecordData.get(lookupKey);
+                                }
+                                com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), fallbackVal, filter.getLogicalOperator(), filter.getComparisonOperator());
                                 applyFilterToComponent(targetComponent, condition);
                             }
                         } else if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
-                            com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), filter.getSourceName(), filter.getLogicalOperator(), filter.getComparisonOperator());
+                            Object staticVal = filter.getSourceName();
+                            String lookupKey = staticVal != null ? staticVal.toString() : "";
+                            if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.") || lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail.")) {
+                                if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")) {
+                                    lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                                } else {
+                                    lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
+                                }
+                                Component sc = formComponents.get(lookupKey);
+                                if (sc == null) sc = detailEditorComponents.get(lookupKey);
+                                if (sc == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                                    sc = formComponents.get("unique");
+                                    if (sc == null) sc = formComponents.get("isunique");
+                                    if (sc == null) {
+                                        sc = detailEditorComponents.get("unique");
+                                        if (sc == null) sc = detailEditorComponents.get("isunique");
+                                    }
+                                }
+                                Map<String, Object> currentMasterRecordData = formBinder != null ? formBinder.getBean() : null;
+                                if (sc instanceof com.vaadin.flow.component.HasValue<?, ?> hv) {
+                                    staticVal = hv.getValue();
+                                } else if (currentMasterRecordData != null && currentMasterRecordData.containsKey(lookupKey)) {
+                                    staticVal = currentMasterRecordData.get(lookupKey);
+                                }
+                            }
+                            com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(String.valueOf(filter.getId()), filter.getFilterColumn(), staticVal, filter.getLogicalOperator(), filter.getComparisonOperator());
                             applyFilterToComponent(targetComponent, condition);
                         }
                     }
