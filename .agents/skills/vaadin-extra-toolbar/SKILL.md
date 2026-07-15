@@ -40,11 +40,41 @@ Jika `pickedRecord` menyimpan field `customer` yang isinya berupa `Map<String, O
 `{"cust_id": "picked.customer.id"}`
 Sistem akan otomatis masuk ke objek `customer` lalu mengekstrak nilai `id`-nya.
 
-## 4. Lokasi File Kunci
+## 4. Groovy Scripting Engine & Action DSL Cheatsheet (`ScriptExecutorService`)
+Selain tipe aksi `LOV_POPUP`, *Extra Toolbar* mendukung tipe `GROOVY_SCRIPT` yang dijalankan via `ScriptExecutorService.java`. Berikut adalah **Cheat Sheet DSL & Context Methods** yang tersedia secara langsung di dalam script:
+
+### A. Inspeksi Data & Debugging (`msgBox`)
+- `msgBox(Object data)` atau `msgBox(String title, Object data)`:
+  Memunculkan jendela modal bergaya *Dark Code Viewer* berukuran 650x450px (resizable & draggable) dengan kemampuan *pretty-print JSON* otomatis. Sangat disarankan untuk men-debug variabel `header` maupun `selectedRows` sebelum atau saat mengeksekusi aksi.
+
+### B. Manipulasi & Pembersihan Form UI (`clearForm`, `setElementValue`, `refreshForm`)
+- `clearForm()`: Mengosongkan/me-reset seluruh isian form aktif di layar (Bandbox, Textbox, Numeric, dll.) dan merefresh tampilan UI seketika.
+- `setElementValue(String fieldName, Object val)`: Mengosongkan (`null` atau `0`) atau mengisi field tertentu pada form, sekaligus memperbarui `headerBean` dan merefresh UI layar browser.
+- `refreshForm()`: Memperbarui tampilan komponen UI di layar browser setelah objek `header` dimodifikasi secara dinamis di dalam Groovy (`header.quantity = 0; refreshForm()`).
+
+### C. SmartHeaderNode & Nested Bandbox Properties
+- Objek `header` di-binding menggunakan `SmartHeaderNode`. Kelas pintar ini bertindak ganda:
+  1. Sebagai angka (`Number/Long`): Ketika dipanggil langsung seperti `header.tsproductionorderid` (mengembalikan `77`).
+  2. Sebagai `Map` bersarang: Ketika dipanggil menggunakan notasi titik seperti `header.tsproductionorderid.idno` atau `header.tsproductionorderid.ocproduct`.
+- Sintaks yang di-copy user dari tabel **Debug Context Form & Header (Filter Mapping Inspector)** dijamin 100% langsung bekerja tanpa error `No such property` atau `null`.
+
+### D. Akses Database Ringan (`db.getValue`, `db.find`, `executeProcedure`)
+- `db.getValue("SELECT col FROM tbl WHERE id = ?", arg)`: Mengambil 1 nilai scalar secara aman (Parameterized Query).
+- `db.find("table_name", "key_col", val)`: Mengambil 1 baris record utuh berformat `Map<String, Object>`.
+- `executeProcedure(Object procRef, Closure callback, String jsonParams, String userId)`: Mengeksekusi Stored Procedure dan mengembalikan status sukses boolean ke dalam closure `callback`.
+
+### E. Dialog & Notifikasi UI (`showYesNoDialog`, `showSuccess`, `showError`, `showMainTab`)
+- `showYesNoDialog("Judul", "Pesan", callback)`: Dialog konfirmasi Yes/No bergaya Lumo.
+- `showSuccess("Judul", "Pesan")` & `showError("Judul", "Pesan")`: Notifikasi Lumo di top-right layar.
+- `showMainTab(tabId, "Judul Tab", url, extra)`: Navigasi antar tab menu di ERP setelah aksi selesai.
+
+## 5. Lokasi File Kunci
 - `com.vaadinerp.meta.FormActionMeta`: Entitas database.
-- `com.vaadinerp.views.FormActionBuilderView`: UI konfigurasi.
+- `com.vaadinerp.views.FormActionBuilderView`: UI konfigurasi & Cheat Sheet Dialog.
 - `com.vaadinerp.components.DynamicPickerPopupDialog`: Komponen popup (logika 2-stage berada di tombol `btnOk`).
 - `com.vaadinerp.service.DynamicDataService`: Logic *backend* (fokus pada fungsi `fetchLovDataWithActionFilters` dan `evaluateFilterMappingDiagnostic`).
+- `com.vaadinerp.service.ScriptExecutorService`: Engine eksekutor Groovy & binding DSL macro.
+- `com.vaadinerp.service.ActionContext`: Konteks aksi yang menyediakan implementasi metode UI/DB untuk Groovy.
 
 > [!NOTE]
-> Ingatlah arsitektur dua tahap (*2-stage*) ini ketika ada kebutuhan untuk menambah tingkat logika penyalinan form (misalnya *3-stage copy* di masa depan) atau men-debug masalah *filter mapping* yang tidak ter-*resolve*.
+> Ingatlah arsitektur dua tahap (*2-stage*) dan kelengkapan DSL Groovy ini ketika ada kebutuhan untuk menambah tingkat logika penyalinan form atau men-debug eksekusi script aksi kustom di Extra Toolbar.

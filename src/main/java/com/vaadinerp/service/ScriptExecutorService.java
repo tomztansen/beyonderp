@@ -170,7 +170,7 @@ public class ScriptExecutorService {
 
             Binding binding = new Binding();
             binding.setVariable("ctx", ctx);
-            binding.setVariable("header", headerBean != null ? headerBean : new HashMap<>());
+            binding.setVariable("header", headerBean != null ? prepareHeaderForScript(headerBean) : new HashMap<>());
             binding.setVariable("selectedRows", selectedGridRows != null ? selectedGridRows : new ArrayList<>());
             binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
             binding.setVariable("JsonOutput", groovy.json.JsonOutput.class);
@@ -196,6 +196,17 @@ public class ScriptExecutorService {
                     ctx.showError(title, message);
                 }
             });
+            binding.setVariable("msgBox", new groovy.lang.Closure<Void>(null) {
+                public void doCall(Object... args) {
+                    if (args != null && args.length == 1) {
+                        ctx.msgBox("Message Box", args[0]);
+                    } else if (args != null && args.length >= 2) {
+                        ctx.msgBox(args[0] != null ? args[0].toString() : "Message Box", args[1]);
+                    } else {
+                        ctx.msgBox("Message Box", "");
+                    }
+                }
+            });
             binding.setVariable("showMainTab", new groovy.lang.Closure<Void>(null) {
                 public void doCall(Object tabId, String tabTitle) {
                     ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, null, null);
@@ -210,6 +221,21 @@ public class ScriptExecutorService {
             binding.setVariable("getElementValue", new groovy.lang.Closure<List<Map<String, Object>>>(null) {
                 public List<Map<String, Object>> doCall(String ref, boolean selected) {
                     return ctx.getElementValue(ref, selected);
+                }
+            });
+            binding.setVariable("setElementValue", new groovy.lang.Closure<Void>(null) {
+                public void doCall(Object ref, Object val) {
+                    ctx.setElementValue(ref, val);
+                }
+            });
+            binding.setVariable("refreshForm", new groovy.lang.Closure<Void>(null) {
+                public void doCall() {
+                    ctx.refreshForm();
+                }
+            });
+            binding.setVariable("clearForm", new groovy.lang.Closure<Void>(null) {
+                public void doCall() {
+                    ctx.clearForm();
                 }
             });
 
@@ -228,6 +254,155 @@ public class ScriptExecutorService {
 
     public void clearAllCache() {
         scriptCache.clear();
+    }
+
+    public static Map<String, Object> prepareHeaderForScript(Map<String, Object> sourceBean) {
+        if (sourceBean == null) return new HashMap<>();
+        Map<String, SmartHeaderNode> smartNodes = new HashMap<>();
+
+        List<Map.Entry<String, Object>> entries = new ArrayList<>(sourceBean.entrySet());
+        for (Map.Entry<String, Object> entry : entries) {
+            String k = entry.getKey();
+            Object v = entry.getValue();
+            if (k == null) continue;
+
+            if (k.contains(".")) {
+                String[] parts = k.split("\\.", 2);
+                String parentKey = parts[0];
+                String subKey = parts[1];
+
+                SmartHeaderNode node = smartNodes.computeIfAbsent(parentKey, pk -> {
+                    Object baseVal = sourceBean.get(pk);
+                    if (baseVal instanceof SmartHeaderNode shn) return shn;
+                    return new SmartHeaderNode(baseVal);
+                });
+                node.putProperty(subKey, v);
+                sourceBean.put(parentKey, node);
+
+                String underscoreKey = parentKey + "_" + subKey;
+                if (!sourceBean.containsKey(underscoreKey) || sourceBean.get(underscoreKey) == null) {
+                    sourceBean.put(underscoreKey, v);
+                }
+            } else if (k.contains("_")) {
+                int idx = k.lastIndexOf("_");
+                if (idx > 0 && idx < k.length() - 1) {
+                    String parentKey = k.substring(0, idx);
+                    String subKey = k.substring(idx + 1);
+                    SmartHeaderNode node = smartNodes.computeIfAbsent(parentKey, pk -> {
+                        Object baseVal = sourceBean.get(pk);
+                        if (baseVal instanceof SmartHeaderNode shn) return shn;
+                        return new SmartHeaderNode(baseVal);
+                    });
+                    node.putProperty(subKey, v);
+                    sourceBean.put(parentKey, node);
+
+                    String dotKey = parentKey + "." + subKey;
+                    if (!sourceBean.containsKey(dotKey) || sourceBean.get(dotKey) == null) {
+                        sourceBean.put(dotKey, v);
+                    }
+                }
+            }
+        }
+        return sourceBean;
+    }
+
+    public static class SmartHeaderNode extends Number implements Map<String, Object>, Comparable<Object>, groovy.lang.GroovyObject {
+        private final Object primaryValue;
+        private final Map<String, Object> properties = new LinkedHashMap<>();
+        private transient groovy.lang.MetaClass metaClass;
+
+        public SmartHeaderNode(Object primaryValue) {
+            this.primaryValue = primaryValue;
+            this.metaClass = groovy.lang.GroovySystem.getMetaClassRegistry().getMetaClass(SmartHeaderNode.class);
+        }
+
+        public void putProperty(String key, Object value) {
+            if (key != null) properties.put(key, value);
+        }
+
+        @Override
+        public groovy.lang.MetaClass getMetaClass() {
+            if (metaClass == null) {
+                metaClass = groovy.lang.GroovySystem.getMetaClassRegistry().getMetaClass(SmartHeaderNode.class);
+            }
+            return metaClass;
+        }
+
+        @Override
+        public void setMetaClass(groovy.lang.MetaClass metaClass) {
+            this.metaClass = metaClass;
+        }
+
+        @Override
+        public Object getProperty(String property) {
+            if (properties.containsKey(property)) {
+                return properties.get(property);
+            }
+            if ("id".equals(property) || "value".equals(property)) {
+                return primaryValue;
+            }
+            if (primaryValue != null) {
+                try {
+                    return groovy.lang.GroovySystem.getMetaClassRegistry().getMetaClass(primaryValue.getClass()).getProperty(primaryValue, property);
+                } catch (Exception e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public void setProperty(String property, Object newValue) {
+            properties.put(property, newValue);
+        }
+
+        @Override
+        public Object invokeMethod(String name, Object args) {
+            if (metaClass.respondsTo(this, name, args).size() > 0) {
+                return metaClass.invokeMethod(this, name, args);
+            }
+            if (primaryValue != null) {
+                return groovy.lang.GroovySystem.getMetaClassRegistry().getMetaClass(primaryValue.getClass()).invokeMethod(primaryValue, name, args);
+            }
+            throw new groovy.lang.MissingMethodException(name, SmartHeaderNode.class, args instanceof Object[] ? (Object[]) args : new Object[]{args});
+        }
+
+        @Override public int intValue() { return primaryValue instanceof Number n ? n.intValue() : (primaryValue != null && primaryValue.toString().matches("-?\\d+") ? Integer.parseInt(primaryValue.toString()) : 0); }
+        @Override public long longValue() { return primaryValue instanceof Number n ? n.longValue() : (primaryValue != null && primaryValue.toString().matches("-?\\d+") ? Long.parseLong(primaryValue.toString()) : 0L); }
+        @Override public float floatValue() { return primaryValue instanceof Number n ? n.floatValue() : 0f; }
+        @Override public double doubleValue() { return primaryValue instanceof Number n ? n.doubleValue() : 0d; }
+        @Override public String toString() { return primaryValue != null ? primaryValue.toString() : ""; }
+        @Override public int hashCode() { return primaryValue != null ? primaryValue.hashCode() : 0; }
+        @Override public boolean equals(Object obj) {
+            if (obj == this) return true;
+            if (obj instanceof SmartHeaderNode node) return Objects.equals(primaryValue, node.primaryValue);
+            return Objects.equals(primaryValue, obj);
+        }
+
+        @Override public int compareTo(Object o) {
+            if (primaryValue instanceof Comparable c1 && o != null) {
+                if (o instanceof SmartHeaderNode shn && shn.primaryValue != null) {
+                    return c1.compareTo(shn.primaryValue);
+                }
+                if (c1.getClass().isInstance(o)) {
+                    return c1.compareTo(o);
+                }
+            }
+            return 0;
+        }
+
+        @Override public int size() { return properties.size(); }
+        @Override public boolean isEmpty() { return properties.isEmpty(); }
+        @Override public boolean containsKey(Object key) { return properties.containsKey(key); }
+        @Override public boolean containsValue(Object value) { return properties.containsValue(value); }
+        @Override public Object get(Object key) { return properties.get(key); }
+        @Override public Object put(String key, Object value) { return properties.put(key, value); }
+        @Override public Object remove(Object key) { return properties.remove(key); }
+        @Override public void putAll(Map<? extends String, ?> m) { properties.putAll(m); }
+        @Override public void clear() { properties.clear(); }
+        @Override public Set<String> keySet() { return properties.keySet(); }
+        @Override public Collection<Object> values() { return properties.values(); }
+        @Override public Set<Entry<String, Object>> entrySet() { return properties.entrySet(); }
     }
 
     // Helper class for safe database queries in script

@@ -894,6 +894,10 @@ public class PortalView extends AppLayout {
     }
 
     public void openMenuTab(AppMenu menu) {
+        openMenuTab(menu, null);
+    }
+
+    public void openMenuTab(AppMenu menu, String extra) {
         String code = menu.getMenuCode();
         String title = menu.getMenuTitle();
 
@@ -923,6 +927,9 @@ public class PortalView extends AppLayout {
                         mdView.setParameter(null, code);
                         mdView.hideTitle();
                         mdView.getStyle().set("padding", "4px");
+                        if (extra != null && ("HIDE_HISTORIS".equalsIgnoreCase(extra.trim()) || "HIDE_HISTORY".equalsIgnoreCase(extra.trim()))) {
+                            mdView.hideHistorisTab();
+                        }
                         mdView.setCloseHandler(() -> {
                             Tab tab = openTabs.get(code);
                             if (tab != null) {
@@ -941,6 +948,9 @@ public class PortalView extends AppLayout {
                         gView.setParameter(null, code);
                         gView.hideTitle();
                         gView.getStyle().set("padding", "4px");
+                        if (extra != null && ("HIDE_HISTORIS".equalsIgnoreCase(extra.trim()) || "HIDE_HISTORY".equalsIgnoreCase(extra.trim()))) {
+                            gView.hideHistorisTab();
+                        }
                         gView.setCloseHandler(() -> {
                             Tab tab = openTabs.get(code);
                             if (tab != null) {
@@ -971,6 +981,10 @@ public class PortalView extends AppLayout {
     }
 
     public void openTabByCode(String code, String title) {
+        openTabByCode(code, title, null);
+    }
+
+    public void openTabByCode(String code, String title, String extra) {
         if (code == null || code.isBlank()) return;
         if (openTabs.containsKey(code)) {
             tabSheet.setSelectedTab(openTabs.get(code));
@@ -1013,7 +1027,7 @@ public class PortalView extends AppLayout {
         AppMenu menu = new AppMenu();
         menu.setMenuCode(targetCode);
         menu.setMenuTitle(targetTitle);
-        openMenuTab(menu);
+        openMenuTab(menu, extra);
     }
 
     private void openChangePasswordDialog() {

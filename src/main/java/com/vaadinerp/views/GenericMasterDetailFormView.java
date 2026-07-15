@@ -170,6 +170,24 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         title.setVisible(false);
     }
 
+    /**
+     * Menyembunyikan tab Historis dan langsung mengarahkan tampilan ke tab Transaksi.
+     */
+    public void hideHistorisTab() {
+        if (historisTab != null) {
+            historisTab.setVisible(false);
+        }
+        if (tabSheet != null && transaksiTab != null) {
+            tabSheet.setSelectedTab(transaksiTab);
+        }
+    }
+
+    public void refreshBinderBean(Map<String, Object> updatedBean) {
+        if (formBinder != null && updatedBean != null) {
+            formBinder.readBean(updatedBean);
+        }
+    }
+
     public GenericMasterDetailFormView(FormMetaRepository formMetaRepository, DynamicDataService dynamicDataService) {
         this(formMetaRepository, dynamicDataService, null);
     }

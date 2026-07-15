@@ -73,6 +73,24 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         title.setVisible(false);
     }
 
+    /**
+     * Menyembunyikan tab Historis dan langsung mengarahkan tampilan ke tab Transaksi.
+     */
+    public void hideHistorisTab() {
+        if (historisTab != null) {
+            historisTab.setVisible(false);
+        }
+        if (tabSheet != null && transaksiTab != null) {
+            tabSheet.setSelectedTab(transaksiTab);
+        }
+    }
+
+    public void refreshBinderBean(Map<String, Object> updatedBean) {
+        if (formBinder != null && updatedBean != null) {
+            formBinder.readBean(updatedBean);
+        }
+    }
+
     private java.util.List<Map<String, Object>> gridItems = new java.util.ArrayList<>();
     private java.util.List<Map<String, Object>> allGridItems = new java.util.ArrayList<>();
 

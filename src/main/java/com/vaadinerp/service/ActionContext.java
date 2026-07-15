@@ -98,6 +98,120 @@ public class ActionContext {
         }
     }
 
+    public void msgBox(Object content) {
+        msgBox("Message Box", content);
+    }
+
+    public void msgBox(String title, Object content) {
+        UI ui = UI.getCurrent();
+        if (ui == null && currentView != null && currentView.getUI().isPresent()) {
+            ui = currentView.getUI().get();
+        }
+        final UI activeUi = ui;
+
+        Command openDialog = () -> {
+            com.vaadin.flow.component.dialog.Dialog dlg = new com.vaadin.flow.component.dialog.Dialog();
+            dlg.setHeaderTitle(title != null ? title : "Message Box");
+            dlg.setWidth("650px");
+            dlg.setHeight("450px");
+            dlg.setResizable(true);
+            dlg.setDraggable(true);
+
+            String formattedText;
+            if (content == null) {
+                formattedText = "null";
+            } else if (content instanceof Map || content instanceof List) {
+                try {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
+                    formattedText = mapper.writeValueAsString(content);
+                } catch (Exception ex) {
+                    formattedText = content.toString();
+                }
+            } else {
+                formattedText = content.toString().replace("<br>", "\n").replace("<br/>", "\n").replace("</br>", "\n");
+            }
+
+            com.vaadin.flow.component.orderedlayout.VerticalLayout layout = new com.vaadin.flow.component.orderedlayout.VerticalLayout();
+            layout.setSizeFull();
+            layout.setPadding(false);
+
+            com.vaadin.flow.component.html.Pre pre = new com.vaadin.flow.component.html.Pre(formattedText);
+            pre.getStyle()
+                    .set("background-color", "#0f172a")
+                    .set("color", "#38bdf8")
+                    .set("padding", "14px")
+                    .set("border-radius", "8px")
+                    .set("overflow", "auto")
+                    .set("width", "100%")
+                    .set("height", "100%")
+                    .set("font-family", "Consolas, monospace")
+                    .set("font-size", "13px")
+                    .set("margin", "0");
+
+            layout.add(pre);
+            dlg.add(layout);
+
+            com.vaadin.flow.component.button.Button btnClose = new com.vaadin.flow.component.button.Button("Tutup", e -> dlg.close());
+            dlg.getFooter().add(btnClose);
+
+            dlg.open();
+        };
+
+        if (activeUi != null) {
+            activeUi.access(openDialog);
+        } else {
+            openDialog.execute();
+        }
+    }
+
+    public void refreshForm() {
+        UI ui = UI.getCurrent();
+        if (ui == null && currentView != null && currentView.getUI().isPresent()) {
+            ui = currentView.getUI().get();
+        }
+        Command update = () -> {
+            if (currentView instanceof com.vaadinerp.views.GenericFormView view) {
+                view.refreshBinderBean(headerBean);
+            } else if (currentView instanceof com.vaadinerp.views.GenericMasterDetailFormView view) {
+                view.refreshBinderBean(headerBean);
+            }
+        };
+        if (ui != null) ui.access(update);
+        else update.execute();
+    }
+
+    public void clearForm() {
+        if (headerBean != null) {
+            headerBean.clear();
+        }
+        refreshForm();
+    }
+
+    public void setElementValue(Object ref, Object val) {
+        if (ref == null) return;
+        String fieldName = ref.toString();
+        if (fieldName.startsWith("@formfield{") && fieldName.endsWith("}")) {
+            fieldName = fieldName.substring(11, fieldName.length() - 1).trim();
+        } else if (fieldName.startsWith("header.")) {
+            fieldName = fieldName.substring(7).trim();
+        }
+        if (headerBean != null) {
+            if (val == null || "null".equalsIgnoreCase(val.toString())) {
+                headerBean.put(fieldName, null);
+                if (!fieldName.contains("_") && !fieldName.contains(".")) {
+                    headerBean.put(fieldName + "_idno", null);
+                    headerBean.put(fieldName + ".idno", null);
+                    headerBean.put(fieldName + "_code", null);
+                    headerBean.put(fieldName + ".code", null);
+                }
+            } else {
+                headerBean.put(fieldName, val);
+            }
+        }
+        refreshForm();
+    }
+
     public boolean executeProcedure(Object procRef, Object callbackOrJson, Object... rest) {
         String jsonParams = null;
         String userId = getUserId();
@@ -269,7 +383,7 @@ public class ActionContext {
                     }
                 }
                 if (portal != null) {
-                    portal.openTabByCode(tabIdOrCode != null ? tabIdOrCode : tabTitle, tabTitle);
+                    portal.openTabByCode(tabIdOrCode != null ? tabIdOrCode : tabTitle, tabTitle, extra);
                 } else {
                     Notification.show("Membuka Tab [" + tabTitle + " (ID: " + tabIdOrCode + ")]...", 3000,
                             Notification.Position.MIDDLE);
