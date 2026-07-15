@@ -155,7 +155,7 @@ public class BandboxField<T, V> extends CustomField<V> {
 
         // Footer Buttons
         Button btnPilih = new Button("Pilih", e -> {
-            grid.asSingleSelect().getOptionalValue().ifPresent(this::doSelect);
+            selectFirstItemOrSelected();
         });
         btnPilih.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
@@ -210,14 +210,16 @@ public class BandboxField<T, V> extends CustomField<V> {
                         "};" +
                         "self._bandboxClick = (event) => {" +
                         "  const path = event.composedPath();" +
-                        "  if (!path.includes($0) && !path.includes($1)) {" +
+                        "  const isInsideDialog = path.some(el => el && (el.tagName === 'VAADIN-DIALOG-OVERLAY' || el === $1));" +
+                        "  if (!path.includes($0) && !isInsideDialog) {" +
                         "    self.$server.closeFromClient();" +
                         "    cleanUp();" +
                         "  }" +
                         "};" +
                         "self._bandboxFocus = (event) => {" +
                         "  const path = event.composedPath();" +
-                        "  if (!path.includes($0) && !path.includes($1)) {" +
+                        "  const isInsideDialog = path.some(el => el && (el.tagName === 'VAADIN-DIALOG-OVERLAY' || el === $1));" +
+                        "  if (!path.includes($0) && !isInsideDialog) {" +
                         "    self.$server.closeFromClient();" +
                         "    cleanUp();" +
                         "  }" +

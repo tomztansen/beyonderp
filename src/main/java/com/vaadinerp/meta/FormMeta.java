@@ -26,6 +26,7 @@ public class FormMeta {
     private String tableName;
 
     @Column(name = "view_table", columnDefinition = "TEXT")
+    @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.LONGVARCHAR)
     private String viewTable;
 
     @Column(name = "primary_key", length = 50)

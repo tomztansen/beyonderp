@@ -240,22 +240,65 @@ public class ActionContext {
                 if (procRef instanceof Number num) {
                     if (num.intValue() == 3) {
                         procName = "dynamic.salesordertoproduction";
+                    } else if (num.intValue() == 4) {
+                        procName = "dynamic.generate_production_serial_no";
+                    } else if (num.intValue() == 5) {
+                        procName = "dynamic.generate_production_tag";
                     } else {
                         procName = "dynamic.proc_" + num.intValue();
                     }
                 } else if (procRef != null) {
                     procName = procRef.toString().trim();
-                    if ("3".equals(procName)) {
+                    if ("3".equals(procName) || "proc_3".equalsIgnoreCase(procName) || "dynamic.proc_3".equalsIgnoreCase(procName)) {
                         procName = "dynamic.salesordertoproduction";
+                    } else if ("4".equals(procName) || "proc_4".equalsIgnoreCase(procName) || "dynamic.proc_4".equalsIgnoreCase(procName)) {
+                        procName = "dynamic.generate_production_serial_no";
+                    } else if ("5".equals(procName) || "proc_5".equalsIgnoreCase(procName) || "dynamic.proc_5".equalsIgnoreCase(procName)) {
+                        procName = "dynamic.generate_production_tag";
                     } else if (!procName.contains(".")) {
                         procName = "dynamic." + procName;
                     }
                 }
 
                 if (procName != null && !procName.isEmpty()) {
-                    System.out.println("Executing Procedure [" + procName + "] with params: " + jsonParams
-                            + " by user: " + userId);
-                    dataService.getJdbcTemplate().update("CALL " + procName + "(?::json, ?)", jsonParams, userId);
+                    Object[] cleanRest = new Object[rest.length];
+                    for (int i = 0; i < rest.length; i++) {
+                        Object arg = rest[i];
+                        if (arg instanceof com.vaadinerp.service.ScriptExecutorService.SmartHeaderNode shn) {
+                            arg = shn.getPrimaryValue();
+                        }
+                        if (arg instanceof String strVal) {
+                            String trimmed = strVal.trim();
+                            if ("true".equalsIgnoreCase(trimmed) || "false".equalsIgnoreCase(trimmed)) {
+                                arg = Boolean.parseBoolean(trimmed);
+                            } else if (trimmed.matches("-?\\d+")) {
+                                try {
+                                    long l = Long.parseLong(trimmed);
+                                    if (l >= Integer.MIN_VALUE && l <= Integer.MAX_VALUE) {
+                                        arg = (int) l;
+                                    } else {
+                                        arg = l;
+                                    }
+                                } catch (NumberFormatException ignored) {}
+                            }
+                        }
+                        cleanRest[i] = arg;
+                    }
+
+                    if (cleanRest.length >= 4) {
+                        System.out.println("Executing Procedure [" + procName + "] with 4 arguments: " + cleanRest[0] + ", " + cleanRest[1] + ", " + cleanRest[2] + ", " + cleanRest[3]);
+                        dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?, ?, ?)", cleanRest[0], cleanRest[1], cleanRest[2], cleanRest[3]);
+                    } else if (cleanRest.length == 3) {
+                        System.out.println("Executing Procedure [" + procName + "] with 3 arguments: " + cleanRest[0] + ", " + cleanRest[1] + ", " + cleanRest[2]);
+                        dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?, ?)", cleanRest[0], cleanRest[1], cleanRest[2]);
+                    } else if (cleanRest.length == 2 && jsonParams != null && !jsonParams.trim().startsWith("{") && !jsonParams.trim().startsWith("[")) {
+                        System.out.println("Executing Procedure [" + procName + "] with 2 non-json arguments: " + cleanRest[0] + ", " + cleanRest[1]);
+                        dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?)", cleanRest[0], cleanRest[1]);
+                    } else {
+                        System.out.println("Executing Procedure [" + procName + "] with params: " + jsonParams
+                                + " by user: " + userId);
+                        dataService.getJdbcTemplate().update("CALL " + procName + "(?::json, ?)", jsonParams, userId);
+                    }
                 }
             }
         } catch (Exception ex) {
@@ -354,10 +397,34 @@ public class ActionContext {
     }
 
     public void showMainTab(int tabId, String tabTitle, String url, String extra) {
+        showMainTab(String.valueOf(tabId), tabTitle, url, (Object) extra);
+    }
+
+    public void showMainTab(int tabId, String tabTitle, String url, Object extra) {
         showMainTab(String.valueOf(tabId), tabTitle, url, extra);
     }
 
     public void showMainTab(String tabIdOrCode, String tabTitle, String url, String extra) {
+        showMainTab(tabIdOrCode, tabTitle, url, (Object) extra);
+    }
+
+    public void showMainTab(String tabIdOrCode, String tabTitle, String url, Object extra) {
+        Object finalExtra = extra;
+        if (url != null && ("HIDE_HISTORIS".equalsIgnoreCase(url.trim()) || "HIDE_HISTORY".equalsIgnoreCase(url.trim()))) {
+            if (finalExtra == null) {
+                finalExtra = "HIDE_HISTORIS";
+            } else if (finalExtra instanceof Map<?, ?> mapExtra) {
+                Map<Object, Object> combined = new java.util.HashMap<>(mapExtra);
+                combined.put("HIDE_HISTORIS", true);
+                finalExtra = combined;
+            } else if (finalExtra instanceof String strExtra) {
+                if (!strExtra.toUpperCase().contains("HIDE_HISTOR")) {
+                    finalExtra = "HIDE_HISTORIS&" + strExtra;
+                }
+            }
+        }
+        final Object effectiveExtra = finalExtra;
+
         UI ui = UI.getCurrent();
         if (ui == null && currentView != null && currentView.getUI().isPresent()) {
             ui = currentView.getUI().get();
@@ -383,7 +450,7 @@ public class ActionContext {
                     }
                 }
                 if (portal != null) {
-                    portal.openTabByCode(tabIdOrCode != null ? tabIdOrCode : tabTitle, tabTitle, extra);
+                    portal.openTabByCode(tabIdOrCode != null ? tabIdOrCode : tabTitle, tabTitle, effectiveExtra);
                 } else {
                     Notification.show("Membuka Tab [" + tabTitle + " (ID: " + tabIdOrCode + ")]...", 3000,
                             Notification.Position.MIDDLE);

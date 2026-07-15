@@ -18,6 +18,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "app.seed-data.enabled",
+        havingValue = "true",
+        matchIfMissing = true
+)
 public class DataInitializer implements CommandLineRunner {
 
     private final FormMetaRepository formMetaRepository;

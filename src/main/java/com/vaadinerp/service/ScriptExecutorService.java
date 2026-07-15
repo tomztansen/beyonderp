@@ -128,6 +128,7 @@ public class ScriptExecutorService {
         }
     }
 
+    @SuppressWarnings("unused")
     public void executeActionScript(com.vaadinerp.meta.FormActionMeta act,
                                     Map<String, Object> headerBean,
                                     List<Map<String, Object>> selectedGridRows,
@@ -211,10 +212,44 @@ public class ScriptExecutorService {
                 public void doCall(Object tabId, String tabTitle) {
                     ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, null, null);
                 }
-                public void doCall(Object tabId, String tabTitle, String url) {
-                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, url, null);
+                public void doCall(Object tabId, String tabTitle, Object urlOrExtra) {
+                    if (urlOrExtra instanceof Map) {
+                        ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, null, urlOrExtra);
+                    } else {
+                        ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, urlOrExtra != null ? urlOrExtra.toString() : null, null);
+                    }
                 }
-                public void doCall(Object tabId, String tabTitle, String url, String extra) {
+                public void doCall(Object tabId, String tabTitle, Object url, Object extra) {
+                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, url != null ? url.toString() : null, extra);
+                }
+                public void doCall(Map namedArgs, Object tabId, String tabTitle) {
+                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, null, namedArgs);
+                }
+                public void doCall(Map namedArgs, Object tabId, String tabTitle, Object url) {
+                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, url != null ? url.toString() : null, namedArgs);
+                }
+                public void doCall(Map namedArgs, Object tabId, String tabTitle, Object url, Object extra) {
+                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, url != null ? url.toString() : null, namedArgs);
+                }
+                public void doCall(Object... args) {
+                    if (args == null || args.length == 0) return;
+                    Object extra = null;
+                    Object tabId = null;
+                    String tabTitle = "";
+                    String url = null;
+                    for (Object arg : args) {
+                        if (arg instanceof Map) {
+                            extra = arg;
+                        } else if (tabId == null) {
+                            tabId = arg;
+                        } else if (tabTitle.isEmpty() && arg instanceof String s) {
+                            tabTitle = s;
+                        } else if (url == null) {
+                            url = arg != null ? arg.toString() : null;
+                        } else if (extra == null) {
+                            extra = arg;
+                        }
+                    }
                     ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, url, extra);
                 }
             });
@@ -320,6 +355,10 @@ public class ScriptExecutorService {
             if (key != null) properties.put(key, value);
         }
 
+        public Object getPrimaryValue() {
+            return primaryValue;
+        }
+
         @Override
         public groovy.lang.MetaClass getMetaClass() {
             if (metaClass == null) {
@@ -358,28 +397,44 @@ public class ScriptExecutorService {
 
         @Override
         public Object invokeMethod(String name, Object args) {
-            if (metaClass.respondsTo(this, name, args).size() > 0) {
+            Object[] argArray = args instanceof Object[] ? (Object[]) args : new Object[]{args};
+            if (!metaClass.respondsTo(this, name, argArray).isEmpty()) {
                 return metaClass.invokeMethod(this, name, args);
             }
             if (primaryValue != null) {
                 return groovy.lang.GroovySystem.getMetaClassRegistry().getMetaClass(primaryValue.getClass()).invokeMethod(primaryValue, name, args);
             }
-            throw new groovy.lang.MissingMethodException(name, SmartHeaderNode.class, args instanceof Object[] ? (Object[]) args : new Object[]{args});
+            throw new groovy.lang.MissingMethodException(name, SmartHeaderNode.class, argArray);
         }
 
         @Override public int intValue() { return primaryValue instanceof Number n ? n.intValue() : (primaryValue != null && primaryValue.toString().matches("-?\\d+") ? Integer.parseInt(primaryValue.toString()) : 0); }
         @Override public long longValue() { return primaryValue instanceof Number n ? n.longValue() : (primaryValue != null && primaryValue.toString().matches("-?\\d+") ? Long.parseLong(primaryValue.toString()) : 0L); }
-        @Override public float floatValue() { return primaryValue instanceof Number n ? n.floatValue() : 0f; }
-        @Override public double doubleValue() { return primaryValue instanceof Number n ? n.doubleValue() : 0d; }
-        @Override public String toString() { return primaryValue != null ? primaryValue.toString() : ""; }
-        @Override public int hashCode() { return primaryValue != null ? primaryValue.hashCode() : 0; }
-        @Override public boolean equals(Object obj) {
-            if (obj == this) return true;
-            if (obj instanceof SmartHeaderNode node) return Objects.equals(primaryValue, node.primaryValue);
-            return Objects.equals(primaryValue, obj);
+        @Override public float floatValue() { return primaryValue instanceof Number n ? n.floatValue() : (primaryValue != null ? Float.parseFloat(primaryValue.toString()) : 0f); }
+        @Override public double doubleValue() { return primaryValue instanceof Number n ? n.doubleValue() : (primaryValue != null ? Double.parseDouble(primaryValue.toString()) : 0d); }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (primaryValue != null && o != null) {
+                if (o instanceof SmartHeaderNode shn) {
+                    return Objects.equals(primaryValue, shn.primaryValue);
+                }
+                if (primaryValue instanceof Number n1 && o instanceof Number n2) {
+                    return Double.compare(n1.doubleValue(), n2.doubleValue()) == 0;
+                }
+                return Objects.equals(primaryValue, o) || Objects.equals(primaryValue.toString(), o.toString());
+            }
+            return false;
         }
 
-        @Override public int compareTo(Object o) {
+        @Override
+        public int hashCode() {
+            return primaryValue != null ? primaryValue.hashCode() : super.hashCode();
+        }
+
+        @Override
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        public int compareTo(Object o) {
             if (primaryValue instanceof Comparable c1 && o != null) {
                 if (o instanceof SmartHeaderNode shn && shn.primaryValue != null) {
                     return c1.compareTo(shn.primaryValue);
@@ -440,8 +495,8 @@ public class ScriptExecutorService {
                     return null;
                 }
                 String clean = sql.trim().toUpperCase();
-                if (!clean.startsWith("SELECT ")) {
-                    throw new IllegalArgumentException("Hanya query SELECT yang diperbolehkan dalam script!");
+                if (!clean.startsWith("SELECT ") && !clean.startsWith("WITH ")) {
+                    throw new IllegalArgumentException("Hanya query SELECT atau WITH (CTE) yang diperbolehkan dalam script!");
                 }
                 if (clean.contains("INSERT ") || clean.contains("UPDATE ") || clean.contains("DELETE ") ||
                         clean.contains("DROP ") || clean.contains("ALTER ") || clean.contains("TRUNCATE ") ||

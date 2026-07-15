@@ -397,6 +397,17 @@ public class DynamicDataService {
         }
     }
 
+    public static boolean isCustomSelectQuery(String sqlOrTable) {
+        if (sqlOrTable == null) return false;
+        String lower = sqlOrTable.trim().toLowerCase();
+        while (lower.startsWith("(") && lower.length() > 1) {
+            lower = lower.substring(1).trim();
+        }
+        return lower.startsWith("select ") || lower.startsWith("select\t") || lower.startsWith("select\n") || lower.startsWith("select\r") || lower.equals("select") ||
+               lower.startsWith("with ") || lower.startsWith("with\t") || lower.startsWith("with\n") || lower.startsWith("with\r") || lower.equals("with") ||
+               lower.contains(" select ") || lower.contains("\nselect ") || lower.contains("\tselect ");
+    }
+
     /**
      * Validasi keamanan query SQL read-only dinamis untuk mencegah SQL Injection, stacked queries, dan DoS.
      */
@@ -405,10 +416,18 @@ public class DynamicDataService {
             throw new IllegalArgumentException("Query SQL tidak boleh kosong.");
         }
         String trimmed = sql.trim();
+        while (trimmed.startsWith("(") && trimmed.endsWith(")") && trimmed.length() > 2) {
+            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+        }
         String lower = trimmed.toLowerCase();
+        while (lower.startsWith("(") && lower.length() > 1) {
+            lower = lower.substring(1).trim();
+        }
 
         // 1. Wajib berawal dari SELECT atau WITH (CTE)
-        if (!lower.startsWith("select ") && !lower.startsWith("with ")) {
+        boolean startsWithSelect = lower.startsWith("select ") || lower.startsWith("select\t") || lower.startsWith("select\n") || lower.startsWith("select\r") || lower.equals("select");
+        boolean startsWithWith = lower.startsWith("with ") || lower.startsWith("with\t") || lower.startsWith("with\n") || lower.startsWith("with\r") || lower.equals("with");
+        if (!startsWithSelect && !startsWithWith) {
             throw new SecurityException("Akses ditolak: Hanya perintah SELECT read-only yang diizinkan!");
         }
 
@@ -542,6 +561,9 @@ public class DynamicDataService {
     public String getQualifiedTableName(String tableName) {
         if (tableName == null) return null;
         String clean = tableName.trim();
+        if (isCustomSelectQuery(clean)) {
+            return "(" + validateAndSanitizeSelectQuery(clean) + ") AS subquery";
+        }
         validateSqlIdentifier(clean, "table name");
         if ("global_master".equalsIgnoreCase(clean)) return "dynamic.global_category";
         if (clean.contains(".")) return clean;
@@ -573,7 +595,7 @@ public class DynamicDataService {
         if (tableName == null) return null;
         String clean = tableName.trim();
         if ("global_master".equalsIgnoreCase(clean)) return "dynamic.global_category";
-        if (clean.toLowerCase().startsWith("select")) return validateAndSanitizeSelectQuery(clean);
+        if (isCustomSelectQuery(clean)) return validateAndSanitizeSelectQuery(clean);
         validateSqlIdentifier(clean, "lov table name");
         if (clean.contains(".")) return clean;
         try {
@@ -623,7 +645,7 @@ public class DynamicDataService {
             return new ArrayList<>();
         }
         String trimmed = tableNameOrQuery.trim();
-        if (trimmed.toLowerCase().startsWith("select")) {
+        if (isCustomSelectQuery(trimmed)) {
             try {
                 String safeQuery = validateAndSanitizeSelectQuery(trimmed);
                 String sql = "SELECT * FROM ( " + safeQuery + " ) AS subquery LIMIT 1";
@@ -650,7 +672,7 @@ public class DynamicDataService {
             return new ArrayList<>();
         }
         String trimmed = tableName.trim();
-        if (trimmed.toLowerCase().startsWith("select") || trimmed.contains(" ")) {
+        if (isCustomSelectQuery(trimmed) || trimmed.contains(" ")) {
             return fetchSchemaDetailsForQuery(trimmed);
         }
         try {
@@ -691,7 +713,7 @@ public class DynamicDataService {
     private List<Map<String, Object>> fetchSchemaDetailsForQuery(String queryOrTable) {
         try {
             String sql;
-            if (queryOrTable.toLowerCase().startsWith("select")) {
+            if (isCustomSelectQuery(queryOrTable)) {
                 String safeQuery = validateAndSanitizeSelectQuery(queryOrTable);
                 sql = "SELECT * FROM ( " + safeQuery + " ) AS subquery LIMIT 1";
             } else {
@@ -2157,6 +2179,13 @@ public class DynamicDataService {
                 return entry.getValue();
             }
         }
+        if ("unique".equalsIgnoreCase(key) || "isunique".equalsIgnoreCase(key)) {
+            for (Map.Entry<String, Object> entry : map.entrySet()) {
+                if ("unique".equalsIgnoreCase(entry.getKey()) || "isunique".equalsIgnoreCase(entry.getKey())) {
+                    return entry.getValue();
+                }
+            }
+        }
         if (key.contains(".")) {
             String[] parts = key.split("\\.", 2);
             Object sub = getCaseInsensitiveValue(map, parts[0] + "_record");
@@ -2223,7 +2252,7 @@ public class DynamicDataService {
         
         StringBuilder sql = new StringBuilder();
         String trimmed = lovCode.trim();
-        if (trimmed.toLowerCase().startsWith("select")) {
+        if (isCustomSelectQuery(trimmed)) {
             sql.append("SELECT * FROM ( ").append(validateAndSanitizeSelectQuery(trimmed)).append(" ) AS subquery");
         } else {
             sql.append("SELECT * FROM ").append(getLovQualifiedTableName(trimmed));
@@ -2271,7 +2300,7 @@ public class DynamicDataService {
         
         StringBuilder sql = new StringBuilder();
         String trimmed = tableName.trim();
-        if (trimmed.toLowerCase().startsWith("select")) {
+        if (isCustomSelectQuery(trimmed)) {
             sql.append("SELECT * FROM ( ").append(validateAndSanitizeSelectQuery(trimmed)).append(" ) AS subquery");
         } else {
             sql.append("SELECT * FROM ").append(getLovQualifiedTableName(trimmed));
@@ -2284,24 +2313,38 @@ public class DynamicDataService {
             StringBuilder filterBuilder = new StringBuilder();
             boolean isFirst = true;
             for (com.vaadinerp.components.FilterCondition condition : filters) {
-                if (condition.getValue() != null && !condition.getValue().toString().trim().isEmpty()) {
+                boolean isNullOp = "IS NULL".equalsIgnoreCase(condition.getComparisonOperator()) || "IS NOT NULL".equalsIgnoreCase(condition.getComparisonOperator());
+                if (isNullOp || (condition.getValue() != null && !condition.getValue().toString().trim().isEmpty())) {
                     if (!isFirst) {
                         String logOp = validateLogicalOperator(condition.getLogicalOperator());
                         filterBuilder.append(" ").append(logOp).append(" ");
                     }
                     isFirst = false;
                     
-                    // Validasi column name dan operator sebelum concat ke SQL
                     String safeFilterCol = condition.getFilterColumn() != null ? condition.getFilterColumn().trim() : "";
                     validateSqlIdentifier(safeFilterCol, "filter column");
                     String compOp = validateComparisonOperator(condition.getComparisonOperator());
                     
-                    if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
+                    if ("IS NULL".equals(compOp) || "IS NOT NULL".equals(compOp)) {
+                        filterBuilder.append(safeFilterCol).append(" ").append(compOp);
+                    } else if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
                         filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
                         params.add("%" + condition.getValue() + "%");
                     } else {
-                        filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
-                        params.add(condition.getValue() != null ? condition.getValue().toString().trim() : "");
+                        String valStr = condition.getValue() != null ? condition.getValue().toString().trim() : "";
+                        boolean isBoolTrue = "true".equalsIgnoreCase(valStr) || "1".equals(valStr) || "t".equalsIgnoreCase(valStr);
+                        boolean isBoolFalse = "false".equalsIgnoreCase(valStr) || "0".equals(valStr) || "f".equalsIgnoreCase(valStr);
+                        if (("=".equals(compOp) || "!=".equals(compOp) || "<>".equals(compOp)) && (isBoolTrue || isBoolFalse)) {
+                            boolean isEq = "=".equals(compOp);
+                            if (isBoolTrue) {
+                                filterBuilder.append(isEq ? "(CAST(" + safeFilterCol + " AS text) IN ('true', '1', 't', 'TRUE'))" : "(CAST(" + safeFilterCol + " AS text) NOT IN ('true', '1', 't', 'TRUE') OR " + safeFilterCol + " IS NULL)");
+                            } else {
+                                filterBuilder.append(isEq ? "(CAST(" + safeFilterCol + " AS text) IN ('false', '0', 'f', 'FALSE') OR " + safeFilterCol + " IS NULL)" : "(CAST(" + safeFilterCol + " AS text) NOT IN ('false', '0', 'f', 'FALSE'))");
+                            }
+                        } else {
+                            filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
+                            params.add(valStr);
+                        }
                     }
                 }
             }
@@ -2356,7 +2399,7 @@ public class DynamicDataService {
         
         StringBuilder sql = new StringBuilder();
         String trimmed = tableName.trim();
-        if (trimmed.toLowerCase().startsWith("select")) {
+        if (isCustomSelectQuery(trimmed)) {
             sql.append("SELECT * FROM ( ").append(validateAndSanitizeSelectQuery(trimmed)).append(" ) AS subquery");
         } else {
             sql.append("SELECT * FROM ").append(getLovQualifiedTableName(trimmed));
@@ -2369,7 +2412,8 @@ public class DynamicDataService {
             StringBuilder filterBuilder = new StringBuilder();
             boolean isFirst = true;
             for (com.vaadinerp.components.FilterCondition condition : filters) {
-                if (condition.getValue() != null && !condition.getValue().toString().trim().isEmpty()) {
+                boolean isNullOp = "IS NULL".equalsIgnoreCase(condition.getComparisonOperator()) || "IS NOT NULL".equalsIgnoreCase(condition.getComparisonOperator());
+                if (isNullOp || (condition.getValue() != null && !condition.getValue().toString().trim().isEmpty())) {
                     if (!isFirst) {
                         String logOp = validateLogicalOperator(condition.getLogicalOperator());
                         filterBuilder.append(" ").append(logOp).append(" ");
@@ -2380,12 +2424,26 @@ public class DynamicDataService {
                     validateSqlIdentifier(safeFilterCol, "filter column");
                     String compOp = validateComparisonOperator(condition.getComparisonOperator());
                     
-                    if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
+                    if ("IS NULL".equals(compOp) || "IS NOT NULL".equals(compOp)) {
+                        filterBuilder.append(safeFilterCol).append(" ").append(compOp);
+                    } else if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
                         filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
                         params.add("%" + condition.getValue() + "%");
                     } else {
-                        filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
-                        params.add(condition.getValue() != null ? condition.getValue().toString().trim() : "");
+                        String valStr = condition.getValue() != null ? condition.getValue().toString().trim() : "";
+                        boolean isBoolTrue = "true".equalsIgnoreCase(valStr) || "1".equals(valStr) || "t".equalsIgnoreCase(valStr);
+                        boolean isBoolFalse = "false".equalsIgnoreCase(valStr) || "0".equals(valStr) || "f".equalsIgnoreCase(valStr);
+                        if (("=".equals(compOp) || "!=".equals(compOp) || "<>".equals(compOp)) && (isBoolTrue || isBoolFalse)) {
+                            boolean isEq = "=".equals(compOp);
+                            if (isBoolTrue) {
+                                filterBuilder.append(isEq ? "(CAST(" + safeFilterCol + " AS text) IN ('true', '1', 't', 'TRUE'))" : "(CAST(" + safeFilterCol + " AS text) NOT IN ('true', '1', 't', 'TRUE') OR " + safeFilterCol + " IS NULL)");
+                            } else {
+                                filterBuilder.append(isEq ? "(CAST(" + safeFilterCol + " AS text) IN ('false', '0', 'f', 'FALSE') OR " + safeFilterCol + " IS NULL)" : "(CAST(" + safeFilterCol + " AS text) NOT IN ('false', '0', 'f', 'FALSE'))");
+                            }
+                        } else {
+                            filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
+                            params.add(valStr);
+                        }
                     }
                 }
             }
@@ -2442,7 +2500,7 @@ public class DynamicDataService {
         
         StringBuilder sql = new StringBuilder();
         String trimmed = tableName.trim();
-        if (trimmed.toLowerCase().startsWith("select")) {
+        if (isCustomSelectQuery(trimmed)) {
             sql.append("SELECT COUNT(*) FROM ( ").append(validateAndSanitizeSelectQuery(trimmed)).append(" ) AS subquery");
         } else {
             sql.append("SELECT COUNT(*) FROM ").append(getLovQualifiedTableName(trimmed));
@@ -2455,7 +2513,8 @@ public class DynamicDataService {
             StringBuilder filterBuilder = new StringBuilder();
             boolean isFirst = true;
             for (com.vaadinerp.components.FilterCondition condition : filters) {
-                if (condition.getValue() != null && !condition.getValue().toString().trim().isEmpty()) {
+                boolean isNullOp = "IS NULL".equalsIgnoreCase(condition.getComparisonOperator()) || "IS NOT NULL".equalsIgnoreCase(condition.getComparisonOperator());
+                if (isNullOp || (condition.getValue() != null && !condition.getValue().toString().trim().isEmpty())) {
                     if (!isFirst) {
                         String logOp = validateLogicalOperator(condition.getLogicalOperator());
                         filterBuilder.append(" ").append(logOp).append(" ");
@@ -2466,12 +2525,26 @@ public class DynamicDataService {
                     validateSqlIdentifier(safeFilterCol, "filter column");
                     String compOp = validateComparisonOperator(condition.getComparisonOperator());
                     
-                    if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
+                    if ("IS NULL".equals(compOp) || "IS NOT NULL".equals(compOp)) {
+                        filterBuilder.append(safeFilterCol).append(" ").append(compOp);
+                    } else if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
                         filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
                         params.add("%" + condition.getValue() + "%");
                     } else {
-                        filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
-                        params.add(condition.getValue() != null ? condition.getValue().toString().trim() : "");
+                        String valStr = condition.getValue() != null ? condition.getValue().toString().trim() : "";
+                        boolean isBoolTrue = "true".equalsIgnoreCase(valStr) || "1".equals(valStr) || "t".equalsIgnoreCase(valStr);
+                        boolean isBoolFalse = "false".equalsIgnoreCase(valStr) || "0".equals(valStr) || "f".equalsIgnoreCase(valStr);
+                        if (("=".equals(compOp) || "!=".equals(compOp) || "<>".equals(compOp)) && (isBoolTrue || isBoolFalse)) {
+                            boolean isEq = "=".equals(compOp);
+                            if (isBoolTrue) {
+                                filterBuilder.append(isEq ? "(CAST(" + safeFilterCol + " AS text) IN ('true', '1', 't', 'TRUE'))" : "(CAST(" + safeFilterCol + " AS text) NOT IN ('true', '1', 't', 'TRUE') OR " + safeFilterCol + " IS NULL)");
+                            } else {
+                                filterBuilder.append(isEq ? "(CAST(" + safeFilterCol + " AS text) IN ('false', '0', 'f', 'FALSE') OR " + safeFilterCol + " IS NULL)" : "(CAST(" + safeFilterCol + " AS text) NOT IN ('false', '0', 'f', 'FALSE'))");
+                            }
+                        } else {
+                            filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp).append(" ?");
+                            params.add(valStr);
+                        }
                     }
                 }
             }
@@ -2541,7 +2614,7 @@ public class DynamicDataService {
         StringBuilder sql = new StringBuilder();
         String trimmed = tableName.trim();
         String sVal = value.toString().trim();
-        if (trimmed.toLowerCase().startsWith("select")) {
+        if (isCustomSelectQuery(trimmed)) {
             sql.append("SELECT * FROM ( ").append(validateAndSanitizeSelectQuery(trimmed)).append(" ) AS subquery WHERE CAST(").append(valueColumn).append(" AS text) = ? LIMIT 1");
         } else {
             sql.append("SELECT * FROM ").append(getLovQualifiedTableName(trimmed)).append(" WHERE CAST(").append(valueColumn).append(" AS text) = ? LIMIT 1");
@@ -2565,7 +2638,7 @@ public class DynamicDataService {
         String trimmed = lovMeta.getTableName().trim();
         String orderBy = getLovDefaultOrderByClause(lovMeta.getLovCode() != null ? lovMeta.getLovCode() : trimmed);
         String sql;
-        if (trimmed.toLowerCase().startsWith("select")) {
+        if (isCustomSelectQuery(trimmed)) {
             sql = "SELECT * FROM ( " + validateAndSanitizeSelectQuery(trimmed) + " ) AS subquery" + orderBy + " LIMIT 3000";
         } else {
             sql = "SELECT * FROM " + getLovQualifiedTableName(trimmed) + orderBy + " LIMIT 3000";
@@ -2582,7 +2655,7 @@ public class DynamicDataService {
             return new ArrayList<>();
         }
         String trimmed = tableName.trim();
-        if (trimmed.toLowerCase().startsWith("select")) {
+        if (isCustomSelectQuery(trimmed)) {
             try {
                 return jdbcTemplate.queryForList(validateAndSanitizeSelectQuery(trimmed));
             } catch (Exception e) {
@@ -2605,7 +2678,7 @@ public class DynamicDataService {
         String viewTable = formMeta.getViewTable();
         if (viewTable != null && !viewTable.trim().isEmpty()) {
             String trimmed = viewTable.trim();
-            if (trimmed.toLowerCase().startsWith("select")) {
+            if (isCustomSelectQuery(trimmed)) {
                 try {
                     return jdbcTemplate.queryForList(validateAndSanitizeSelectQuery(trimmed));
                 } catch (Exception e) {
@@ -2630,7 +2703,7 @@ public class DynamicDataService {
         String viewTable = formMeta.getViewTable();
         if (viewTable != null && !viewTable.trim().isEmpty()) {
             String trimmed = viewTable.trim();
-            if (trimmed.toLowerCase().startsWith("select")) {
+            if (isCustomSelectQuery(trimmed)) {
                 try {
                     return "FROM (" + validateAndSanitizeSelectQuery(trimmed) + ") AS subquery ";
                 } catch (Exception e) {
@@ -2745,7 +2818,7 @@ public class DynamicDataService {
 
         String trimmedTable = lovMeta.getTableName().trim();
         String lovTableSql;
-        if (trimmedTable.toLowerCase().startsWith("select")) {
+        if (isCustomSelectQuery(trimmedTable)) {
             lovTableSql = " (" + validateAndSanitizeSelectQuery(trimmedTable) + ") AS lov_sub ";
         } else {
             lovTableSql = getLovQualifiedTableName(trimmedTable);
@@ -2867,7 +2940,7 @@ public class DynamicDataService {
         StringBuilder where = new StringBuilder(" WHERE 1=1 ");
         List<Object> args = new ArrayList<>();
         buildWhereClause(where, args, filterValues, null);
-        String fromSql = trimmed.toLowerCase().startsWith("select")
+        String fromSql = isCustomSelectQuery(trimmed)
                 ? " (" + validateAndSanitizeSelectQuery(trimmed) + ") AS subquery "
                 : getQualifiedTableName(trimmed);
         String sql = "SELECT COUNT(*) FROM " + fromSql + where.toString();
@@ -2886,7 +2959,7 @@ public class DynamicDataService {
         List<Object> args = new ArrayList<>();
         buildWhereClause(where, args, filterValues, null);
         
-        String fromSql = trimmed.toLowerCase().startsWith("select")
+        String fromSql = isCustomSelectQuery(trimmed)
                 ? " (" + validateAndSanitizeSelectQuery(trimmed) + ") AS subquery "
                 : getQualifiedTableName(trimmed);
         StringBuilder sql = new StringBuilder("SELECT * FROM " + fromSql + where.toString());
@@ -3081,7 +3154,7 @@ public class DynamicDataService {
         fkColumn = resolveExistingColumn(trimmed, fkColumn);
         String orderBy = getLovDefaultOrderByClause(trimmed);
         String sql;
-        if (trimmed.toLowerCase().startsWith("select")) {
+        if (isCustomSelectQuery(trimmed)) {
             sql = "SELECT * FROM ( " + validateAndSanitizeSelectQuery(trimmed) + " ) AS detail_sub WHERE CAST(" + fkColumn + " AS text) = ?" + orderBy;
         } else {
             sql = "SELECT * FROM " + getQualifiedTableName(trimmed) + " WHERE CAST(" + fkColumn + " AS text) = ?" + orderBy;
@@ -3659,6 +3732,13 @@ public class DynamicDataService {
             if (kv.length == 2) {
                 String col = kv[0].replaceAll("[\"']", "").trim();
                 String valSpec = kv[1].trim();
+                if ("IS NULL".equalsIgnoreCase(valSpec) || "'IS NULL'".equalsIgnoreCase(valSpec) || "\"IS NULL\"".equalsIgnoreCase(valSpec) || "IS_NULL".equalsIgnoreCase(valSpec)) {
+                    sb.append("• ").append(col).append(" ➔ FILTER: IS NULL (Hanya data yang kosong/null)\n");
+                    continue;
+                } else if ("IS NOT NULL".equalsIgnoreCase(valSpec) || "'IS NOT NULL'".equalsIgnoreCase(valSpec) || "\"IS NOT NULL\"".equalsIgnoreCase(valSpec) || "IS_NOT_NULL".equalsIgnoreCase(valSpec)) {
+                    sb.append("• ").append(col).append(" ➔ FILTER: IS NOT NULL (Hanya data yang terisi)\n");
+                    continue;
+                }
                 Object paramVal = null;
                 boolean isHeader = false;
                 boolean isPicked = false;
@@ -3728,7 +3808,7 @@ public class DynamicDataService {
 
         StringBuilder sql = new StringBuilder();
         String trimmed = srcTable.trim();
-        if (trimmed.toLowerCase().startsWith("select")) {
+        if (isCustomSelectQuery(trimmed)) {
             sql.append("SELECT * FROM ( ").append(validateAndSanitizeSelectQuery(trimmed)).append(" ) AS subquery");
         } else {
             sql.append("SELECT * FROM ").append(getLovQualifiedTableName(trimmed));
@@ -3750,6 +3830,13 @@ public class DynamicDataService {
                     String col = kv[0].replaceAll("[\"']", "").trim();
                     validateSqlIdentifier(col, "action filter column");
                     String valSpec = kv[1].trim();
+                    if ("IS NULL".equalsIgnoreCase(valSpec) || "'IS NULL'".equalsIgnoreCase(valSpec) || "\"IS NULL\"".equalsIgnoreCase(valSpec) || "IS_NULL".equalsIgnoreCase(valSpec)) {
+                        conditions.add(col + " IS NULL");
+                        continue;
+                    } else if ("IS NOT NULL".equalsIgnoreCase(valSpec) || "'IS NOT NULL'".equalsIgnoreCase(valSpec) || "\"IS NOT NULL\"".equalsIgnoreCase(valSpec) || "IS_NOT_NULL".equalsIgnoreCase(valSpec)) {
+                        conditions.add(col + " IS NOT NULL");
+                        continue;
+                    }
                     Object paramVal = null;
                     if (valSpec.startsWith("header.") || valSpec.startsWith("\"header.")) {
                         String headerKey = valSpec.replaceAll("[\"']", "").substring(valSpec.indexOf("header.") + "header.".length()).trim();
@@ -3782,8 +3869,19 @@ public class DynamicDataService {
                                 params.addAll(colVal);
                             }
                         } else {
-                            conditions.add(col + " = ?");
-                            params.add(paramVal);
+                            String valStr = paramVal != null ? paramVal.toString().trim() : "";
+                            boolean isBoolTrue = "true".equalsIgnoreCase(valStr) || "1".equals(valStr) || "t".equalsIgnoreCase(valStr);
+                            boolean isBoolFalse = "false".equalsIgnoreCase(valStr) || "0".equals(valStr) || "f".equalsIgnoreCase(valStr);
+                            if (isBoolTrue || isBoolFalse) {
+                                if (isBoolTrue) {
+                                    conditions.add("(CAST(" + col + " AS text) IN ('true', '1', 't', 'TRUE'))");
+                                } else {
+                                    conditions.add("(CAST(" + col + " AS text) IN ('false', '0', 'f', 'FALSE') OR " + col + " IS NULL)");
+                                }
+                            } else {
+                                conditions.add(col + " = ?");
+                                params.add(paramVal);
+                            }
                         }
                     } else if (valSpec.startsWith("header.") || valSpec.startsWith("\"header.")) {
                         conditions.add("1 = 0");
