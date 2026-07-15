@@ -103,7 +103,7 @@ public class FormActionBuilderView extends VerticalLayout {
                 .set("gap", "15px")
                 .set("position", "sticky")
                 .set("top", "0")
-                .set("z-index", "1000")
+                .set("z-index", "100")
                 .set("box-shadow", "0 4px 10px rgba(0,0,0,0.08)");
 
         Button btnNew = new Button("Baru", VaadinIcon.PLUS_CIRCLE.create(), e -> clearForm());
@@ -148,7 +148,21 @@ public class FormActionBuilderView extends VerticalLayout {
         actionTypeCombo.setValue("POPUP_PICKER");
         actionTypeCombo.addValueChangeListener(e -> updateEditorVisibility(e.getValue()));
 
-        iconNameCombo.setItems("CHECK_SQUARE_O", "LIST_SELECT", "PLUS", "SEARCH", "CHECK", "DOWNLOAD", "UPLOAD", "COG", "TRASH", "STAR");
+        iconNameCombo.setItems(java.util.Arrays.stream(com.vaadin.flow.component.icon.VaadinIcon.values())
+                .map(Enum::name)
+                .collect(java.util.stream.Collectors.toList()));
+        iconNameCombo.setAllowCustomValue(true);
+        iconNameCombo.addCustomValueSetListener(e -> {
+            if (e.getDetail() != null) iconNameCombo.setValue(e.getDetail().toUpperCase());
+        });
+        iconNameCombo.setRenderer(com.vaadin.flow.data.renderer.LitRenderer.<String>of(
+                "<div style='display: flex; align-items: center; gap: 8px; padding: 2px 0;'>"
+                + "  <vaadin-icon icon='vaadin:${item.iconCode}' style='color: #3b82f6; font-size: 18px; flex-shrink: 0;'></vaadin-icon>"
+                + "  <span style='font-size: 0.9rem;'>${item.name}</span>"
+                + "</div>")
+                .withProperty("iconCode", name -> name != null ? name.toLowerCase().replace("_", "-") : "")
+                .withProperty("name", name -> name != null ? name : ""));
+        iconNameCombo.setClearButtonVisible(true);
 
         buttonStyleCombo.setItems("PRIMARY", "SUCCESS", "ERROR", "TERTIARY");
         buttonStyleCombo.setValue("PRIMARY");
@@ -173,35 +187,44 @@ public class FormActionBuilderView extends VerticalLayout {
         groovyHelperBar.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.BASELINE);
         groovyHelperBar.getStyle().set("margin-top", "8px").set("background-color", "#f8fafc").set("padding", "8px 12px").set("border-radius", "6px").set("border", "1px dashed #cbd5e1");
         
-        Button cheatSheetBtn = new Button("📖 Panduan & Sintaks Groovy (Cheat Sheet)", e -> showGroovyCheatSheetDialog());
+        Button openFullEditorBtn = new Button("🖥️ Buka Editor Fullscreen & Cek Sintaks", VaadinIcon.EXPAND_FULL.create(), e -> showGroovyEditorModal());
+        openFullEditorBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL, com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY, com.vaadin.flow.component.button.ButtonVariant.LUMO_SUCCESS);
+        
+        Button checkSyntaxBtn = new Button("🔍 Cek Sintaks", VaadinIcon.CHECK_CIRCLE.create(), e -> checkAndNotifyGroovySyntax(scriptContentField.getValue()));
+        checkSyntaxBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
+
+        Button cheatSheetBtn = new Button("📖 Cheat Sheet", VaadinIcon.BOOK.create(), e -> showGroovyCheatSheetDialog());
         cheatSheetBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL, com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
         
-        ComboBox<String> snippetCombo = new ComboBox<>("⚡ Sisipkan Template Cepat ke Script");
+        ComboBox<String> snippetCombo = new ComboBox<>("⚡ Sisipkan Template Cepat");
         snippetCombo.setItems(
             "1. Cek Pilihan (Hentikan jika tidak ada baris yang dipilih)",
             "2. Dialog Konfirmasi + Eksekusi Stored Procedure",
             "3. Looping ID + Panggil Procedure + Buka Tab Baru",
-            "4. Tampilkan Notifikasi Sukses / Error"
+            "4. Tampilkan Notifikasi Sukses / Error",
+            "5. Debug Isi Header & Grid (msgBox)",
+            "6. Bersihkan/Reset Form (clearForm & setElementValue)",
+            "7. Query Database Ringan di Script (db.getValue & db.find)"
         );
-        snippetCombo.setWidth("340px");
+        snippetCombo.setWidth("260px");
         snippetCombo.addValueChangeListener(e -> {
             String val = e.getValue();
             if (val != null) {
-                insertSnippetToScript(val);
+                insertSnippetToText(scriptContentField, val);
                 snippetCombo.clear();
             }
         });
 
-        groovyHelperBar.add(cheatSheetBtn, snippetCombo);
+        groovyHelperBar.add(openFullEditorBtn, checkSyntaxBtn, cheatSheetBtn, snippetCombo);
     }
 
     private void showGroovyCheatSheetDialog() {
         com.vaadin.flow.component.dialog.Dialog dlg = new com.vaadin.flow.component.dialog.Dialog();
         dlg.setHeaderTitle("📖 Panduan & Daftar Sintaks Groovy Action DSL");
-        dlg.setWidth("750px");
+        dlg.setWidth("820px");
 
         com.vaadin.flow.component.html.Div content = new com.vaadin.flow.component.html.Div();
-        content.getStyle().set("max-height", "70vh").set("overflow-y", "auto").set("line-height", "1.6").set("font-size", "14px");
+        content.getStyle().set("max-height", "75vh").set("overflow-y", "auto").set("line-height", "1.6").set("font-size", "14px");
 
         String html = """
             <p><b>Daftar Fungsi (DSL Macro & Context Methods):</b></p>
@@ -209,6 +232,34 @@ public class FormActionBuilderView extends VerticalLayout {
               <tr style='background-color: #f1f5f9;'>
                 <th style='text-align: left;'>Sintaks / Fungsi</th>
                 <th style='text-align: left;'>Keterangan & Kegunaan</th>
+              </tr>
+              <tr>
+                <td><code>msgBox(data)</code><br/><i>atau</i> <code>msgBox("Judul", data)</code></td>
+                <td>Memunculkan modal window inspektur bergaya *Dark Code Viewer* untuk memeriksa isi JSON/Map/String (sangat berguna untuk debugging <code>header</code> atau <code>selectedRows</code>).</td>
+              </tr>
+              <tr>
+                <td><code>clearForm()</code></td>
+                <td>Mengosongkan/me-reset seluruh isian form aktif di layar (Bandbox, Textbox, dll.) dan memperbarui UI seketika.</td>
+              </tr>
+              <tr>
+                <td><code>setElementValue("field", nilai)</code></td>
+                <td>Mengubah atau mengosongkan (<code>null</code> atau <code>0</code>) nilai pada field form tertentu dan langsung merefresh tampilan layar browser.</td>
+              </tr>
+              <tr>
+                <td><code>refreshForm()</code></td>
+                <td>Memperbarui/merefresh tampilan komponen UI di layar browser setelah objek <code>header</code> dimodifikasi secara dinamis (misal: <code>header.quantity = 0</code>).</td>
+              </tr>
+              <tr>
+                <td><code>header.field.subfield</code><br/><i>atau</i> <code>header.field_subfield</code></td>
+                <td>Berkat fitur <i>SmartHeaderNode</i>, Anda dapat langsung memanggil properti bersarang (seperti <code>header.tsproductionorderid.idno</code> dari hasil copy Debug Context) tanpa khawatir error atau null.</td>
+              </tr>
+              <tr>
+                <td><code>db.getValue("SELECT ... WHERE id = ?", arg)</code></td>
+                <td>Mengambil 1 nilai tunggal secara langsung dari database menggunakan query murni yang aman dari SQL Injection.</td>
+              </tr>
+              <tr>
+                <td><code>db.find("tabel", "keyCol", val)</code></td>
+                <td>Mengambil 1 baris data utuh (Map) dari tabel database berdasarkan primary key/kolom unik tertentu.</td>
               </tr>
               <tr>
                 <td><code>getElementValue("grid1", true)</code><br/><i>atau</i> <code>selectedRows</code></td>
@@ -256,18 +307,32 @@ public class FormActionBuilderView extends VerticalLayout {
     }
 
     private void insertSnippetToScript(String snippetType) {
-        String currentText = scriptContentField.getValue() != null ? scriptContentField.getValue() : "";
-        String template = "";
+        insertSnippetToText(scriptContentField, snippetType);
+    }
+
+    private void insertSnippetToText(com.vaadin.flow.component.textfield.TextArea editor, String snippetType) {
+        if (editor == null) return;
+        String currentText = editor.getValue() != null ? editor.getValue() : "";
+        String template = getSnippetTemplate(snippetType);
+        if (!currentText.isBlank()) {
+            editor.setValue(currentText + "\n\n" + template);
+        } else {
+            editor.setValue(template);
+        }
+    }
+
+    private String getSnippetTemplate(String snippetType) {
+        if (snippetType == null) return "";
         if (snippetType.startsWith("1.")) {
-            template = """
+            return """
                 def selectedRows = getElementValue("grid1", true)
                 if (!selectedRows || selectedRows.isEmpty()) {
                     showError("Peringatan", "Silakan pilih atau centang minimal satu baris data terlebih dahulu!")
                     return
                 }
-                """;
+                """.stripIndent();
         } else if (snippetType.startsWith("2.")) {
-            template = """
+            return """
                 showYesNoDialog("Konfirmasi Eksekusi", "Apakah Anda yakin ingin melanjutkan proses pada data terpilih?", {
                     executeProcedure(3, { status ->
                         if (status) {
@@ -275,9 +340,9 @@ public class FormActionBuilderView extends VerticalLayout {
                         }
                     }, "{}", ctx.userId)
                 })
-                """;
+                """.stripIndent();
         } else if (snippetType.startsWith("3.")) {
-            template = """
+            return """
                 def selectedRows = getElementValue("grid1", true)
                 if (!selectedRows || selectedRows.isEmpty()) {
                     showError("Peringatan", "Silakan pilih minimal 1 baris data!")
@@ -295,18 +360,190 @@ public class FormActionBuilderView extends VerticalLayout {
                         }
                     }, groovy.json.JsonOutput.toJson(ids), ctx.userId)
                 })
-                """;
+                """.stripIndent();
         } else if (snippetType.startsWith("4.")) {
-            template = """
+            return """
                 showSuccess("Pemberitahuan", "Aksi Groovy berhasil dijalankan tanpa kendala.")
-                """;
+                """.stripIndent();
+        } else if (snippetType.startsWith("5.")) {
+            return """
+                // Menampilkan jendela debug bergaya Dark Code Viewer untuk memeriksa isi variabel
+                msgBox("🛠️ Debug Form Header", header)
+                // msgBox("Baris Terpilih (${selectedRows.size()})", selectedRows)
+                return
+                """.stripIndent();
+        } else if (snippetType.startsWith("6.")) {
+            return """
+                // Mengosongkan field spesifik & memperbarui tampilan UI di layar
+                setElementValue("tsproductionorderid", null)
+                setElementValue("quantity", 0)
+                setElementValue("quantityperbox", 0)
+                setElementValue("itemcode", null)
+                
+                // ATAU gunakan clearForm() untuk mengosongkan seluruh form sekaligus:
+                // clearForm()
+                """.stripIndent();
+        } else if (snippetType.startsWith("7.")) {
+            return """
+                // Query nilai langsung dari tabel database
+                def prodIdno = header.tsproductionorderid_idno ?: db.getValue("SELECT idno FROM tsproductionorder WHERE id = ?", header.tsproductionorderid)
+                msgBox("Nomor PO Terpilih", prodIdno)
+                """.stripIndent();
         }
+        return "";
+    }
 
-        if (!currentText.isBlank()) {
-            scriptContentField.setValue(currentText + "\n\n" + template.stripIndent());
-        } else {
-            scriptContentField.setValue(template.stripIndent());
+    private void showGroovyEditorModal() {
+        com.vaadin.flow.component.dialog.Dialog dlg = new com.vaadin.flow.component.dialog.Dialog();
+        dlg.setHeaderTitle("🖥️ Groovy Action Studio & Syntax Checker");
+        dlg.setWidth("90vw");
+        dlg.setHeight("86vh");
+        dlg.setResizable(true);
+        dlg.setDraggable(true);
+
+        com.vaadin.flow.component.orderedlayout.VerticalLayout layout = new com.vaadin.flow.component.orderedlayout.VerticalLayout();
+        layout.setSizeFull();
+        layout.setPadding(false);
+        layout.setSpacing(true);
+
+        com.vaadin.flow.component.orderedlayout.HorizontalLayout toolbar = new com.vaadin.flow.component.orderedlayout.HorizontalLayout();
+        toolbar.setWidthFull();
+        toolbar.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.BASELINE);
+        toolbar.getStyle().set("background-color", "#f1f5f9").set("padding", "8px 16px").set("border-radius", "6px").set("border-bottom", "1px solid #cbd5e1");
+
+        Button checkBtn = new Button("🔍 Cek & Validasi Sintaks", VaadinIcon.CHECK_CIRCLE.create());
+        checkBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL, com.vaadin.flow.component.button.ButtonVariant.LUMO_SUCCESS);
+
+        Button formatBtn = new Button("🧹 Format Indentasi", VaadinIcon.ALIGN_LEFT.create());
+        formatBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
+
+        Button cheatBtn = new Button("📖 Cheat Sheet DSL", VaadinIcon.BOOK.create(), e -> showGroovyCheatSheetDialog());
+        cheatBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
+
+        ComboBox<String> snippetComboModal = new ComboBox<>("⚡ Sisipkan Snippet");
+        snippetComboModal.setItems(
+            "1. Cek Pilihan (Hentikan jika tidak ada baris yang dipilih)",
+            "2. Dialog Konfirmasi + Eksekusi Stored Procedure",
+            "3. Looping ID + Panggil Procedure + Buka Tab Baru",
+            "4. Tampilkan Notifikasi Sukses / Error",
+            "5. Debug Isi Header & Grid (msgBox)",
+            "6. Bersihkan/Reset Form (clearForm & setElementValue)",
+            "7. Query Database Ringan di Script (db.getValue & db.find)"
+        );
+        snippetComboModal.setWidth("280px");
+
+        com.vaadin.flow.component.textfield.TextArea modalEditor = new com.vaadin.flow.component.textfield.TextArea();
+        modalEditor.setSizeFull();
+        modalEditor.setValue(scriptContentField.getValue() != null ? scriptContentField.getValue() : "");
+        modalEditor.getStyle().set("font-family", "Consolas, 'Courier New', monospace").set("font-size", "14px").set("line-height", "1.5");
+        modalEditor.setPlaceholder("Tulis atau sisipkan script Groovy Anda di sini...");
+
+        com.vaadin.flow.component.html.Div statusArea = new com.vaadin.flow.component.html.Div();
+        statusArea.setWidthFull();
+        statusArea.getStyle().set("padding", "10px 14px").set("border-radius", "6px").set("font-weight", "500").set("display", "none").set("white-space", "pre-wrap");
+
+        checkBtn.addClickListener(e -> {
+            checkGroovySyntaxInternal(modalEditor.getValue(), statusArea);
+        });
+
+        formatBtn.addClickListener(e -> {
+            String formatted = formatGroovyScript(modalEditor.getValue());
+            modalEditor.setValue(formatted);
+            checkGroovySyntaxInternal(formatted, statusArea);
+        });
+
+        snippetComboModal.addValueChangeListener(e -> {
+            String val = e.getValue();
+            if (val != null) {
+                insertSnippetToText(modalEditor, val);
+                snippetComboModal.clear();
+            }
+        });
+
+        toolbar.add(checkBtn, formatBtn, snippetComboModal, cheatBtn);
+        layout.add(toolbar, modalEditor, statusArea);
+        layout.setFlexGrow(1, modalEditor);
+
+        dlg.add(layout);
+
+        Button saveBtn = new Button("💾 Terapkan ke Form", VaadinIcon.CHECK.create(), e -> {
+            scriptContentField.setValue(modalEditor.getValue());
+            dlg.close();
+            com.vaadin.flow.component.notification.Notification.show("✅ Script berhasil diterapkan!", 3000, com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
+                .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
+        });
+        saveBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
+
+        Button cancelBtn = new Button("Batal", e -> dlg.close());
+
+        dlg.getFooter().add(cancelBtn, saveBtn);
+        dlg.open();
+    }
+
+    private boolean checkGroovySyntaxInternal(String scriptText, com.vaadin.flow.component.html.Div statusArea) {
+        if (scriptText == null || scriptText.isBlank()) {
+            if (statusArea != null) {
+                statusArea.getStyle().set("display", "block").set("background-color", "#fef3c7").set("color", "#92400e").set("border", "1px solid #f59e0b");
+                statusArea.setText("⚠️ Script masih kosong.");
+            }
+            return false;
         }
+        try {
+            new groovy.lang.GroovyShell().parse(scriptText);
+            if (statusArea != null) {
+                statusArea.getStyle().set("display", "block").set("background-color", "#dcfce7").set("color", "#166534").set("border", "1px solid #22c55e");
+                statusArea.setText("✅ Sintaks Groovy Valid! Tidak ada kesalahan penulisan atau struktur kode.");
+            }
+            return true;
+        } catch (Exception e) {
+            String errMsg = e.getMessage();
+            if (statusArea != null) {
+                statusArea.getStyle().set("display", "block").set("background-color", "#fee2e2").set("color", "#991b1b").set("border", "1px solid #ef4444");
+                statusArea.setText("❌ Kesalahan Sintaks Groovy:\n" + errMsg);
+            } else {
+                com.vaadin.flow.component.notification.Notification.show("❌ Kesalahan Sintaks Groovy:\n" + errMsg, 5000, com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
+                    .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+            }
+            return false;
+        }
+    }
+
+    private void checkAndNotifyGroovySyntax(String scriptText) {
+        if (scriptText == null || scriptText.isBlank()) {
+            com.vaadin.flow.component.notification.Notification.show("⚠️ Script masih kosong.", 3000, com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
+                .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_WARNING);
+            return;
+        }
+        try {
+            new groovy.lang.GroovyShell().parse(scriptText);
+            com.vaadin.flow.component.notification.Notification.show("✅ Sintaks Groovy VALID! Tidak ada kesalahan struktur.", 4000, com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
+                .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
+        } catch (Exception e) {
+            com.vaadin.flow.component.notification.Notification.show("❌ Kesalahan Sintaks:\n" + e.getMessage(), 6000, com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
+                .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+        }
+    }
+
+    private String formatGroovyScript(String scriptText) {
+        if (scriptText == null) return "";
+        String[] lines = scriptText.split("\\r?\\n");
+        StringBuilder sb = new StringBuilder();
+        int indentLevel = 0;
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("}") || trimmed.startsWith(")") || trimmed.startsWith("]")) {
+                indentLevel = Math.max(0, indentLevel - 1);
+            }
+            if (!trimmed.isEmpty()) {
+                sb.append("    ".repeat(indentLevel)).append(trimmed).append("\n");
+            } else {
+                sb.append("\n");
+            }
+            if (trimmed.endsWith("{") || trimmed.endsWith("(") || trimmed.endsWith("[")) {
+                indentLevel++;
+            }
+        }
+        return sb.toString().trim();
     }
 
     private void updateEditorVisibility(String actionType) {
@@ -389,8 +626,9 @@ public class FormActionBuilderView extends VerticalLayout {
         createGroovyHelperBar();
 
         scriptContentField.setWidthFull();
-        scriptContentField.setPlaceholder("Groovy / Action Context script. Contoh: def rows = ctx.getGridData('grid1', true); ...");
-        scriptContentField.setHeight("180px");
+        scriptContentField.setPlaceholder("Groovy / Action Context script. Klik '🖥️ Buka Editor Fullscreen' untuk tampilan luas dan fitur cek sintaks...");
+        scriptContentField.setHeight("280px");
+        scriptContentField.getStyle().set("font-family", "Consolas, 'Courier New', monospace").set("font-size", "14px").set("line-height", "1.5");
 
         editor.add(formCodeCombo, actionCodeField, actionLabelField, menuGroupField, targetScopeCombo, actionTypeCombo,
                 iconNameCombo, buttonStyleCombo, sourceLovCodeCombo, filterLayout, 

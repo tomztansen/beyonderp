@@ -162,7 +162,7 @@ public class TableDesignerView extends VerticalLayout {
                 .set("gap", "15px")
                 .set("position", "sticky")
                 .set("top", "0")
-                .set("z-index", "1000")
+                .set("z-index", "100")
                 .set("box-shadow", "0 4px 10px rgba(0,0,0,0.08)");
         add(title, tableNameField, includeAuditColsCheckbox, colHdr, colInputLayout, columnsGrid, enableTriggerCheckbox, triggerPanel, btnBuild);
     }

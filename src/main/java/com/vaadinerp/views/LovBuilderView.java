@@ -74,7 +74,7 @@ public class LovBuilderView extends VerticalLayout {
                 .set("gap", "15px")
                 .set("position", "sticky")
                 .set("top", "0")
-                .set("z-index", "1000")
+                .set("z-index", "100")
                 .set("box-shadow", "0 4px 10px rgba(0,0,0,0.08)");
 
         Button btnNew = new Button("Baru", VaadinIcon.PLUS_CIRCLE.create(), e -> clearForm());

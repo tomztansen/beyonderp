@@ -1,28 +1,3 @@
-/* ============================================================================
-   CHANGELOG dari versi sebelumnya (ringkas, cek komentar inline per section):
-   1. Font Outfit: @import CDN -> @font-face lokal (aman untuk on-premise)
-   2. vaadin-tab[selected]:hover ditambahkan eksplisit (fix specificity race)
-   3. Spacing layout dikonsolidasi ke variable --lumo-space-*, bukan angka manual
-   4. Grid cell: user-select:none dihapus (biar product code/material id bisa di-copy)
-   5. .menu-item-button hover: padding-left -> transform (hindari reflow/jank)
-   6. Reconnect modal: ditambah animation-delay biar gak instan block di blip singkat
-   7. Scrollbar: ditambah fallback Firefox
-   8. z-index reconnect modal: diberi komentar + tetap tinggi tapi lebih masuk akal
-   NOTE: perilaku "tiered / informed not forced" untuk reconnect modal ini
-   idealnya dikontrol dari Java lewat UI.getCurrent().getReconnectDialogConfiguration()
-   (setDialogGracePeriod, dsb) -- CSS cuma bisa kasih delay visual, bukan logic asli.
-   ============================================================================ */
-
-
-/* ============================================================================
-   FONT: Outfit (lokal, format TTF)
-   ============================================================================
-   Taruh file .ttf di: src/main/frontend/fonts/outfit/
-   (sesuaikan path relatif kalau struktur folder frontend kamu beda)
-
-   Kalau file yang kamu download bernama "Outfit-VariableFont_wght.ttf"
-   (satu file untuk semua ketebalan) -> pakai blok di bawah ini, cukup 1 file.
-   ============================================================================ */
 /* @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap'); */
 
 @font-face {
@@ -501,8 +476,13 @@ vaadin-connection-indicator .v-loading-indicator.third,
 }
 
 @keyframes v-loading-indicator-shimmer {
-    0% { background-position: 0% 50%; }
-    100% { background-position: 300% 50%; }
+    0% {
+        background-position: 0% 50%;
+    }
+
+    100% {
+        background-position: 300% 50%;
+    }
 }
 
 /* Spinner di pojok kanan atas saat loading aktif (.first, .second, .third) */
@@ -529,8 +509,13 @@ vaadin-connection-indicator[loading]::after {
 }
 
 @keyframes v-loading-spinner-spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 /* NOTE: teks di bawah ini di-inject lewat CSS content, artinya:
@@ -561,14 +546,41 @@ vaadin-horizontal-layout[style*="f8fafc"],
 vaadin-horizontal-layout[style*="f3f4f6"] {
     position: sticky !important;
     top: 0 !important;
-    z-index: 1000 !important;
+    z-index: 100 !important;
     backdrop-filter: blur(10px) !important;
     -webkit-backdrop-filter: blur(10px) !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
     transition: box-shadow 0.2s ease !important;
 }
 
+/* ==========================================================================
+   VAADIN DIALOG & OVERLAYS Z-INDEX FIX
+   Pastikan semua modal (Dialog, ComboBox, Notification) berada jauh di atas
+   semua sticky toolbar & action bar (yang memiliki z-index 100)
+   ========================================================================== */
+vaadin-dialog-overlay,
+vaadin-combo-box-overlay,
+vaadin-select-overlay,
+vaadin-date-picker-overlay,
+vaadin-time-picker-overlay,
+vaadin-context-menu-overlay,
+vaadin-notification-container {
+    z-index: 10000 !important;
+}
+
 /* Pastikan slot content AppLayout & container parent mendukung sifat position: sticky */
 vaadin-app-layout::part(content) {
     overflow: auto !important;
+}
+
+/* 1) Lepas wrapper field checkbox dari perhitungan baseline form-layout,
+   karena dia gak punya trik ::before seperti field Vaadin asli */
+vaadin-form-layout>div:has(> div > vaadin-checkbox) {
+    align-self: flex-start !important;
+}
+
+/* 2) Checkbox-nya sendiri: paksa center di row 36px-nya,
+   override inline align-self:flex-start yang nempel di elemen */
+vaadin-form-layout>div:has(> div > vaadin-checkbox) vaadin-checkbox {
+    align-self: center !important;
 }
