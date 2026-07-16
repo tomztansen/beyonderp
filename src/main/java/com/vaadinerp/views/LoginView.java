@@ -5,6 +5,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -89,22 +90,14 @@ public class LoginView extends Div {
                 card.add(topAccent);
 
                 // ── Logo ──
-                Div logoWrap = new Div();
-                logoWrap.getStyle()
-                                .set("width", "64px").set("height", "64px")
-                                .set("background", "linear-gradient(135deg, #0060D6, #0070F2)")
+                Image logoImage = new Image("images/logo_growth.png", "PT. GROWTH ASIA");
+                logoImage.getStyle()
+                                .set("width", "72px").set("height", "72px")
                                 .set("border-radius", "16px")
-                                .set("display", "flex")
-                                .set("align-items", "center")
-                                .set("justify-content", "center")
-                                .set("box-shadow", "0 8px 24px rgba(0, 112, 242, 0.30)")
+                                .set("object-fit", "contain")
+                                .set("box-shadow", "0 8px 24px rgba(0, 112, 242, 0.25)")
                                 .set("margin-bottom", "20px");
-
-                Icon logoIcon = VaadinIcon.GLOBE.create();
-
-                logoIcon.getStyle().set("color", "#ffffff").set("width", "30px").set("height", "30px");
-                logoWrap.add(logoIcon);
-                card.add(logoWrap);
+                card.add(logoImage);
 
                 // ── Title ──
                 H2 title = new H2("PT. GROWTH ASIA");

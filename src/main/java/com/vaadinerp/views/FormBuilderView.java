@@ -121,29 +121,29 @@ public class FormBuilderView extends VerticalLayout {
 
     // Temporary Classes to hold builder state
     public static class FieldMetaTemp {
-        String fieldName;
-        String fieldLabel;
-        String componentType;
-        String lovCode;
-        int rowGroup = 1;
-        int colSpan = 1;
-        boolean isRequired;
-        boolean isReadonly;
-        String readonlyMode = "NONE";
-        boolean showInGrid = true;
-        boolean hideInForm;
-        boolean isDetail;
-        boolean isSortable = true;
-        String formula;
-        String validationRule;
-        String displayFormat;
-        String sequenceCode;
-        boolean saveOnInsert = true;
-        boolean saveOnUpdate = true;
-        boolean isAuditLog;
-        String onAddScript;
-        List<FieldFilterMetaTemp> filters = new ArrayList<>();
-        List<FieldLovTargetMetaTemp> lovTargets = new ArrayList<>();
+        public String fieldName;
+        public String fieldLabel;
+        public String componentType;
+        public String lovCode;
+        public int rowGroup = 1;
+        public Integer colSpan = 1;
+        public boolean isRequired;
+        public boolean isReadonly;
+        public String readonlyMode = "NONE";
+        public boolean showInGrid = true;
+        public boolean hideInForm;
+        public boolean isDetail;
+        public boolean isSortable = true;
+        public String formula;
+        public String validationRule;
+        public String displayFormat;
+        public String sequenceCode;
+        public boolean saveOnInsert = true;
+        public boolean saveOnUpdate = true;
+        public boolean isAuditLog;
+        public String onAddScript;
+        public List<FieldFilterMetaTemp> filters = new ArrayList<>();
+        public List<FieldLovTargetMetaTemp> lovTargets = new ArrayList<>();
 
         public String getOnAddScript() {
             return onAddScript;
@@ -838,7 +838,7 @@ public class FormBuilderView extends VerticalLayout {
         });
         propColSpan.addValueChangeListener(e -> {
             if (selectedField != null && e.isFromClient()) {
-                selectedField.colSpan = e.getValue() != null && e.getValue() > 0 ? e.getValue() : 1;
+                selectedField.colSpan = e.getValue() != null && e.getValue() > 0 ? e.getValue() : null;
                 rebuildCanvas();
             }
         });
@@ -1030,7 +1030,7 @@ public class FormBuilderView extends VerticalLayout {
                 propComponentType.setValue(temp.componentType);
                 propLovCode.setValue(temp.lovCode);
                 propRowGroup.setValue(temp.rowGroup);
-                propColSpan.setValue(temp.colSpan > 0 ? temp.colSpan : 1);
+                propColSpan.setValue(temp.colSpan != null && temp.colSpan > 0 ? temp.colSpan : null);
                 propIsRequired.setValue(temp.isRequired);
                 propIsReadonly.setValue(temp.isReadonly);
                 String rm = temp.readonlyMode;
@@ -1100,21 +1100,17 @@ public class FormBuilderView extends VerticalLayout {
             } else {
                 FormLayout detailRowLayout = new FormLayout();
                 detailRowLayout.setWidthFull();
-                boolean allDefault = detailFields.stream().allMatch(f -> f.colSpan <= 1);
-                int cols = (allDefault && detailFields.size() > 0 && detailFields.size() <= 6) ? detailFields.size() : 12;
-                detailRowLayout.setResponsiveSteps(
-                        new FormLayout.ResponsiveStep("0", 1),
-                        new FormLayout.ResponsiveStep("500px", Math.max(1, cols / 2)),
-                        new FormLayout.ResponsiveStep("800px", cols));
+                int maxColsDetail = com.vaadinerp.components.FormLayoutUtils.calculateMaxColsInFormTemp(detailFields);
+                com.vaadinerp.components.FormLayoutUtils.RowLayoutConfigTemp rowConfig =
+                        com.vaadinerp.components.FormLayoutUtils.calculateRowConfigTemp(detailFields, maxColsDetail);
+                int cols = rowConfig.getCols();
+                com.vaadinerp.components.FormLayoutUtils.applyResponsiveSteps(detailRowLayout, cols);
 
                 int seq = 1;
                 for (FieldMetaTemp temp : detailFields) {
                     Component card = buildFieldCard(temp, seq++);
                     detailRowLayout.add(card);
-                    int span = temp.colSpan > 0 ? temp.colSpan : 1;
-                    if ("TEXTAREA".equalsIgnoreCase(temp.componentType) && temp.colSpan <= 1) {
-                        span = cols;
-                    }
+                    int span = rowConfig.getSpan(temp);
                     if (span > 1) {
                         detailRowLayout.setColspan(card, Math.min(span, cols));
                     }
@@ -1231,26 +1227,24 @@ public class FormBuilderView extends VerticalLayout {
         // Drop zone before the first row
         canvas.add(createRowDropZone(1));
 
+        int maxColsInForm = com.vaadinerp.components.FormLayoutUtils.calculateMaxColsInFormTemp(targetFields);
+
         int sequence = 1;
         for (int i = 0; i < numRows; i++) {
             Integer rg = rowGroupsOrder.get(i);
             List<FieldMetaTemp> groupFields = groups.get(rg);
             FormLayout rowLayout = new FormLayout();
             rowLayout.setWidthFull();
-            boolean allDefault = groupFields.stream().allMatch(f -> f.colSpan <= 1);
-            int cols = (allDefault && groupFields.size() > 0 && groupFields.size() <= 6) ? groupFields.size() : 12;
-            rowLayout.setResponsiveSteps(
-                    new FormLayout.ResponsiveStep("0", 1),
-                    new FormLayout.ResponsiveStep("500px", Math.max(1, cols / 2)),
-                    new FormLayout.ResponsiveStep("800px", cols));
+
+            com.vaadinerp.components.FormLayoutUtils.RowLayoutConfigTemp rowConfig =
+                    com.vaadinerp.components.FormLayoutUtils.calculateRowConfigTemp(groupFields, maxColsInForm);
+            int cols = rowConfig.getCols();
+            com.vaadinerp.components.FormLayoutUtils.applyResponsiveSteps(rowLayout, cols);
 
             for (FieldMetaTemp temp : groupFields) {
                 Component card = buildFieldCard(temp, sequence++);
                 rowLayout.add(card);
-                int span = temp.colSpan > 0 ? temp.colSpan : 1;
-                if ("TEXTAREA".equalsIgnoreCase(temp.componentType) && temp.colSpan <= 1) {
-                    span = cols;
-                }
+                int span = rowConfig.getSpan(temp);
                 if (span > 1) {
                     rowLayout.setColspan(card, Math.min(span, cols));
                 }

@@ -641,6 +641,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         var colRole = matrixGrid.addColumn(RoleMenuPermission::getRoleCode).setHeader("Role").setSortable(true).setAutoWidth(true);
         var colMenu = matrixGrid.addColumn(RoleMenuPermission::getMenuCode).setHeader("Kode Menu").setSortable(true).setAutoWidth(true);
+        var colMenuDesc = matrixGrid.addColumn(p -> getMenuTitleByCode(p.getMenuCode())).setHeader("Deskripsi Menu").setSortable(true).setAutoWidth(true);
 
         matrixGrid.addComponentColumn(p -> {
             Checkbox cb = new Checkbox();
@@ -688,7 +689,8 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         Map<Grid.Column<RoleMenuPermission>, Function<RoleMenuPermission, String>> getterMap = Map.of(
                 colRole, p -> p.getRoleCode() != null ? p.getRoleCode() : "",
-                colMenu, p -> p.getMenuCode() != null ? p.getMenuCode() : ""
+                colMenu, p -> p.getMenuCode() != null ? p.getMenuCode() : "",
+                colMenuDesc, p -> getMenuTitleByCode(p.getMenuCode())
         );
         matrixFilterRefresher = StandardGridUtils.attachGridFilters(matrixGrid, getterMap, permissionRepository::findAll);
         toolbar.add(StandardGridUtils.createExportExcelButton(matrixGrid, "matrix_export", getterMap));
@@ -710,13 +712,26 @@ public class UserAuthorityAdminView extends VerticalLayout {
         roleSelect.setItems(roleRepository.findAll().stream().map(AppRole::getRoleCode).toList());
         roleSelect.setRequired(true);
 
-        ComboBox<String> menuSelect = new ComboBox<>("Menu");
+        ComboBox<AppMenu> menuSelect = new ComboBox<>("Menu");
         menuSelect.setWidthFull();
         menuSelect.setItems(menuRepository.findAllByOrderByDisplayOrderAsc().stream()
                 .filter(m -> !"GROUP".equalsIgnoreCase(m.getMenuType()))
-                .map(AppMenu::getMenuCode)
                 .toList());
+        menuSelect.setItemLabelGenerator(m -> m.getMenuCode() + (m.getMenuTitle() != null ? " (" + m.getMenuTitle() + ")" : ""));
         menuSelect.setRequired(true);
+
+        com.vaadin.flow.component.textfield.TextField descField = new com.vaadin.flow.component.textfield.TextField("Deskripsi Menu");
+        descField.setWidthFull();
+        descField.setReadOnly(true);
+        descField.setPlaceholder("Pilih menu untuk melihat deskripsi...");
+
+        menuSelect.addValueChangeListener(e -> {
+            if (e.getValue() != null) {
+                descField.setValue(e.getValue().getMenuTitle() != null ? e.getValue().getMenuTitle() : "-");
+            } else {
+                descField.clear();
+            }
+        });
 
         Checkbox cbAdd = new Checkbox("Can Add"); cbAdd.setValue(true);
         Checkbox cbEdit = new Checkbox("Can Edit"); cbEdit.setValue(true);
@@ -726,16 +741,18 @@ public class UserAuthorityAdminView extends VerticalLayout {
         HorizontalLayout cbLayout = new HorizontalLayout(cbAdd, cbEdit, cbDelete, cbPrint);
         cbLayout.setWidthFull();
 
-        form.add(roleSelect, menuSelect);
+        form.add(roleSelect, menuSelect, descField);
         form.setColspan(roleSelect, 2);
         form.setColspan(menuSelect, 2);
+        form.setColspan(descField, 2);
 
         Button saveBtn = new Button("Simpan", e -> {
             if (roleSelect.getValue() == null || menuSelect.getValue() == null) {
                 Notification.show("Role dan Menu wajib dipilih!", 3000, Notification.Position.TOP_CENTER);
                 return;
             }
-            var existing = permissionRepository.findByRoleCodeAndMenuCode(roleSelect.getValue(), menuSelect.getValue());
+            String selectedMenuCode = menuSelect.getValue().getMenuCode();
+            var existing = permissionRepository.findByRoleCodeAndMenuCode(roleSelect.getValue(), selectedMenuCode);
             if (existing.isPresent()) {
                 Notification n = Notification.show("Izin untuk kombinasi Role & Menu tersebut sudah ada!", 3000, Notification.Position.TOP_CENTER);
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -744,7 +761,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
             RoleMenuPermission perm = new RoleMenuPermission();
             perm.setRoleCode(roleSelect.getValue());
-            perm.setMenuCode(menuSelect.getValue());
+            perm.setMenuCode(selectedMenuCode);
             perm.setCanAdd(cbAdd.getValue());
             perm.setCanEdit(cbEdit.getValue());
             perm.setCanDelete(cbDelete.getValue());
@@ -804,7 +821,17 @@ public class UserAuthorityAdminView extends VerticalLayout {
         menuTreeGrid.expand(menuRepository.findByParentMenuCodeIsNullOrderByDisplayOrderAsc());
     }
 
+    private final Map<String, String> menuTitleCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private String getMenuTitleByCode(String menuCode) {
+        if (menuCode == null) return "";
+        return menuTitleCache.computeIfAbsent(menuCode, code ->
+                menuRepository.findById(code).map(AppMenu::getMenuTitle).orElse("")
+        );
+    }
+
     private void refreshMatrixGrid() {
+        menuTitleCache.clear();
         if (matrixFilterRefresher != null) matrixFilterRefresher.run();
     }
 }

@@ -966,16 +966,17 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         }
         rowGroupsOrder.sort(Integer::compareTo);
 
+        int maxColsInForm = com.vaadinerp.components.FormLayoutUtils.calculateMaxColsInForm(formDef.getFields());
+
         for (Integer rg : rowGroupsOrder) {
             List<FieldMeta> groupFields = groups.get(rg);
             FormLayout rowLayout = new FormLayout();
             rowLayout.setWidthFull();
-            boolean allDefault = groupFields.stream().allMatch(f -> f.getColSpan() == null || f.getColSpan() <= 1);
-            int cols = (allDefault && groupFields.size() > 0 && groupFields.size() <= 6) ? groupFields.size() : 12;
-            rowLayout.setResponsiveSteps(
-                    new FormLayout.ResponsiveStep("0", 1),
-                    new FormLayout.ResponsiveStep("500px", Math.max(1, cols / 2)),
-                    new FormLayout.ResponsiveStep("800px", cols));
+
+            com.vaadinerp.components.FormLayoutUtils.RowLayoutConfig rowConfig =
+                    com.vaadinerp.components.FormLayoutUtils.calculateRowConfig(groupFields, maxColsInForm);
+            int cols = rowConfig.getCols();
+            com.vaadinerp.components.FormLayoutUtils.applyResponsiveSteps(rowLayout, cols);
 
             if (formDef.getLabelWidth() != null && !formDef.getLabelWidth().trim().isEmpty()) {
                 rowLayout.getElement().getStyle().set("--vaadin-form-layout-label-width", formDef.getLabelWidth());
@@ -987,10 +988,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     input.setVisible(false);
                 }
 
-                int span = (field.getColSpan() != null && field.getColSpan() > 0) ? field.getColSpan() : 1;
-                if ("TEXTAREA".equalsIgnoreCase(field.getComponentType()) && (field.getColSpan() == null || field.getColSpan() <= 1)) {
-                    span = cols;
-                }
+                int span = rowConfig.getSpan(field);
 
                 // Checkbox: bungkus dengan Div agar label muncul di ATAS (sama persis seperti TextField/ComboBox)
                 // sehingga checkbox square sejajar satu baris dengan input box di sampingnya

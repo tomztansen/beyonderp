@@ -42,18 +42,6 @@ import com.vaadinerp.service.StandardFormatService;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.contextmenu.ContextMenu;
 import com.vaadin.flow.data.value.ValueChangeMode;
-
-import com.vaadinerp.views.ReportBuilderView;
-import com.vaadinerp.views.ReportViewerView;
-import com.vaadinerp.views.LovBuilderView;
-import com.vaadinerp.views.StandardFormatView;
-import com.vaadinerp.views.ProductionSchedulerView;
-import com.vaadinerp.views.UserAuthorityAdminView;
-import com.vaadinerp.views.FormBuilderView;
-import com.vaadinerp.views.DbExplorerView;
-import com.vaadinerp.views.FormActionBuilderView;
-import com.vaadinerp.views.FieldAuditLogView;
-import com.vaadinerp.views.AuditTrailView;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -264,7 +252,7 @@ public class PortalView extends AppLayout {
                 .set("border-bottom", "1px solid rgba(255, 255, 255, 0.08)")
                 .set("box-sizing", "border-box");
 
-        Span logoText = new Span("ERP");
+        Span logoText = new Span("GRP");
         logoText.getStyle()
                 .set("font-size", "1.4rem")
                 .set("font-weight", "800")
@@ -272,7 +260,7 @@ public class PortalView extends AppLayout {
                 .set("letter-spacing", "0.5px")
                 .set("display", "block");
 
-        Span subtitle = new Span("Enterprise Resource Planning");
+        Span subtitle = new Span("Growth Resource Planning");
         subtitle.getStyle()
                 .set("font-size", "0.7rem")
                 .set("color", "#94a3b8")
@@ -425,7 +413,8 @@ public class PortalView extends AppLayout {
             if (appRoleRepository != null) {
                 for (com.vaadinerp.security.entity.AppRole r : appRoleRepository.findAll()) {
                     if (r.getRoleCode() != null && r.getRoleCode().toUpperCase().contains("ADMIN")
-                            && roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), "FORM_ACTION_BUILDER").isEmpty()) {
+                            && roleMenuPermissionRepository
+                                    .findByRoleCodeAndMenuCode(r.getRoleCode(), "FORM_ACTION_BUILDER").isEmpty()) {
                         RoleMenuPermission p = new RoleMenuPermission();
                         p.setRoleCode(r.getRoleCode());
                         p.setMenuCode("FORM_ACTION_BUILDER");
@@ -465,7 +454,8 @@ public class PortalView extends AppLayout {
             if (appRoleRepository != null) {
                 for (com.vaadinerp.security.entity.AppRole r : appRoleRepository.findAll()) {
                     if (r.getRoleCode() != null && r.getRoleCode().toUpperCase().contains("ADMIN")
-                            && roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), "MD_SEQUENCE").isEmpty()) {
+                            && roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), "MD_SEQUENCE")
+                                    .isEmpty()) {
                         RoleMenuPermission p = new RoleMenuPermission();
                         p.setRoleCode(r.getRoleCode());
                         p.setMenuCode("MD_SEQUENCE");
@@ -493,8 +483,10 @@ public class PortalView extends AppLayout {
         ensureMenuExists("PRODUCTION_SCHEDULER", "Production Gantt Scheduler", "GRP_MFG", "CALENDAR_CLOCK", 10, "ITEM");
         if (roleMenuPermissionRepository != null) {
             for (String rCode : java.util.List.of("STAFF", "ADMIN", "SUPER_ADMIN")) {
-                if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode("SUPER_ADMIN", "PRODUCTION_SCHEDULER").isEmpty()
-                        && roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, "PRODUCTION_SCHEDULER").isEmpty()) {
+                if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode("SUPER_ADMIN", "PRODUCTION_SCHEDULER")
+                        .isEmpty()
+                        && roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, "PRODUCTION_SCHEDULER")
+                                .isEmpty()) {
                     RoleMenuPermission p = new RoleMenuPermission();
                     p.setRoleCode(rCode);
                     p.setMenuCode("PRODUCTION_SCHEDULER");
@@ -989,7 +981,8 @@ public class PortalView extends AppLayout {
     }
 
     public void openTabByCode(String code, String title, Object extra) {
-        if (code == null || code.isBlank()) return;
+        if (code == null || code.isBlank())
+            return;
         if (openTabs.containsKey(code)) {
             Tab tab = openTabs.get(code);
             tabSheet.setSelectedTab(tab);
@@ -1011,7 +1004,8 @@ public class PortalView extends AppLayout {
                     optForm = Optional.of(fm);
                     targetCode = fm.getFormCode();
                     break;
-                } else if (title != null && fm.getFormTitle() != null && fm.getFormTitle().equalsIgnoreCase(title.trim())) {
+                } else if (title != null && fm.getFormTitle() != null
+                        && fm.getFormTitle().equalsIgnoreCase(title.trim())) {
                     optForm = Optional.of(fm);
                     targetCode = fm.getFormCode();
                     break;
@@ -1022,17 +1016,21 @@ public class PortalView extends AppLayout {
             for (AppMenu m : appMenuRepository.findAll()) {
                 if (m.getMenuCode() != null && m.getMenuCode().equalsIgnoreCase(targetCode)) {
                     targetCode = m.getMenuCode();
-                    if (title == null || title.isBlank()) targetTitle = m.getMenuTitle();
+                    if (title == null || title.isBlank())
+                        targetTitle = m.getMenuTitle();
                     break;
-                } else if (title != null && m.getMenuTitle() != null && m.getMenuTitle().equalsIgnoreCase(title.trim())) {
+                } else if (title != null && m.getMenuTitle() != null
+                        && m.getMenuTitle().equalsIgnoreCase(title.trim())) {
                     targetCode = m.getMenuCode();
                     targetTitle = m.getMenuTitle();
                     break;
                 }
             }
         } else {
-            if (title != null && !title.isBlank()) targetTitle = title;
-            else if (optForm.get().getFormTitle() != null) targetTitle = optForm.get().getFormTitle();
+            if (title != null && !title.isBlank())
+                targetTitle = title;
+            else if (optForm.get().getFormTitle() != null)
+                targetTitle = optForm.get().getFormTitle();
         }
 
         AppMenu menu = new AppMenu();
