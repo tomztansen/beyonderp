@@ -294,8 +294,9 @@ public class ScriptExecutorService {
     public static Map<String, Object> prepareHeaderForScript(Map<String, Object> sourceBean) {
         if (sourceBean == null) return new HashMap<>();
         Map<String, SmartHeaderNode> smartNodes = new HashMap<>();
+        Map<String, Object> targetBean = new HashMap<>(sourceBean);
 
-        List<Map.Entry<String, Object>> entries = new ArrayList<>(sourceBean.entrySet());
+        List<Map.Entry<String, Object>> entries = new ArrayList<>(targetBean.entrySet());
         for (Map.Entry<String, Object> entry : entries) {
             String k = entry.getKey();
             Object v = entry.getValue();
@@ -307,16 +308,16 @@ public class ScriptExecutorService {
                 String subKey = parts[1];
 
                 SmartHeaderNode node = smartNodes.computeIfAbsent(parentKey, pk -> {
-                    Object baseVal = sourceBean.get(pk);
+                    Object baseVal = targetBean.get(pk);
                     if (baseVal instanceof SmartHeaderNode shn) return shn;
                     return new SmartHeaderNode(baseVal);
                 });
                 node.putProperty(subKey, v);
-                sourceBean.put(parentKey, node);
+                targetBean.put(parentKey, node);
 
                 String underscoreKey = parentKey + "_" + subKey;
-                if (!sourceBean.containsKey(underscoreKey) || sourceBean.get(underscoreKey) == null) {
-                    sourceBean.put(underscoreKey, v);
+                if (!targetBean.containsKey(underscoreKey) || targetBean.get(underscoreKey) == null) {
+                    targetBean.put(underscoreKey, v);
                 }
             } else if (k.contains("_")) {
                 int idx = k.lastIndexOf("_");
@@ -324,21 +325,29 @@ public class ScriptExecutorService {
                     String parentKey = k.substring(0, idx);
                     String subKey = k.substring(idx + 1);
                     SmartHeaderNode node = smartNodes.computeIfAbsent(parentKey, pk -> {
-                        Object baseVal = sourceBean.get(pk);
+                        Object baseVal = targetBean.get(pk);
                         if (baseVal instanceof SmartHeaderNode shn) return shn;
                         return new SmartHeaderNode(baseVal);
                     });
                     node.putProperty(subKey, v);
-                    sourceBean.put(parentKey, node);
+                    targetBean.put(parentKey, node);
 
                     String dotKey = parentKey + "." + subKey;
-                    if (!sourceBean.containsKey(dotKey) || sourceBean.get(dotKey) == null) {
-                        sourceBean.put(dotKey, v);
+                    if (!targetBean.containsKey(dotKey) || targetBean.get(dotKey) == null) {
+                        targetBean.put(dotKey, v);
                     }
                 }
             }
         }
-        return sourceBean;
+
+        for (Map.Entry<String, Object> entry : new ArrayList<>(targetBean.entrySet())) {
+            String k = entry.getKey();
+            Object v = entry.getValue();
+            if (k != null && !(v instanceof SmartHeaderNode) && !k.contains(".") && !k.contains("_")) {
+                targetBean.put(k, new SmartHeaderNode(v));
+            }
+        }
+        return targetBean;
     }
 
     public static class SmartHeaderNode extends Number implements Map<String, Object>, Comparable<Object>, groovy.lang.GroovyObject {
@@ -347,12 +356,25 @@ public class ScriptExecutorService {
         private transient groovy.lang.MetaClass metaClass;
 
         public SmartHeaderNode(Object primaryValue) {
-            this.primaryValue = primaryValue;
+            this.primaryValue = normalizeValue(primaryValue);
             this.metaClass = groovy.lang.GroovySystem.getMetaClassRegistry().getMetaClass(SmartHeaderNode.class);
+            if (this.primaryValue != null && !(this.primaryValue instanceof Map) && !(this.primaryValue instanceof SmartHeaderNode)) {
+                properties.put("id", this.primaryValue);
+                properties.put("value", this.primaryValue);
+            }
+        }
+
+        private static Object normalizeValue(Object v) {
+            if (v instanceof String s) {
+                String trim = s.trim();
+                if ("true".equalsIgnoreCase(trim)) return Boolean.TRUE;
+                if ("false".equalsIgnoreCase(trim)) return Boolean.FALSE;
+            }
+            return v;
         }
 
         public void putProperty(String key, Object value) {
-            if (key != null) properties.put(key, value);
+            if (key != null) properties.put(key, normalizeValue(value));
         }
 
         public Object getPrimaryValue() {
@@ -375,10 +397,10 @@ public class ScriptExecutorService {
         @Override
         public Object getProperty(String property) {
             if (properties.containsKey(property)) {
-                return properties.get(property);
+                return normalizeValue(properties.get(property));
             }
             if ("id".equals(property) || "value".equals(property)) {
-                return primaryValue;
+                return normalizeValue(primaryValue);
             }
             if (primaryValue != null) {
                 try {
@@ -392,7 +414,27 @@ public class ScriptExecutorService {
 
         @Override
         public void setProperty(String property, Object newValue) {
-            properties.put(property, newValue);
+            properties.put(property, normalizeValue(newValue));
+        }
+
+        public boolean asBoolean() {
+            Object val = properties.containsKey("id") ? properties.get("id") : (properties.containsKey("value") ? properties.get("value") : primaryValue);
+            val = normalizeValue(val);
+            if (val instanceof Boolean b) return b.booleanValue();
+            if (val instanceof Number n) return n.doubleValue() != 0;
+            if (val instanceof String s) {
+                String trim = s.trim();
+                return !trim.isEmpty() && !"false".equalsIgnoreCase(trim) && !"0".equals(trim) && !"null".equalsIgnoreCase(trim);
+            }
+            return val != null && !Boolean.FALSE.equals(val);
+        }
+
+        @Override
+        public String toString() {
+            if (primaryValue != null && !(primaryValue instanceof Map) && !(primaryValue instanceof SmartHeaderNode)) {
+                return primaryValue.toString();
+            }
+            return properties.toString();
         }
 
         @Override
