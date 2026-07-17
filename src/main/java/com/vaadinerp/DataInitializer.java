@@ -1102,45 +1102,56 @@ public class DataInitializer implements CommandLineRunner {
                     // === Report children ===
                     "('REPORT_BUILDER', 'Report Designer', 'report-builder', 'EDIT', 'GRP_REPORTS', 10, 'ITEM'), " +
                     "('REPORT_VIEWER', 'Report Viewer', 'report-viewer', 'PRINT', 'GRP_REPORTS', 20, 'ITEM'), " +
-                    // === Sistem & Keamanan children ===
-                    "('SECURITY_ADMIN', 'Security & Authority Admin', 'security-admin', 'SHIELD', 'GRP_SYSTEM', 10, 'ITEM'), " +
-                    "('FIELD_AUDIT_LOG', 'Field Audit Log Viewer', 'field-audit-log', 'CLOCK', 'GRP_SYSTEM', 20, 'ITEM')");
-        }
+                     // === Sistem & Keamanan children ===
+                     "('SECURITY_ADMIN', 'Security & Authority Admin', 'security-admin', 'SHIELD', 'GRP_SYSTEM', 10, 'ITEM'), " +
+                     "('FIELD_AUDIT_LOG', 'Field Audit Log Viewer', 'field-audit-log', 'CLOCK', 'GRP_SYSTEM', 20, 'ITEM'), " +
+                     "('SYSTEM_LOG_VIEWER', 'Server Log Viewer', 'system-log-viewer', 'FILE_TEXT', 'GRP_SYSTEM', 30, 'ITEM')");
+         }
 
-        try {
-            String targetParent = "GRP_DEV_TOOLS";
-            try {
-                String lovParent = jdbcTemplate.queryForObject("SELECT parent_menu_code FROM public.app_menus WHERE menu_code = 'LOV_BUILDER'", String.class);
-                if (lovParent != null) targetParent = lovParent;
-            } catch (Exception ignored) {}
+         try {
+             String targetParent = "GRP_DEV_TOOLS";
+             try {
+                 String lovParent = jdbcTemplate.queryForObject("SELECT parent_menu_code FROM public.app_menus WHERE menu_code = 'LOV_BUILDER'", String.class);
+                 if (lovParent != null) targetParent = lovParent;
+             } catch (Exception ignored) {}
 
-            Integer actionMenuExists = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_menus WHERE menu_code = 'FORM_ACTION_BUILDER'", Integer.class);
-            if (actionMenuExists == null || actionMenuExists == 0) {
-                jdbcTemplate.execute("INSERT INTO public.app_menus (menu_code, menu_title, route_path, icon_name, parent_menu_code, display_order, menu_type) " +
-                        "VALUES ('FORM_ACTION_BUILDER', 'Extra Toolbar Builder', 'action-builder', 'BOLT', '" + targetParent + "', 35, 'ITEM')");
-            } else {
-                jdbcTemplate.execute("UPDATE public.app_menus SET parent_menu_code = '" + targetParent + "', display_order = 35 WHERE menu_code = 'FORM_ACTION_BUILDER'");
-            }
+             Integer actionMenuExists = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_menus WHERE menu_code = 'FORM_ACTION_BUILDER'", Integer.class);
+             if (actionMenuExists == null || actionMenuExists == 0) {
+                 jdbcTemplate.execute("INSERT INTO public.app_menus (menu_code, menu_title, route_path, icon_name, parent_menu_code, display_order, menu_type) " +
+                         "VALUES ('FORM_ACTION_BUILDER', 'Extra Toolbar Builder', 'action-builder', 'BOLT', '" + targetParent + "', 35, 'ITEM')");
+             } else {
+                 jdbcTemplate.execute("UPDATE public.app_menus SET parent_menu_code = '" + targetParent + "', display_order = 35 WHERE menu_code = 'FORM_ACTION_BUILDER'");
+             }
 
-            try {
-                String sysParentForAudit = "GRP_SYSTEM";
-                try {
-                    String fLogParent = jdbcTemplate.queryForObject("SELECT parent_menu_code FROM public.app_menus WHERE menu_code = 'FIELD_AUDIT_LOG'", String.class);
-                    if (fLogParent != null && !fLogParent.trim().isEmpty()) sysParentForAudit = fLogParent;
-                } catch (Exception ignored) {}
+             try {
+                 String sysParentForAudit = "GRP_SYSTEM";
+                 try {
+                     String fLogParent = jdbcTemplate.queryForObject("SELECT parent_menu_code FROM public.app_menus WHERE menu_code = 'FIELD_AUDIT_LOG'", String.class);
+                     if (fLogParent != null && !fLogParent.trim().isEmpty()) sysParentForAudit = fLogParent;
+                 } catch (Exception ignored) {}
 
-                Integer auditMenuExists = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_menus WHERE menu_code = 'AUDIT_TRAIL_RESTORE'", Integer.class);
-                if (auditMenuExists == null || auditMenuExists == 0) {
-                    jdbcTemplate.execute("INSERT INTO public.app_menus (menu_code, menu_title, route_path, icon_name, parent_menu_code, display_order, menu_type) " +
-                            "VALUES ('AUDIT_TRAIL_RESTORE', 'Audit Trail & Restore Center', 'audit-trail', 'SHIELD', '" + sysParentForAudit + "', 25, 'ITEM')");
-                } else {
-                    jdbcTemplate.execute("UPDATE public.app_menus SET parent_menu_code = '" + sysParentForAudit + "', display_order = 25 WHERE menu_code = 'AUDIT_TRAIL_RESTORE'");
-                }
+                 Integer auditMenuExists = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_menus WHERE menu_code = 'AUDIT_TRAIL_RESTORE'", Integer.class);
+                 if (auditMenuExists == null || auditMenuExists == 0) {
+                     jdbcTemplate.execute("INSERT INTO public.app_menus (menu_code, menu_title, route_path, icon_name, parent_menu_code, display_order, menu_type) " +
+                             "VALUES ('AUDIT_TRAIL_RESTORE', 'Audit Trail & Restore Center', 'audit-trail', 'SHIELD', '" + sysParentForAudit + "', 25, 'ITEM')");
+                 } else {
+                     jdbcTemplate.execute("UPDATE public.app_menus SET parent_menu_code = '" + sysParentForAudit + "', display_order = 25 WHERE menu_code = 'AUDIT_TRAIL_RESTORE'");
+                 }
 
-                jdbcTemplate.execute("INSERT INTO public.app_role_menu_permissions (role_code, menu_code, can_add, can_edit, can_delete, can_print) " +
-                        "SELECT DISTINCT role_code, 'AUDIT_TRAIL_RESTORE', TRUE, TRUE, TRUE, TRUE FROM public.app_role_menu_permissions WHERE role_code IN ('ADMIN', 'SUPER_ADMIN') AND role_code NOT IN (SELECT role_code FROM public.app_role_menu_permissions WHERE menu_code = 'AUDIT_TRAIL_RESTORE')");
-            } catch (Exception ignored) {}
-        } catch (Exception ignored) {}
+                 Integer logViewerExists = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.app_menus WHERE menu_code = 'SYSTEM_LOG_VIEWER'", Integer.class);
+                 if (logViewerExists == null || logViewerExists == 0) {
+                     jdbcTemplate.execute("INSERT INTO public.app_menus (menu_code, menu_title, route_path, icon_name, parent_menu_code, display_order, menu_type) " +
+                             "VALUES ('SYSTEM_LOG_VIEWER', 'Server Log Viewer', 'system-log-viewer', 'FILE_TEXT', '" + sysParentForAudit + "', 30, 'ITEM')");
+                 } else {
+                     jdbcTemplate.execute("UPDATE public.app_menus SET parent_menu_code = '" + sysParentForAudit + "', display_order = 30 WHERE menu_code = 'SYSTEM_LOG_VIEWER'");
+                 }
+
+                 jdbcTemplate.execute("INSERT INTO public.app_role_menu_permissions (role_code, menu_code, can_add, can_edit, can_delete, can_print) " +
+                         "SELECT DISTINCT role_code, 'AUDIT_TRAIL_RESTORE', TRUE, TRUE, TRUE, TRUE FROM public.app_role_menu_permissions WHERE role_code IN ('ADMIN', 'SUPER_ADMIN') AND role_code NOT IN (SELECT role_code FROM public.app_role_menu_permissions WHERE menu_code = 'AUDIT_TRAIL_RESTORE')");
+                 jdbcTemplate.execute("INSERT INTO public.app_role_menu_permissions (role_code, menu_code, can_add, can_edit, can_delete, can_print) " +
+                         "SELECT DISTINCT role_code, 'SYSTEM_LOG_VIEWER', TRUE, TRUE, TRUE, TRUE FROM public.app_role_menu_permissions WHERE role_code IN ('ADMIN', 'SUPER_ADMIN') AND role_code NOT IN (SELECT role_code FROM public.app_role_menu_permissions WHERE menu_code = 'SYSTEM_LOG_VIEWER')");
+             } catch (Exception ignored) {}
+         } catch (Exception ignored) {}
 
         try {
             jdbcTemplate.execute("ALTER TABLE public.meta_form_action ALTER COLUMN form_code DROP NOT NULL");

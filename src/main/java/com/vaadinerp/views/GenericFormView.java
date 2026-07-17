@@ -824,8 +824,35 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     srcCol = srcCol.substring(7);
                 }
                 Object val = null;
-                if (srcRecord != null) {
+                if (srcRecord != null && !srcCol.toLowerCase().contains("coalesce(") && !srcCol.toLowerCase().contains("ifnull(") && !srcCol.contains("+") && !srcCol.contains("*") && !srcCol.contains("/")) {
                     val = getValueCaseInsensitive(srcRecord, srcCol);
+                }
+                if (val == null && srcCol != null && !srcCol.isBlank()) {
+                    if (srcCol.toLowerCase().contains("coalesce(") || srcCol.toLowerCase().contains("ifnull(")
+                            || ((srcCol.contains("+") || srcCol.contains("*") || srcCol.contains("/") || (srcCol.contains("-") && !srcCol.startsWith("-")))
+                                && srcCol.matches(".*[a-zA-Z\\(\\)].*"))) {
+                        val = com.vaadinerp.util.FormulaEvaluator.evaluateTargetExpression(srcCol, srcRecord, destRow);
+                    } else if ((srcCol.startsWith("'") && srcCol.endsWith("'")) || (srcCol.startsWith("\"") && srcCol.endsWith("\""))) {
+                        if (srcCol.length() >= 2) val = srcCol.substring(1, srcCol.length() - 1);
+                    } else if ("true".equalsIgnoreCase(srcCol) || "false".equalsIgnoreCase(srcCol)) {
+                        val = Boolean.parseBoolean(srcCol);
+                    } else if ("null".equalsIgnoreCase(srcCol)) {
+                        val = null;
+                    } else {
+                        try {
+                            if (srcCol.contains(".")) {
+                                val = new java.math.BigDecimal(srcCol);
+                            } else {
+                                val = Integer.parseInt(srcCol);
+                            }
+                        } catch (Exception e) {
+                            try {
+                                val = Long.parseLong(srcCol);
+                            } catch (Exception e2) {
+                                // Bukan angka literal, biarkan val null
+                            }
+                        }
+                    }
                 }
                 putValueCaseInsensitive(destRow, destCol, val);
             }

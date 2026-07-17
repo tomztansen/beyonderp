@@ -6,4 +6,6 @@ import java.util.Optional;
 
 public interface AppUserRepository extends JpaRepository<AppUser, String> {
     Optional<AppUser> findByUsernameAndIsActiveTrue(String username);
+    Optional<AppUser> findByUsernameIgnoreCaseAndIsActiveTrue(String username);
+    Optional<AppUser> findByUsernameIgnoreCase(String username);
 }

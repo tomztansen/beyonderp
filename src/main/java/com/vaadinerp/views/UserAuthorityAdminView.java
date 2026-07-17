@@ -232,6 +232,12 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 return;
             }
 
+            if (isNew && userRepository.findByUsernameIgnoreCase(username.trim()).isPresent()) {
+                Notification n = Notification.show("Username '" + username.trim() + "' sudah digunakan!", 3000, Notification.Position.TOP_CENTER);
+                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+
             AppUser user = (existing == null) ? new AppUser() : existing;
             if (existing == null) user.setUsername(username.trim());
             user.setFullName(fullNameField.getValue());

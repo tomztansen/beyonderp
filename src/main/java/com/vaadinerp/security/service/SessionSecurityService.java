@@ -34,7 +34,7 @@ public class SessionSecurityService {
         if (username == null || password == null)
             return false;
 
-        Optional<AppUser> opt = userRepository.findByUsernameAndIsActiveTrue(username.trim());
+        Optional<AppUser> opt = userRepository.findByUsernameIgnoreCaseAndIsActiveTrue(username.trim());
         if (opt.isEmpty())
             return false;
 
