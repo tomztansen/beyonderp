@@ -235,6 +235,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                             for (Map<String, Object> srcRec : selectedRecords) {
                                 Map<String, Object> newRow = new HashMap<>();
                                 newRow.put("_tempId", java.util.UUID.randomUUID().toString());
+                                newRow.put("lineno", getMaxLineNoFromItems(items));
                                 applyTargetMapping(newRow, srcRec, act.getTargetMapping());
                                 items.add(newRow);
                             }
@@ -290,6 +291,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                                         for (Map<String, Object> srcRec : selectedRecords) {
                                             Map<String, Object> newRow = new HashMap<>();
                                             newRow.put("_tempId", java.util.UUID.randomUUID().toString());
+                                            newRow.put("lineno", getMaxLineNoFromItems(items));
                                             applyTargetMapping(newRow, srcRec, act.getTargetMapping());
                                             items.add(newRow);
                                         }
@@ -1133,12 +1135,60 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     destCol = destCol.substring(7);
                 }
                 Object val = null;
-                if (srcRecord != null) {
+                if (srcRecord != null && !srcCol.toLowerCase().contains("coalesce(") && !srcCol.toLowerCase().contains("ifnull(") && !srcCol.contains("+") && !srcCol.contains("*") && !srcCol.contains("/")) {
                     val = getCaseInsensitiveVal(srcRecord, srcCol);
+                }
+                if (val == null && srcCol != null && !srcCol.isBlank()) {
+                    if (srcCol.toLowerCase().contains("coalesce(") || srcCol.toLowerCase().contains("ifnull(")
+                            || ((srcCol.contains("+") || srcCol.contains("*") || srcCol.contains("/") || (srcCol.contains("-") && !srcCol.startsWith("-")))
+                                && srcCol.matches(".*[a-zA-Z\\(\\)].*"))) {
+                        val = FormulaEvaluator.evaluateTargetExpression(srcCol, srcRecord, destRow);
+                    } else if ((srcCol.startsWith("'") && srcCol.endsWith("'")) || (srcCol.startsWith("\"") && srcCol.endsWith("\""))) {
+                        if (srcCol.length() >= 2) val = srcCol.substring(1, srcCol.length() - 1);
+                    } else if ("true".equalsIgnoreCase(srcCol) || "false".equalsIgnoreCase(srcCol)) {
+                        val = Boolean.parseBoolean(srcCol);
+                    } else if ("null".equalsIgnoreCase(srcCol)) {
+                        val = null;
+                    } else {
+                        try {
+                            if (srcCol.contains(".")) {
+                                val = new java.math.BigDecimal(srcCol);
+                            } else {
+                                val = Integer.parseInt(srcCol);
+                            }
+                        } catch (Exception e) {
+                            try {
+                                val = Long.parseLong(srcCol);
+                            } catch (Exception e2) {
+                                // Bukan angka literal, biarkan val null
+                            }
+                        }
+                    }
                 }
                 putCaseInsensitiveVal(destRow, destCol, val);
             }
         }
+    }
+
+    private int getMaxLineNoFromItems(List<Map<String, Object>> list) {
+        if (list == null || list.isEmpty()) return 0;
+        int max = 0;
+        for (Map<String, Object> row : list) {
+            if (row != null) {
+                Object val = getCaseInsensitiveVal(row, "lineno");
+                if (val == null) val = getCaseInsensitiveVal(row, "seq");
+                if (val == null) val = getCaseInsensitiveVal(row, "no");
+                if (val instanceof Number) {
+                    if (((Number) val).intValue() > max) max = ((Number) val).intValue();
+                } else if (val != null) {
+                    try {
+                        int v = Integer.parseInt(val.toString());
+                        if (v > max) max = v;
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+        return max;
     }
 
     private void putCaseInsensitiveVal(Map<String, Object> map, String key, Object value) {

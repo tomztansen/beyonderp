@@ -470,7 +470,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         for (Map<String, Object> srcRec : selectedRecords) {
                             Map<String, Object> newRow = new HashMap<>();
                             newRow.put("_tempId", java.util.UUID.randomUUID().toString());
-                            applyTargetMapping(newRow, srcRec, act.getTargetMapping());
+                            newRow.put("lineno", getMaxLineNoFromList(detailsList));
+                            applyTargetMapping(newRow, newRow, srcRec, act.getTargetMapping());
                             detailsList.add(newRow);
                         }
                         applyDetailsFilters();
@@ -524,7 +525,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                             for (Map<String, Object> srcRec : selectedRecords) {
                                 Map<String, Object> newRow = new HashMap<>();
                                 newRow.put("_tempId", java.util.UUID.randomUUID().toString());
-                                applyTargetMapping(newRow, srcRec, act.getTargetMapping());
+                                newRow.put("lineno", getMaxLineNoFromList(detailsList));
+                                applyTargetMapping(newRow, newRow, srcRec, act.getTargetMapping());
                                 detailsList.add(newRow);
                             }
                             applyDetailsFilters();
@@ -558,7 +560,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     if ("ON_DETAIL_ADD".equalsIgnoreCase(scope)) {
                         for (Map<String, Object> targetRow : targetRows) {
                             if (targetRow != null) {
-                                applyTargetMapping(targetRow, srcRec, act.getTargetMapping());
+                                applyTargetMapping(targetRow, targetRow, srcRec, act.getTargetMapping());
                                 calculateRowTotal(targetRow);
                             }
                         }
@@ -585,6 +587,10 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     }
 
     private void applyTargetMapping(Map<String, Object> destRow, Map<String, Object> srcRecord, String targetMapping) {
+        applyTargetMapping(destRow, null, srcRecord, targetMapping);
+    }
+
+    private void applyTargetMapping(Map<String, Object> destRow, Map<String, Object> detailRow, Map<String, Object> srcRecord, String targetMapping) {
         if (targetMapping == null || targetMapping.trim().isEmpty()) return;
         String clean = targetMapping.trim();
         if (clean.startsWith("{") && clean.endsWith("}")) {
@@ -600,22 +606,76 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 if (srcCol.toLowerCase().startsWith("source.")) {
                     srcCol = srcCol.substring(7);
                 }
+                Map<String, Object> evalRow = (destCol.toLowerCase().startsWith("detail.") && detailRow != null) ? detailRow : destRow;
                 Object val = null;
-                if (srcRecord != null) {
+                if (srcRecord != null && !srcCol.toLowerCase().contains("coalesce(") && !srcCol.toLowerCase().contains("ifnull(") && !srcCol.contains("+") && !srcCol.contains("*") && !srcCol.contains("/")) {
                     val = getValueCaseInsensitive(srcRecord, srcCol);
+                }
+                if (val == null && srcCol != null && !srcCol.isBlank()) {
+                    if (srcCol.toLowerCase().contains("coalesce(") || srcCol.toLowerCase().contains("ifnull(")
+                            || ((srcCol.contains("+") || srcCol.contains("*") || srcCol.contains("/") || (srcCol.contains("-") && !srcCol.startsWith("-")))
+                                && srcCol.matches(".*[a-zA-Z\\(\\)].*"))) {
+                        val = com.vaadinerp.util.FormulaEvaluator.evaluateTargetExpression(srcCol, srcRecord, evalRow);
+                    } else if ((srcCol.startsWith("'") && srcCol.endsWith("'")) || (srcCol.startsWith("\"") && srcCol.endsWith("\""))) {
+                        if (srcCol.length() >= 2) val = srcCol.substring(1, srcCol.length() - 1);
+                    } else if ("true".equalsIgnoreCase(srcCol) || "false".equalsIgnoreCase(srcCol)) {
+                        val = Boolean.parseBoolean(srcCol);
+                    } else if ("null".equalsIgnoreCase(srcCol)) {
+                        val = null;
+                    } else {
+                        try {
+                            if (srcCol.contains(".")) {
+                                val = new java.math.BigDecimal(srcCol);
+                            } else {
+                                val = Integer.parseInt(srcCol);
+                            }
+                        } catch (Exception e) {
+                            try {
+                                val = Long.parseLong(srcCol);
+                            } catch (Exception e2) {
+                                // Bukan angka literal, biarkan val null
+                            }
+                        }
+                    }
                 }
                 if (destCol.toLowerCase().startsWith("detail.")) {
                     String dCol = destCol.substring(7);
-                    for (Map<String, Object> row : detailsList) {
-                        putValueCaseInsensitive(row, dCol, val);
-                        calculateRowTotal(row);
+                    if (detailRow != null) {
+                        putValueCaseInsensitive(detailRow, dCol, val);
+                        calculateRowTotal(detailRow);
+                    } else {
+                        for (Map<String, Object> row : detailsList) {
+                            putValueCaseInsensitive(row, dCol, val);
+                            calculateRowTotal(row);
+                        }
+                        applyDetailsFilters();
                     }
-                    applyDetailsFilters();
                 } else {
                     putValueCaseInsensitive(destRow, destCol, val);
                 }
             }
         }
+    }
+
+    private int getMaxLineNoFromList(List<Map<String, Object>> list) {
+        if (list == null || list.isEmpty()) return 0;
+        int max = 0;
+        for (Map<String, Object> row : list) {
+            if (row != null) {
+                Object val = getValueCaseInsensitive(row, "lineno");
+                if (val == null) val = getValueCaseInsensitive(row, "seq");
+                if (val == null) val = getValueCaseInsensitive(row, "no");
+                if (val instanceof Number) {
+                    if (((Number) val).intValue() > max) max = ((Number) val).intValue();
+                } else if (val != null) {
+                    try {
+                        int v = Integer.parseInt(val.toString());
+                        if (v > max) max = v;
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+        return max;
     }
 
     private void buildToolbar(FormMeta formDef) {
@@ -1098,8 +1158,23 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
         } else {
             com.vaadinerp.components.DynamicPickerPopupDialog dlg = new com.vaadinerp.components.DynamicPickerPopupDialog(act, dynamicDataService, headerBean, selectedRecords -> {
+                boolean hasDetailMapping = act.getTargetMapping() != null && act.getTargetMapping().toLowerCase().contains("detail.");
                 for (Map<String, Object> srcRec : selectedRecords) {
-                    applyTargetMapping(headerBean, srcRec, act.getTargetMapping());
+                    if (hasDetailMapping && detailsList != null) {
+                        Map<String, Object> newDetailRow = new HashMap<>();
+                        newDetailRow.put("_tempId", java.util.UUID.randomUUID().toString());
+                        newDetailRow.put("lineno", getMaxLineNoFromList(detailsList));
+                        applyTargetMapping(headerBean, newDetailRow, srcRec, act.getTargetMapping());
+                        detailsList.add(newDetailRow);
+                    } else {
+                        applyTargetMapping(headerBean, null, srcRec, act.getTargetMapping());
+                    }
+                }
+                if (hasDetailMapping) {
+                    if (detailsGrid != null && detailsGrid.getDataProvider() != null) {
+                        detailsGrid.getDataProvider().refreshAll();
+                    }
+                    applyDetailsFilters();
                 }
                 if (formBinder != null) formBinder.readBean(headerBean);
             });

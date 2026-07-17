@@ -20,8 +20,8 @@ public class SecurityNavigationGuard implements VaadinServiceInitListener {
             uiEvent.getUI().addBeforeEnterListener(enterEvent -> {
                 String location = enterEvent.getLocation().getPath();
                 
-                // Rute halaman 'login' dikecualikan dari pemeriksaan sesi
-                if ("login".equalsIgnoreCase(location)) {
+                // Rute halaman 'login' dan 'actuator' dikecualikan dari pemeriksaan sesi
+                if ("login".equalsIgnoreCase(location) || location.startsWith("actuator")) {
                     return;
                 }
 
