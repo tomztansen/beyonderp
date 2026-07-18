@@ -1298,10 +1298,13 @@ public class DynamicDataService {
 
         if (fkColumn != null) {
             String tableName = getQualifiedTableName(formMeta.getTableName());
-            try {
-                jdbcTemplate.execute("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS " + fkColumn + " INTEGER");
-            } catch (Exception ex) {
-                log.warn("Gagal menambah kolom FK '{}' ke tabel '{}': {}", fkColumn, tableName, ex.getMessage());
+            List<String> existingCols = fetchTableColumns(formMeta.getTableName());
+            if (!existingCols.stream().anyMatch(fkColumn::equalsIgnoreCase)) {
+                try {
+                    jdbcTemplate.execute("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS " + fkColumn + " INTEGER");
+                } catch (Exception ex) {
+                    log.warn("Gagal menambah kolom FK '{}' ke tabel '{}': {}", fkColumn, tableName, ex.getMessage());
+                }
             }
         }
 
@@ -1733,7 +1736,26 @@ public class DynamicDataService {
             }
             return map;
         });
-        return colTypes.getOrDefault(columnName.toLowerCase(), "");
+        String foundType = colTypes.getOrDefault(columnName.toLowerCase(), "");
+        if (foundType.isEmpty()) {
+            try {
+                List<Map<String, Object>> cols = fetchTableSchemaDetails(rawName);
+                if (cols != null && !cols.isEmpty()) {
+                    Map<String, String> refreshedMap = new java.util.HashMap<>();
+                    for (Map<String, Object> col : cols) {
+                        Object cName = col.get("column_name");
+                        Object dType = col.get("data_type");
+                        if (cName != null && dType != null) {
+                            refreshedMap.put(cName.toString().toLowerCase(), dType.toString().toLowerCase());
+                        }
+                    }
+                    tableColumnTypeCache.put(rawName, refreshedMap);
+                    foundType = refreshedMap.getOrDefault(columnName.toLowerCase(), "");
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return foundType;
     }
 
     private Object sanitizeJdbcValue(String tableName, String columnName, Object val) {
@@ -1762,17 +1784,29 @@ public class DynamicDataService {
             }
         }
 
+        if (val instanceof Number numVal && tableName != null && columnName != null && !(val instanceof Long)) {
+            String colType = getColumnDataType(tableName, columnName);
+            if ("bigint".equals(colType) || "bigserial".equals(colType) || "int8".equals(colType)) {
+                return numVal.longValue();
+            }
+        }
+
         if (val instanceof String strVal && tableName != null && columnName != null) {
             String trimmedStr = strVal.trim();
             if (!trimmedStr.isEmpty()) {
                 String colType = getColumnDataType(tableName, columnName);
-                if ("integer".equals(colType) || "smallint".equals(colType) || "serial".equals(colType)) {
+                if ("integer".equals(colType) || "smallint".equals(colType) || "serial".equals(colType)
+                        || "int4".equals(colType) || "int2".equals(colType)) {
                     try {
                         return Integer.valueOf(trimmedStr);
                     } catch (Exception ex) {
                         log.trace("Konversi ke Integer gagal untuk '{}': {}", trimmedStr, ex.getMessage());
                     }
-                } else if ("bigint".equals(colType) || "bigserial".equals(colType)) {
+                } else if ("bigint".equals(colType) || "bigserial".equals(colType) || "int8".equals(colType)
+                        || (colType.isEmpty() && trimmedStr.matches("^-?\\d+$")
+                                && (columnName.equalsIgnoreCase("id") || columnName.toLowerCase().endsWith("id") || columnName.equalsIgnoreCase("version")))
+                        || ("numeric".equals(colType) && trimmedStr.matches("^-?\\d+$")
+                                && (columnName.equalsIgnoreCase("id") || columnName.toLowerCase().endsWith("id")))) {
                     try {
                         return Long.valueOf(trimmedStr);
                     } catch (Exception ex) {
@@ -2209,33 +2243,35 @@ public class DynamicDataService {
         if (formMeta == null || formMeta.getTableName() == null || formMeta.getTableName().trim().isEmpty()) {
             return;
         }
-        jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS dynamic;");
+        List<String> existingCols = fetchTableColumns(formMeta.getTableName());
         String tableName = getQualifiedTableName(formMeta.getTableName());
         String pk = formMeta.getPrimaryKey() != null ? formMeta.getPrimaryKey() : "id";
 
-        // 1. Buat tabel minimal jika belum ada
-        boolean isTextPk = !pk.equalsIgnoreCase("id");
-        if (formMeta.getFields() != null) {
-            for (FieldMeta fm : formMeta.getFields()) {
-                if (fm.getFieldName().equalsIgnoreCase(pk)) {
-                    if (fm.getSequenceCode() != null || "TEXTBOX".equalsIgnoreCase(fm.getComponentType())
-                            || "VARCHAR".equalsIgnoreCase(fm.getComponentType())
-                            || "STRING".equalsIgnoreCase(fm.getComponentType())
-                            || "TEXTFIELD".equalsIgnoreCase(fm.getComponentType())) {
-                        isTextPk = true;
+        if (existingCols.isEmpty()) {
+            jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS dynamic;");
+            // 1. Buat tabel minimal jika belum ada
+            boolean isTextPk = !pk.equalsIgnoreCase("id");
+            if (formMeta.getFields() != null) {
+                for (FieldMeta fm : formMeta.getFields()) {
+                    if (fm.getFieldName().equalsIgnoreCase(pk)) {
+                        if (fm.getSequenceCode() != null || "TEXTBOX".equalsIgnoreCase(fm.getComponentType())
+                                || "VARCHAR".equalsIgnoreCase(fm.getComponentType())
+                                || "STRING".equalsIgnoreCase(fm.getComponentType())
+                                || "TEXTFIELD".equalsIgnoreCase(fm.getComponentType())) {
+                            isTextPk = true;
+                        }
+                        break;
                     }
-                    break;
                 }
             }
+            StringBuilder createSql = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
+            createSql.append(tableName).append(" (");
+            createSql.append(pk).append(isTextPk ? " VARCHAR(100) PRIMARY KEY" : " SERIAL PRIMARY KEY");
+            createSql.append(")");
+            jdbcTemplate.execute(createSql.toString());
         }
-        StringBuilder createSql = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
-        createSql.append(tableName).append(" (");
-        createSql.append(pk).append(isTextPk ? " VARCHAR(100) PRIMARY KEY" : " SERIAL PRIMARY KEY");
-        createSql.append(")");
-        jdbcTemplate.execute(createSql.toString());
 
-        // 2. Tambahkan kolom satu per satu jika belum ada (ALTER TABLE ADD COLUMN IF
-        // NOT EXISTS)
+        // 2. Tambahkan kolom satu per satu jika belum ada (ALTER TABLE ADD COLUMN IF NOT EXISTS)
         for (FieldMeta field : formMeta.getFields()) {
             if (field.isDetail() && "MASTER_DETAIL".equalsIgnoreCase(formMeta.getFormType()))
                 continue; // Skip detail columns for master table
@@ -2246,6 +2282,8 @@ public class DynamicDataService {
             String colName = field.getFieldName();
             if (colName.equalsIgnoreCase(pk))
                 continue;
+            if (existingCols.stream().anyMatch(colName::equalsIgnoreCase))
+                continue; // Kolom sudah ada di database, skip DDL!
 
             String typeDef;
             if ("DECIMALBOX".equalsIgnoreCase(field.getComponentType())) {
@@ -2277,13 +2315,27 @@ public class DynamicDataService {
     public void ensureAuditColumnsExist(String tableName) {
         if (tableName == null || tableName.trim().isEmpty())
             return;
+        List<String> cols = fetchTableColumns(tableName);
+        boolean hasInputBy = cols.stream().anyMatch("inputby"::equalsIgnoreCase);
+        boolean hasInputDt = cols.stream().anyMatch("inputdt"::equalsIgnoreCase);
+        boolean hasUpdateBy = cols.stream().anyMatch("updateby"::equalsIgnoreCase);
+        boolean hasUpdateDt = cols.stream().anyMatch("updatedt"::equalsIgnoreCase);
+        boolean hasVersion = cols.stream().anyMatch("version"::equalsIgnoreCase);
+        if (hasInputBy && hasInputDt && hasUpdateBy && hasUpdateDt && hasVersion) {
+            return;
+        }
         String qTable = getQualifiedTableName(tableName);
         try {
-            jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS inputby VARCHAR(255)");
-            jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS inputdt TIMESTAMP");
-            jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS updateby VARCHAR(255)");
-            jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS updatedt TIMESTAMP");
-            jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 0");
+            if (!hasInputBy)
+                jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS inputby VARCHAR(255)");
+            if (!hasInputDt)
+                jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS inputdt TIMESTAMP");
+            if (!hasUpdateBy)
+                jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS updateby VARCHAR(255)");
+            if (!hasUpdateDt)
+                jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS updatedt TIMESTAMP");
+            if (!hasVersion)
+                jdbcTemplate.execute("ALTER TABLE " + qTable + " ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 0");
         } catch (Exception ex) {
             log.warn("Gagal menambahkan kolom audit ke tabel '{}': {}", qTable, ex.getMessage());
         }
@@ -4028,36 +4080,39 @@ public class DynamicDataService {
                 return;
             }
 
-            jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS dynamic;");
+            List<String> detailExistingCols = fetchTableColumns(detailTableName);
             String qDetailTable = getQualifiedTableName(detailTableName);
 
-            // 1. Create detail table if not exists
-            boolean isDetailTextPk = !detailPk.equalsIgnoreCase("id");
-            boolean isFkText = !masterPk.equalsIgnoreCase("id");
-            if (formMeta.getFields() != null) {
-                for (FieldMeta fm : formMeta.getFields()) {
-                    if (fm.getFieldName().equalsIgnoreCase(detailPk)
-                            && (fm.getSequenceCode() != null || "TEXTBOX".equalsIgnoreCase(fm.getComponentType())
+            if (detailExistingCols.isEmpty()) {
+                jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS dynamic;");
+                // 1. Create detail table if not exists
+                boolean isDetailTextPk = !detailPk.equalsIgnoreCase("id");
+                boolean isFkText = !masterPk.equalsIgnoreCase("id");
+                if (formMeta.getFields() != null) {
+                    for (FieldMeta fm : formMeta.getFields()) {
+                        if (fm.getFieldName().equalsIgnoreCase(detailPk)
+                                && (fm.getSequenceCode() != null || "TEXTBOX".equalsIgnoreCase(fm.getComponentType())
+                                        || "VARCHAR".equalsIgnoreCase(fm.getComponentType())
+                                        || "STRING".equalsIgnoreCase(fm.getComponentType()))) {
+                            isDetailTextPk = true;
+                        }
+                        if (fm.getFieldName().equalsIgnoreCase(detailFk) || fm.getFieldName().equalsIgnoreCase(masterPk)) {
+                            if (fm.getSequenceCode() != null || "TEXTBOX".equalsIgnoreCase(fm.getComponentType())
                                     || "VARCHAR".equalsIgnoreCase(fm.getComponentType())
-                                    || "STRING".equalsIgnoreCase(fm.getComponentType()))) {
-                        isDetailTextPk = true;
-                    }
-                    if (fm.getFieldName().equalsIgnoreCase(detailFk) || fm.getFieldName().equalsIgnoreCase(masterPk)) {
-                        if (fm.getSequenceCode() != null || "TEXTBOX".equalsIgnoreCase(fm.getComponentType())
-                                || "VARCHAR".equalsIgnoreCase(fm.getComponentType())
-                                || "STRING".equalsIgnoreCase(fm.getComponentType())
-                                || "TEXTFIELD".equalsIgnoreCase(fm.getComponentType())) {
-                            isFkText = true;
+                                    || "STRING".equalsIgnoreCase(fm.getComponentType())
+                                    || "TEXTFIELD".equalsIgnoreCase(fm.getComponentType())) {
+                                isFkText = true;
+                            }
                         }
                     }
                 }
+                StringBuilder createSql = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
+                createSql.append(qDetailTable).append(" (");
+                createSql.append(detailPk).append(isDetailTextPk ? " VARCHAR(100) PRIMARY KEY, " : " SERIAL PRIMARY KEY, ");
+                createSql.append(detailFk).append(isFkText ? " VARCHAR(100) NOT NULL" : " INTEGER NOT NULL");
+                createSql.append(")");
+                jdbcTemplate.execute(createSql.toString());
             }
-            StringBuilder createSql = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
-            createSql.append(qDetailTable).append(" (");
-            createSql.append(detailPk).append(isDetailTextPk ? " VARCHAR(100) PRIMARY KEY, " : " SERIAL PRIMARY KEY, ");
-            createSql.append(detailFk).append(isFkText ? " VARCHAR(100) NOT NULL" : " INTEGER NOT NULL");
-            createSql.append(")");
-            jdbcTemplate.execute(createSql.toString());
 
             // 2. Add dynamic columns for detail fields
             for (FieldMeta field : formMeta.getFields()) {
@@ -4068,6 +4123,8 @@ public class DynamicDataService {
                 String colName = field.getFieldName();
                 if (colName.equalsIgnoreCase(detailPk) || colName.equalsIgnoreCase(detailFk))
                     continue;
+                if (detailExistingCols.stream().anyMatch(colName::equalsIgnoreCase))
+                    continue; // Kolom sudah ada, skip DDL!
 
                 String typeDef;
                 if ("DECIMALBOX".equalsIgnoreCase(field.getComponentType())) {
@@ -4153,11 +4210,11 @@ public class DynamicDataService {
         if (cleanMapping.startsWith("{") && cleanMapping.endsWith("}")) {
             cleanMapping = cleanMapping.substring(1, cleanMapping.length() - 1).trim();
         }
-        String[] pairs = cleanMapping.split(",");
+        String[] pairs = com.vaadinerp.util.FormulaEvaluator.splitTopLevelComma(cleanMapping);
         for (String pair : pairs) {
-            String[] kv = pair.split(":");
+            String[] kv = pair.split(":", 2);
             if (kv.length < 2)
-                kv = pair.split("=");
+                kv = pair.split("=", 2);
             if (kv.length == 2) {
                 String col = kv[0].replaceAll("[\"']", "").trim();
                 String valSpec = kv[1].trim();
@@ -4264,11 +4321,11 @@ public class DynamicDataService {
             if (cleanMapping.startsWith("{") && cleanMapping.endsWith("}")) {
                 cleanMapping = cleanMapping.substring(1, cleanMapping.length() - 1).trim();
             }
-            String[] pairs = cleanMapping.split(",");
+            String[] pairs = com.vaadinerp.util.FormulaEvaluator.splitTopLevelComma(cleanMapping);
             for (String pair : pairs) {
-                String[] kv = pair.split(":");
+                String[] kv = pair.split(":", 2);
                 if (kv.length < 2)
-                    kv = pair.split("=");
+                    kv = pair.split("=", 2);
                 if (kv.length == 2) {
                     String col = kv[0].replaceAll("[\"']", "").trim();
                     validateSqlIdentifier(col, "action filter column");

@@ -126,7 +126,7 @@ public class FormBuilderView extends VerticalLayout {
         public String componentType;
         public String lovCode;
         public int rowGroup = 1;
-        public Integer colSpan = 1;
+        public Integer colSpan;
         public boolean isRequired;
         public boolean isReadonly;
         public String readonlyMode = "NONE";
@@ -300,21 +300,66 @@ public class FormBuilderView extends VerticalLayout {
                         "  style.id = id;" +
                         "  style.innerHTML = `" +
                         "    .row-drop-zone {" +
+                        "      position: relative;" +
+                        "      display: flex;" +
+                        "      align-items: center;" +
+                        "      justify-content: center;" +
                         "      height: 4px;" +
                         "      background-color: transparent;" +
-                        "      border-radius: 3px;" +
+                        "      border-radius: 4px;" +
                         "      transition: all 0.15s ease;" +
-                        "      margin: 2px 0;" +
+                        "      margin: 3px 0;" +
+                        "      overflow: hidden;" +
                         "    }" +
                         "    .dragging-active .row-drop-zone {" +
-                        "      background-color: #e2e8f0;" +
-                        "      border: 1px dashed #cbd5e1;" +
-                        "      height: 8px;" +
+                        "      background-color: #f1f5f9;" +
+                        "      border: 1px dashed #94a3b8;" +
+                        "      height: 14px;" +
+                        "    }" +
+                        "    .row-drop-zone::after {" +
+                        "      content: attr(data-label);" +
+                        "      font-size: 11px;" +
+                        "      font-weight: 700;" +
+                        "      color: #ffffff;" +
+                        "      letter-spacing: 0.3px;" +
+                        "      opacity: 0;" +
+                        "      transition: opacity 0.15s ease;" +
+                        "      pointer-events: none;" +
+                        "      white-space: nowrap;" +
+                        "      text-shadow: 0 1px 2px rgba(0,0,0,0.3);" +
                         "    }" +
                         "    .row-drop-zone.drag-over {" +
-                        "      background-color: #6366f1 !important;" +
-                        "      height: 16px !important;" +
-                        "      border: none !important;" +
+                        "      background: linear-gradient(90deg, #4f46e5, #6366f1, #4f46e5) !important;" +
+                        "      height: 26px !important;" +
+                        "      border: 1px solid #818cf8 !important;" +
+                        "      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4) !important;" +
+                        "    }" +
+                        "    .row-drop-zone.drag-over::after {" +
+                        "      opacity: 1;" +
+                        "    }" +
+                        "    .field-card {" +
+                        "      position: relative;" +
+                        "    }" +
+                        "    .field-card.card-drag-over::before {" +
+                        "      content: attr(data-card-label);" +
+                        "      position: absolute;" +
+                        "      top: -12px;" +
+                        "      right: 8px;" +
+                        "      background: #4f46e5;" +
+                        "      color: #ffffff;" +
+                        "      font-size: 10px;" +
+                        "      font-weight: 700;" +
+                        "      padding: 3px 10px;" +
+                        "      border-radius: 12px;" +
+                        "      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.45);" +
+                        "      z-index: 100;" +
+                        "      pointer-events: none;" +
+                        "      white-space: nowrap;" +
+                        "      animation: fadeInBadge 0.15s ease;" +
+                        "    }" +
+                        "    @keyframes fadeInBadge {" +
+                        "      from { opacity: 0; transform: translateY(4px); }" +
+                        "      to { opacity: 1; transform: translateY(0); }" +
                         "    }" +
                         "  `;" +
                         "  document.head.appendChild(style);" +
@@ -627,6 +672,7 @@ public class FormBuilderView extends VerticalLayout {
         temp.fieldLabel = "Label " + type + " " + count;
         temp.componentType = type;
         temp.rowGroup = 1;
+        temp.colSpan = "SUBFORM_GRID".equalsIgnoreCase(type) ? null : 1;
         temp.isRequired = false;
         temp.isReadonly = false;
         temp.showInGrid = !"SUBFORM_GRID".equalsIgnoreCase(type);
@@ -1150,6 +1196,7 @@ public class FormBuilderView extends VerticalLayout {
         Div zone = new Div();
         zone.addClassName("row-drop-zone");
         zone.setWidthFull();
+        zone.getElement().setAttribute("data-label", "⬇ Pindahkan sebagai Baris " + targetRowGroup + " (Row Group " + targetRowGroup + ")");
 
         DropTarget<Div> dropTarget = DropTarget.create(zone);
         dropTarget.setActive(true);
@@ -1258,6 +1305,8 @@ public class FormBuilderView extends VerticalLayout {
 
     private Component buildFieldCard(FieldMetaTemp temp, int sequence) {
         VerticalLayout card = new VerticalLayout();
+        card.addClassName("field-card");
+        card.getElement().setAttribute("data-card-label", "🎯 Gabung ke Baris " + temp.rowGroup + " (Row Group " + temp.rowGroup + ")");
         card.setPadding(true);
         card.setSpacing(false);
 
@@ -1437,15 +1486,18 @@ public class FormBuilderView extends VerticalLayout {
         card.getElement().addEventListener("dragenter", e -> {
             card.getStyle().set("border", "2px dashed #6366f1");
             card.getStyle().set("background-color", "#e0e7ff");
+            card.addClassName("card-drag-over");
         });
 
         card.getElement().addEventListener("dragleave", e -> {
             card.getStyle()
                     .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
                     .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
+            card.removeClassName("card-drag-over");
         });
 
         dropTarget.addDropListener(e -> {
+            card.removeClassName("card-drag-over");
             if (draggedField != null && draggedField != temp) {
                 int srcIdx = fieldsList.indexOf(draggedField);
                 int destIdx = fieldsList.indexOf(temp);
@@ -3114,7 +3166,7 @@ public class FormBuilderView extends VerticalLayout {
                     temp.componentType = field.getComponentType();
                     temp.lovCode = field.getLovCode();
                     temp.rowGroup = field.getRowGroup() != null ? field.getRowGroup() : 1;
-                    temp.colSpan = field.getColSpan() != null ? field.getColSpan() : 1;
+                    temp.colSpan = field.getColSpan();
                     temp.isRequired = field.isRequired();
                     temp.isReadonly = field.isReadonly();
                     temp.readonlyMode = field.getReadonlyMode() != null ? field.getReadonlyMode() : (field.isReadonly() ? "EDIT_AND_ADD" : "NONE");
@@ -3437,6 +3489,7 @@ public class FormBuilderView extends VerticalLayout {
                 temp.fieldName = colName;
                 temp.fieldLabel = formatLabelFromColumnName(colName);
                 temp.componentType = mapDataTypeToComponentType(dataType);
+                temp.colSpan = "SUBFORM_GRID".equalsIgnoreCase(temp.componentType) ? null : 1;
                 temp.showInGrid = !"SUBFORM_GRID".equalsIgnoreCase(temp.componentType);
                 temp.isSortable = true;
                 temp.saveOnInsert = true;
