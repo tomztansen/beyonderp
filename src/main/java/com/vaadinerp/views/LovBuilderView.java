@@ -43,7 +43,7 @@ public class LovBuilderView extends VerticalLayout {
         setPadding(true);
         setSpacing(true);
 
-        H3 title = new H3("LOV (List of Values) Builder");
+        H3 title = new H3("");
         title.getStyle().set("margin-top", "0").set("margin-bottom", "5px");
 
         HorizontalLayout toolbar = buildToolbar();
@@ -116,7 +116,8 @@ public class LovBuilderView extends VerticalLayout {
     private VerticalLayout buildEditorLayout() {
         VerticalLayout editorLayout = new VerticalLayout();
         editorLayout.setPadding(true);
-        editorLayout.getStyle().set("background-color", "#ffffff").set("border-radius", "8px").set("border", "1px solid #e2e8f0");
+        editorLayout.getStyle().set("background-color", "#ffffff").set("border-radius", "8px").set("border",
+                "1px solid #e2e8f0");
 
         lovCodeField.setWidthFull();
         lovNameField.setWidthFull();
@@ -126,11 +127,13 @@ public class LovBuilderView extends VerticalLayout {
             if (e.isFromClient() && e.getValue() != null && !e.getValue().trim().isEmpty()) {
                 java.util.List<String> columns = dataService.getColumnsForQueryOrTable(e.getValue().trim());
                 if (!columns.isEmpty()) {
-                    if (valueColumnField.isEmpty()) valueColumnField.setValue(columns.get(0));
+                    if (valueColumnField.isEmpty())
+                        valueColumnField.setValue(columns.get(0));
                     if (labelColumnField.isEmpty()) {
                         String label = columns.get(0);
                         for (String col : columns) {
-                            if (col.toLowerCase().contains("name") || col.toLowerCase().contains("title") || col.toLowerCase().contains("desc")) {
+                            if (col.toLowerCase().contains("name") || col.toLowerCase().contains("title")
+                                    || col.toLowerCase().contains("desc")) {
                                 label = col;
                                 break;
                             }
@@ -158,8 +161,7 @@ public class LovBuilderView extends VerticalLayout {
                 tableNameField,
                 valueLabelRow,
                 searchColumnField,
-                gridColumnsField
-        );
+                gridColumnsField);
         return editorLayout;
     }
 

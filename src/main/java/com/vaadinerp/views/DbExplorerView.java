@@ -160,15 +160,15 @@ public class DbExplorerView extends VerticalLayout {
         schemaLayout.setPadding(false);
         schemaLayout.setSpacing(true);
 
-        schemaGrid.setHeight("200px");
+        schemaGrid.setHeight("400px");
         schemaGrid.getStyle().set("border-radius", "8px");
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(schemaGrid);
 
-        triggersGrid.setHeight("180px");
+        triggersGrid.setHeight("250px");
         triggersGrid.getStyle().set("border-radius", "8px");
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(triggersGrid);
 
-        constraintsGrid.setHeight("180px");
+        constraintsGrid.setHeight("250px");
         constraintsGrid.getStyle().set("border-radius", "8px");
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(constraintsGrid);
 
@@ -243,10 +243,20 @@ public class DbExplorerView extends VerticalLayout {
         triggerHeader.setAlignItems(Alignment.CENTER);
         triggerHeader.setSpacing(true);
 
+        VerticalLayout constraintLayout = new VerticalLayout(constraintHeader, constraintsGrid);
+        constraintLayout.setPadding(false);
+        com.vaadin.flow.component.details.Details constraintDetails = new com.vaadin.flow.component.details.Details("Database Constraints", constraintLayout);
+        constraintDetails.setWidthFull();
+
+        VerticalLayout triggerLayout = new VerticalLayout(triggerHeader, triggersGrid);
+        triggerLayout.setPadding(false);
+        com.vaadin.flow.component.details.Details triggerDetails = new com.vaadin.flow.component.details.Details("Active Database Triggers", triggerLayout);
+        triggerDetails.setWidthFull();
+
         schemaLayout.add(
                 columnHeader, schemaGrid,
-                new H4("Database Constraints"), constraintHeader, constraintsGrid,
-                new H4("Active Database Triggers"), triggerHeader, triggersGrid);
+                constraintDetails,
+                triggerDetails);
 
         ProcedureDesignerView procedureView = new ProcedureDesignerView(dynamicDataService);
         explorerTabs.add("Data Tabel", dataLayout);

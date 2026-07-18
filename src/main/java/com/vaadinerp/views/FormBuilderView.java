@@ -288,6 +288,7 @@ public class FormBuilderView extends VerticalLayout {
     private java.util.Map<String, FilterCriteria> filterValues = new java.util.HashMap<>();
     private java.util.List<FormMeta> allHistoryItems = new java.util.ArrayList<>();
 
+    @org.springframework.beans.factory.annotation.Autowired
     public FormBuilderView(FormMetaRepository formMetaRepository, LovMetaRepository lovMetaRepository,
             DynamicDataService dynamicDataService) {
         this(formMetaRepository, lovMetaRepository, dynamicDataService, null);
@@ -376,7 +377,7 @@ public class FormBuilderView extends VerticalLayout {
         setPadding(true);
         setSpacing(true);
 
-        H3 title = new H3("Form Builder");
+        H3 title = new H3("");
         title.getStyle().set("margin-top", "0").set("margin-bottom", "5px");
 
         // 1. TOOLBAR SETUP
@@ -629,7 +630,22 @@ public class FormBuilderView extends VerticalLayout {
         togglePropsBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         togglePropsBtn.addClickListener(e -> propertiesPanel.setVisible(!propertiesPanel.isVisible()));
 
-        HorizontalLayout canvasHeader = new HorizontalLayout(togglePaletteBtn, canvasTitle, togglePropsBtn);
+        Button fullscreenBtn = new Button(VaadinIcon.EXPAND_FULL.create());
+        fullscreenBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        fullscreenBtn.setTooltipText("Toggle Full Screen Canvas");
+        fullscreenBtn.addClickListener(e -> {
+            canvasPanel.getElement().executeJs(
+                    "if (!document.fullscreenElement) {" +
+                            "  this.requestFullscreen().catch(err => console.log(err));" +
+                            "} else {" +
+                            "  if (document.exitFullscreen) document.exitFullscreen();" +
+                            "}");
+        });
+
+        HorizontalLayout rightHeaderButtons = new HorizontalLayout(fullscreenBtn, togglePropsBtn);
+        rightHeaderButtons.setSpacing(true);
+
+        HorizontalLayout canvasHeader = new HorizontalLayout(togglePaletteBtn, canvasTitle, rightHeaderButtons);
         canvasHeader.setWidthFull();
         canvasHeader.setJustifyContentMode(JustifyContentMode.BETWEEN);
         canvasHeader.setAlignItems(FlexComponent.Alignment.CENTER);
