@@ -812,11 +812,11 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         if (clean.startsWith("{") && clean.endsWith("}")) {
             clean = clean.substring(1, clean.length() - 1).trim();
         }
-        String[] pairs = clean.split(",");
+        String[] pairs = com.vaadinerp.util.FormulaEvaluator.splitTopLevelComma(clean);
         for (String pair : pairs) {
-            String[] kv = pair.split(":");
+            String[] kv = pair.split(":", 2);
             if (kv.length < 2)
-                kv = pair.split("=");
+                kv = pair.split("=", 2);
             if (kv.length == 2) {
                 String destCol = kv[0].replaceAll("[\"']", "").trim();
                 String srcCol = kv[1].replaceAll("[\"']", "").trim();

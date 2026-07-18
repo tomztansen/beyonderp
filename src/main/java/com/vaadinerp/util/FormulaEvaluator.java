@@ -14,7 +14,7 @@ public class FormulaEvaluator {
             return 0.0;
         }
 
-        String parsedExpr = expression;
+        String parsedExpr = resolveDateTimeFunctions(expression, variables);
         if (variables != null) {
             for (Map.Entry<String, Object> entry : variables.entrySet()) {
                 String varName = entry.getKey();
@@ -159,7 +159,7 @@ public class FormulaEvaluator {
             }
 
             String innerArgs = expr.substring(openPos + 1, endPos);
-            String[] args = innerArgs.split(",");
+            String[] args = splitTopLevelComma(innerArgs);
             Object resolvedVal = null;
             for (String arg : args) {
                 arg = arg.trim();
@@ -199,7 +199,7 @@ public class FormulaEvaluator {
 
                 // Look up as variable name in srcRecord / destRow
                 Object lookupVal = getFieldValueCaseInsensitive(arg, srcRecord, destRow);
-                if (lookupVal != null) {
+                if (lookupVal != null && !"null".equalsIgnoreCase(lookupVal.toString()) && !lookupVal.toString().trim().isEmpty()) {
                     resolvedVal = lookupVal;
                     break;
                 }
@@ -219,8 +219,8 @@ public class FormulaEvaluator {
             if (expr.length() >= 2) return expr.substring(1, expr.length() - 1);
         }
 
-        // Check if there are arithmetic operators (+, -, *, /) remaining or if it's purely math
-        boolean hasMath = expr.contains("+") || expr.contains("*") || expr.contains("/") || (expr.contains("-") && !expr.startsWith("-"));
+        // Check if there are arithmetic operators or date/time functions remaining
+        boolean hasMath = expr.toLowerCase().contains("timediff") || expr.toLowerCase().contains("datediff") || expr.contains("+") || expr.contains("*") || expr.contains("/") || (expr.contains("-") && !expr.startsWith("-"));
         if (hasMath) {
             // Build combined variables map for any remaining variables outside coalesce
             java.util.Map<String, Object> combinedVars = new java.util.HashMap<>();
@@ -291,6 +291,152 @@ public class FormulaEvaluator {
         }
         String cleanKey = key.replaceAll("[_\\s-]+", "");
         for (Map.Entry<String, Object> entry : map.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().replaceAll("[_\\s-]+", "").equalsIgnoreCase(cleanKey)) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    public static String[] splitTopLevelComma(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            return new String[0];
+        }
+        java.util.List<String> result = new java.util.ArrayList<>();
+        int parenDepth = 0;
+        int bracketDepth = 0;
+        int braceDepth = 0;
+        boolean inSingleQuote = false;
+        boolean inDoubleQuote = false;
+        StringBuilder current = new StringBuilder();
+
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (c == '\'' && !inDoubleQuote) {
+                inSingleQuote = !inSingleQuote;
+            } else if (c == '"' && !inSingleQuote) {
+                inDoubleQuote = !inDoubleQuote;
+            } else if (!inSingleQuote && !inDoubleQuote) {
+                if (c == '(') parenDepth++;
+                else if (c == ')') parenDepth = Math.max(0, parenDepth - 1);
+                else if (c == '[') bracketDepth++;
+                else if (c == ']') bracketDepth = Math.max(0, bracketDepth - 1);
+                else if (c == '{') braceDepth++;
+                else if (c == '}') braceDepth = Math.max(0, braceDepth - 1);
+            }
+
+            if (c == ',' && parenDepth == 0 && bracketDepth == 0 && braceDepth == 0 && !inSingleQuote && !inDoubleQuote) {
+                result.add(current.toString().trim());
+                current.setLength(0);
+            } else {
+                current.append(c);
+            }
+        }
+        if (current.length() > 0) {
+            result.add(current.toString().trim());
+        }
+        return result.toArray(new String[0]);
+    }
+
+    public static String resolveDateTimeFunctions(String expr, Map<String, Object> variables) {
+        if (expr == null || variables == null || variables.isEmpty()) return expr;
+        
+        String[] funcNames = {"timediff_minutes(", "timediff_hours(", "datediff_days(", "timediff("};
+        String current = expr;
+        
+        for (String funcName : funcNames) {
+            while (true) {
+                int idx = indexOfIgnoreCase(current, funcName);
+                if (idx == -1) break;
+                
+                int openPos = idx + funcName.length() - 1;
+                int parenDepth = 1;
+                int endPos = -1;
+                for (int i = openPos + 1; i < current.length(); i++) {
+                    char c = current.charAt(i);
+                    if (c == '(') parenDepth++;
+                    else if (c == ')') {
+                        parenDepth--;
+                        if (parenDepth == 0) {
+                            endPos = i;
+                            break;
+                        }
+                    }
+                }
+                if (endPos == -1) break; // Mismatched paren
+                
+                String innerArgs = current.substring(openPos + 1, endPos);
+                String[] args = splitTopLevelComma(innerArgs);
+                double resultVal = 0.0;
+                if (args.length >= 2) {
+                    Object endVal = getCaseInsensitiveVar(variables, args[0].trim());
+                    Object startVal = getCaseInsensitiveVar(variables, args[1].trim());
+                    resultVal = calculateTimeDiff(funcName, startVal, endVal);
+                }
+                current = current.substring(0, idx) + resultVal + current.substring(endPos + 1);
+            }
+        }
+        return current;
+    }
+
+    private static double calculateTimeDiff(String funcName, Object startObj, Object endObj) {
+        if (startObj == null || endObj == null) return 0.0;
+        try {
+            java.time.LocalDateTime start = parseToLocalDateTime(startObj);
+            java.time.LocalDateTime end = parseToLocalDateTime(endObj);
+            if (start == null || end == null) return 0.0;
+
+            java.time.Duration duration = java.time.Duration.between(start, end);
+            long totalSeconds = duration.getSeconds();
+
+            if (funcName.equalsIgnoreCase("timediff_minutes(") || funcName.equalsIgnoreCase("timediff(")) {
+                return Math.round((totalSeconds / 60.0) * 100.0) / 100.0;
+            } else if (funcName.equalsIgnoreCase("timediff_hours(")) {
+                return Math.round((totalSeconds / 3600.0) * 100.0) / 100.0;
+            } else if (funcName.equalsIgnoreCase("datediff_days(")) {
+                return Math.round((totalSeconds / (3600.0 * 24.0)) * 100.0) / 100.0;
+            }
+        } catch (Exception ignored) {}
+        return 0.0;
+    }
+
+    private static java.time.LocalDateTime parseToLocalDateTime(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof java.time.LocalDateTime) return (java.time.LocalDateTime) obj;
+        if (obj instanceof java.time.LocalDate) return ((java.time.LocalDate) obj).atStartOfDay();
+        if (obj instanceof java.sql.Timestamp) return ((java.sql.Timestamp) obj).toLocalDateTime();
+        if (obj instanceof java.sql.Date) return ((java.sql.Date) obj).toLocalDate().atStartOfDay();
+        if (obj instanceof java.util.Date) return new java.sql.Timestamp(((java.util.Date) obj).getTime()).toLocalDateTime();
+        
+        String str = obj.toString().trim();
+        if (str.isEmpty() || "null".equalsIgnoreCase(str)) return null;
+        try {
+            return java.time.LocalDateTime.parse(str.replace(" ", "T"));
+        } catch (Exception e1) {
+            try {
+                return java.time.LocalDate.parse(str).atStartOfDay();
+            } catch (Exception e2) {
+                try {
+                    java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    return java.time.LocalDateTime.parse(str, dtf);
+                } catch (Exception e3) {
+                    return null;
+                }
+            }
+        }
+    }
+
+    private static Object getCaseInsensitiveVar(Map<String, Object> variables, String key) {
+        if (variables == null || key == null) return null;
+        Object val = variables.get(key);
+        if (val != null) return val;
+        for (Map.Entry<String, Object> entry : variables.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(key)) {
+                return entry.getValue();
+            }
+        }
+        String cleanKey = key.replaceAll("[_\\s-]+", "");
+        for (Map.Entry<String, Object> entry : variables.entrySet()) {
             if (entry.getKey() != null && entry.getKey().replaceAll("[_\\s-]+", "").equalsIgnoreCase(cleanKey)) {
                 return entry.getValue();
             }

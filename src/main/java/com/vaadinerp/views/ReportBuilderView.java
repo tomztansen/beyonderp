@@ -129,7 +129,7 @@ public class ReportBuilderView extends VerticalLayout {
 
                 // Find FormMeta corresponding to table
                 FormMeta matchedForm = formMetaRepository.findAll().stream()
-                        .filter(f -> f.getTableName().equalsIgnoreCase(selectedReport.getTableName()))
+                        .filter(f -> f.getTableName() != null && f.getTableName().equalsIgnoreCase(selectedReport.getTableName()))
                         .findFirst().orElse(null);
                 tableCombo.setValue(matchedForm);
 

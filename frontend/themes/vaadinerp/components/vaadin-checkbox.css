@@ -40,3 +40,10 @@
     font-weight: 500;
     color: var(--lumo-secondary-text-color);
 }
+
+/* Checkbox default background (unchecked) */
+[part='checkbox'] {
+    background-color: #ffffff;
+    border: 1px solid var(--lumo-contrast-40pct);
+    box-sizing: border-box;
+}

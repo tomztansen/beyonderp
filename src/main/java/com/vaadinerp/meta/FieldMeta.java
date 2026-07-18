@@ -38,7 +38,7 @@ public class FieldMeta {
     private Integer colOrder;
 
     @Column(name = "col_span")
-    private Integer colSpan = 1;
+    private Integer colSpan;
 
     @Column(name = "is_required")
     private boolean isRequired;
