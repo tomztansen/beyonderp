@@ -55,9 +55,9 @@ public class FormActionBuilderView extends VerticalLayout {
 
     @Autowired
     public FormActionBuilderView(FormActionMetaRepository actionRepository,
-                                 FormMetaRepository formRepository,
-                                 LovMetaRepository lovRepository,
-                                 com.vaadinerp.service.DynamicDataService dynamicDataService) {
+            FormMetaRepository formRepository,
+            LovMetaRepository lovRepository,
+            com.vaadinerp.service.DynamicDataService dynamicDataService) {
         this.actionRepository = actionRepository;
         this.formRepository = formRepository;
         this.lovRepository = lovRepository;
@@ -67,7 +67,7 @@ public class FormActionBuilderView extends VerticalLayout {
         setPadding(true);
         setSpacing(true);
 
-        H3 title = new H3("Extra Toolbar Builder (Form Action Metadata)");
+        H3 title = new H3("");
         title.getStyle().set("margin-top", "0").set("margin-bottom", "5px");
 
         HorizontalLayout toolbar = buildToolbar();
@@ -153,13 +153,14 @@ public class FormActionBuilderView extends VerticalLayout {
                 .collect(java.util.stream.Collectors.toList()));
         iconNameCombo.setAllowCustomValue(true);
         iconNameCombo.addCustomValueSetListener(e -> {
-            if (e.getDetail() != null) iconNameCombo.setValue(e.getDetail().toUpperCase());
+            if (e.getDetail() != null)
+                iconNameCombo.setValue(e.getDetail().toUpperCase());
         });
         iconNameCombo.setRenderer(com.vaadin.flow.data.renderer.LitRenderer.<String>of(
                 "<div style='display: flex; align-items: center; gap: 8px; padding: 2px 0;'>"
-                + "  <vaadin-icon icon='vaadin:${item.iconCode}' style='color: #3b82f6; font-size: 18px; flex-shrink: 0;'></vaadin-icon>"
-                + "  <span style='font-size: 0.9rem;'>${item.name}</span>"
-                + "</div>")
+                        + "  <vaadin-icon icon='vaadin:${item.iconCode}' style='color: #3b82f6; font-size: 18px; flex-shrink: 0;'></vaadin-icon>"
+                        + "  <span style='font-size: 0.9rem;'>${item.name}</span>"
+                        + "</div>")
                 .withProperty("iconCode", name -> name != null ? name.toLowerCase().replace("_", "-") : "")
                 .withProperty("name", name -> name != null ? name : ""));
         iconNameCombo.setClearButtonVisible(true);
@@ -176,7 +177,7 @@ public class FormActionBuilderView extends VerticalLayout {
         });
         sources.sort(String::compareToIgnoreCase);
         sourceLovCodeCombo.setItems(sources);
-        
+
         copySourceLovCodeCombo.setItems(sources);
         copySourceLovCodeCombo.setClearButtonVisible(true);
     }
@@ -185,27 +186,33 @@ public class FormActionBuilderView extends VerticalLayout {
         groovyHelperBar.removeAll();
         groovyHelperBar.setWidthFull();
         groovyHelperBar.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.BASELINE);
-        groovyHelperBar.getStyle().set("margin-top", "8px").set("background-color", "#f8fafc").set("padding", "8px 12px").set("border-radius", "6px").set("border", "1px dashed #cbd5e1");
-        
-        Button openFullEditorBtn = new Button("🖥️ Buka Editor Fullscreen & Cek Sintaks", VaadinIcon.EXPAND_FULL.create(), e -> showGroovyEditorModal());
-        openFullEditorBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL, com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY, com.vaadin.flow.component.button.ButtonVariant.LUMO_SUCCESS);
-        
-        Button checkSyntaxBtn = new Button("🔍 Cek Sintaks", VaadinIcon.CHECK_CIRCLE.create(), e -> checkAndNotifyGroovySyntax(scriptContentField.getValue()));
+        groovyHelperBar.getStyle().set("margin-top", "8px").set("background-color", "#f8fafc")
+                .set("padding", "8px 12px").set("border-radius", "6px").set("border", "1px dashed #cbd5e1");
+
+        Button openFullEditorBtn = new Button("🖥️ Buka Editor Fullscreen & Cek Sintaks",
+                VaadinIcon.EXPAND_FULL.create(), e -> showGroovyEditorModal());
+        openFullEditorBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL,
+                com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY,
+                com.vaadin.flow.component.button.ButtonVariant.LUMO_SUCCESS);
+
+        Button checkSyntaxBtn = new Button("🔍 Cek Sintaks", VaadinIcon.CHECK_CIRCLE.create(),
+                e -> checkAndNotifyGroovySyntax(scriptContentField.getValue()));
         checkSyntaxBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
 
-        Button cheatSheetBtn = new Button("📖 Cheat Sheet", VaadinIcon.BOOK.create(), e -> showGroovyCheatSheetDialog());
-        cheatSheetBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL, com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
-        
+        Button cheatSheetBtn = new Button("📖 Cheat Sheet", VaadinIcon.BOOK.create(),
+                e -> showGroovyCheatSheetDialog());
+        cheatSheetBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL,
+                com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
+
         ComboBox<String> snippetCombo = new ComboBox<>("⚡ Sisipkan Template Cepat");
         snippetCombo.setItems(
-            "1. Cek Pilihan (Hentikan jika tidak ada baris yang dipilih)",
-            "2. Dialog Konfirmasi + Eksekusi Stored Procedure",
-            "3. Looping ID + Panggil Procedure + Buka Tab Baru",
-            "4. Tampilkan Notifikasi Sukses / Error",
-            "5. Debug Isi Header & Grid (msgBox)",
-            "6. Bersihkan/Reset Form (clearForm & setElementValue)",
-            "7. Query Database Ringan di Script (db.getValue & db.find)"
-        );
+                "1. Cek Pilihan (Hentikan jika tidak ada baris yang dipilih)",
+                "2. Dialog Konfirmasi + Eksekusi Stored Procedure",
+                "3. Looping ID + Panggil Procedure + Buka Tab Baru",
+                "4. Tampilkan Notifikasi Sukses / Error",
+                "5. Debug Isi Header & Grid (msgBox)",
+                "6. Bersihkan/Reset Form (clearForm & setElementValue)",
+                "7. Query Database Ringan di Script (db.getValue & db.find)");
         snippetCombo.setWidth("260px");
         snippetCombo.addValueChangeListener(e -> {
             String val = e.getValue();
@@ -224,79 +231,80 @@ public class FormActionBuilderView extends VerticalLayout {
         dlg.setWidth("820px");
 
         com.vaadin.flow.component.html.Div content = new com.vaadin.flow.component.html.Div();
-        content.getStyle().set("max-height", "75vh").set("overflow-y", "auto").set("line-height", "1.6").set("font-size", "14px");
+        content.getStyle().set("max-height", "75vh").set("overflow-y", "auto").set("line-height", "1.6")
+                .set("font-size", "14px");
 
         String html = """
-            <p><b>Daftar Fungsi (DSL Macro & Context Methods):</b></p>
-            <table border='1' cellpadding='6' style='border-collapse: collapse; width: 100%; border-color: #cbd5e1;'>
-              <tr style='background-color: #f1f5f9;'>
-                <th style='text-align: left;'>Sintaks / Fungsi</th>
-                <th style='text-align: left;'>Keterangan & Kegunaan</th>
-              </tr>
-              <tr>
-                <td><code>msgBox(data)</code><br/><i>atau</i> <code>msgBox("Judul", data)</code></td>
-                <td>Memunculkan modal window inspektur bergaya *Dark Code Viewer* untuk memeriksa isi JSON/Map/String (sangat berguna untuk debugging <code>header</code> atau <code>selectedRows</code>).</td>
-              </tr>
-              <tr>
-                <td><code>clearForm()</code></td>
-                <td>Mengosongkan/me-reset seluruh isian form aktif di layar (Bandbox, Textbox, dll.) dan memperbarui UI seketika.</td>
-              </tr>
-              <tr>
-                <td><code>setElementValue("field", nilai)</code></td>
-                <td>Mengubah atau mengosongkan (<code>null</code> atau <code>0</code>) nilai pada field form tertentu dan langsung merefresh tampilan layar browser.</td>
-              </tr>
-              <tr>
-                <td><code>refreshForm()</code></td>
-                <td>Memperbarui/merefresh tampilan komponen UI di layar browser setelah objek <code>header</code> dimodifikasi secara dinamis (misal: <code>header.quantity = 0</code>).</td>
-              </tr>
-              <tr>
-                <td><code>header.field.subfield</code><br/><i>atau</i> <code>header.field_subfield</code></td>
-                <td>Berkat fitur <i>SmartHeaderNode</i>, Anda dapat langsung memanggil properti bersarang (seperti <code>header.tsproductionorderid.idno</code> dari hasil copy Debug Context) tanpa khawatir error atau null.</td>
-              </tr>
-              <tr>
-                <td><code>db.getValue("SELECT ... WHERE id = ?", arg)</code></td>
-                <td>Mengambil 1 nilai tunggal secara langsung dari database menggunakan query murni yang aman dari SQL Injection.</td>
-              </tr>
-              <tr>
-                <td><code>db.find("tabel", "keyCol", val)</code></td>
-                <td>Mengambil 1 baris data utuh (Map) dari tabel database berdasarkan primary key/kolom unik tertentu.</td>
-              </tr>
-              <tr>
-                <td><code>getElementValue("grid1", true)</code><br/><i>atau</i> <code>selectedRows</code></td>
-                <td>Mengambil daftar baris data (Map) yang sedang dicentang/pilih oleh user pada tabel grid aktif.</td>
-              </tr>
-              <tr>
-                <td><code>ctx.userId</code><br/><i>atau</i> <code>@app{userid}</code></td>
-                <td>Mengambil Username atau ID pengguna yang sedang login saat ini untuk keperluan parameter prosedur/audit.</td>
-              </tr>
-              <tr>
-                <td><code>showYesNoDialog("Judul", "Pesan", callback)</code></td>
-                <td>Menampilkan dialog konfirmasi Yes / No. Perintah di dalam <code>callback</code> hanya dijalankan jika user klik Yes.</td>
-              </tr>
-              <tr>
-                <td><code>executeProcedure(procId, callback, jsonParams, userId)</code></td>
-                <td>Menjalankan Stored Procedure di server database secara aman dan mengembalikan status sukses (true/false) ke callback.</td>
-              </tr>
-              <tr>
-                <td><code>showSuccess("Judul", "Pesan")</code></td>
-                <td>Menampilkan notifikasi Lumo berwarna hijau (Sukses) di posisi atas layar user.</td>
-              </tr>
-              <tr>
-                <td><code>showError("Judul", "Pesan")</code></td>
-                <td>Menampilkan notifikasi Lumo berwarna merah (Error) di posisi atas layar user.</td>
-              </tr>
-              <tr>
-                <td><code>showMainTab(tabId, "Judul Tab", url, extra)</code></td>
-                <td>Membuka atau berpindah secara dinamis ke tab/halaman menu ERP lain setelah aksi selesai.</td>
-              </tr>
-            </table>
-            <br/>
-            <p><b>💡 Tips Penting:</b></p>
-            <ul>
-              <li>Gunakan <code>return</code> di dalam kondisi <code>if (!selectedRows)</code> untuk menghentikan eksekusi script seketika jika prasyarat tidak terpenuhi.</li>
-              <li>Untuk mengambil nilai kolom tertentu dari sebuah baris dalam loop: <code>row.salesid</code> atau <code>row['salesid']</code>.</li>
-            </ul>
-            """;
+                <p><b>Daftar Fungsi (DSL Macro & Context Methods):</b></p>
+                <table border='1' cellpadding='6' style='border-collapse: collapse; width: 100%; border-color: #cbd5e1;'>
+                  <tr style='background-color: #f1f5f9;'>
+                    <th style='text-align: left;'>Sintaks / Fungsi</th>
+                    <th style='text-align: left;'>Keterangan & Kegunaan</th>
+                  </tr>
+                  <tr>
+                    <td><code>msgBox(data)</code><br/><i>atau</i> <code>msgBox("Judul", data)</code></td>
+                    <td>Memunculkan modal window inspektur bergaya *Dark Code Viewer* untuk memeriksa isi JSON/Map/String (sangat berguna untuk debugging <code>header</code> atau <code>selectedRows</code>).</td>
+                  </tr>
+                  <tr>
+                    <td><code>clearForm()</code></td>
+                    <td>Mengosongkan/me-reset seluruh isian form aktif di layar (Bandbox, Textbox, dll.) dan memperbarui UI seketika.</td>
+                  </tr>
+                  <tr>
+                    <td><code>setElementValue("field", nilai)</code></td>
+                    <td>Mengubah atau mengosongkan (<code>null</code> atau <code>0</code>) nilai pada field form tertentu dan langsung merefresh tampilan layar browser.</td>
+                  </tr>
+                  <tr>
+                    <td><code>refreshForm()</code></td>
+                    <td>Memperbarui/merefresh tampilan komponen UI di layar browser setelah objek <code>header</code> dimodifikasi secara dinamis (misal: <code>header.quantity = 0</code>).</td>
+                  </tr>
+                  <tr>
+                    <td><code>header.field.subfield</code><br/><i>atau</i> <code>header.field_subfield</code></td>
+                    <td>Berkat fitur <i>SmartHeaderNode</i>, Anda dapat langsung memanggil properti bersarang (seperti <code>header.tsproductionorderid.idno</code> dari hasil copy Debug Context) tanpa khawatir error atau null.</td>
+                  </tr>
+                  <tr>
+                    <td><code>db.getValue("SELECT ... WHERE id = ?", arg)</code></td>
+                    <td>Mengambil 1 nilai tunggal secara langsung dari database menggunakan query murni yang aman dari SQL Injection.</td>
+                  </tr>
+                  <tr>
+                    <td><code>db.find("tabel", "keyCol", val)</code></td>
+                    <td>Mengambil 1 baris data utuh (Map) dari tabel database berdasarkan primary key/kolom unik tertentu.</td>
+                  </tr>
+                  <tr>
+                    <td><code>getElementValue("grid1", true)</code><br/><i>atau</i> <code>selectedRows</code></td>
+                    <td>Mengambil daftar baris data (Map) yang sedang dicentang/pilih oleh user pada tabel grid aktif.</td>
+                  </tr>
+                  <tr>
+                    <td><code>ctx.userId</code><br/><i>atau</i> <code>@app{userid}</code></td>
+                    <td>Mengambil Username atau ID pengguna yang sedang login saat ini untuk keperluan parameter prosedur/audit.</td>
+                  </tr>
+                  <tr>
+                    <td><code>showYesNoDialog("Judul", "Pesan", callback)</code></td>
+                    <td>Menampilkan dialog konfirmasi Yes / No. Perintah di dalam <code>callback</code> hanya dijalankan jika user klik Yes.</td>
+                  </tr>
+                  <tr>
+                    <td><code>executeProcedure(procId, callback, jsonParams, userId)</code></td>
+                    <td>Menjalankan Stored Procedure di server database secara aman dan mengembalikan status sukses (true/false) ke callback.</td>
+                  </tr>
+                  <tr>
+                    <td><code>showSuccess("Judul", "Pesan")</code></td>
+                    <td>Menampilkan notifikasi Lumo berwarna hijau (Sukses) di posisi atas layar user.</td>
+                  </tr>
+                  <tr>
+                    <td><code>showError("Judul", "Pesan")</code></td>
+                    <td>Menampilkan notifikasi Lumo berwarna merah (Error) di posisi atas layar user.</td>
+                  </tr>
+                  <tr>
+                    <td><code>showMainTab(tabId, "Judul Tab", url, extra)</code></td>
+                    <td>Membuka atau berpindah secara dinamis ke tab/halaman menu ERP lain setelah aksi selesai.</td>
+                  </tr>
+                </table>
+                <br/>
+                <p><b>💡 Tips Penting:</b></p>
+                <ul>
+                  <li>Gunakan <code>return</code> di dalam kondisi <code>if (!selectedRows)</code> untuk menghentikan eksekusi script seketika jika prasyarat tidak terpenuhi.</li>
+                  <li>Untuk mengambil nilai kolom tertentu dari sebuah baris dalam loop: <code>row.salesid</code> atau <code>row['salesid']</code>.</li>
+                </ul>
+                """;
         content.add(new com.vaadin.flow.component.Html("<div>" + html + "</div>"));
         dlg.add(content);
 
@@ -311,7 +319,8 @@ public class FormActionBuilderView extends VerticalLayout {
     }
 
     private void insertSnippetToText(com.vaadin.flow.component.textfield.TextArea editor, String snippetType) {
-        if (editor == null) return;
+        if (editor == null)
+            return;
         String currentText = editor.getValue() != null ? editor.getValue() : "";
         String template = getSnippetTemplate(snippetType);
         if (!currentText.isBlank()) {
@@ -322,73 +331,76 @@ public class FormActionBuilderView extends VerticalLayout {
     }
 
     private String getSnippetTemplate(String snippetType) {
-        if (snippetType == null) return "";
+        if (snippetType == null)
+            return "";
         if (snippetType.startsWith("1.")) {
             return """
-                def selectedRows = getElementValue("grid1", true)
-                if (!selectedRows || selectedRows.isEmpty()) {
-                    showError("Peringatan", "Silakan pilih atau centang minimal satu baris data terlebih dahulu!")
-                    return
-                }
-                """.stripIndent();
+                    def selectedRows = getElementValue("grid1", true)
+                    if (!selectedRows || selectedRows.isEmpty()) {
+                        showError("Peringatan", "Silakan pilih atau centang minimal satu baris data terlebih dahulu!")
+                        return
+                    }
+                    """.stripIndent();
         } else if (snippetType.startsWith("2.")) {
             return """
-                showYesNoDialog("Konfirmasi Eksekusi", "Apakah Anda yakin ingin melanjutkan proses pada data terpilih?", {
-                    executeProcedure(3, { status ->
-                        if (status) {
-                            showSuccess("Berhasil", "Prosedur berhasil dijalankan di database!")
-                        }
-                    }, "{}", ctx.userId)
-                })
-                """.stripIndent();
+                    showYesNoDialog("Konfirmasi Eksekusi", "Apakah Anda yakin ingin melanjutkan proses pada data terpilih?", {
+                        executeProcedure(3, { status ->
+                            if (status) {
+                                showSuccess("Berhasil", "Prosedur berhasil dijalankan di database!")
+                            }
+                        }, "{}", ctx.userId)
+                    })
+                    """
+                    .stripIndent();
         } else if (snippetType.startsWith("3.")) {
             return """
-                def selectedRows = getElementValue("grid1", true)
-                if (!selectedRows || selectedRows.isEmpty()) {
-                    showError("Peringatan", "Silakan pilih minimal 1 baris data!")
-                    return
-                }
-                def ids = []
-                for (def row in selectedRows) {
-                    ids.push(row.id)
-                }
-                showYesNoDialog("Release Confirmation", "Lanjutkan rilis untuk " + ids.size() + " data terpilih?", {
-                    executeProcedure(3, { status ->
-                        if (status) {
-                            showSuccess("Sukses", "Data berhasil dirilis!")
-                            showMainTab(691, "Sales Line - Production Order", null, null)
-                        }
-                    }, groovy.json.JsonOutput.toJson(ids), ctx.userId)
-                })
-                """.stripIndent();
+                    def selectedRows = getElementValue("grid1", true)
+                    if (!selectedRows || selectedRows.isEmpty()) {
+                        showError("Peringatan", "Silakan pilih minimal 1 baris data!")
+                        return
+                    }
+                    def ids = []
+                    for (def row in selectedRows) {
+                        ids.push(row.id)
+                    }
+                    showYesNoDialog("Release Confirmation", "Lanjutkan rilis untuk " + ids.size() + " data terpilih?", {
+                        executeProcedure(3, { status ->
+                            if (status) {
+                                showSuccess("Sukses", "Data berhasil dirilis!")
+                                showMainTab(691, "Sales Line - Production Order", null, null)
+                            }
+                        }, groovy.json.JsonOutput.toJson(ids), ctx.userId)
+                    })
+                    """.stripIndent();
         } else if (snippetType.startsWith("4.")) {
             return """
-                showSuccess("Pemberitahuan", "Aksi Groovy berhasil dijalankan tanpa kendala.")
-                """.stripIndent();
+                    showSuccess("Pemberitahuan", "Aksi Groovy berhasil dijalankan tanpa kendala.")
+                    """.stripIndent();
         } else if (snippetType.startsWith("5.")) {
             return """
-                // Menampilkan jendela debug bergaya Dark Code Viewer untuk memeriksa isi variabel
-                msgBox("🛠️ Debug Form Header", header)
-                // msgBox("Baris Terpilih (${selectedRows.size()})", selectedRows)
-                return
-                """.stripIndent();
+                    // Menampilkan jendela debug bergaya Dark Code Viewer untuk memeriksa isi variabel
+                    msgBox("🛠️ Debug Form Header", header)
+                    // msgBox("Baris Terpilih (${selectedRows.size()})", selectedRows)
+                    return
+                    """.stripIndent();
         } else if (snippetType.startsWith("6.")) {
             return """
-                // Mengosongkan field spesifik & memperbarui tampilan UI di layar
-                setElementValue("tsproductionorderid", null)
-                setElementValue("quantity", 0)
-                setElementValue("quantityperbox", 0)
-                setElementValue("itemcode", null)
-                
-                // ATAU gunakan clearForm() untuk mengosongkan seluruh form sekaligus:
-                // clearForm()
-                """.stripIndent();
+                    // Mengosongkan field spesifik & memperbarui tampilan UI di layar
+                    setElementValue("tsproductionorderid", null)
+                    setElementValue("quantity", 0)
+                    setElementValue("quantityperbox", 0)
+                    setElementValue("itemcode", null)
+
+                    // ATAU gunakan clearForm() untuk mengosongkan seluruh form sekaligus:
+                    // clearForm()
+                    """.stripIndent();
         } else if (snippetType.startsWith("7.")) {
             return """
-                // Query nilai langsung dari tabel database
-                def prodIdno = header.tsproductionorderid_idno ?: db.getValue("SELECT idno FROM tsproductionorder WHERE id = ?", header.tsproductionorderid)
-                msgBox("Nomor PO Terpilih", prodIdno)
-                """.stripIndent();
+                    // Query nilai langsung dari tabel database
+                    def prodIdno = header.tsproductionorderid_idno ?: db.getValue("SELECT idno FROM tsproductionorder WHERE id = ?", header.tsproductionorderid)
+                    msgBox("Nomor PO Terpilih", prodIdno)
+                    """
+                    .stripIndent();
         }
         return "";
     }
@@ -409,10 +421,12 @@ public class FormActionBuilderView extends VerticalLayout {
         com.vaadin.flow.component.orderedlayout.HorizontalLayout toolbar = new com.vaadin.flow.component.orderedlayout.HorizontalLayout();
         toolbar.setWidthFull();
         toolbar.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.BASELINE);
-        toolbar.getStyle().set("background-color", "#f1f5f9").set("padding", "8px 16px").set("border-radius", "6px").set("border-bottom", "1px solid #cbd5e1");
+        toolbar.getStyle().set("background-color", "#f1f5f9").set("padding", "8px 16px").set("border-radius", "6px")
+                .set("border-bottom", "1px solid #cbd5e1");
 
         Button checkBtn = new Button("🔍 Cek & Validasi Sintaks", VaadinIcon.CHECK_CIRCLE.create());
-        checkBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL, com.vaadin.flow.component.button.ButtonVariant.LUMO_SUCCESS);
+        checkBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL,
+                com.vaadin.flow.component.button.ButtonVariant.LUMO_SUCCESS);
 
         Button formatBtn = new Button("🧹 Format Indentasi", VaadinIcon.ALIGN_LEFT.create());
         formatBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
@@ -422,25 +436,26 @@ public class FormActionBuilderView extends VerticalLayout {
 
         ComboBox<String> snippetComboModal = new ComboBox<>("⚡ Sisipkan Snippet");
         snippetComboModal.setItems(
-            "1. Cek Pilihan (Hentikan jika tidak ada baris yang dipilih)",
-            "2. Dialog Konfirmasi + Eksekusi Stored Procedure",
-            "3. Looping ID + Panggil Procedure + Buka Tab Baru",
-            "4. Tampilkan Notifikasi Sukses / Error",
-            "5. Debug Isi Header & Grid (msgBox)",
-            "6. Bersihkan/Reset Form (clearForm & setElementValue)",
-            "7. Query Database Ringan di Script (db.getValue & db.find)"
-        );
+                "1. Cek Pilihan (Hentikan jika tidak ada baris yang dipilih)",
+                "2. Dialog Konfirmasi + Eksekusi Stored Procedure",
+                "3. Looping ID + Panggil Procedure + Buka Tab Baru",
+                "4. Tampilkan Notifikasi Sukses / Error",
+                "5. Debug Isi Header & Grid (msgBox)",
+                "6. Bersihkan/Reset Form (clearForm & setElementValue)",
+                "7. Query Database Ringan di Script (db.getValue & db.find)");
         snippetComboModal.setWidth("280px");
 
         com.vaadin.flow.component.textfield.TextArea modalEditor = new com.vaadin.flow.component.textfield.TextArea();
         modalEditor.setSizeFull();
         modalEditor.setValue(scriptContentField.getValue() != null ? scriptContentField.getValue() : "");
-        modalEditor.getStyle().set("font-family", "Consolas, 'Courier New', monospace").set("font-size", "14px").set("line-height", "1.5");
+        modalEditor.getStyle().set("font-family", "Consolas, 'Courier New', monospace").set("font-size", "14px")
+                .set("line-height", "1.5");
         modalEditor.setPlaceholder("Tulis atau sisipkan script Groovy Anda di sini...");
 
         com.vaadin.flow.component.html.Div statusArea = new com.vaadin.flow.component.html.Div();
         statusArea.setWidthFull();
-        statusArea.getStyle().set("padding", "10px 14px").set("border-radius", "6px").set("font-weight", "500").set("display", "none").set("white-space", "pre-wrap");
+        statusArea.getStyle().set("padding", "10px 14px").set("border-radius", "6px").set("font-weight", "500")
+                .set("display", "none").set("white-space", "pre-wrap");
 
         checkBtn.addClickListener(e -> {
             checkGroovySyntaxInternal(modalEditor.getValue(), statusArea);
@@ -469,8 +484,10 @@ public class FormActionBuilderView extends VerticalLayout {
         Button saveBtn = new Button("💾 Terapkan ke Form", VaadinIcon.CHECK.create(), e -> {
             scriptContentField.setValue(modalEditor.getValue());
             dlg.close();
-            com.vaadin.flow.component.notification.Notification.show("✅ Script berhasil diterapkan!", 3000, com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
-                .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
+            com.vaadin.flow.component.notification.Notification
+                    .show("✅ Script berhasil diterapkan!", 3000,
+                            com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
+                    .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
         });
         saveBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
 
@@ -483,7 +500,8 @@ public class FormActionBuilderView extends VerticalLayout {
     private boolean checkGroovySyntaxInternal(String scriptText, com.vaadin.flow.component.html.Div statusArea) {
         if (scriptText == null || scriptText.isBlank()) {
             if (statusArea != null) {
-                statusArea.getStyle().set("display", "block").set("background-color", "#fef3c7").set("color", "#92400e").set("border", "1px solid #f59e0b");
+                statusArea.getStyle().set("display", "block").set("background-color", "#fef3c7").set("color", "#92400e")
+                        .set("border", "1px solid #f59e0b");
                 statusArea.setText("⚠️ Script masih kosong.");
             }
             return false;
@@ -491,18 +509,22 @@ public class FormActionBuilderView extends VerticalLayout {
         try {
             new groovy.lang.GroovyShell().parse(scriptText);
             if (statusArea != null) {
-                statusArea.getStyle().set("display", "block").set("background-color", "#dcfce7").set("color", "#166534").set("border", "1px solid #22c55e");
+                statusArea.getStyle().set("display", "block").set("background-color", "#dcfce7").set("color", "#166534")
+                        .set("border", "1px solid #22c55e");
                 statusArea.setText("✅ Sintaks Groovy Valid! Tidak ada kesalahan penulisan atau struktur kode.");
             }
             return true;
         } catch (Exception e) {
             String errMsg = e.getMessage();
             if (statusArea != null) {
-                statusArea.getStyle().set("display", "block").set("background-color", "#fee2e2").set("color", "#991b1b").set("border", "1px solid #ef4444");
+                statusArea.getStyle().set("display", "block").set("background-color", "#fee2e2").set("color", "#991b1b")
+                        .set("border", "1px solid #ef4444");
                 statusArea.setText("❌ Kesalahan Sintaks Groovy:\n" + errMsg);
             } else {
-                com.vaadin.flow.component.notification.Notification.show("❌ Kesalahan Sintaks Groovy:\n" + errMsg, 5000, com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
-                    .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+                com.vaadin.flow.component.notification.Notification
+                        .show("❌ Kesalahan Sintaks Groovy:\n" + errMsg, 5000,
+                                com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
+                        .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
             }
             return false;
         }
@@ -510,22 +532,29 @@ public class FormActionBuilderView extends VerticalLayout {
 
     private void checkAndNotifyGroovySyntax(String scriptText) {
         if (scriptText == null || scriptText.isBlank()) {
-            com.vaadin.flow.component.notification.Notification.show("⚠️ Script masih kosong.", 3000, com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
-                .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_WARNING);
+            com.vaadin.flow.component.notification.Notification
+                    .show("⚠️ Script masih kosong.", 3000,
+                            com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
+                    .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_WARNING);
             return;
         }
         try {
             new groovy.lang.GroovyShell().parse(scriptText);
-            com.vaadin.flow.component.notification.Notification.show("✅ Sintaks Groovy VALID! Tidak ada kesalahan struktur.", 4000, com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
-                .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
+            com.vaadin.flow.component.notification.Notification
+                    .show("✅ Sintaks Groovy VALID! Tidak ada kesalahan struktur.", 4000,
+                            com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
+                    .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
         } catch (Exception e) {
-            com.vaadin.flow.component.notification.Notification.show("❌ Kesalahan Sintaks:\n" + e.getMessage(), 6000, com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
-                .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+            com.vaadin.flow.component.notification.Notification
+                    .show("❌ Kesalahan Sintaks:\n" + e.getMessage(), 6000,
+                            com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
+                    .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
         }
     }
 
     private String formatGroovyScript(String scriptText) {
-        if (scriptText == null) return "";
+        if (scriptText == null)
+            return "";
         String[] lines = scriptText.split("\\r?\\n");
         StringBuilder sb = new StringBuilder();
         int indentLevel = 0;
@@ -626,12 +655,14 @@ public class FormActionBuilderView extends VerticalLayout {
         createGroovyHelperBar();
 
         scriptContentField.setWidthFull();
-        scriptContentField.setPlaceholder("Groovy / Action Context script. Klik '🖥️ Buka Editor Fullscreen' untuk tampilan luas dan fitur cek sintaks...");
+        scriptContentField.setPlaceholder(
+                "Groovy / Action Context script. Klik '🖥️ Buka Editor Fullscreen' untuk tampilan luas dan fitur cek sintaks...");
         scriptContentField.setHeight("280px");
-        scriptContentField.getStyle().set("font-family", "Consolas, 'Courier New', monospace").set("font-size", "14px").set("line-height", "1.5");
+        scriptContentField.getStyle().set("font-family", "Consolas, 'Courier New', monospace").set("font-size", "14px")
+                .set("line-height", "1.5");
 
         editor.add(formCodeCombo, actionCodeField, actionLabelField, menuGroupField, targetScopeCombo, actionTypeCombo,
-                iconNameCombo, buttonStyleCombo, sourceLovCodeCombo, filterLayout, 
+                iconNameCombo, buttonStyleCombo, sourceLovCodeCombo, filterLayout,
                 copySourceLovCodeCombo, copyFilterLayout, targetLayout, groovyHelperBar, scriptContentField);
 
         updateEditorVisibility("POPUP_PICKER");
@@ -787,7 +818,7 @@ public class FormActionBuilderView extends VerticalLayout {
             scopeCombo.setItems("Header", "Detail");
             scopeCombo.setValue("Detail");
             scopeCombo.setWidth("120px");
-            
+
             TextField destField = new TextField("Target Field");
             destField.setWidth("150px");
 
@@ -797,9 +828,10 @@ public class FormActionBuilderView extends VerticalLayout {
             srcField.addCustomValueSetListener(e -> setComboBoxValue(srcField, e.getDetail()));
 
             // Populate items from data source
-            String srcLovCode = copySourceLovCodeCombo.getValue() != null && !copySourceLovCodeCombo.getValue().isBlank() 
-                                ? copySourceLovCodeCombo.getValue() 
-                                : sourceLovCodeCombo.getValue();
+            String srcLovCode = copySourceLovCodeCombo.getValue() != null
+                    && !copySourceLovCodeCombo.getValue().isBlank()
+                            ? copySourceLovCodeCombo.getValue()
+                            : sourceLovCodeCombo.getValue();
             if (srcLovCode != null && !srcLovCode.isBlank()) {
                 String tableName = srcLovCode;
                 LovMeta lovMeta = lovRepository.findById(srcLovCode).orElse(null);
@@ -868,8 +900,9 @@ public class FormActionBuilderView extends VerticalLayout {
                     ComboBox<String> scope = (ComboBox<String>) row.getComponentAt(0);
                     TextField dest = (TextField) row.getComponentAt(1);
                     ComboBox<String> src = (ComboBox<String>) row.getComponentAt(3);
-                    
-                    if (dest.getValue() != null && !dest.getValue().isBlank() && src.getValue() != null && !src.getValue().isBlank()) {
+
+                    if (dest.getValue() != null && !dest.getValue().isBlank() && src.getValue() != null
+                            && !src.getValue().isBlank()) {
                         String prefix = "Detail".equals(scope.getValue()) ? "detail." : "";
                         pairs.add(prefix + dest.getValue().trim() + ":" + src.getValue().trim());
                     }
@@ -877,7 +910,7 @@ public class FormActionBuilderView extends VerticalLayout {
                     TextField target = (TextField) row.getComponentAt(0);
                     ComboBox<String> type = (ComboBox<String>) row.getComponentAt(2);
                     TextField val = (TextField) row.getComponentAt(3);
-                    
+
                     if (target.getValue() != null && !target.getValue().isBlank()) {
                         String colName = target.getValue().trim();
                         if ("IS NULL".equals(type.getValue())) {
@@ -887,7 +920,8 @@ public class FormActionBuilderView extends VerticalLayout {
                         } else if (val.getValue() != null && !val.getValue().isBlank()) {
                             String valStr = val.getValue().trim();
                             if ("Literal".equals(type.getValue())) {
-                                if (!valStr.startsWith("'") && !valStr.endsWith("'")) valStr = "'" + valStr + "'";
+                                if (!valStr.startsWith("'") && !valStr.endsWith("'"))
+                                    valStr = "'" + valStr + "'";
                             } else {
                                 valStr = type.getValue() + valStr;
                             }
@@ -897,7 +931,8 @@ public class FormActionBuilderView extends VerticalLayout {
                 }
             }
         }
-        if (pairs.isEmpty()) return "";
+        if (pairs.isEmpty())
+            return "";
         if (isTargetMapping) {
             return String.join(",", pairs);
         } else {
@@ -908,24 +943,27 @@ public class FormActionBuilderView extends VerticalLayout {
     @SuppressWarnings("unchecked")
     private void parseExistingMapping(String mapping, VerticalLayout layout, boolean isTargetMapping) {
         String clean = mapping.trim();
-        if (clean.startsWith("{") && clean.endsWith("}")) clean = clean.substring(1, clean.length() - 1).trim();
-        if (clean.isEmpty()) return;
-        
+        if (clean.startsWith("{") && clean.endsWith("}"))
+            clean = clean.substring(1, clean.length() - 1).trim();
+        if (clean.isEmpty())
+            return;
+
         String[] pairs = com.vaadinerp.util.FormulaEvaluator.splitTopLevelComma(clean);
         for (String pair : pairs) {
             String[] kv = pair.split(":", 2);
-            if (kv.length < 2) kv = pair.split("=", 2);
+            if (kv.length < 2)
+                kv = pair.split("=", 2);
             if (kv.length == 2) {
                 addMappingRow(layout, isTargetMapping);
                 HorizontalLayout row = (HorizontalLayout) layout.getComponentAt(layout.getComponentCount() - 1);
                 String k = kv[0].replaceAll("[\"']", "").trim();
                 String v = kv[1].trim();
-                
+
                 if (isTargetMapping) {
                     ComboBox<String> scope = (ComboBox<String>) row.getComponentAt(0);
                     TextField dest = (TextField) row.getComponentAt(1);
                     ComboBox<String> src = (ComboBox<String>) row.getComponentAt(3);
-                    
+
                     if (k.toLowerCase().startsWith("detail.")) {
                         scope.setValue("Detail");
                         dest.setValue(k.substring(7));
@@ -938,13 +976,15 @@ public class FormActionBuilderView extends VerticalLayout {
                     TextField target = (TextField) row.getComponentAt(0);
                     ComboBox<String> type = (ComboBox<String>) row.getComponentAt(2);
                     TextField val = (TextField) row.getComponentAt(3);
-                    
+
                     target.setValue(k);
-                    if ("IS NULL".equalsIgnoreCase(v) || "'IS NULL'".equalsIgnoreCase(v) || "\"IS NULL\"".equalsIgnoreCase(v) || "IS_NULL".equalsIgnoreCase(v)) {
+                    if ("IS NULL".equalsIgnoreCase(v) || "'IS NULL'".equalsIgnoreCase(v)
+                            || "\"IS NULL\"".equalsIgnoreCase(v) || "IS_NULL".equalsIgnoreCase(v)) {
                         type.setValue("IS NULL");
                         val.clear();
                         val.setEnabled(false);
-                    } else if ("IS NOT NULL".equalsIgnoreCase(v) || "'IS NOT NULL'".equalsIgnoreCase(v) || "\"IS NOT NULL\"".equalsIgnoreCase(v) || "IS_NOT_NULL".equalsIgnoreCase(v)) {
+                    } else if ("IS NOT NULL".equalsIgnoreCase(v) || "'IS NOT NULL'".equalsIgnoreCase(v)
+                            || "\"IS NOT NULL\"".equalsIgnoreCase(v) || "IS_NOT_NULL".equalsIgnoreCase(v)) {
                         type.setValue("IS NOT NULL");
                         val.clear();
                         val.setEnabled(false);
@@ -964,8 +1004,9 @@ public class FormActionBuilderView extends VerticalLayout {
     }
 
     private void setComboBoxValue(ComboBox<String> combo, String value) {
-        if (value == null || value.isEmpty()) return;
-        
+        if (value == null || value.isEmpty())
+            return;
+
         com.vaadin.flow.data.provider.DataProvider<String, ?> dp = combo.getDataProvider();
         if (dp instanceof com.vaadin.flow.data.provider.ListDataProvider<?> listDp) {
             @SuppressWarnings("unchecked")
