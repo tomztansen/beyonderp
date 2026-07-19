@@ -76,7 +76,7 @@ public class ScriptExecutorService {
     }
 
     public void executeOnAddScript(FieldMeta fieldMeta, Map<String, Object> newRow, int rowIndex,
-                                   Map<String, Object> headerData, List<Map<String, Object>> items) {
+                                   Map<String, Object> headerData, List<Map<String, Object>> items, com.vaadin.flow.component.Component currentView) {
         if (fieldMeta == null) {
             return;
         }
@@ -85,12 +85,12 @@ public class ScriptExecutorService {
             return;
         }
 
-        executeScript(fieldMeta.getId() != null ? "field_" + fieldMeta.getId() : "temp_" + scriptText.hashCode(),
-                scriptText, newRow, rowIndex, headerData, items);
+        executeScript(fieldMeta.getId() != null ? "field_" + fieldMeta.getId() + "_" + scriptText.hashCode() : "temp_" + scriptText.hashCode(),
+                scriptText, newRow, rowIndex, headerData, items, currentView);
     }
 
     public void executeScript(String scriptId, String scriptText, Map<String, Object> newRow, int rowIndex,
-                              Map<String, Object> headerData, List<Map<String, Object>> items) {
+                              Map<String, Object> headerData, List<Map<String, Object>> items, com.vaadin.flow.component.Component currentView) {
         try {
             Class<? extends Script> scriptClass = scriptCache.computeIfAbsent(scriptId, id -> {
                 GroovyShell shell = new GroovyShell(compilerConfiguration);
@@ -106,6 +106,23 @@ public class ScriptExecutorService {
             binding.setVariable("form", headerData != null ? headerData : new HashMap<>());
             binding.setVariable("items", items != null ? items : new ArrayList<>());
             binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
+
+            if (currentView != null) {
+                com.vaadin.flow.component.Component parentView = currentView;
+                if (currentView instanceof com.vaadinerp.components.SubformGridField sub) {
+                    parentView = sub.findParentView();
+                }
+                ActionContext ctx = new ActionContext(dataServiceProvider.getIfAvailable(), headerData, items, parentView);
+                binding.setVariable("setElementEnabled", new groovy.lang.Closure<Void>(null) {
+                    @SuppressWarnings("unused")
+                    public void doCall(Object ref, boolean enabled) {
+                        ctx.setElementEnabled(ref, enabled);
+                        if (currentView instanceof com.vaadinerp.components.SubformGridField sub) {
+                            sub.setComponentEnabled(ref != null ? ref.toString() : null, enabled);
+                        }
+                    }
+                });
+            }
 
             scriptInstance.setBinding(binding);
 
@@ -261,6 +278,11 @@ public class ScriptExecutorService {
             binding.setVariable("setElementValue", new groovy.lang.Closure<Void>(null) {
                 public void doCall(Object ref, Object val) {
                     ctx.setElementValue(ref, val);
+                }
+            });
+            binding.setVariable("setElementEnabled", new groovy.lang.Closure<Void>(null) {
+                public void doCall(Object ref, boolean enabled) {
+                    ctx.setElementEnabled(ref, enabled);
                 }
             });
             binding.setVariable("refreshForm", new groovy.lang.Closure<Void>(null) {

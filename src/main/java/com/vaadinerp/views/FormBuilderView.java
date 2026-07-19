@@ -2168,7 +2168,7 @@ public class FormBuilderView extends VerticalLayout {
                     r.put("perseries", 0);
                     dynamicDataService.getScriptExecutorService().executeScript(
                             "sim_" + System.currentTimeMillis() + "_" + i,
-                            scriptText, r, i, dummyHeader, simRows);
+                            scriptText, r, i, dummyHeader, simRows, null);
                     simRows.add(r);
                 }
 

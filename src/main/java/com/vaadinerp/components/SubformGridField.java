@@ -61,6 +61,29 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         this.headerRecordSupplier = supplier;
     }
 
+    public com.vaadin.flow.component.Component findParentView() {
+        com.vaadin.flow.component.Component c = this;
+        while (c != null) {
+            if (c instanceof com.vaadinerp.views.GenericFormView || c instanceof com.vaadinerp.views.GenericMasterDetailFormView) {
+                return c;
+            }
+            c = c.getParent().orElse(null);
+        }
+        return null;
+    }
+
+    public void setComponentEnabled(String fieldName, boolean enabled) {
+        if (fieldName == null) return;
+        String name = fieldName;
+        if (name.startsWith("detail.") || name.startsWith("row.")) {
+            name = name.substring(name.indexOf('.') + 1);
+        }
+        Component comp = editorComponents.get(name);
+        if (comp != null && comp instanceof com.vaadin.flow.component.HasEnabled hasEnabled) {
+            hasEnabled.setEnabled(enabled);
+        }
+    }
+
     private static class FilterCriteria {
         String operator = "Contains";
         String value = "";
@@ -335,7 +358,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     && this.fieldMeta.getOnAddScript() != null) {
                 try {
                     dataService.getScriptExecutorService().executeOnAddScript(
-                            this.fieldMeta, newRow, currentRowIndex, headerData, items);
+                            this.fieldMeta, newRow, currentRowIndex, headerData, items, this);
                 } catch (Exception ex) {
                     com.vaadin.flow.component.notification.Notification.show(
                             "Error eksekusi On-Add-Row script: " + ex.getMessage(),

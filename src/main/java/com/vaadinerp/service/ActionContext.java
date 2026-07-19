@@ -212,6 +212,29 @@ public class ActionContext {
         refreshForm();
     }
 
+    public void setElementEnabled(Object ref, boolean enabled) {
+        if (ref == null) return;
+        String fieldName = ref.toString();
+        if (fieldName.startsWith("@formfield{") && fieldName.endsWith("}")) {
+            fieldName = fieldName.substring(11, fieldName.length() - 1).trim();
+        }
+        
+        UI ui = UI.getCurrent();
+        if (ui == null && currentView != null && currentView.getUI().isPresent()) {
+            ui = currentView.getUI().get();
+        }
+        final String finalFieldName = fieldName;
+        Command update = () -> {
+            if (currentView instanceof com.vaadinerp.views.GenericFormView view) {
+                view.setComponentEnabled(finalFieldName, enabled);
+            } else if (currentView instanceof com.vaadinerp.views.GenericMasterDetailFormView view) {
+                view.setComponentEnabled(finalFieldName, enabled);
+            }
+        };
+        if (ui != null) ui.access(update);
+        else update.execute();
+    }
+
     public boolean executeProcedure(Object procRef, Object callbackOrJson, Object... rest) {
         String jsonParams = null;
         String userId = getUserId();
