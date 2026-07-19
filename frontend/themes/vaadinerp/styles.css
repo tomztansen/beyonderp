@@ -585,3 +585,39 @@ vaadin-form-layout>div:has(> div > vaadin-checkbox) {
 vaadin-form-layout>div:has(> div > vaadin-checkbox) vaadin-checkbox {
     align-self: center !important;
 }
+
+/* ==========================================================================
+   DISABLED COMPONENTS VISUAL ENHANCEMENT
+   Minimalist design to explicitly show disabled states
+   ========================================================================== */
+vaadin-text-field[disabled],
+vaadin-integer-field[disabled],
+vaadin-number-field[disabled],
+vaadin-big-decimal-field[disabled],
+vaadin-date-picker[disabled],
+vaadin-combo-box[disabled],
+vaadin-checkbox[disabled],
+vaadin-text-area[disabled] {
+    opacity: 0.55 !important;
+    /* Restore pointer events only on host to allow cursor changes, 
+       internal input is still safely disabled */
+    pointer-events: auto !important; 
+    cursor: not-allowed !important;
+}
+
+vaadin-text-field[disabled]::part(input-field),
+vaadin-integer-field[disabled]::part(input-field),
+vaadin-number-field[disabled]::part(input-field),
+vaadin-big-decimal-field[disabled]::part(input-field),
+vaadin-date-picker[disabled]::part(input-field),
+vaadin-combo-box[disabled]::part(input-field),
+vaadin-text-area[disabled]::part(input-field) {
+    background-color: var(--lumo-contrast-5pct) !important;
+    border: 1px solid var(--lumo-contrast-10pct) !important;
+}
+
+/* For Checkbox specifically (it has a different part structure) */
+vaadin-checkbox[disabled]::part(checkbox) {
+    cursor: not-allowed !important;
+    background-color: var(--lumo-contrast-10pct) !important;
+}
