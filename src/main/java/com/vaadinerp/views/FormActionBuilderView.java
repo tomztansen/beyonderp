@@ -507,7 +507,9 @@ public class FormActionBuilderView extends VerticalLayout {
             return false;
         }
         try {
-            new groovy.lang.GroovyShell().parse(scriptText);
+            org.codehaus.groovy.control.CompilationUnit cu = new org.codehaus.groovy.control.CompilationUnit();
+            cu.addSource("SyntaxCheck", scriptText);
+            cu.compile(org.codehaus.groovy.control.Phases.SEMANTIC_ANALYSIS);
             if (statusArea != null) {
                 statusArea.getStyle().set("display", "block").set("background-color", "#dcfce7").set("color", "#166534")
                         .set("border", "1px solid #22c55e");
@@ -539,7 +541,9 @@ public class FormActionBuilderView extends VerticalLayout {
             return;
         }
         try {
-            new groovy.lang.GroovyShell().parse(scriptText);
+            org.codehaus.groovy.control.CompilationUnit cu = new org.codehaus.groovy.control.CompilationUnit();
+            cu.addSource("SyntaxCheck", scriptText);
+            cu.compile(org.codehaus.groovy.control.Phases.SEMANTIC_ANALYSIS);
             com.vaadin.flow.component.notification.Notification
                     .show("✅ Sintaks Groovy VALID! Tidak ada kesalahan struktur.", 4000,
                             com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)

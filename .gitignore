@@ -17,3 +17,16 @@ Thumbs.db
 
 # Local config
 .mimocode/
+
+# Vaadin Generated
+frontend/generated/
+.vaadin/
+package.json
+package-lock.json
+pnpm-lock.yaml
+webpack.config.js
+webpack.generated.js
+vite.config.ts
+vite.generated.ts
+tsconfig.json
+types.d.ts
