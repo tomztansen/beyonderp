@@ -4434,4 +4434,25 @@ public class DynamicDataService {
             return new ArrayList<>();
         }
     }
+
+    /**
+     * Mengeksekusi raw SQL query secara aman.
+     * Hanya mengizinkan SELECT dan dibatasi oleh maxRows.
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> executeSafeAdhocQuery(String sqlText, int maxRows) {
+        if (sqlText == null || sqlText.trim().isEmpty()) {
+            throw new IllegalArgumentException("Query SQL tidak boleh kosong.");
+        }
+        
+        // 1. Validasi string query
+        String safeQuery = validateAndSanitizeSelectQuery(sqlText);
+
+        // 2. Bungkus query dalam subquery untuk mencegah manipulasi aneh
+        // dan paksa limit maxRows agar terhindar dari memory leak
+        String wrappedSql = "SELECT * FROM ( " + safeQuery + " ) AS safe_query LIMIT " + maxRows;
+
+        // 3. Eksekusi query (sudah diproteksi @Transactional(readOnly = true))
+        return jdbcTemplate.queryForList(wrappedSql);
+    }
 }
