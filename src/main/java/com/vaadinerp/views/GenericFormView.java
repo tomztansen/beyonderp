@@ -2012,6 +2012,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 } else if (comp instanceof SubformGridField) {
                     ((SubformGridField) comp).setValue(new ArrayList<>());
                 }
+                
+                if (comp instanceof com.vaadin.flow.component.HasEnabled hasEnabled) {
+                    hasEnabled.setEnabled(true);
+                }
             }
         }
         clearSubformGrids();

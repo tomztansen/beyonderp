@@ -92,9 +92,16 @@ public class ScriptExecutorService {
     public void executeScript(String scriptId, String scriptText, Map<String, Object> newRow, int rowIndex,
                               Map<String, Object> headerData, List<Map<String, Object>> items, com.vaadin.flow.component.Component currentView) {
         try {
+            if (scriptText != null) {
+                scriptText = scriptText.replaceAll("(?i)setElementEnabled\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementEnabled('$1',");
+                scriptText = scriptText.replaceAll("(?i)setElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementValue('$1',");
+                scriptText = scriptText.replaceAll("(?i)getElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "getElementValue('$1',");
+            }
+            final String finalScriptText = scriptText;
+
             Class<? extends Script> scriptClass = scriptCache.computeIfAbsent(scriptId, id -> {
                 GroovyShell shell = new GroovyShell(compilerConfiguration);
-                return shell.parse(scriptText).getClass();
+                return shell.parse(finalScriptText).getClass();
             });
 
             Script scriptInstance = scriptClass.getDeclaredConstructor().newInstance();
@@ -102,8 +109,9 @@ public class ScriptExecutorService {
             Binding binding = new Binding();
             binding.setVariable("row", newRow);
             binding.setVariable("rowIndex", rowIndex);
-            binding.setVariable("header", headerData != null ? headerData : new HashMap<>());
-            binding.setVariable("form", headerData != null ? headerData : new HashMap<>());
+            Map<String, Object> smartHeader = headerData != null ? prepareHeaderForScript(headerData) : new HashMap<>();
+            binding.setVariable("header", smartHeader);
+            binding.setVariable("form", smartHeader);
             binding.setVariable("items", items != null ? items : new ArrayList<>());
             binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
 
@@ -119,6 +127,17 @@ public class ScriptExecutorService {
                         ctx.setElementEnabled(ref, enabled);
                         if (currentView instanceof com.vaadinerp.components.SubformGridField sub) {
                             sub.setComponentEnabled(ref != null ? ref.toString() : null, enabled);
+                        }
+                    }
+                });
+                binding.setVariable("msgBox", new groovy.lang.Closure<Void>(null) {
+                    public void doCall(Object... args) {
+                        if (args != null && args.length == 1) {
+                            ctx.msgBox("Message Box", args[0]);
+                        } else if (args != null && args.length >= 2) {
+                            ctx.msgBox(args[0] != null ? args[0].toString() : "Message Box", args[1]);
+                        } else {
+                            ctx.msgBox("Message Box", "");
                         }
                     }
                 });
@@ -174,6 +193,11 @@ public class ScriptExecutorService {
         if (!scriptText.contains("propertyMissing")) {
             scriptText = scriptText + "\n\ndef propertyMissing(String name) { return name; }\n";
         }
+
+        // Tambahan syntax sugar untuk referensi object (mengubah setElementEnabled(row.tagid, ...) -> setElementEnabled('tagid', ...))
+        scriptText = scriptText.replaceAll("(?i)setElementEnabled\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementEnabled('$1',");
+        scriptText = scriptText.replaceAll("(?i)setElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementValue('$1',");
+        scriptText = scriptText.replaceAll("(?i)getElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "getElementValue('$1',");
 
         final String finalScriptText = scriptText;
         String scriptId = "action_" + (act.getId() != null ? act.getId() : act.getActionCode()) + "_" + finalScriptText.hashCode();

@@ -2639,6 +2639,10 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 } else if (comp instanceof com.vaadinerp.components.SubformGridField) {
                     ((com.vaadinerp.components.SubformGridField) comp).setValue(new ArrayList<>());
                 }
+                
+                if (comp instanceof com.vaadin.flow.component.HasEnabled hasEnabled) {
+                    hasEnabled.setEnabled(true);
+                }
             }
         }
         updateFieldsReadonlyStatus(true);
