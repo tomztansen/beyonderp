@@ -1,551 +1,460 @@
-2026-07-19T20:19:34.388+07:00  INFO 19860 --- [vaadinerp] [main] com.vaadinerp.Application                : Starting Application using Java 21.0.11 with PID 19860 (D:\PROJECT GMN\vaadinerp\target\classes started by Lenovo in D:\PROJECT GMN\vaadinerp)
-2026-07-19T20:19:34.415+07:00  INFO 19860 --- [vaadinerp] [main] com.vaadinerp.Application                : The following 1 profile is active: "dev"
-2026-07-19T20:19:36.731+07:00  INFO 19860 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-07-19T20:19:37.264+07:00  INFO 19860 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 523 ms. Found 14 JPA repository interfaces.
-2026-07-19T20:19:39.028+07:00  INFO 19860 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
-2026-07-19T20:19:39.057+07:00  INFO 19860 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-07-19T20:19:39.057+07:00  INFO 19860 --- [vaadinerp] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
-2026-07-19T20:19:39.246+07:00  INFO 19860 --- [vaadinerp] [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
-2026-07-19T20:19:39.247+07:00  INFO 19860 --- [vaadinerp] [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 4395 ms
-2026-07-19T20:19:39.267+07:00  WARN 19860 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : vaadin.whitelisted-packages is deprecated and may not be supported in the future. Use vaadin.allowed-packages instead.
-2026-07-19T20:19:43.557+07:00  INFO 19860 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : Search for subclasses and classes with annotations took 2469 ms
-2026-07-19T20:19:43.931+07:00  INFO 19860 --- [vaadinerp] [main] c.v.b.d.startup.DevModeStartupListener   : Starting dev-mode updaters in D:\PROJECT GMN\vaadinerp folder.
-2026-07-19T20:19:44.030+07:00  INFO 19860 --- [vaadinerp] [main] c.v.f.s.f.s.FullDependenciesScanner      : Visited 129 classes. Took 52 ms.
-2026-07-19T20:19:44.036+07:00  INFO 19860 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : Checking if a development mode bundle build is needed
-2026-07-19T20:19:44.523+07:00  INFO 19860 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : A development mode bundle build is not needed
-2026-07-19T20:19:44.584+07:00  INFO 19860 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Copying frontend resources from jar files ...
-2026-07-19T20:19:44.687+07:00  INFO 19860 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Visited 19 resources. Took 101 ms.
-2026-07-19T20:19:44.905+07:00  INFO 19860 --- [vaadinerp] [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
-2026-07-19T20:19:45.061+07:00  INFO 19860 --- [vaadinerp] [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.2.Final
-2026-07-19T20:19:45.123+07:00  INFO 19860 --- [vaadinerp] [main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
-2026-07-19T20:19:45.741+07:00  INFO 19860 --- [vaadinerp] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-07-19T20:19:45.801+07:00  INFO 19860 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Starting...
-2026-07-19T20:19:46.100+07:00  INFO 19860 --- [vaadinerp] [main] com.zaxxer.hikari.pool.HikariPool        : VaadinErpHikariPool - Added connection org.postgresql.jdbc.PgConnection@69f01f4b
-2026-07-19T20:19:46.109+07:00  INFO 19860 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Start completed.
-2026-07-19T20:19:46.222+07:00  WARN 19860 --- [vaadinerp] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
-2026-07-19T20:19:49.123+07:00  INFO 19860 --- [vaadinerp] [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-07-19T20:19:49.364+07:00  INFO 19860 --- [vaadinerp] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
-2026-07-19T20:19:51.539+07:00  WARN 19860 --- [vaadinerp] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
-2026-07-19T20:19:52.905+07:00  INFO 19860 --- [vaadinerp] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
-2026-07-19T20:19:53.039+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler mapped to context-path: /*
-2026-07-19T20:19:53.039+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed the following AtmosphereInterceptor mapped to AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler
-2026-07-19T20:19:53.103+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.util.VoidAnnotationProcessor for processing annotation
-2026-07-19T20:19:53.118+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
-2026-07-19T20:19:53.130+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed WebSocketProtocol org.atmosphere.websocket.protocol.SimpleHttpProtocol 
-2026-07-19T20:19:53.135+07:00  INFO 19860 --- [vaadinerp] [main] o.a.container.JSR356AsyncSupport         : JSR 356 Mapping path /VAADIN/push
-2026-07-19T20:19:53.145+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installing Default AtmosphereInterceptors
-2026-07-19T20:19:53.151+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CorsInterceptor : CORS Interceptor Support
-2026-07-19T20:19:53.151+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CacheHeadersInterceptor : Default Response's Headers Interceptor
-2026-07-19T20:19:53.151+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.PaddingAtmosphereInterceptor : Browser Padding Interceptor Support
-2026-07-19T20:19:53.151+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.AndroidAtmosphereInterceptor : Android Interceptor Support
-2026-07-19T20:19:53.151+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.HeartbeatInterceptor : Heartbeat Interceptor Support
-2026-07-19T20:19:53.151+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.SSEAtmosphereInterceptor : SSE Interceptor Support
-2026-07-19T20:19:53.156+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JSONPAtmosphereInterceptor : JSONP Interceptor Support
-2026-07-19T20:19:53.156+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JavaScriptProtocol : Atmosphere JavaScript Protocol
-2026-07-19T20:19:53.156+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor : org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor
-2026-07-19T20:19:53.156+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.OnDisconnectInterceptor : Browser disconnection detection
-2026-07-19T20:19:53.156+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.IdleResourceInterceptor : org.atmosphere.interceptor.IdleResourceInterceptor
-2026-07-19T20:19:53.160+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Set org.atmosphere.cpr.AtmosphereInterceptor.disableDefaults to disable them.
-2026-07-19T20:19:53.160+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor CORS Interceptor Support with priority FIRST_BEFORE_DEFAULT 
-2026-07-19T20:19:53.161+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Default Response's Headers Interceptor with priority AFTER_DEFAULT 
-2026-07-19T20:19:53.161+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser Padding Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T20:19:53.161+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Android Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] o.a.interceptor.HeartbeatInterceptor     : HeartbeatInterceptor configured with padding value 'X', client frequency 0 seconds and server frequency 60 seconds
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Heartbeat Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor SSE Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor JSONP Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Atmosphere JavaScript Protocol with priority AFTER_DEFAULT 
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor with priority AFTER_DEFAULT 
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser disconnection detection with priority AFTER_DEFAULT 
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.IdleResourceInterceptor with priority BEFORE_DEFAULT 
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using EndpointMapper class org.atmosphere.util.DefaultEndpointMapper
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterCache: org.atmosphere.cache.UUIDBroadcasterCache
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Default Broadcaster Class: org.atmosphere.cpr.DefaultBroadcaster
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Shared List Resources: false
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Polling Wait Time 100
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Shared ExecutorService supported: true
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Messaging ExecutorService Pool Size unavailable - Not instance of ThreadPoolExecutor
-2026-07-19T20:19:53.162+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Async I/O Thread Pool Size: 200
-2026-07-19T20:19:53.167+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterFactory: org.atmosphere.cpr.DefaultBroadcasterFactory
-2026-07-19T20:19:53.167+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using AtmosphereResurceFactory: org.atmosphere.cpr.DefaultAtmosphereResourceFactory
-2026-07-19T20:19:53.167+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using WebSocketProcessor: org.atmosphere.websocket.DefaultWebSocketProcessor
-2026-07-19T20:19:53.167+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Invoke AtmosphereInterceptor on WebSocket message true
-2026-07-19T20:19:53.167+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : HttpSession supported: true
-2026-07-19T20:19:53.167+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.inject.InjectableObjectFactory for dependency injection and object creation
-2026-07-19T20:19:53.167+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using async support: org.atmosphere.container.JSR356AsyncSupport running under container: Apache Tomcat/10.1.24 using jakarta.servlet/3.0 and jsr356/WebSocket API
-2026-07-19T20:19:53.167+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere Framework 3.0.5.slf4jvaadin1 started.
-2026-07-19T20:19:53.175+07:00  INFO 19860 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor  Track Message Size Interceptor using | with priority BEFORE_DEFAULT 
-2026-07-19T20:19:53.264+07:00  INFO 19860 --- [vaadinerp] [main] c.v.f.s.DefaultDeploymentConfiguration   : 
+2026-07-20T08:48:16.995+07:00  INFO 3224 --- [vaadinerp] [main] com.vaadinerp.Application                : Starting Application using Java 21.0.11 with PID 3224 (D:\PROJECT GMN\vaadinerp\target\classes started by Lenovo in D:\PROJECT GMN\vaadinerp)
+2026-07-20T08:48:17.007+07:00  INFO 3224 --- [vaadinerp] [main] com.vaadinerp.Application                : The following 1 profile is active: "dev"
+2026-07-20T08:48:18.285+07:00  INFO 3224 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-20T08:48:18.503+07:00  INFO 3224 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 210 ms. Found 14 JPA repository interfaces.
+2026-07-20T08:48:19.353+07:00  INFO 3224 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-07-20T08:48:19.366+07:00  INFO 3224 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-20T08:48:19.367+07:00  INFO 3224 --- [vaadinerp] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
+2026-07-20T08:48:19.473+07:00  INFO 3224 --- [vaadinerp] [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-07-20T08:48:19.474+07:00  INFO 3224 --- [vaadinerp] [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2194 ms
+2026-07-20T08:48:19.484+07:00  WARN 3224 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : vaadin.whitelisted-packages is deprecated and may not be supported in the future. Use vaadin.allowed-packages instead.
+2026-07-20T08:48:21.421+07:00  INFO 3224 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : Search for subclasses and classes with annotations took 1120 ms
+2026-07-20T08:48:21.565+07:00  INFO 3224 --- [vaadinerp] [main] c.v.b.d.startup.DevModeStartupListener   : Starting dev-mode updaters in D:\PROJECT GMN\vaadinerp folder.
+2026-07-20T08:48:21.617+07:00  INFO 3224 --- [vaadinerp] [main] c.v.f.s.f.s.FullDependenciesScanner      : Visited 130 classes. Took 31 ms.
+2026-07-20T08:48:21.617+07:00  INFO 3224 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : Checking if a development mode bundle build is needed
+2026-07-20T08:48:22.255+07:00  INFO 3224 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : A development mode bundle build is not needed
+2026-07-20T08:48:22.310+07:00  INFO 3224 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Copying frontend resources from jar files ...
+2026-07-20T08:48:22.543+07:00  INFO 3224 --- [vaadinerp] [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-07-20T08:48:22.625+07:00  INFO 3224 --- [vaadinerp] [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.2.Final
+2026-07-20T08:48:22.669+07:00  INFO 3224 --- [vaadinerp] [main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-07-20T08:48:23.056+07:00  INFO 3224 --- [vaadinerp] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-20T08:48:23.090+07:00  INFO 3224 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Starting...
+2026-07-20T08:48:23.267+07:00  INFO 3224 --- [vaadinerp] [main] com.zaxxer.hikari.pool.HikariPool        : VaadinErpHikariPool - Added connection org.postgresql.jdbc.PgConnection@ad7cc49
+2026-07-20T08:48:23.280+07:00  INFO 3224 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Start completed.
+2026-07-20T08:48:23.350+07:00  WARN 3224 --- [vaadinerp] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-07-20T08:48:23.863+07:00  INFO 3224 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Visited 19 resources. Took 1561 ms.
+2026-07-20T08:48:25.146+07:00  INFO 3224 --- [vaadinerp] [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-07-20T08:48:25.346+07:00  INFO 3224 --- [vaadinerp] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-20T08:48:26.651+07:00  WARN 3224 --- [vaadinerp] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-20T08:48:27.369+07:00  INFO 3224 --- [vaadinerp] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-07-20T08:48:27.434+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler mapped to context-path: /*
+2026-07-20T08:48:27.434+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed the following AtmosphereInterceptor mapped to AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler
+2026-07-20T08:48:27.475+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.util.VoidAnnotationProcessor for processing annotation
+2026-07-20T08:48:27.484+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
+2026-07-20T08:48:27.484+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed WebSocketProtocol org.atmosphere.websocket.protocol.SimpleHttpProtocol 
+2026-07-20T08:48:27.500+07:00  INFO 3224 --- [vaadinerp] [main] o.a.container.JSR356AsyncSupport         : JSR 356 Mapping path /VAADIN/push
+2026-07-20T08:48:27.507+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installing Default AtmosphereInterceptors
+2026-07-20T08:48:27.507+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CorsInterceptor : CORS Interceptor Support
+2026-07-20T08:48:27.507+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CacheHeadersInterceptor : Default Response's Headers Interceptor
+2026-07-20T08:48:27.507+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.PaddingAtmosphereInterceptor : Browser Padding Interceptor Support
+2026-07-20T08:48:27.507+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.AndroidAtmosphereInterceptor : Android Interceptor Support
+2026-07-20T08:48:27.507+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.HeartbeatInterceptor : Heartbeat Interceptor Support
+2026-07-20T08:48:27.507+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.SSEAtmosphereInterceptor : SSE Interceptor Support
+2026-07-20T08:48:27.516+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JSONPAtmosphereInterceptor : JSONP Interceptor Support
+2026-07-20T08:48:27.517+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JavaScriptProtocol : Atmosphere JavaScript Protocol
+2026-07-20T08:48:27.517+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor : org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor
+2026-07-20T08:48:27.518+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.OnDisconnectInterceptor : Browser disconnection detection
+2026-07-20T08:48:27.519+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.IdleResourceInterceptor : org.atmosphere.interceptor.IdleResourceInterceptor
+2026-07-20T08:48:27.519+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Set org.atmosphere.cpr.AtmosphereInterceptor.disableDefaults to disable them.
+2026-07-20T08:48:27.519+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor CORS Interceptor Support with priority FIRST_BEFORE_DEFAULT 
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Default Response's Headers Interceptor with priority AFTER_DEFAULT 
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser Padding Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Android Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] o.a.interceptor.HeartbeatInterceptor     : HeartbeatInterceptor configured with padding value 'X', client frequency 0 seconds and server frequency 60 seconds
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Heartbeat Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor SSE Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor JSONP Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Atmosphere JavaScript Protocol with priority AFTER_DEFAULT 
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor with priority AFTER_DEFAULT 
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser disconnection detection with priority AFTER_DEFAULT 
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.IdleResourceInterceptor with priority BEFORE_DEFAULT 
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using EndpointMapper class org.atmosphere.util.DefaultEndpointMapper
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterCache: org.atmosphere.cache.UUIDBroadcasterCache
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Default Broadcaster Class: org.atmosphere.cpr.DefaultBroadcaster
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Shared List Resources: false
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Polling Wait Time 100
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Shared ExecutorService supported: true
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Messaging ExecutorService Pool Size unavailable - Not instance of ThreadPoolExecutor
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Async I/O Thread Pool Size: 200
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterFactory: org.atmosphere.cpr.DefaultBroadcasterFactory
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using AtmosphereResurceFactory: org.atmosphere.cpr.DefaultAtmosphereResourceFactory
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using WebSocketProcessor: org.atmosphere.websocket.DefaultWebSocketProcessor
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Invoke AtmosphereInterceptor on WebSocket message true
+2026-07-20T08:48:27.521+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : HttpSession supported: true
+2026-07-20T08:48:27.533+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.inject.InjectableObjectFactory for dependency injection and object creation
+2026-07-20T08:48:27.533+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using async support: org.atmosphere.container.JSR356AsyncSupport running under container: Apache Tomcat/10.1.24 using jakarta.servlet/3.0 and jsr356/WebSocket API
+2026-07-20T08:48:27.533+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere Framework 3.0.5.slf4jvaadin1 started.
+2026-07-20T08:48:27.537+07:00  INFO 3224 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor  Track Message Size Interceptor using | with priority BEFORE_DEFAULT 
+2026-07-20T08:48:27.588+07:00  INFO 3224 --- [vaadinerp] [main] c.v.f.s.DefaultDeploymentConfiguration   : 
 Vaadin is running in DEVELOPMENT mode - do not use for production deployments.
-2026-07-19T20:19:53.306+07:00  INFO 19860 --- [vaadinerp] [main] c.vaadin.flow.spring.SpringInstantiator  : The number of beans implementing 'I18NProvider' is 0. Cannot use Spring beans for I18N, falling back to the default behavior
-2026-07-19T20:19:53.346+07:00  INFO 19860 --- [vaadinerp] [main] c.v.config.CustomSystemMessagesConfig    : Menginisialisasi Custom System Messages & Reconnect Configuration...
-2026-07-19T20:19:53.372+07:00  INFO 19860 --- [vaadinerp] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
-2026-07-19T20:19:53.372+07:00  INFO 19860 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
-2026-07-19T20:19:53.372+07:00  INFO 19860 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
-2026-07-19T20:19:53.387+07:00  INFO 19860 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
-2026-07-19T20:19:53.405+07:00  INFO 19860 --- [vaadinerp] [main] com.vaadinerp.Application                : Started Application in 19.66 seconds (process running for 20.502)
-2026-07-19T20:19:53.539+07:00  INFO 19860 --- [vaadinerp] [main] c.v.b.d.DevModeHandlerManagerImpl        : Application running at http://localhost:8080/
-2026-07-19T21:08:43.573+07:00  INFO 17128 --- [vaadinerp] [main] com.vaadinerp.Application                : Starting Application using Java 21.0.11 with PID 17128 (D:\PROJECT GMN\vaadinerp\target\classes started by Lenovo in D:\PROJECT GMN\vaadinerp)
-2026-07-19T21:08:43.586+07:00  INFO 17128 --- [vaadinerp] [main] com.vaadinerp.Application                : The following 1 profile is active: "dev"
-2026-07-19T21:08:44.854+07:00  INFO 17128 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-07-19T21:08:45.059+07:00  INFO 17128 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 197 ms. Found 14 JPA repository interfaces.
-2026-07-19T21:08:45.932+07:00  INFO 17128 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
-2026-07-19T21:08:45.941+07:00  INFO 17128 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-07-19T21:08:45.941+07:00  INFO 17128 --- [vaadinerp] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
-2026-07-19T21:08:46.051+07:00  INFO 17128 --- [vaadinerp] [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
-2026-07-19T21:08:46.051+07:00  INFO 17128 --- [vaadinerp] [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2187 ms
-2026-07-19T21:08:46.067+07:00  WARN 17128 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : vaadin.whitelisted-packages is deprecated and may not be supported in the future. Use vaadin.allowed-packages instead.
-2026-07-19T21:08:48.082+07:00  INFO 17128 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : Search for subclasses and classes with annotations took 1170 ms
-2026-07-19T21:08:48.272+07:00  INFO 17128 --- [vaadinerp] [main] c.v.b.d.startup.DevModeStartupListener   : Starting dev-mode updaters in D:\PROJECT GMN\vaadinerp folder.
-2026-07-19T21:08:48.319+07:00  INFO 17128 --- [vaadinerp] [main] c.v.f.s.f.s.FullDependenciesScanner      : Visited 129 classes. Took 31 ms.
-2026-07-19T21:08:48.319+07:00  INFO 17128 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : Checking if a development mode bundle build is needed
-2026-07-19T21:08:48.980+07:00  INFO 17128 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : A development mode bundle build is not needed
-2026-07-19T21:08:49.037+07:00  INFO 17128 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Copying frontend resources from jar files ...
-2026-07-19T21:08:49.256+07:00  INFO 17128 --- [vaadinerp] [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
-2026-07-19T21:08:49.341+07:00  INFO 17128 --- [vaadinerp] [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.2.Final
-2026-07-19T21:08:49.386+07:00  INFO 17128 --- [vaadinerp] [main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
-2026-07-19T21:08:49.941+07:00  INFO 17128 --- [vaadinerp] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-07-19T21:08:49.978+07:00  INFO 17128 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Starting...
-2026-07-19T21:08:50.185+07:00  INFO 17128 --- [vaadinerp] [main] com.zaxxer.hikari.pool.HikariPool        : VaadinErpHikariPool - Added connection org.postgresql.jdbc.PgConnection@7153995c
-2026-07-19T21:08:50.187+07:00  INFO 17128 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Start completed.
-2026-07-19T21:08:50.256+07:00  WARN 17128 --- [vaadinerp] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
-2026-07-19T21:08:50.677+07:00  INFO 17128 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Visited 19 resources. Took 1647 ms.
-2026-07-19T21:08:51.866+07:00  INFO 17128 --- [vaadinerp] [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-07-19T21:08:52.033+07:00  INFO 17128 --- [vaadinerp] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
-2026-07-19T21:08:53.392+07:00  WARN 17128 --- [vaadinerp] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
-2026-07-19T21:08:54.379+07:00  INFO 17128 --- [vaadinerp] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
-2026-07-19T21:08:54.472+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler mapped to context-path: /*
-2026-07-19T21:08:54.472+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed the following AtmosphereInterceptor mapped to AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler
-2026-07-19T21:08:54.517+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.util.VoidAnnotationProcessor for processing annotation
-2026-07-19T21:08:54.527+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
-2026-07-19T21:08:54.534+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed WebSocketProtocol org.atmosphere.websocket.protocol.SimpleHttpProtocol 
-2026-07-19T21:08:54.540+07:00  INFO 17128 --- [vaadinerp] [main] o.a.container.JSR356AsyncSupport         : JSR 356 Mapping path /VAADIN/push
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installing Default AtmosphereInterceptors
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CorsInterceptor : CORS Interceptor Support
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CacheHeadersInterceptor : Default Response's Headers Interceptor
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.PaddingAtmosphereInterceptor : Browser Padding Interceptor Support
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.AndroidAtmosphereInterceptor : Android Interceptor Support
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.HeartbeatInterceptor : Heartbeat Interceptor Support
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.SSEAtmosphereInterceptor : SSE Interceptor Support
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JSONPAtmosphereInterceptor : JSONP Interceptor Support
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JavaScriptProtocol : Atmosphere JavaScript Protocol
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor : org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.OnDisconnectInterceptor : Browser disconnection detection
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.IdleResourceInterceptor : org.atmosphere.interceptor.IdleResourceInterceptor
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Set org.atmosphere.cpr.AtmosphereInterceptor.disableDefaults to disable them.
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor CORS Interceptor Support with priority FIRST_BEFORE_DEFAULT 
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Default Response's Headers Interceptor with priority AFTER_DEFAULT 
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser Padding Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Android Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] o.a.interceptor.HeartbeatInterceptor     : HeartbeatInterceptor configured with padding value 'X', client frequency 0 seconds and server frequency 60 seconds
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Heartbeat Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor SSE Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor JSONP Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Atmosphere JavaScript Protocol with priority AFTER_DEFAULT 
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor with priority AFTER_DEFAULT 
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser disconnection detection with priority AFTER_DEFAULT 
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.IdleResourceInterceptor with priority BEFORE_DEFAULT 
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using EndpointMapper class org.atmosphere.util.DefaultEndpointMapper
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterCache: org.atmosphere.cache.UUIDBroadcasterCache
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Default Broadcaster Class: org.atmosphere.cpr.DefaultBroadcaster
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Shared List Resources: false
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Polling Wait Time 100
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Shared ExecutorService supported: true
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Messaging ExecutorService Pool Size unavailable - Not instance of ThreadPoolExecutor
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Async I/O Thread Pool Size: 200
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterFactory: org.atmosphere.cpr.DefaultBroadcasterFactory
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using AtmosphereResurceFactory: org.atmosphere.cpr.DefaultAtmosphereResourceFactory
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using WebSocketProcessor: org.atmosphere.websocket.DefaultWebSocketProcessor
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Invoke AtmosphereInterceptor on WebSocket message true
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : HttpSession supported: true
-2026-07-19T21:08:54.549+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.inject.InjectableObjectFactory for dependency injection and object creation
-2026-07-19T21:08:54.564+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using async support: org.atmosphere.container.JSR356AsyncSupport running under container: Apache Tomcat/10.1.24 using jakarta.servlet/3.0 and jsr356/WebSocket API
-2026-07-19T21:08:54.564+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere Framework 3.0.5.slf4jvaadin1 started.
-2026-07-19T21:08:54.567+07:00  INFO 17128 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor  Track Message Size Interceptor using | with priority BEFORE_DEFAULT 
-2026-07-19T21:08:54.655+07:00  INFO 17128 --- [vaadinerp] [main] c.v.f.s.DefaultDeploymentConfiguration   : 
+2026-07-20T08:48:27.621+07:00  INFO 3224 --- [vaadinerp] [main] c.vaadin.flow.spring.SpringInstantiator  : The number of beans implementing 'I18NProvider' is 0. Cannot use Spring beans for I18N, falling back to the default behavior
+2026-07-20T08:48:27.637+07:00  INFO 3224 --- [vaadinerp] [main] c.v.config.CustomSystemMessagesConfig    : Menginisialisasi Custom System Messages & Reconnect Configuration...
+2026-07-20T08:48:27.668+07:00  INFO 3224 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-07-20T08:48:27.687+07:00  INFO 3224 --- [vaadinerp] [main] com.vaadinerp.Application                : Started Application in 11.185 seconds (process running for 11.724)
+2026-07-20T08:48:27.777+07:00  INFO 3224 --- [vaadinerp] [main] c.v.b.d.DevModeHandlerManagerImpl        : Application running at http://localhost:8080/
+2026-07-20T08:48:33.995+07:00  INFO 3224 --- [vaadinerp] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-20T08:48:33.995+07:00  INFO 3224 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-07-20T08:48:34.000+07:00  INFO 3224 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 2 ms
+2026-07-20T08:51:20.239+07:00  INFO 3224 --- [vaadinerp] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-20T08:51:20.254+07:00  INFO 3224 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown initiated...
+2026-07-20T08:51:20.254+07:00  INFO 3224 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown completed.
+2026-07-20T08:51:20.254+07:00  INFO 3224 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
+2026-07-20T08:51:20.254+07:00  WARN 3224 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.cpr.DefaultBroadcaster    : AtmosphereResource 025014e4-1f72-4dc8-a96b-cb55ad73a9a7 is not suspended. If cached messages exists, this may cause unexpected situation. Suspend first
+2026-07-20T08:51:36.350+07:00  INFO 18244 --- [vaadinerp] [main] com.vaadinerp.Application                : Starting Application using Java 21.0.11 with PID 18244 (D:\PROJECT GMN\vaadinerp\target\classes started by Lenovo in D:\PROJECT GMN\vaadinerp)
+2026-07-20T08:51:36.352+07:00  INFO 18244 --- [vaadinerp] [main] com.vaadinerp.Application                : The following 1 profile is active: "dev"
+2026-07-20T08:51:37.608+07:00  INFO 18244 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-20T08:51:37.883+07:00  INFO 18244 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 274 ms. Found 14 JPA repository interfaces.
+2026-07-20T08:51:38.900+07:00  INFO 18244 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-07-20T08:51:38.916+07:00  INFO 18244 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-20T08:51:38.916+07:00  INFO 18244 --- [vaadinerp] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
+2026-07-20T08:51:39.050+07:00  INFO 18244 --- [vaadinerp] [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-07-20T08:51:39.050+07:00  INFO 18244 --- [vaadinerp] [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2436 ms
+2026-07-20T08:51:39.050+07:00  WARN 18244 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : vaadin.whitelisted-packages is deprecated and may not be supported in the future. Use vaadin.allowed-packages instead.
+2026-07-20T08:51:41.648+07:00  INFO 18244 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : Search for subclasses and classes with annotations took 1492 ms
+2026-07-20T08:51:41.801+07:00  INFO 18244 --- [vaadinerp] [main] c.v.b.d.startup.DevModeStartupListener   : Starting dev-mode updaters in D:\PROJECT GMN\vaadinerp folder.
+2026-07-20T08:51:41.846+07:00  INFO 18244 --- [vaadinerp] [main] c.v.f.s.f.s.FullDependenciesScanner      : Visited 130 classes. Took 31 ms.
+2026-07-20T08:51:41.846+07:00  INFO 18244 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : Checking if a development mode bundle build is needed
+2026-07-20T08:51:42.094+07:00  INFO 18244 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : A development mode bundle build is not needed
+2026-07-20T08:51:42.127+07:00  INFO 18244 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Copying frontend resources from jar files ...
+2026-07-20T08:51:42.202+07:00  INFO 18244 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Visited 19 resources. Took 79 ms.
+2026-07-20T08:51:42.333+07:00  INFO 18244 --- [vaadinerp] [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-07-20T08:51:42.409+07:00  INFO 18244 --- [vaadinerp] [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.2.Final
+2026-07-20T08:51:42.447+07:00  INFO 18244 --- [vaadinerp] [main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-07-20T08:51:42.776+07:00  INFO 18244 --- [vaadinerp] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-20T08:51:42.814+07:00  INFO 18244 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Starting...
+2026-07-20T08:51:42.945+07:00  INFO 18244 --- [vaadinerp] [main] com.zaxxer.hikari.pool.HikariPool        : VaadinErpHikariPool - Added connection org.postgresql.jdbc.PgConnection@38de4f1d
+2026-07-20T08:51:42.947+07:00  INFO 18244 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Start completed.
+2026-07-20T08:51:42.984+07:00  WARN 18244 --- [vaadinerp] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-07-20T08:51:44.463+07:00  INFO 18244 --- [vaadinerp] [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-07-20T08:51:44.548+07:00  INFO 18244 --- [vaadinerp] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-20T08:51:45.735+07:00  WARN 18244 --- [vaadinerp] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-20T08:51:46.434+07:00  INFO 18244 --- [vaadinerp] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-07-20T08:51:46.510+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler mapped to context-path: /*
+2026-07-20T08:51:46.510+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed the following AtmosphereInterceptor mapped to AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler
+2026-07-20T08:51:46.550+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.util.VoidAnnotationProcessor for processing annotation
+2026-07-20T08:51:46.585+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
+2026-07-20T08:51:46.585+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed WebSocketProtocol org.atmosphere.websocket.protocol.SimpleHttpProtocol 
+2026-07-20T08:51:46.603+07:00  INFO 18244 --- [vaadinerp] [main] o.a.container.JSR356AsyncSupport         : JSR 356 Mapping path /VAADIN/push
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installing Default AtmosphereInterceptors
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CorsInterceptor : CORS Interceptor Support
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CacheHeadersInterceptor : Default Response's Headers Interceptor
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.PaddingAtmosphereInterceptor : Browser Padding Interceptor Support
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.AndroidAtmosphereInterceptor : Android Interceptor Support
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.HeartbeatInterceptor : Heartbeat Interceptor Support
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.SSEAtmosphereInterceptor : SSE Interceptor Support
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JSONPAtmosphereInterceptor : JSONP Interceptor Support
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JavaScriptProtocol : Atmosphere JavaScript Protocol
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor : org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.OnDisconnectInterceptor : Browser disconnection detection
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.IdleResourceInterceptor : org.atmosphere.interceptor.IdleResourceInterceptor
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Set org.atmosphere.cpr.AtmosphereInterceptor.disableDefaults to disable them.
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor CORS Interceptor Support with priority FIRST_BEFORE_DEFAULT 
+2026-07-20T08:51:46.619+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Default Response's Headers Interceptor with priority AFTER_DEFAULT 
+2026-07-20T08:51:46.632+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser Padding Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:51:46.632+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Android Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:51:46.633+07:00  INFO 18244 --- [vaadinerp] [main] o.a.interceptor.HeartbeatInterceptor     : HeartbeatInterceptor configured with padding value 'X', client frequency 0 seconds and server frequency 60 seconds
+2026-07-20T08:51:46.633+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Heartbeat Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:51:46.641+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor SSE Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:51:46.641+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor JSONP Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:51:46.642+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Atmosphere JavaScript Protocol with priority AFTER_DEFAULT 
+2026-07-20T08:51:46.642+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor with priority AFTER_DEFAULT 
+2026-07-20T08:51:46.642+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser disconnection detection with priority AFTER_DEFAULT 
+2026-07-20T08:51:46.643+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.IdleResourceInterceptor with priority BEFORE_DEFAULT 
+2026-07-20T08:51:46.644+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using EndpointMapper class org.atmosphere.util.DefaultEndpointMapper
+2026-07-20T08:51:46.644+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterCache: org.atmosphere.cache.UUIDBroadcasterCache
+2026-07-20T08:51:46.644+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Default Broadcaster Class: org.atmosphere.cpr.DefaultBroadcaster
+2026-07-20T08:51:46.646+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Shared List Resources: false
+2026-07-20T08:51:46.646+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Polling Wait Time 100
+2026-07-20T08:51:46.646+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Shared ExecutorService supported: true
+2026-07-20T08:51:46.646+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Messaging ExecutorService Pool Size unavailable - Not instance of ThreadPoolExecutor
+2026-07-20T08:51:46.646+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Async I/O Thread Pool Size: 200
+2026-07-20T08:51:46.649+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterFactory: org.atmosphere.cpr.DefaultBroadcasterFactory
+2026-07-20T08:51:46.649+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using AtmosphereResurceFactory: org.atmosphere.cpr.DefaultAtmosphereResourceFactory
+2026-07-20T08:51:46.649+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using WebSocketProcessor: org.atmosphere.websocket.DefaultWebSocketProcessor
+2026-07-20T08:51:46.652+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Invoke AtmosphereInterceptor on WebSocket message true
+2026-07-20T08:51:46.652+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : HttpSession supported: true
+2026-07-20T08:51:46.652+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.inject.InjectableObjectFactory for dependency injection and object creation
+2026-07-20T08:51:46.652+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using async support: org.atmosphere.container.JSR356AsyncSupport running under container: Apache Tomcat/10.1.24 using jakarta.servlet/3.0 and jsr356/WebSocket API
+2026-07-20T08:51:46.652+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere Framework 3.0.5.slf4jvaadin1 started.
+2026-07-20T08:51:46.652+07:00  INFO 18244 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor  Track Message Size Interceptor using | with priority BEFORE_DEFAULT 
+2026-07-20T08:51:46.720+07:00  INFO 18244 --- [vaadinerp] [main] c.v.f.s.DefaultDeploymentConfiguration   : 
 Vaadin is running in DEVELOPMENT mode - do not use for production deployments.
-2026-07-19T21:08:54.682+07:00  INFO 17128 --- [vaadinerp] [main] c.vaadin.flow.spring.SpringInstantiator  : The number of beans implementing 'I18NProvider' is 0. Cannot use Spring beans for I18N, falling back to the default behavior
-2026-07-19T21:08:54.705+07:00  INFO 17128 --- [vaadinerp] [main] c.v.config.CustomSystemMessagesConfig    : Menginisialisasi Custom System Messages & Reconnect Configuration...
-2026-07-19T21:08:54.735+07:00  INFO 17128 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
-2026-07-19T21:08:54.749+07:00  INFO 17128 --- [vaadinerp] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
-2026-07-19T21:08:54.749+07:00  INFO 17128 --- [vaadinerp] [main] com.vaadinerp.Application                : Started Application in 11.723 seconds (process running for 12.319)
-2026-07-19T21:08:54.749+07:00  INFO 17128 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
-2026-07-19T21:08:54.749+07:00  INFO 17128 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
-2026-07-19T21:08:54.900+07:00  INFO 17128 --- [vaadinerp] [main] c.v.b.d.DevModeHandlerManagerImpl        : Application running at http://localhost:8080/
-2026-07-19T21:10:36.851+07:00  WARN 17128 --- [vaadinerp] [http-nio-8080-exec-6] c.v.f.s.c.ReturnChannelHandler           : Ignoring update for disabled return channel: {"type":"channel","node":452,"channel":0,"args":[null]}
-2026-07-19T21:21:51.352+07:00  WARN 17128 --- [vaadinerp] [http-nio-8080-exec-4] c.v.f.s.c.ReturnChannelHandler           : Ignoring update for disabled return channel: {"type":"channel","node":1498,"channel":0,"args":[null]}
-2026-07-19T21:22:56.314+07:00  WARN 17128 --- [vaadinerp] [http-nio-8080-exec-10] c.v.f.s.c.ReturnChannelHandler           : Ignoring update for disabled return channel: {"type":"channel","node":2486,"channel":0,"args":[null]}
-2026-07-19T21:25:22.182+07:00  INFO 17128 --- [vaadinerp] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
-2026-07-19T21:25:22.182+07:00  INFO 17128 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown initiated...
-2026-07-19T21:25:22.197+07:00  INFO 17128 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown completed.
-2026-07-19T21:25:22.213+07:00  INFO 17128 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
-2026-07-19T21:25:22.213+07:00  WARN 17128 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.cpr.DefaultBroadcaster    : AtmosphereResource af8864b7-50a5-4639-b52e-5f492b83dbac is not suspended. If cached messages exists, this may cause unexpected situation. Suspend first
-2026-07-19T21:25:40.115+07:00  INFO 7312 --- [vaadinerp] [main] com.vaadinerp.Application                : Starting Application using Java 21.0.11 with PID 7312 (D:\PROJECT GMN\vaadinerp\target\classes started by Lenovo in D:\PROJECT GMN\vaadinerp)
-2026-07-19T21:25:40.115+07:00  INFO 7312 --- [vaadinerp] [main] com.vaadinerp.Application                : The following 1 profile is active: "dev"
-2026-07-19T21:25:41.404+07:00  INFO 7312 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-07-19T21:25:41.623+07:00  INFO 7312 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 206 ms. Found 14 JPA repository interfaces.
-2026-07-19T21:25:42.533+07:00  INFO 7312 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
-2026-07-19T21:25:42.548+07:00  INFO 7312 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-07-19T21:25:42.548+07:00  INFO 7312 --- [vaadinerp] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
-2026-07-19T21:25:42.642+07:00  INFO 7312 --- [vaadinerp] [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
-2026-07-19T21:25:42.642+07:00  INFO 7312 --- [vaadinerp] [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2261 ms
-2026-07-19T21:25:42.658+07:00  WARN 7312 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : vaadin.whitelisted-packages is deprecated and may not be supported in the future. Use vaadin.allowed-packages instead.
-2026-07-19T21:25:44.649+07:00  INFO 7312 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : Search for subclasses and classes with annotations took 1076 ms
-2026-07-19T21:25:44.795+07:00  INFO 7312 --- [vaadinerp] [main] c.v.b.d.startup.DevModeStartupListener   : Starting dev-mode updaters in D:\PROJECT GMN\vaadinerp folder.
-2026-07-19T21:25:44.842+07:00  INFO 7312 --- [vaadinerp] [main] c.v.f.s.f.s.FullDependenciesScanner      : Visited 129 classes. Took 31 ms.
-2026-07-19T21:25:44.842+07:00  INFO 7312 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : Checking if a development mode bundle build is needed
-2026-07-19T21:25:45.072+07:00  INFO 7312 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : A development mode bundle build is not needed
-2026-07-19T21:25:45.111+07:00  INFO 7312 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Copying frontend resources from jar files ...
-2026-07-19T21:25:45.200+07:00  INFO 7312 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Visited 19 resources. Took 88 ms.
-2026-07-19T21:25:45.341+07:00  INFO 7312 --- [vaadinerp] [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
-2026-07-19T21:25:45.425+07:00  INFO 7312 --- [vaadinerp] [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.2.Final
-2026-07-19T21:25:45.460+07:00  INFO 7312 --- [vaadinerp] [main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
-2026-07-19T21:25:45.820+07:00  INFO 7312 --- [vaadinerp] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-07-19T21:25:45.851+07:00  INFO 7312 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Starting...
-2026-07-19T21:25:45.975+07:00  INFO 7312 --- [vaadinerp] [main] com.zaxxer.hikari.pool.HikariPool        : VaadinErpHikariPool - Added connection org.postgresql.jdbc.PgConnection@7b59f3aa
-2026-07-19T21:25:45.975+07:00  INFO 7312 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Start completed.
-2026-07-19T21:25:46.012+07:00  WARN 7312 --- [vaadinerp] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
-2026-07-19T21:25:47.550+07:00  INFO 7312 --- [vaadinerp] [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-07-19T21:25:47.704+07:00  INFO 7312 --- [vaadinerp] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
-2026-07-19T21:25:49.061+07:00  WARN 7312 --- [vaadinerp] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
-2026-07-19T21:25:49.739+07:00  INFO 7312 --- [vaadinerp] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
-2026-07-19T21:25:49.780+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler mapped to context-path: /*
-2026-07-19T21:25:49.780+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed the following AtmosphereInterceptor mapped to AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler
-2026-07-19T21:25:49.828+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.util.VoidAnnotationProcessor for processing annotation
-2026-07-19T21:25:49.828+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
-2026-07-19T21:25:49.843+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed WebSocketProtocol org.atmosphere.websocket.protocol.SimpleHttpProtocol 
-2026-07-19T21:25:49.843+07:00  INFO 7312 --- [vaadinerp] [main] o.a.container.JSR356AsyncSupport         : JSR 356 Mapping path /VAADIN/push
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installing Default AtmosphereInterceptors
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CorsInterceptor : CORS Interceptor Support
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CacheHeadersInterceptor : Default Response's Headers Interceptor
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.PaddingAtmosphereInterceptor : Browser Padding Interceptor Support
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.AndroidAtmosphereInterceptor : Android Interceptor Support
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.HeartbeatInterceptor : Heartbeat Interceptor Support
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.SSEAtmosphereInterceptor : SSE Interceptor Support
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JSONPAtmosphereInterceptor : JSONP Interceptor Support
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JavaScriptProtocol : Atmosphere JavaScript Protocol
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor : org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.OnDisconnectInterceptor : Browser disconnection detection
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.IdleResourceInterceptor : org.atmosphere.interceptor.IdleResourceInterceptor
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Set org.atmosphere.cpr.AtmosphereInterceptor.disableDefaults to disable them.
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor CORS Interceptor Support with priority FIRST_BEFORE_DEFAULT 
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Default Response's Headers Interceptor with priority AFTER_DEFAULT 
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser Padding Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Android Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] o.a.interceptor.HeartbeatInterceptor     : HeartbeatInterceptor configured with padding value 'X', client frequency 0 seconds and server frequency 60 seconds
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Heartbeat Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor SSE Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor JSONP Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Atmosphere JavaScript Protocol with priority AFTER_DEFAULT 
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor with priority AFTER_DEFAULT 
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser disconnection detection with priority AFTER_DEFAULT 
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.IdleResourceInterceptor with priority BEFORE_DEFAULT 
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using EndpointMapper class org.atmosphere.util.DefaultEndpointMapper
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterCache: org.atmosphere.cache.UUIDBroadcasterCache
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Default Broadcaster Class: org.atmosphere.cpr.DefaultBroadcaster
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Shared List Resources: false
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Polling Wait Time 100
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Shared ExecutorService supported: true
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Messaging ExecutorService Pool Size unavailable - Not instance of ThreadPoolExecutor
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Async I/O Thread Pool Size: 200
-2026-07-19T21:25:49.859+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterFactory: org.atmosphere.cpr.DefaultBroadcasterFactory
-2026-07-19T21:25:49.875+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using AtmosphereResurceFactory: org.atmosphere.cpr.DefaultAtmosphereResourceFactory
-2026-07-19T21:25:49.875+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using WebSocketProcessor: org.atmosphere.websocket.DefaultWebSocketProcessor
-2026-07-19T21:25:49.875+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Invoke AtmosphereInterceptor on WebSocket message true
-2026-07-19T21:25:49.875+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : HttpSession supported: true
-2026-07-19T21:25:49.875+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.inject.InjectableObjectFactory for dependency injection and object creation
-2026-07-19T21:25:49.875+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using async support: org.atmosphere.container.JSR356AsyncSupport running under container: Apache Tomcat/10.1.24 using jakarta.servlet/3.0 and jsr356/WebSocket API
-2026-07-19T21:25:49.875+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere Framework 3.0.5.slf4jvaadin1 started.
-2026-07-19T21:25:49.875+07:00  INFO 7312 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor  Track Message Size Interceptor using | with priority BEFORE_DEFAULT 
-2026-07-19T21:25:49.922+07:00  INFO 7312 --- [vaadinerp] [main] c.v.f.s.DefaultDeploymentConfiguration   : 
+2026-07-20T08:51:46.734+07:00  INFO 18244 --- [vaadinerp] [main] c.vaadin.flow.spring.SpringInstantiator  : The number of beans implementing 'I18NProvider' is 0. Cannot use Spring beans for I18N, falling back to the default behavior
+2026-07-20T08:51:46.766+07:00  INFO 18244 --- [vaadinerp] [main] c.v.config.CustomSystemMessagesConfig    : Menginisialisasi Custom System Messages & Reconnect Configuration...
+2026-07-20T08:51:46.783+07:00  INFO 18244 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-07-20T08:51:46.801+07:00  INFO 18244 --- [vaadinerp] [main] com.vaadinerp.Application                : Started Application in 11.005 seconds (process running for 11.514)
+2026-07-20T08:51:46.836+07:00  INFO 18244 --- [vaadinerp] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-20T08:51:46.836+07:00  INFO 18244 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-07-20T08:51:46.836+07:00  INFO 18244 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
+2026-07-20T08:51:46.884+07:00  INFO 18244 --- [vaadinerp] [main] c.v.b.d.DevModeHandlerManagerImpl        : Application running at http://localhost:8080/
+2026-07-20T08:53:51.236+07:00  INFO 18244 --- [vaadinerp] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-20T08:53:51.236+07:00  INFO 18244 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown initiated...
+2026-07-20T08:53:51.248+07:00  INFO 18244 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown completed.
+2026-07-20T08:53:51.258+07:00  INFO 18244 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
+2026-07-20T08:53:51.259+07:00  WARN 18244 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.cpr.DefaultBroadcaster    : AtmosphereResource 04b605cc-9044-46c8-8409-3fa94141f74e is not suspended. If cached messages exists, this may cause unexpected situation. Suspend first
+2026-07-20T08:54:06.500+07:00  INFO 20924 --- [vaadinerp] [main] com.vaadinerp.Application                : Starting Application using Java 21.0.11 with PID 20924 (D:\PROJECT GMN\vaadinerp\target\classes started by Lenovo in D:\PROJECT GMN\vaadinerp)
+2026-07-20T08:54:06.502+07:00  INFO 20924 --- [vaadinerp] [main] com.vaadinerp.Application                : The following 1 profile is active: "dev"
+2026-07-20T08:54:07.754+07:00  INFO 20924 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-20T08:54:07.977+07:00  INFO 20924 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 211 ms. Found 14 JPA repository interfaces.
+2026-07-20T08:54:08.849+07:00  INFO 20924 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-07-20T08:54:08.849+07:00  INFO 20924 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-20T08:54:08.865+07:00  INFO 20924 --- [vaadinerp] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
+2026-07-20T08:54:08.969+07:00  INFO 20924 --- [vaadinerp] [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-07-20T08:54:08.970+07:00  INFO 20924 --- [vaadinerp] [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2206 ms
+2026-07-20T08:54:08.980+07:00  WARN 20924 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : vaadin.whitelisted-packages is deprecated and may not be supported in the future. Use vaadin.allowed-packages instead.
+2026-07-20T08:54:10.857+07:00  INFO 20924 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : Search for subclasses and classes with annotations took 1076 ms
+2026-07-20T08:54:10.996+07:00  INFO 20924 --- [vaadinerp] [main] c.v.b.d.startup.DevModeStartupListener   : Starting dev-mode updaters in D:\PROJECT GMN\vaadinerp folder.
+2026-07-20T08:54:11.052+07:00  INFO 20924 --- [vaadinerp] [main] c.v.f.s.f.s.FullDependenciesScanner      : Visited 130 classes. Took 36 ms.
+2026-07-20T08:54:11.065+07:00  INFO 20924 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : Checking if a development mode bundle build is needed
+2026-07-20T08:54:11.340+07:00  INFO 20924 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : A development mode bundle build is not needed
+2026-07-20T08:54:11.366+07:00  INFO 20924 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Copying frontend resources from jar files ...
+2026-07-20T08:54:11.456+07:00  INFO 20924 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Visited 19 resources. Took 80 ms.
+2026-07-20T08:54:11.603+07:00  INFO 20924 --- [vaadinerp] [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-07-20T08:54:11.664+07:00  INFO 20924 --- [vaadinerp] [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.2.Final
+2026-07-20T08:54:11.702+07:00  INFO 20924 --- [vaadinerp] [main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-07-20T08:54:12.040+07:00  INFO 20924 --- [vaadinerp] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-20T08:54:12.075+07:00  INFO 20924 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Starting...
+2026-07-20T08:54:12.302+07:00  INFO 20924 --- [vaadinerp] [main] com.zaxxer.hikari.pool.HikariPool        : VaadinErpHikariPool - Added connection org.postgresql.jdbc.PgConnection@38de4f1d
+2026-07-20T08:54:12.302+07:00  INFO 20924 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Start completed.
+2026-07-20T08:54:12.349+07:00  WARN 20924 --- [vaadinerp] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-07-20T08:54:13.795+07:00  INFO 20924 --- [vaadinerp] [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-07-20T08:54:13.899+07:00  INFO 20924 --- [vaadinerp] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-20T08:54:15.119+07:00  WARN 20924 --- [vaadinerp] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-20T08:54:15.812+07:00  INFO 20924 --- [vaadinerp] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-07-20T08:54:15.883+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler mapped to context-path: /*
+2026-07-20T08:54:15.883+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed the following AtmosphereInterceptor mapped to AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler
+2026-07-20T08:54:15.922+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.util.VoidAnnotationProcessor for processing annotation
+2026-07-20T08:54:15.933+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
+2026-07-20T08:54:15.939+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed WebSocketProtocol org.atmosphere.websocket.protocol.SimpleHttpProtocol 
+2026-07-20T08:54:15.939+07:00  INFO 20924 --- [vaadinerp] [main] o.a.container.JSR356AsyncSupport         : JSR 356 Mapping path /VAADIN/push
+2026-07-20T08:54:15.955+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installing Default AtmosphereInterceptors
+2026-07-20T08:54:15.955+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CorsInterceptor : CORS Interceptor Support
+2026-07-20T08:54:15.955+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CacheHeadersInterceptor : Default Response's Headers Interceptor
+2026-07-20T08:54:15.955+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.PaddingAtmosphereInterceptor : Browser Padding Interceptor Support
+2026-07-20T08:54:15.955+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.AndroidAtmosphereInterceptor : Android Interceptor Support
+2026-07-20T08:54:15.955+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.HeartbeatInterceptor : Heartbeat Interceptor Support
+2026-07-20T08:54:15.955+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.SSEAtmosphereInterceptor : SSE Interceptor Support
+2026-07-20T08:54:15.965+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JSONPAtmosphereInterceptor : JSONP Interceptor Support
+2026-07-20T08:54:15.967+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JavaScriptProtocol : Atmosphere JavaScript Protocol
+2026-07-20T08:54:15.968+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor : org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor
+2026-07-20T08:54:15.969+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.OnDisconnectInterceptor : Browser disconnection detection
+2026-07-20T08:54:15.970+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.IdleResourceInterceptor : org.atmosphere.interceptor.IdleResourceInterceptor
+2026-07-20T08:54:15.971+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Set org.atmosphere.cpr.AtmosphereInterceptor.disableDefaults to disable them.
+2026-07-20T08:54:15.972+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor CORS Interceptor Support with priority FIRST_BEFORE_DEFAULT 
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Default Response's Headers Interceptor with priority AFTER_DEFAULT 
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser Padding Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Android Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] o.a.interceptor.HeartbeatInterceptor     : HeartbeatInterceptor configured with padding value 'X', client frequency 0 seconds and server frequency 60 seconds
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Heartbeat Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor SSE Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor JSONP Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Atmosphere JavaScript Protocol with priority AFTER_DEFAULT 
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor with priority AFTER_DEFAULT 
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser disconnection detection with priority AFTER_DEFAULT 
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.IdleResourceInterceptor with priority BEFORE_DEFAULT 
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using EndpointMapper class org.atmosphere.util.DefaultEndpointMapper
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterCache: org.atmosphere.cache.UUIDBroadcasterCache
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Default Broadcaster Class: org.atmosphere.cpr.DefaultBroadcaster
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Shared List Resources: false
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Polling Wait Time 100
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Shared ExecutorService supported: true
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Messaging ExecutorService Pool Size unavailable - Not instance of ThreadPoolExecutor
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Async I/O Thread Pool Size: 200
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterFactory: org.atmosphere.cpr.DefaultBroadcasterFactory
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using AtmosphereResurceFactory: org.atmosphere.cpr.DefaultAtmosphereResourceFactory
+2026-07-20T08:54:15.973+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using WebSocketProcessor: org.atmosphere.websocket.DefaultWebSocketProcessor
+2026-07-20T08:54:15.984+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Invoke AtmosphereInterceptor on WebSocket message true
+2026-07-20T08:54:15.985+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : HttpSession supported: true
+2026-07-20T08:54:15.985+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.inject.InjectableObjectFactory for dependency injection and object creation
+2026-07-20T08:54:15.986+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using async support: org.atmosphere.container.JSR356AsyncSupport running under container: Apache Tomcat/10.1.24 using jakarta.servlet/3.0 and jsr356/WebSocket API
+2026-07-20T08:54:15.986+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere Framework 3.0.5.slf4jvaadin1 started.
+2026-07-20T08:54:15.992+07:00  INFO 20924 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor  Track Message Size Interceptor using | with priority BEFORE_DEFAULT 
+2026-07-20T08:54:16.055+07:00  INFO 20924 --- [vaadinerp] [main] c.v.f.s.DefaultDeploymentConfiguration   : 
 Vaadin is running in DEVELOPMENT mode - do not use for production deployments.
-2026-07-19T21:25:49.955+07:00  INFO 7312 --- [vaadinerp] [main] c.vaadin.flow.spring.SpringInstantiator  : The number of beans implementing 'I18NProvider' is 0. Cannot use Spring beans for I18N, falling back to the default behavior
-2026-07-19T21:25:49.969+07:00  INFO 7312 --- [vaadinerp] [main] c.v.config.CustomSystemMessagesConfig    : Menginisialisasi Custom System Messages & Reconnect Configuration...
-2026-07-19T21:25:50.000+07:00  INFO 7312 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
-2026-07-19T21:25:50.025+07:00  INFO 7312 --- [vaadinerp] [main] com.vaadinerp.Application                : Started Application in 10.406 seconds (process running for 11.027)
-2026-07-19T21:25:50.113+07:00  INFO 7312 --- [vaadinerp] [main] c.v.b.d.DevModeHandlerManagerImpl        : Application running at http://localhost:8080/
-2026-07-19T21:25:51.239+07:00  INFO 7312 --- [vaadinerp] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
-2026-07-19T21:25:51.239+07:00  INFO 7312 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
-2026-07-19T21:25:51.239+07:00  INFO 7312 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
-2026-07-19T21:35:37.287+07:00  INFO 7312 --- [vaadinerp] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
-2026-07-19T21:35:37.290+07:00  INFO 7312 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown initiated...
-2026-07-19T21:35:37.295+07:00  INFO 7312 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown completed.
-2026-07-19T21:35:37.302+07:00  INFO 7312 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
-2026-07-19T21:35:37.304+07:00  WARN 7312 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.cpr.DefaultBroadcaster    : AtmosphereResource 6ada1ded-9dd9-4173-842c-b729e0c08e5f is not suspended. If cached messages exists, this may cause unexpected situation. Suspend first
-2026-07-19T21:35:54.936+07:00  INFO 19960 --- [vaadinerp] [main] com.vaadinerp.Application                : Starting Application using Java 21.0.11 with PID 19960 (D:\PROJECT GMN\vaadinerp\target\classes started by Lenovo in D:\PROJECT GMN\vaadinerp)
-2026-07-19T21:35:54.944+07:00  INFO 19960 --- [vaadinerp] [main] com.vaadinerp.Application                : The following 1 profile is active: "dev"
-2026-07-19T21:35:56.310+07:00  INFO 19960 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-07-19T21:35:56.568+07:00  INFO 19960 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 237 ms. Found 14 JPA repository interfaces.
-2026-07-19T21:35:57.514+07:00  INFO 19960 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
-2026-07-19T21:35:57.529+07:00  INFO 19960 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-07-19T21:35:57.529+07:00  INFO 19960 --- [vaadinerp] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
-2026-07-19T21:35:57.626+07:00  INFO 19960 --- [vaadinerp] [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
-2026-07-19T21:35:57.626+07:00  INFO 19960 --- [vaadinerp] [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2427 ms
-2026-07-19T21:35:57.640+07:00  WARN 19960 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : vaadin.whitelisted-packages is deprecated and may not be supported in the future. Use vaadin.allowed-packages instead.
-2026-07-19T21:35:59.636+07:00  INFO 19960 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : Search for subclasses and classes with annotations took 1153 ms
-2026-07-19T21:35:59.824+07:00  INFO 19960 --- [vaadinerp] [main] c.v.b.d.startup.DevModeStartupListener   : Starting dev-mode updaters in D:\PROJECT GMN\vaadinerp folder.
-2026-07-19T21:35:59.902+07:00  INFO 19960 --- [vaadinerp] [main] c.v.f.s.f.s.FullDependenciesScanner      : Visited 129 classes. Took 47 ms.
-2026-07-19T21:35:59.902+07:00  INFO 19960 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : Checking if a development mode bundle build is needed
-2026-07-19T21:36:00.137+07:00  INFO 19960 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : A development mode bundle build is not needed
-2026-07-19T21:36:00.175+07:00  INFO 19960 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Copying frontend resources from jar files ...
-2026-07-19T21:36:00.254+07:00  INFO 19960 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Visited 19 resources. Took 86 ms.
-2026-07-19T21:36:00.401+07:00  INFO 19960 --- [vaadinerp] [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
-2026-07-19T21:36:00.486+07:00  INFO 19960 --- [vaadinerp] [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.2.Final
-2026-07-19T21:36:00.522+07:00  INFO 19960 --- [vaadinerp] [main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
-2026-07-19T21:36:00.891+07:00  INFO 19960 --- [vaadinerp] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-07-19T21:36:00.921+07:00  INFO 19960 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Starting...
-2026-07-19T21:36:01.162+07:00  INFO 19960 --- [vaadinerp] [main] com.zaxxer.hikari.pool.HikariPool        : VaadinErpHikariPool - Added connection org.postgresql.jdbc.PgConnection@7b59f3aa
-2026-07-19T21:36:01.165+07:00  INFO 19960 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Start completed.
-2026-07-19T21:36:01.206+07:00  WARN 19960 --- [vaadinerp] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
-2026-07-19T21:36:02.891+07:00  INFO 19960 --- [vaadinerp] [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-07-19T21:36:02.987+07:00  INFO 19960 --- [vaadinerp] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
-2026-07-19T21:36:04.624+07:00  WARN 19960 --- [vaadinerp] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
-2026-07-19T21:36:05.494+07:00  INFO 19960 --- [vaadinerp] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
-2026-07-19T21:36:05.557+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler mapped to context-path: /*
-2026-07-19T21:36:05.558+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed the following AtmosphereInterceptor mapped to AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler
-2026-07-19T21:36:05.595+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.util.VoidAnnotationProcessor for processing annotation
-2026-07-19T21:36:05.605+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
-2026-07-19T21:36:05.611+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed WebSocketProtocol org.atmosphere.websocket.protocol.SimpleHttpProtocol 
-2026-07-19T21:36:05.616+07:00  INFO 19960 --- [vaadinerp] [main] o.a.container.JSR356AsyncSupport         : JSR 356 Mapping path /VAADIN/push
-2026-07-19T21:36:05.626+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installing Default AtmosphereInterceptors
-2026-07-19T21:36:05.627+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CorsInterceptor : CORS Interceptor Support
-2026-07-19T21:36:05.627+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CacheHeadersInterceptor : Default Response's Headers Interceptor
-2026-07-19T21:36:05.628+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.PaddingAtmosphereInterceptor : Browser Padding Interceptor Support
-2026-07-19T21:36:05.629+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.AndroidAtmosphereInterceptor : Android Interceptor Support
-2026-07-19T21:36:05.630+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.HeartbeatInterceptor : Heartbeat Interceptor Support
-2026-07-19T21:36:05.631+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.SSEAtmosphereInterceptor : SSE Interceptor Support
-2026-07-19T21:36:05.633+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JSONPAtmosphereInterceptor : JSONP Interceptor Support
-2026-07-19T21:36:05.634+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JavaScriptProtocol : Atmosphere JavaScript Protocol
-2026-07-19T21:36:05.634+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor : org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor
-2026-07-19T21:36:05.635+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.OnDisconnectInterceptor : Browser disconnection detection
-2026-07-19T21:36:05.635+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.IdleResourceInterceptor : org.atmosphere.interceptor.IdleResourceInterceptor
-2026-07-19T21:36:05.636+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Set org.atmosphere.cpr.AtmosphereInterceptor.disableDefaults to disable them.
-2026-07-19T21:36:05.636+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor CORS Interceptor Support with priority FIRST_BEFORE_DEFAULT 
-2026-07-19T21:36:05.637+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Default Response's Headers Interceptor with priority AFTER_DEFAULT 
-2026-07-19T21:36:05.637+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser Padding Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:36:05.637+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Android Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:36:05.637+07:00  INFO 19960 --- [vaadinerp] [main] o.a.interceptor.HeartbeatInterceptor     : HeartbeatInterceptor configured with padding value 'X', client frequency 0 seconds and server frequency 60 seconds
-2026-07-19T21:36:05.638+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Heartbeat Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:36:05.638+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor SSE Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:36:05.638+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor JSONP Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:36:05.638+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Atmosphere JavaScript Protocol with priority AFTER_DEFAULT 
-2026-07-19T21:36:05.639+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor with priority AFTER_DEFAULT 
-2026-07-19T21:36:05.639+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser disconnection detection with priority AFTER_DEFAULT 
-2026-07-19T21:36:05.639+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.IdleResourceInterceptor with priority BEFORE_DEFAULT 
-2026-07-19T21:36:05.640+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using EndpointMapper class org.atmosphere.util.DefaultEndpointMapper
-2026-07-19T21:36:05.640+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterCache: org.atmosphere.cache.UUIDBroadcasterCache
-2026-07-19T21:36:05.641+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Default Broadcaster Class: org.atmosphere.cpr.DefaultBroadcaster
-2026-07-19T21:36:05.641+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Shared List Resources: false
-2026-07-19T21:36:05.641+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Polling Wait Time 100
-2026-07-19T21:36:05.641+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Shared ExecutorService supported: true
-2026-07-19T21:36:05.641+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Messaging ExecutorService Pool Size unavailable - Not instance of ThreadPoolExecutor
-2026-07-19T21:36:05.642+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Async I/O Thread Pool Size: 200
-2026-07-19T21:36:05.642+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterFactory: org.atmosphere.cpr.DefaultBroadcasterFactory
-2026-07-19T21:36:05.642+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using AtmosphereResurceFactory: org.atmosphere.cpr.DefaultAtmosphereResourceFactory
-2026-07-19T21:36:05.642+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using WebSocketProcessor: org.atmosphere.websocket.DefaultWebSocketProcessor
-2026-07-19T21:36:05.645+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Invoke AtmosphereInterceptor on WebSocket message true
-2026-07-19T21:36:05.645+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : HttpSession supported: true
-2026-07-19T21:36:05.645+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.inject.InjectableObjectFactory for dependency injection and object creation
-2026-07-19T21:36:05.645+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using async support: org.atmosphere.container.JSR356AsyncSupport running under container: Apache Tomcat/10.1.24 using jakarta.servlet/3.0 and jsr356/WebSocket API
-2026-07-19T21:36:05.645+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere Framework 3.0.5.slf4jvaadin1 started.
-2026-07-19T21:36:05.649+07:00  INFO 19960 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor  Track Message Size Interceptor using | with priority BEFORE_DEFAULT 
-2026-07-19T21:36:05.707+07:00  INFO 19960 --- [vaadinerp] [main] c.v.f.s.DefaultDeploymentConfiguration   : 
+2026-07-20T08:54:16.089+07:00  INFO 20924 --- [vaadinerp] [main] c.vaadin.flow.spring.SpringInstantiator  : The number of beans implementing 'I18NProvider' is 0. Cannot use Spring beans for I18N, falling back to the default behavior
+2026-07-20T08:54:16.118+07:00  INFO 20924 --- [vaadinerp] [main] c.v.config.CustomSystemMessagesConfig    : Menginisialisasi Custom System Messages & Reconnect Configuration...
+2026-07-20T08:54:16.140+07:00  INFO 20924 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-07-20T08:54:16.156+07:00  INFO 20924 --- [vaadinerp] [main] com.vaadinerp.Application                : Started Application in 10.191 seconds (process running for 10.712)
+2026-07-20T08:54:16.283+07:00  INFO 20924 --- [vaadinerp] [main] c.v.b.d.DevModeHandlerManagerImpl        : Application running at http://localhost:8080/
+2026-07-20T08:54:16.317+07:00  INFO 20924 --- [vaadinerp] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-20T08:54:16.318+07:00  INFO 20924 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-07-20T08:54:16.320+07:00  INFO 20924 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 2 ms
+2026-07-20T08:57:52.049+07:00  INFO 20924 --- [vaadinerp] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-20T08:57:52.049+07:00  INFO 20924 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown initiated...
+2026-07-20T08:57:52.049+07:00  INFO 20924 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown completed.
+2026-07-20T08:57:52.069+07:00  INFO 20924 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
+2026-07-20T08:57:52.070+07:00  WARN 20924 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.cpr.DefaultBroadcaster    : AtmosphereResource 9e624079-a6d1-457a-831e-58e723813404 is not suspended. If cached messages exists, this may cause unexpected situation. Suspend first
+2026-07-20T08:58:12.359+07:00  INFO 13032 --- [vaadinerp] [main] com.vaadinerp.Application                : Starting Application using Java 21.0.11 with PID 13032 (D:\PROJECT GMN\vaadinerp\target\classes started by Lenovo in D:\PROJECT GMN\vaadinerp)
+2026-07-20T08:58:12.359+07:00  INFO 13032 --- [vaadinerp] [main] com.vaadinerp.Application                : The following 1 profile is active: "dev"
+2026-07-20T08:58:13.605+07:00  INFO 13032 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-20T08:58:13.828+07:00  INFO 13032 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 211 ms. Found 14 JPA repository interfaces.
+2026-07-20T08:58:14.655+07:00  INFO 13032 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-07-20T08:58:14.677+07:00  INFO 13032 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-20T08:58:14.677+07:00  INFO 13032 --- [vaadinerp] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
+2026-07-20T08:58:14.779+07:00  INFO 13032 --- [vaadinerp] [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-07-20T08:58:14.781+07:00  INFO 13032 --- [vaadinerp] [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2155 ms
+2026-07-20T08:58:14.781+07:00  WARN 13032 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : vaadin.whitelisted-packages is deprecated and may not be supported in the future. Use vaadin.allowed-packages instead.
+2026-07-20T08:58:16.645+07:00  INFO 13032 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : Search for subclasses and classes with annotations took 1071 ms
+2026-07-20T08:58:16.780+07:00  INFO 13032 --- [vaadinerp] [main] c.v.b.d.startup.DevModeStartupListener   : Starting dev-mode updaters in D:\PROJECT GMN\vaadinerp folder.
+2026-07-20T08:58:16.832+07:00  INFO 13032 --- [vaadinerp] [main] c.v.f.s.f.s.FullDependenciesScanner      : Visited 130 classes. Took 30 ms.
+2026-07-20T08:58:16.832+07:00  INFO 13032 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : Checking if a development mode bundle build is needed
+2026-07-20T08:58:17.091+07:00  INFO 13032 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : A development mode bundle build is not needed
+2026-07-20T08:58:17.131+07:00  INFO 13032 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Copying frontend resources from jar files ...
+2026-07-20T08:58:17.200+07:00  INFO 13032 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Visited 19 resources. Took 80 ms.
+2026-07-20T08:58:17.348+07:00  INFO 13032 --- [vaadinerp] [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-07-20T08:58:17.424+07:00  INFO 13032 --- [vaadinerp] [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.2.Final
+2026-07-20T08:58:17.461+07:00  INFO 13032 --- [vaadinerp] [main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-07-20T08:58:17.784+07:00  INFO 13032 --- [vaadinerp] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-20T08:58:17.820+07:00  INFO 13032 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Starting...
+2026-07-20T08:58:17.948+07:00  INFO 13032 --- [vaadinerp] [main] com.zaxxer.hikari.pool.HikariPool        : VaadinErpHikariPool - Added connection org.postgresql.jdbc.PgConnection@38de4f1d
+2026-07-20T08:58:17.951+07:00  INFO 13032 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Start completed.
+2026-07-20T08:58:17.983+07:00  WARN 13032 --- [vaadinerp] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-07-20T08:58:19.487+07:00  INFO 13032 --- [vaadinerp] [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-07-20T08:58:19.584+07:00  INFO 13032 --- [vaadinerp] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-20T08:58:20.852+07:00  WARN 13032 --- [vaadinerp] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-20T08:58:21.651+07:00  INFO 13032 --- [vaadinerp] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-07-20T08:58:21.718+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler mapped to context-path: /*
+2026-07-20T08:58:21.718+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed the following AtmosphereInterceptor mapped to AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler
+2026-07-20T08:58:21.751+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.util.VoidAnnotationProcessor for processing annotation
+2026-07-20T08:58:21.768+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
+2026-07-20T08:58:21.768+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed WebSocketProtocol org.atmosphere.websocket.protocol.SimpleHttpProtocol 
+2026-07-20T08:58:21.783+07:00  INFO 13032 --- [vaadinerp] [main] o.a.container.JSR356AsyncSupport         : JSR 356 Mapping path /VAADIN/push
+2026-07-20T08:58:21.788+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installing Default AtmosphereInterceptors
+2026-07-20T08:58:21.788+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CorsInterceptor : CORS Interceptor Support
+2026-07-20T08:58:21.788+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CacheHeadersInterceptor : Default Response's Headers Interceptor
+2026-07-20T08:58:21.788+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.PaddingAtmosphereInterceptor : Browser Padding Interceptor Support
+2026-07-20T08:58:21.788+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.AndroidAtmosphereInterceptor : Android Interceptor Support
+2026-07-20T08:58:21.788+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.HeartbeatInterceptor : Heartbeat Interceptor Support
+2026-07-20T08:58:21.798+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.SSEAtmosphereInterceptor : SSE Interceptor Support
+2026-07-20T08:58:21.798+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JSONPAtmosphereInterceptor : JSONP Interceptor Support
+2026-07-20T08:58:21.800+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JavaScriptProtocol : Atmosphere JavaScript Protocol
+2026-07-20T08:58:21.801+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor : org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.OnDisconnectInterceptor : Browser disconnection detection
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.IdleResourceInterceptor : org.atmosphere.interceptor.IdleResourceInterceptor
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Set org.atmosphere.cpr.AtmosphereInterceptor.disableDefaults to disable them.
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor CORS Interceptor Support with priority FIRST_BEFORE_DEFAULT 
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Default Response's Headers Interceptor with priority AFTER_DEFAULT 
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser Padding Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Android Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] o.a.interceptor.HeartbeatInterceptor     : HeartbeatInterceptor configured with padding value 'X', client frequency 0 seconds and server frequency 60 seconds
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Heartbeat Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor SSE Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor JSONP Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Atmosphere JavaScript Protocol with priority AFTER_DEFAULT 
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor with priority AFTER_DEFAULT 
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser disconnection detection with priority AFTER_DEFAULT 
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.IdleResourceInterceptor with priority BEFORE_DEFAULT 
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using EndpointMapper class org.atmosphere.util.DefaultEndpointMapper
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterCache: org.atmosphere.cache.UUIDBroadcasterCache
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Default Broadcaster Class: org.atmosphere.cpr.DefaultBroadcaster
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Shared List Resources: false
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Polling Wait Time 100
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Shared ExecutorService supported: true
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Messaging ExecutorService Pool Size unavailable - Not instance of ThreadPoolExecutor
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Async I/O Thread Pool Size: 200
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterFactory: org.atmosphere.cpr.DefaultBroadcasterFactory
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using AtmosphereResurceFactory: org.atmosphere.cpr.DefaultAtmosphereResourceFactory
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using WebSocketProcessor: org.atmosphere.websocket.DefaultWebSocketProcessor
+2026-07-20T08:58:21.802+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Invoke AtmosphereInterceptor on WebSocket message true
+2026-07-20T08:58:21.816+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : HttpSession supported: true
+2026-07-20T08:58:21.816+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.inject.InjectableObjectFactory for dependency injection and object creation
+2026-07-20T08:58:21.816+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using async support: org.atmosphere.container.JSR356AsyncSupport running under container: Apache Tomcat/10.1.24 using jakarta.servlet/3.0 and jsr356/WebSocket API
+2026-07-20T08:58:21.817+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere Framework 3.0.5.slf4jvaadin1 started.
+2026-07-20T08:58:21.818+07:00  INFO 13032 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor  Track Message Size Interceptor using | with priority BEFORE_DEFAULT 
+2026-07-20T08:58:21.868+07:00  INFO 13032 --- [vaadinerp] [main] c.v.f.s.DefaultDeploymentConfiguration   : 
 Vaadin is running in DEVELOPMENT mode - do not use for production deployments.
-2026-07-19T21:36:05.733+07:00  INFO 19960 --- [vaadinerp] [main] c.vaadin.flow.spring.SpringInstantiator  : The number of beans implementing 'I18NProvider' is 0. Cannot use Spring beans for I18N, falling back to the default behavior
-2026-07-19T21:36:05.756+07:00  INFO 19960 --- [vaadinerp] [main] c.v.config.CustomSystemMessagesConfig    : Menginisialisasi Custom System Messages & Reconnect Configuration...
-2026-07-19T21:36:05.780+07:00  INFO 19960 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
-2026-07-19T21:36:05.792+07:00  INFO 19960 --- [vaadinerp] [main] com.vaadinerp.Application                : Started Application in 11.448 seconds (process running for 12.092)
-2026-07-19T21:36:05.917+07:00  INFO 19960 --- [vaadinerp] [main] c.v.b.d.DevModeHandlerManagerImpl        : Application running at http://localhost:8080/
-2026-07-19T21:36:06.230+07:00  INFO 19960 --- [vaadinerp] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
-2026-07-19T21:36:06.231+07:00  INFO 19960 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
-2026-07-19T21:36:06.233+07:00  INFO 19960 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 2 ms
-2026-07-19T21:36:32.879+07:00  WARN 19960 --- [vaadinerp] [http-nio-8080-exec-10] c.v.f.s.c.ReturnChannelHandler           : Ignoring update for disabled return channel: {"type":"channel","node":381,"channel":0,"args":[null]}
-2026-07-19T21:55:35.240+07:00  INFO 19960 --- [vaadinerp] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
-2026-07-19T21:55:35.240+07:00  INFO 19960 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown initiated...
-2026-07-19T21:55:35.240+07:00  INFO 19960 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown completed.
-2026-07-19T21:55:35.256+07:00  INFO 19960 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
-2026-07-19T21:55:35.256+07:00  WARN 19960 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.cpr.DefaultBroadcaster    : AtmosphereResource d61f05ec-15cd-4123-ade8-6cbb294f9972 is not suspended. If cached messages exists, this may cause unexpected situation. Suspend first
-2026-07-19T21:55:53.263+07:00  INFO 19756 --- [vaadinerp] [main] com.vaadinerp.Application                : Starting Application using Java 21.0.11 with PID 19756 (D:\PROJECT GMN\vaadinerp\target\classes started by Lenovo in D:\PROJECT GMN\vaadinerp)
-2026-07-19T21:55:53.263+07:00  INFO 19756 --- [vaadinerp] [main] com.vaadinerp.Application                : The following 1 profile is active: "dev"
-2026-07-19T21:55:54.516+07:00  INFO 19756 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-07-19T21:55:54.736+07:00  INFO 19756 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 213 ms. Found 14 JPA repository interfaces.
-2026-07-19T21:55:55.616+07:00  INFO 19756 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
-2026-07-19T21:55:55.632+07:00  INFO 19756 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-07-19T21:55:55.632+07:00  INFO 19756 --- [vaadinerp] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
-2026-07-19T21:55:55.773+07:00  INFO 19756 --- [vaadinerp] [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
-2026-07-19T21:55:55.773+07:00  INFO 19756 --- [vaadinerp] [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2248 ms
-2026-07-19T21:55:55.789+07:00  WARN 19756 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : vaadin.whitelisted-packages is deprecated and may not be supported in the future. Use vaadin.allowed-packages instead.
-2026-07-19T21:55:57.646+07:00  INFO 19756 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : Search for subclasses and classes with annotations took 1034 ms
-2026-07-19T21:55:57.804+07:00  INFO 19756 --- [vaadinerp] [main] c.v.b.d.startup.DevModeStartupListener   : Starting dev-mode updaters in D:\PROJECT GMN\vaadinerp folder.
-2026-07-19T21:55:57.851+07:00  INFO 19756 --- [vaadinerp] [main] c.v.f.s.f.s.FullDependenciesScanner      : Visited 129 classes. Took 32 ms.
-2026-07-19T21:55:57.851+07:00  INFO 19756 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : Checking if a development mode bundle build is needed
-2026-07-19T21:55:58.291+07:00  INFO 19756 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : A development mode bundle build is not needed
-2026-07-19T21:55:58.320+07:00  INFO 19756 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Copying frontend resources from jar files ...
-2026-07-19T21:55:58.414+07:00  INFO 19756 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Visited 19 resources. Took 88 ms.
-2026-07-19T21:55:58.565+07:00  INFO 19756 --- [vaadinerp] [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
-2026-07-19T21:55:58.634+07:00  INFO 19756 --- [vaadinerp] [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.2.Final
-2026-07-19T21:55:58.672+07:00  INFO 19756 --- [vaadinerp] [main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
-2026-07-19T21:55:59.011+07:00  INFO 19756 --- [vaadinerp] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-07-19T21:55:59.041+07:00  INFO 19756 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Starting...
-2026-07-19T21:55:59.173+07:00  INFO 19756 --- [vaadinerp] [main] com.zaxxer.hikari.pool.HikariPool        : VaadinErpHikariPool - Added connection org.postgresql.jdbc.PgConnection@39df2652
-2026-07-19T21:55:59.175+07:00  INFO 19756 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Start completed.
-2026-07-19T21:55:59.212+07:00  WARN 19756 --- [vaadinerp] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
-2026-07-19T21:56:00.637+07:00  INFO 19756 --- [vaadinerp] [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-07-19T21:56:00.737+07:00  INFO 19756 --- [vaadinerp] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
-2026-07-19T21:56:02.021+07:00  WARN 19756 --- [vaadinerp] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
-2026-07-19T21:56:02.743+07:00  INFO 19756 --- [vaadinerp] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
-2026-07-19T21:56:02.805+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler mapped to context-path: /*
-2026-07-19T21:56:02.805+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed the following AtmosphereInterceptor mapped to AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler
-2026-07-19T21:56:02.841+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.util.VoidAnnotationProcessor for processing annotation
-2026-07-19T21:56:02.852+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
-2026-07-19T21:56:02.868+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed WebSocketProtocol org.atmosphere.websocket.protocol.SimpleHttpProtocol 
-2026-07-19T21:56:02.868+07:00  INFO 19756 --- [vaadinerp] [main] o.a.container.JSR356AsyncSupport         : JSR 356 Mapping path /VAADIN/push
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installing Default AtmosphereInterceptors
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CorsInterceptor : CORS Interceptor Support
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CacheHeadersInterceptor : Default Response's Headers Interceptor
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.PaddingAtmosphereInterceptor : Browser Padding Interceptor Support
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.AndroidAtmosphereInterceptor : Android Interceptor Support
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.HeartbeatInterceptor : Heartbeat Interceptor Support
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.SSEAtmosphereInterceptor : SSE Interceptor Support
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JSONPAtmosphereInterceptor : JSONP Interceptor Support
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JavaScriptProtocol : Atmosphere JavaScript Protocol
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor : org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.OnDisconnectInterceptor : Browser disconnection detection
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.IdleResourceInterceptor : org.atmosphere.interceptor.IdleResourceInterceptor
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Set org.atmosphere.cpr.AtmosphereInterceptor.disableDefaults to disable them.
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor CORS Interceptor Support with priority FIRST_BEFORE_DEFAULT 
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Default Response's Headers Interceptor with priority AFTER_DEFAULT 
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser Padding Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Android Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] o.a.interceptor.HeartbeatInterceptor     : HeartbeatInterceptor configured with padding value 'X', client frequency 0 seconds and server frequency 60 seconds
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Heartbeat Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor SSE Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor JSONP Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Atmosphere JavaScript Protocol with priority AFTER_DEFAULT 
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor with priority AFTER_DEFAULT 
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser disconnection detection with priority AFTER_DEFAULT 
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.IdleResourceInterceptor with priority BEFORE_DEFAULT 
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using EndpointMapper class org.atmosphere.util.DefaultEndpointMapper
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterCache: org.atmosphere.cache.UUIDBroadcasterCache
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Default Broadcaster Class: org.atmosphere.cpr.DefaultBroadcaster
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Shared List Resources: false
-2026-07-19T21:56:02.884+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Polling Wait Time 100
-2026-07-19T21:56:02.899+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Shared ExecutorService supported: true
-2026-07-19T21:56:02.899+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Messaging ExecutorService Pool Size unavailable - Not instance of ThreadPoolExecutor
-2026-07-19T21:56:02.899+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Async I/O Thread Pool Size: 200
-2026-07-19T21:56:02.899+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterFactory: org.atmosphere.cpr.DefaultBroadcasterFactory
-2026-07-19T21:56:02.899+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using AtmosphereResurceFactory: org.atmosphere.cpr.DefaultAtmosphereResourceFactory
-2026-07-19T21:56:02.899+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using WebSocketProcessor: org.atmosphere.websocket.DefaultWebSocketProcessor
-2026-07-19T21:56:02.899+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Invoke AtmosphereInterceptor on WebSocket message true
-2026-07-19T21:56:02.899+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : HttpSession supported: true
-2026-07-19T21:56:02.899+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.inject.InjectableObjectFactory for dependency injection and object creation
-2026-07-19T21:56:02.899+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using async support: org.atmosphere.container.JSR356AsyncSupport running under container: Apache Tomcat/10.1.24 using jakarta.servlet/3.0 and jsr356/WebSocket API
-2026-07-19T21:56:02.899+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere Framework 3.0.5.slf4jvaadin1 started.
-2026-07-19T21:56:02.899+07:00  INFO 19756 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor  Track Message Size Interceptor using | with priority BEFORE_DEFAULT 
-2026-07-19T21:56:02.962+07:00  INFO 19756 --- [vaadinerp] [main] c.v.f.s.DefaultDeploymentConfiguration   : 
+2026-07-20T08:58:21.912+07:00  INFO 13032 --- [vaadinerp] [main] c.vaadin.flow.spring.SpringInstantiator  : The number of beans implementing 'I18NProvider' is 0. Cannot use Spring beans for I18N, falling back to the default behavior
+2026-07-20T08:58:21.938+07:00  INFO 13032 --- [vaadinerp] [main] c.v.config.CustomSystemMessagesConfig    : Menginisialisasi Custom System Messages & Reconnect Configuration...
+2026-07-20T08:58:21.947+07:00  INFO 13032 --- [vaadinerp] [http-nio-8080-exec-2] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-20T08:58:21.948+07:00  INFO 13032 --- [vaadinerp] [http-nio-8080-exec-2] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-07-20T08:58:21.950+07:00  INFO 13032 --- [vaadinerp] [http-nio-8080-exec-2] o.s.web.servlet.DispatcherServlet        : Completed initialization in 2 ms
+2026-07-20T08:58:21.965+07:00  INFO 13032 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-07-20T08:58:21.974+07:00  INFO 13032 --- [vaadinerp] [main] com.vaadinerp.Application                : Started Application in 10.146 seconds (process running for 10.672)
+2026-07-20T08:58:22.131+07:00  INFO 13032 --- [vaadinerp] [main] c.v.b.d.DevModeHandlerManagerImpl        : Application running at http://localhost:8080/
+2026-07-20T09:05:50.526+07:00  INFO 13032 --- [vaadinerp] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-20T09:05:50.526+07:00  INFO 13032 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown initiated...
+2026-07-20T09:05:50.526+07:00  INFO 13032 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown completed.
+2026-07-20T09:05:50.545+07:00  INFO 13032 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
+2026-07-20T09:05:50.546+07:00  WARN 13032 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.cpr.DefaultBroadcaster    : AtmosphereResource 87d44520-4383-4267-b1e1-2a071e843030 is not suspended. If cached messages exists, this may cause unexpected situation. Suspend first
+2026-07-20T09:06:05.331+07:00  INFO 17304 --- [vaadinerp] [main] com.vaadinerp.Application                : Starting Application using Java 21.0.11 with PID 17304 (D:\PROJECT GMN\vaadinerp\target\classes started by Lenovo in D:\PROJECT GMN\vaadinerp)
+2026-07-20T09:06:05.331+07:00  INFO 17304 --- [vaadinerp] [main] com.vaadinerp.Application                : The following 1 profile is active: "dev"
+2026-07-20T09:06:06.591+07:00  INFO 17304 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-20T09:06:06.794+07:00  INFO 17304 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 206 ms. Found 14 JPA repository interfaces.
+2026-07-20T09:06:07.671+07:00  INFO 17304 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-07-20T09:06:07.693+07:00  INFO 17304 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-20T09:06:07.693+07:00  INFO 17304 --- [vaadinerp] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
+2026-07-20T09:06:07.795+07:00  INFO 17304 --- [vaadinerp] [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-07-20T09:06:07.796+07:00  INFO 17304 --- [vaadinerp] [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2198 ms
+2026-07-20T09:06:07.799+07:00  WARN 17304 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : vaadin.whitelisted-packages is deprecated and may not be supported in the future. Use vaadin.allowed-packages instead.
+2026-07-20T09:06:09.698+07:00  INFO 17304 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : Search for subclasses and classes with annotations took 1076 ms
+2026-07-20T09:06:09.830+07:00  INFO 17304 --- [vaadinerp] [main] c.v.b.d.startup.DevModeStartupListener   : Starting dev-mode updaters in D:\PROJECT GMN\vaadinerp folder.
+2026-07-20T09:06:09.898+07:00  INFO 17304 --- [vaadinerp] [main] c.v.f.s.f.s.FullDependenciesScanner      : Visited 130 classes. Took 35 ms.
+2026-07-20T09:06:09.898+07:00  INFO 17304 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : Checking if a development mode bundle build is needed
+2026-07-20T09:06:10.139+07:00  INFO 17304 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : A development mode bundle build is not needed
+2026-07-20T09:06:10.181+07:00  INFO 17304 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Copying frontend resources from jar files ...
+2026-07-20T09:06:10.267+07:00  INFO 17304 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Visited 19 resources. Took 85 ms.
+2026-07-20T09:06:10.428+07:00  INFO 17304 --- [vaadinerp] [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-07-20T09:06:10.493+07:00  INFO 17304 --- [vaadinerp] [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.2.Final
+2026-07-20T09:06:10.529+07:00  INFO 17304 --- [vaadinerp] [main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-07-20T09:06:10.889+07:00  INFO 17304 --- [vaadinerp] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-20T09:06:10.969+07:00  INFO 17304 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Starting...
+2026-07-20T09:06:11.098+07:00  INFO 17304 --- [vaadinerp] [main] com.zaxxer.hikari.pool.HikariPool        : VaadinErpHikariPool - Added connection org.postgresql.jdbc.PgConnection@38de4f1d
+2026-07-20T09:06:11.098+07:00  INFO 17304 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Start completed.
+2026-07-20T09:06:11.132+07:00  WARN 17304 --- [vaadinerp] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-07-20T09:06:12.672+07:00  INFO 17304 --- [vaadinerp] [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-07-20T09:06:12.804+07:00  INFO 17304 --- [vaadinerp] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-20T09:06:14.082+07:00  WARN 17304 --- [vaadinerp] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-20T09:06:14.761+07:00  INFO 17304 --- [vaadinerp] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-07-20T09:06:14.833+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler mapped to context-path: /*
+2026-07-20T09:06:14.833+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed the following AtmosphereInterceptor mapped to AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler
+2026-07-20T09:06:14.866+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.util.VoidAnnotationProcessor for processing annotation
+2026-07-20T09:06:14.866+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
+2026-07-20T09:06:14.884+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed WebSocketProtocol org.atmosphere.websocket.protocol.SimpleHttpProtocol 
+2026-07-20T09:06:14.884+07:00  INFO 17304 --- [vaadinerp] [main] o.a.container.JSR356AsyncSupport         : JSR 356 Mapping path /VAADIN/push
+2026-07-20T09:06:14.900+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installing Default AtmosphereInterceptors
+2026-07-20T09:06:14.900+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CorsInterceptor : CORS Interceptor Support
+2026-07-20T09:06:14.900+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CacheHeadersInterceptor : Default Response's Headers Interceptor
+2026-07-20T09:06:14.900+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.PaddingAtmosphereInterceptor : Browser Padding Interceptor Support
+2026-07-20T09:06:14.900+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.AndroidAtmosphereInterceptor : Android Interceptor Support
+2026-07-20T09:06:14.907+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.HeartbeatInterceptor : Heartbeat Interceptor Support
+2026-07-20T09:06:14.907+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.SSEAtmosphereInterceptor : SSE Interceptor Support
+2026-07-20T09:06:14.907+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JSONPAtmosphereInterceptor : JSONP Interceptor Support
+2026-07-20T09:06:14.907+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JavaScriptProtocol : Atmosphere JavaScript Protocol
+2026-07-20T09:06:14.907+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor : org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor
+2026-07-20T09:06:14.907+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.OnDisconnectInterceptor : Browser disconnection detection
+2026-07-20T09:06:14.907+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.IdleResourceInterceptor : org.atmosphere.interceptor.IdleResourceInterceptor
+2026-07-20T09:06:14.907+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Set org.atmosphere.cpr.AtmosphereInterceptor.disableDefaults to disable them.
+2026-07-20T09:06:14.907+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor CORS Interceptor Support with priority FIRST_BEFORE_DEFAULT 
+2026-07-20T09:06:14.907+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Default Response's Headers Interceptor with priority AFTER_DEFAULT 
+2026-07-20T09:06:14.914+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser Padding Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T09:06:14.914+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Android Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T09:06:14.914+07:00  INFO 17304 --- [vaadinerp] [main] o.a.interceptor.HeartbeatInterceptor     : HeartbeatInterceptor configured with padding value 'X', client frequency 0 seconds and server frequency 60 seconds
+2026-07-20T09:06:14.915+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Heartbeat Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T09:06:14.915+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor SSE Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T09:06:14.916+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor JSONP Interceptor Support with priority AFTER_DEFAULT 
+2026-07-20T09:06:14.916+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Atmosphere JavaScript Protocol with priority AFTER_DEFAULT 
+2026-07-20T09:06:14.916+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor with priority AFTER_DEFAULT 
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser disconnection detection with priority AFTER_DEFAULT 
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.IdleResourceInterceptor with priority BEFORE_DEFAULT 
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using EndpointMapper class org.atmosphere.util.DefaultEndpointMapper
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterCache: org.atmosphere.cache.UUIDBroadcasterCache
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Default Broadcaster Class: org.atmosphere.cpr.DefaultBroadcaster
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Shared List Resources: false
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Polling Wait Time 100
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Shared ExecutorService supported: true
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Messaging ExecutorService Pool Size unavailable - Not instance of ThreadPoolExecutor
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Async I/O Thread Pool Size: 200
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterFactory: org.atmosphere.cpr.DefaultBroadcasterFactory
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using AtmosphereResurceFactory: org.atmosphere.cpr.DefaultAtmosphereResourceFactory
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using WebSocketProcessor: org.atmosphere.websocket.DefaultWebSocketProcessor
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Invoke AtmosphereInterceptor on WebSocket message true
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : HttpSession supported: true
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.inject.InjectableObjectFactory for dependency injection and object creation
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using async support: org.atmosphere.container.JSR356AsyncSupport running under container: Apache Tomcat/10.1.24 using jakarta.servlet/3.0 and jsr356/WebSocket API
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere Framework 3.0.5.slf4jvaadin1 started.
+2026-07-20T09:06:14.917+07:00  INFO 17304 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor  Track Message Size Interceptor using | with priority BEFORE_DEFAULT 
+2026-07-20T09:06:14.982+07:00  INFO 17304 --- [vaadinerp] [main] c.v.f.s.DefaultDeploymentConfiguration   : 
 Vaadin is running in DEVELOPMENT mode - do not use for production deployments.
-2026-07-19T21:56:02.994+07:00  INFO 19756 --- [vaadinerp] [main] c.vaadin.flow.spring.SpringInstantiator  : The number of beans implementing 'I18NProvider' is 0. Cannot use Spring beans for I18N, falling back to the default behavior
-2026-07-19T21:56:03.009+07:00  INFO 19756 --- [vaadinerp] [main] c.v.config.CustomSystemMessagesConfig    : Menginisialisasi Custom System Messages & Reconnect Configuration...
-2026-07-19T21:56:03.041+07:00  INFO 19756 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
-2026-07-19T21:56:03.056+07:00  INFO 19756 --- [vaadinerp] [main] com.vaadinerp.Application                : Started Application in 10.276 seconds (process running for 10.778)
-2026-07-19T21:56:03.122+07:00  INFO 19756 --- [vaadinerp] [main] c.v.b.d.DevModeHandlerManagerImpl        : Application running at http://localhost:8080/
-2026-07-19T21:56:05.241+07:00  INFO 19756 --- [vaadinerp] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
-2026-07-19T21:56:05.241+07:00  INFO 19756 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
-2026-07-19T21:56:05.241+07:00  INFO 19756 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
-2026-07-19T21:56:45.790+07:00  WARN 19756 --- [vaadinerp] [http-nio-8080-exec-6] c.v.f.s.c.ReturnChannelHandler           : Ignoring update for disabled return channel: {"type":"channel","node":592,"channel":0,"args":[null]}
-2026-07-19T22:01:51.165+07:00  INFO 19756 --- [vaadinerp] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
-2026-07-19T22:01:51.165+07:00  INFO 19756 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown initiated...
-2026-07-19T22:01:51.165+07:00  INFO 19756 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown completed.
-2026-07-19T22:01:51.180+07:00  INFO 19756 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
-2026-07-19T22:01:51.181+07:00  WARN 19756 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.cpr.DefaultBroadcaster    : AtmosphereResource c88ad584-a268-4aa0-8964-affbcc37c40d is not suspended. If cached messages exists, this may cause unexpected situation. Suspend first
-2026-07-19T22:03:05.691+07:00  INFO 10172 --- [vaadinerp] [main] com.vaadinerp.Application                : Starting Application using Java 21.0.11 with PID 10172 (D:\PROJECT GMN\vaadinerp\target\classes started by Lenovo in D:\PROJECT GMN\vaadinerp)
-2026-07-19T22:03:05.691+07:00  INFO 10172 --- [vaadinerp] [main] com.vaadinerp.Application                : The following 1 profile is active: "dev"
-2026-07-19T22:03:06.970+07:00  INFO 10172 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-07-19T22:03:07.207+07:00  INFO 10172 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 222 ms. Found 14 JPA repository interfaces.
-2026-07-19T22:03:08.056+07:00  INFO 10172 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
-2026-07-19T22:03:08.071+07:00  INFO 10172 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-07-19T22:03:08.087+07:00  INFO 10172 --- [vaadinerp] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
-2026-07-19T22:03:08.216+07:00  INFO 10172 --- [vaadinerp] [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
-2026-07-19T22:03:08.216+07:00  INFO 10172 --- [vaadinerp] [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2258 ms
-2026-07-19T22:03:08.229+07:00  WARN 10172 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : vaadin.whitelisted-packages is deprecated and may not be supported in the future. Use vaadin.allowed-packages instead.
-2026-07-19T22:03:10.071+07:00  INFO 10172 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : Search for subclasses and classes with annotations took 1054 ms
-2026-07-19T22:03:10.221+07:00  INFO 10172 --- [vaadinerp] [main] c.v.b.d.startup.DevModeStartupListener   : Starting dev-mode updaters in D:\PROJECT GMN\vaadinerp folder.
-2026-07-19T22:03:10.276+07:00  INFO 10172 --- [vaadinerp] [main] c.v.f.s.f.s.FullDependenciesScanner      : Visited 129 classes. Took 47 ms.
-2026-07-19T22:03:10.276+07:00  INFO 10172 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : Checking if a development mode bundle build is needed
-2026-07-19T22:03:10.701+07:00  INFO 10172 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : A development mode bundle build is not needed
-2026-07-19T22:03:10.733+07:00  INFO 10172 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Copying frontend resources from jar files ...
-2026-07-19T22:03:10.811+07:00  INFO 10172 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Visited 19 resources. Took 86 ms.
-2026-07-19T22:03:10.995+07:00  INFO 10172 --- [vaadinerp] [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
-2026-07-19T22:03:11.061+07:00  INFO 10172 --- [vaadinerp] [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.2.Final
-2026-07-19T22:03:11.097+07:00  INFO 10172 --- [vaadinerp] [main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
-2026-07-19T22:03:11.445+07:00  INFO 10172 --- [vaadinerp] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-07-19T22:03:11.474+07:00  INFO 10172 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Starting...
-2026-07-19T22:03:11.623+07:00  INFO 10172 --- [vaadinerp] [main] com.zaxxer.hikari.pool.HikariPool        : VaadinErpHikariPool - Added connection org.postgresql.jdbc.PgConnection@39df2652
-2026-07-19T22:03:11.623+07:00  INFO 10172 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Start completed.
-2026-07-19T22:03:11.665+07:00  WARN 10172 --- [vaadinerp] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
-2026-07-19T22:03:13.108+07:00  INFO 10172 --- [vaadinerp] [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-07-19T22:03:13.203+07:00  INFO 10172 --- [vaadinerp] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
-2026-07-19T22:03:14.468+07:00  WARN 10172 --- [vaadinerp] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
-2026-07-19T22:03:15.129+07:00  INFO 10172 --- [vaadinerp] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
-2026-07-19T22:03:15.177+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler mapped to context-path: /*
-2026-07-19T22:03:15.177+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed the following AtmosphereInterceptor mapped to AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler
-2026-07-19T22:03:15.224+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.util.VoidAnnotationProcessor for processing annotation
-2026-07-19T22:03:15.229+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
-2026-07-19T22:03:15.240+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed WebSocketProtocol org.atmosphere.websocket.protocol.SimpleHttpProtocol 
-2026-07-19T22:03:15.240+07:00  INFO 10172 --- [vaadinerp] [main] o.a.container.JSR356AsyncSupport         : JSR 356 Mapping path /VAADIN/push
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installing Default AtmosphereInterceptors
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CorsInterceptor : CORS Interceptor Support
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CacheHeadersInterceptor : Default Response's Headers Interceptor
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.PaddingAtmosphereInterceptor : Browser Padding Interceptor Support
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.AndroidAtmosphereInterceptor : Android Interceptor Support
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.HeartbeatInterceptor : Heartbeat Interceptor Support
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.SSEAtmosphereInterceptor : SSE Interceptor Support
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JSONPAtmosphereInterceptor : JSONP Interceptor Support
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JavaScriptProtocol : Atmosphere JavaScript Protocol
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor : org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.OnDisconnectInterceptor : Browser disconnection detection
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.IdleResourceInterceptor : org.atmosphere.interceptor.IdleResourceInterceptor
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Set org.atmosphere.cpr.AtmosphereInterceptor.disableDefaults to disable them.
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor CORS Interceptor Support with priority FIRST_BEFORE_DEFAULT 
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Default Response's Headers Interceptor with priority AFTER_DEFAULT 
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser Padding Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Android Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] o.a.interceptor.HeartbeatInterceptor     : HeartbeatInterceptor configured with padding value 'X', client frequency 0 seconds and server frequency 60 seconds
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Heartbeat Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor SSE Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor JSONP Interceptor Support with priority AFTER_DEFAULT 
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Atmosphere JavaScript Protocol with priority AFTER_DEFAULT 
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor with priority AFTER_DEFAULT 
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser disconnection detection with priority AFTER_DEFAULT 
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.IdleResourceInterceptor with priority BEFORE_DEFAULT 
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using EndpointMapper class org.atmosphere.util.DefaultEndpointMapper
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterCache: org.atmosphere.cache.UUIDBroadcasterCache
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Default Broadcaster Class: org.atmosphere.cpr.DefaultBroadcaster
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Shared List Resources: false
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Polling Wait Time 100
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Shared ExecutorService supported: true
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Messaging ExecutorService Pool Size unavailable - Not instance of ThreadPoolExecutor
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Async I/O Thread Pool Size: 200
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterFactory: org.atmosphere.cpr.DefaultBroadcasterFactory
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using AtmosphereResurceFactory: org.atmosphere.cpr.DefaultAtmosphereResourceFactory
-2026-07-19T22:03:15.256+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using WebSocketProcessor: org.atmosphere.websocket.DefaultWebSocketProcessor
-2026-07-19T22:03:15.272+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Invoke AtmosphereInterceptor on WebSocket message true
-2026-07-19T22:03:15.272+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : HttpSession supported: true
-2026-07-19T22:03:15.272+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.inject.InjectableObjectFactory for dependency injection and object creation
-2026-07-19T22:03:15.272+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using async support: org.atmosphere.container.JSR356AsyncSupport running under container: Apache Tomcat/10.1.24 using jakarta.servlet/3.0 and jsr356/WebSocket API
-2026-07-19T22:03:15.272+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere Framework 3.0.5.slf4jvaadin1 started.
-2026-07-19T22:03:15.272+07:00  INFO 10172 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor  Track Message Size Interceptor using | with priority BEFORE_DEFAULT 
-2026-07-19T22:03:15.330+07:00  INFO 10172 --- [vaadinerp] [main] c.v.f.s.DefaultDeploymentConfiguration   : 
-Vaadin is running in DEVELOPMENT mode - do not use for production deployments.
-2026-07-19T22:03:15.352+07:00  INFO 10172 --- [vaadinerp] [main] c.vaadin.flow.spring.SpringInstantiator  : The number of beans implementing 'I18NProvider' is 0. Cannot use Spring beans for I18N, falling back to the default behavior
-2026-07-19T22:03:15.366+07:00  INFO 10172 --- [vaadinerp] [main] c.v.config.CustomSystemMessagesConfig    : Menginisialisasi Custom System Messages & Reconnect Configuration...
-2026-07-19T22:03:15.382+07:00  INFO 10172 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
-2026-07-19T22:03:15.398+07:00  INFO 10172 --- [vaadinerp] [main] com.vaadinerp.Application                : Started Application in 10.191 seconds (process running for 10.692)
-2026-07-19T22:03:15.509+07:00  INFO 10172 --- [vaadinerp] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
-2026-07-19T22:03:15.509+07:00  INFO 10172 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
-2026-07-19T22:03:15.509+07:00  INFO 10172 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
-2026-07-19T22:03:15.509+07:00  INFO 10172 --- [vaadinerp] [main] c.v.b.d.DevModeHandlerManagerImpl        : Application running at http://localhost:8080/
-2026-07-19T22:03:31.293+07:00  WARN 10172 --- [vaadinerp] [http-nio-8080-exec-5] c.v.f.s.c.ReturnChannelHandler           : Ignoring update for disabled return channel: {"type":"channel","node":381,"channel":0,"args":[null]}
-2026-07-19T22:09:27.303+07:00  INFO 10172 --- [vaadinerp] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
-2026-07-19T22:09:27.303+07:00  INFO 10172 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown initiated...
-2026-07-19T22:09:27.303+07:00  INFO 10172 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown completed.
+2026-07-20T09:06:15.007+07:00  INFO 17304 --- [vaadinerp] [main] c.vaadin.flow.spring.SpringInstantiator  : The number of beans implementing 'I18NProvider' is 0. Cannot use Spring beans for I18N, falling back to the default behavior
+2026-07-20T09:06:15.032+07:00  INFO 17304 --- [vaadinerp] [main] c.v.config.CustomSystemMessagesConfig    : Menginisialisasi Custom System Messages & Reconnect Configuration...
+2026-07-20T09:06:15.052+07:00  INFO 17304 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-07-20T09:06:15.066+07:00  INFO 17304 --- [vaadinerp] [main] com.vaadinerp.Application                : Started Application in 10.256 seconds (process running for 10.748)
+2026-07-20T09:06:15.131+07:00  INFO 17304 --- [vaadinerp] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-20T09:06:15.132+07:00  INFO 17304 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-07-20T09:06:15.132+07:00  INFO 17304 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
+2026-07-20T09:06:15.183+07:00  INFO 17304 --- [vaadinerp] [main] c.v.b.d.DevModeHandlerManagerImpl        : Application running at http://localhost:8080/
+2026-07-20T09:11:42.956+07:00  INFO 17304 --- [vaadinerp] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-20T09:11:42.956+07:00  INFO 17304 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown initiated...
+2026-07-20T09:11:42.972+07:00  INFO 17304 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown completed.
+2026-07-20T09:11:42.980+07:00  INFO 17304 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
+2026-07-20T09:11:42.980+07:00  WARN 17304 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.cpr.DefaultBroadcaster    : AtmosphereResource 01da86f0-1cc3-4102-8874-6164f3bb767d is not suspended. If cached messages exists, this may cause unexpected situation. Suspend first
