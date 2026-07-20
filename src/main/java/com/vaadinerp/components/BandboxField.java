@@ -244,6 +244,9 @@ public class BandboxField<T, V> extends CustomField<V> {
     }
 
     private void openPopup() {
+        if (!isEnabled()) {
+            return;
+        }
         if (!popup.isOpened()) {
             popup.open();
         }
