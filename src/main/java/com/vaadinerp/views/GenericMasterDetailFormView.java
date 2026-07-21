@@ -206,6 +206,24 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         }
     }
 
+    public void setComponentReadOnly(String fieldName, boolean readOnly) {
+        Component comp = null;
+        if (fieldName.startsWith("header.")) {
+            comp = formComponents != null ? formComponents.get(fieldName.substring(7)) : null;
+        } else if (fieldName.startsWith("detail.")) {
+            comp = detailEditorComponents != null ? detailEditorComponents.get(fieldName.substring(7)) : null;
+        } else {
+            comp = formComponents != null ? formComponents.get(fieldName) : null;
+            if (comp == null) {
+                comp = detailEditorComponents != null ? detailEditorComponents.get(fieldName) : null;
+            }
+        }
+        
+        if (comp != null) {
+            com.vaadinerp.components.ComponentFactory.setComponentReadOnly(comp, readOnly);
+        }
+    }
+
     public GenericMasterDetailFormView(FormMetaRepository formMetaRepository, DynamicDataService dynamicDataService) {
         this(formMetaRepository, dynamicDataService, null);
     }

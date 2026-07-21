@@ -16,22 +16,19 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.upload.Upload;
-import com.vaadin.flow.component.upload.receivers.MultiFileMemoryBuffer;
-import com.vaadin.flow.server.StreamResource;
+import com.vaadin.flow.server.streams.DownloadHandler;
 import com.vaadinerp.service.FileStorageService;
 
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-@SuppressWarnings("deprecation")
 public class FileUploadField extends CustomField<String> {
 
     private final FileStorageService fileStorageService;
     private final boolean isImageOnly;
     private final List<String> currentFiles = new ArrayList<>();
 
-    private final MultiFileMemoryBuffer buffer;
     private final Upload upload;
     private final VerticalLayout fileListLayout;
     private final VerticalLayout mainLayout;
@@ -43,8 +40,30 @@ public class FileUploadField extends CustomField<String> {
 
         setLabel(label);
 
-        this.buffer = new MultiFileMemoryBuffer();
-        this.upload = new Upload(buffer);
+        this.upload = new Upload((event) -> {
+            String fileName = event.getFileName();
+            try (InputStream inputStream = event.getInputStream()) {
+                String storedFilename = fileStorageService.storeFile(inputStream, fileName);
+                if (storedFilename != null) {
+                    if (isImageOnly) {
+                        // Untuk Photo Box, jika upload foto baru, hapus foto lama terlebih dahulu agar tergantikan (replace)
+                        for (String oldFile : new ArrayList<>(currentFiles)) {
+                            fileStorageService.deleteFile(oldFile);
+                        }
+                        currentFiles.clear();
+                    }
+                    currentFiles.add(storedFilename);
+                    event.getUI().access(() -> {
+                        updateValueAndUI();
+                        Notification.show("Berhasil mengunggah: " + fileName, 3000, Notification.Position.BOTTOM_END);
+                    });
+                }
+            } catch (Exception e) {
+                event.getUI().access(() -> {
+                    Notification.show("Gagal menyimpan file " + fileName + ": " + e.getMessage(), 5000, Notification.Position.BOTTOM_END);
+                });
+            }
+        });
         this.upload.setMaxFiles(10); // Mendukung upload sampai 10 file sekaligus
         this.upload.setMaxFileSize(10 * 1024 * 1024); // Maksimal 10 MB per file
         this.upload.setDropAllowed(true);
@@ -72,29 +91,6 @@ public class FileUploadField extends CustomField<String> {
             dropLabel.getStyle().set("font-size", "13px").set("color", "#64748b");
             this.upload.setDropLabel(dropLabel);
         }
-
-        // Listener saat upload berhasil
-        this.upload.addSucceededListener(event -> {
-            String fileName = event.getFileName();
-            try {
-                InputStream inputStream = buffer.getInputStream(fileName);
-                String storedFilename = fileStorageService.storeFile(inputStream, fileName);
-                if (storedFilename != null) {
-                    if (isImageOnly) {
-                        // Untuk Photo Box, jika upload foto baru, hapus foto lama terlebih dahulu agar tergantikan (replace)
-                        for (String oldFile : new ArrayList<>(currentFiles)) {
-                            fileStorageService.deleteFile(oldFile);
-                        }
-                        currentFiles.clear();
-                    }
-                    currentFiles.add(storedFilename);
-                    updateValueAndUI();
-                    Notification.show("Berhasil mengunggah: " + fileName, 3000, Notification.Position.BOTTOM_END);
-                }
-            } catch (Exception e) {
-                Notification.show("Gagal menyimpan file " + fileName + ": " + e.getMessage(), 5000, Notification.Position.BOTTOM_END);
-            }
-        });
 
         this.upload.addFileRejectedListener(event -> {
             Notification.show("File ditolak: " + event.getErrorMessage(), 4000, Notification.Position.BOTTOM_END);
@@ -178,10 +174,11 @@ public class FileUploadField extends CustomField<String> {
 
             if (!currentFiles.isEmpty()) {
                 String storedFilename = currentFiles.get(0);
-                StreamResource resource = fileStorageService.loadFileAsResource(storedFilename);
+                DownloadHandler resource = fileStorageService.loadFileAsResource(storedFilename);
                 String displayFilename = fileStorageService.getDisplayFilename(storedFilename);
                 if (resource != null) {
-                    Image img = new Image(resource, displayFilename);
+                    Image img = new Image();
+                    img.setSrc(resource);
                     img.getStyle()
                             .set("width", "100%")
                             .set("height", "100%")
@@ -237,9 +234,10 @@ public class FileUploadField extends CustomField<String> {
 
         // 2. Icon atau Thumbnail Preview
         Component previewComp;
-        StreamResource resource = fileStorageService.loadFileAsResource(storedFilename);
+        DownloadHandler resource = fileStorageService.loadFileAsResource(storedFilename);
         if (resource != null && (this.isImageOnly || fileStorageService.isImageFile(storedFilename))) {
-            Image img = new Image(resource, "Preview");
+            Image img = new Image();
+            img.setSrc(resource);
             img.setWidth(this.isImageOnly ? "56px" : "40px");
             img.setHeight(this.isImageOnly ? "56px" : "40px");
             img.getStyle()
@@ -312,8 +310,9 @@ public class FileUploadField extends CustomField<String> {
         dialog.setMaxWidth("85vw");
         dialog.setMaxHeight("85vh");
 
-        StreamResource resource = fileStorageService.loadFileAsResource(storedFilename);
-        Image fullImg = new Image(resource, displayFilename);
+        DownloadHandler resource = fileStorageService.loadFileAsResource(storedFilename);
+        Image fullImg = new Image();
+        fullImg.setSrc(resource);
         fullImg.getStyle()
                 .set("max-width", "100%")
                 .set("max-height", "65vh")

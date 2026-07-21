@@ -61,7 +61,8 @@ public class StandardFormatView extends VerticalLayout {
         H2 title = new H2("Konfigurasi Format Standar (Standard Format)");
         title.getStyle().set("margin", "0").set("color", "#0f172a").set("font-size", "1.4rem");
 
-        Span subtitle = new Span("Atur format tampilan default secara global untuk setiap komponen yang formatnya kosong (NONE).");
+        Span subtitle = new Span(
+                "Atur format tampilan default secara global untuk setiap komponen yang formatnya kosong (NONE).");
         subtitle.getStyle().set("color", "#64748b").set("font-size", "0.85rem");
 
         titleBox.add(title, subtitle);
@@ -194,7 +195,8 @@ public class StandardFormatView extends VerticalLayout {
             service.saveFormat(format.getComponentType(), txtPattern.getValue(), txtDesc.getValue());
             refreshData();
             dialog.close();
-            Notification.show("Format " + format.getComponentType() + " berhasil diperbarui!", 3000, Notification.Position.BOTTOM_END);
+            Notification.show("Format " + format.getComponentType() + " berhasil diperbarui!", 3000,
+                    Notification.Position.BOTTOM_END);
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
@@ -206,7 +208,8 @@ public class StandardFormatView extends VerticalLayout {
     }
 
     private String generateSamplePreview(String type, String pattern) {
-        if (pattern == null || pattern.trim().isEmpty()) return "-";
+        if (pattern == null || pattern.trim().isEmpty())
+            return "-";
         String cleanPattern = pattern.trim();
         try {
             if ("DATEBOX".equalsIgnoreCase(type)) {
@@ -215,11 +218,14 @@ public class StandardFormatView extends VerticalLayout {
                 return LocalDateTime.now().format(DateTimeFormatter.ofPattern(cleanPattern));
             } else if ("TIMEBOX".equalsIgnoreCase(type)) {
                 return LocalDateTime.now().format(DateTimeFormatter.ofPattern(cleanPattern));
-            } else if ("INTBOX".equalsIgnoreCase(type) || "DECIMALBOX".equalsIgnoreCase(type) || "CURRENCY".equalsIgnoreCase(type)) {
+            } else if ("INTBOX".equalsIgnoreCase(type) || "DECIMALBOX".equalsIgnoreCase(type)
+                    || "CURRENCY".equalsIgnoreCase(type)) {
                 boolean hasRp = cleanPattern.startsWith("Rp ") || cleanPattern.startsWith("Rp");
                 String numPattern = cleanPattern;
-                if (hasRp) numPattern = cleanPattern.replace("Rp ", "").replace("Rp", "").trim();
-                BigDecimal sampleNum = "INTBOX".equalsIgnoreCase(type) ? new BigDecimal("1250000") : new BigDecimal("1250000.75");
+                if (hasRp)
+                    numPattern = cleanPattern.replace("Rp ", "").replace("Rp", "").trim();
+                BigDecimal sampleNum = "INTBOX".equalsIgnoreCase(type) ? new BigDecimal("1250000")
+                        : new BigDecimal("1250000.75");
                 DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.of("id", "ID"));
                 DecimalFormat df = new DecimalFormat(numPattern, symbols);
                 String formatted = df.format(sampleNum);

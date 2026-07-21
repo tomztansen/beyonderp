@@ -262,12 +262,14 @@ public class DbExplorerView extends VerticalLayout {
 
         ProcedureDesignerView procedureView = new ProcedureDesignerView(dynamicDataService);
         VisualQueryBuilderView queryBuilderView = new VisualQueryBuilderView(dynamicDataService);
+        ViewDesignerView viewDesignerView = new ViewDesignerView(dynamicDataService);
 
         explorerTabs.add("Data Tabel", dataLayout);
         explorerTabs.add("Struktur Skema, Constraints & Trigger", schemaLayout);
         explorerTabs.add("Buat Tabel & Trigger Baru", new TableDesignerView(dynamicDataService, this::refreshTables));
         explorerTabs.add("Manajemen Stored Procedure", procedureView);
         explorerTabs.add("Query Builder", queryBuilderView);
+        explorerTabs.add("Manajemen View", viewDesignerView);
 
         explorerTabs.addSelectedChangeListener(e -> {
             tableSelect.setVisible(explorerTabs.getSelectedIndex() <= 1);
@@ -285,6 +287,8 @@ public class DbExplorerView extends VerticalLayout {
                 .onNew(() -> {
                     if (explorerTabs.getSelectedIndex() == 3) {
                         procedureView.openProcedureDialog(null);
+                    } else if (explorerTabs.getSelectedIndex() == 5) {
+                        viewDesignerView.openViewDialog(null);
                     } else {
                         openColumnDialog(null);
                     }

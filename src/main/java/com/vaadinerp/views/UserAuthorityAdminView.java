@@ -482,8 +482,23 @@ public class UserAuthorityAdminView extends VerticalLayout {
         parentSelect.setItems(groups.stream().map(g -> g.getMenuCode() + " — " + g.getMenuTitle()).toList());
         parentSelect.setItemLabelGenerator(s -> s);
 
-        TextField iconField = new TextField("Nama Icon (VaadinIcon)");
+        ComboBox<String> iconField = new ComboBox<>("Nama Icon (VaadinIcon)");
         iconField.setWidthFull();
+        iconField.setItems(java.util.Arrays.stream(com.vaadin.flow.component.icon.VaadinIcon.values())
+                .map(Enum::name)
+                .toList());
+        iconField.setAllowCustomValue(true);
+        iconField.addCustomValueSetListener(e -> {
+            iconField.setValue(e.getDetail().toUpperCase());
+        });
+        iconField.setRenderer(com.vaadin.flow.data.renderer.LitRenderer.<String>of(
+                "<div style='display: flex; align-items: center; gap: 8px; padding: 4px 0;'>"
+                        + "  <vaadin-icon icon='vaadin:${item.iconCode}' style='color: #3b82f6; font-size: 18px; flex-shrink: 0;'></vaadin-icon>"
+                        + "  <div style='font-size: 14px; font-weight: 500;'>${item.name}</div>"
+                        + "</div>")
+                .withProperty("iconCode", name -> name != null ? name.toLowerCase().replace("_", "-") : "")
+                .withProperty("name", name -> name));
+        iconField.setClearButtonVisible(true);
 
         TextField routeField = new TextField("Route Path");
         routeField.setWidthFull();

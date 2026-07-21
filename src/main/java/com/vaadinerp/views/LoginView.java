@@ -21,7 +21,7 @@ import com.vaadin.flow.router.Route;
 import com.vaadinerp.security.service.SessionSecurityService;
 
 @Route("login")
-@PageTitle("Login | ERP Enterprise")
+@PageTitle("Login | Growth Manufacturing And Operational System")
 public class LoginView extends Div {
 
         private final SessionSecurityService securityService;
@@ -109,7 +109,7 @@ public class LoginView extends Div {
                                 .set("letter-spacing", "-0.3px");
                 card.add(title);
 
-                Span edition = new Span("ENTERPRISE EDITION");
+                Span edition = new Span("");
                 edition.getStyle()
                                 .set("font-size", "0.68rem")
                                 .set("letter-spacing", "3px")
@@ -191,21 +191,21 @@ public class LoginView extends Div {
                                 .set("color", "#374151")
                                 .set("line-height", "1.6");
 
-                hintBox.getElement().setProperty("innerHTML",
-                                "<div style='font-weight:600;color:#0070F2;margin-bottom:6px;font-size:0.72rem;letter-spacing:0.5px;text-transform:uppercase'>Akun Demo</div>"
-                                                +
-                                                "<div style='display:flex;gap:28px'>" +
-                                                "<div><span style='font-weight:600'>admin</span> / admin<br><span style='color:#6b7280;font-size:0.72rem'>Full Access</span></div>"
-                                                +
-                                                "<div><span style='font-weight:600'>staff</span> / staff<br><span style='color:#6b7280;font-size:0.72rem'>Read Only</span></div>"
-                                                +
-                                                "</div>");
-                card.add(hintBox);
+                // hintBox.getElement().setProperty("innerHTML",
+                // "<div
+                // style='font-weight:600;color:#0070F2;margin-bottom:6px;font-size:0.72rem;letter-spacing:0.5px;text-transform:uppercase'>Akun
+                // Demo</div>"
+                // +
+                // "<div style='display:flex;gap:28px'>" +
+                // "<div><span style='font-weight:600'>admin</span> / admin"
+                // +
+                // "</div>");
+                // card.add(hintBox);
 
                 add(card);
 
                 // ── Footer below card ──
-                Paragraph footer = new Paragraph("© 2026 ERP Enterprise • Powered by Tommy");
+                Paragraph footer = new Paragraph("© 2026 GMS • Powered by IT");
                 footer.getStyle()
                                 .set("position", "absolute")
                                 .set("bottom", "18px")

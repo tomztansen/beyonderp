@@ -252,7 +252,7 @@ public class PortalView extends AppLayout {
                 .set("border-bottom", "1px solid rgba(255, 255, 255, 0.08)")
                 .set("box-sizing", "border-box");
 
-        Span logoText = new Span("GRP");
+        Span logoText = new Span("GMS");
         logoText.getStyle()
                 .set("font-size", "1.4rem")
                 .set("font-weight", "800")
@@ -260,7 +260,7 @@ public class PortalView extends AppLayout {
                 .set("letter-spacing", "0.5px")
                 .set("display", "block");
 
-        Span subtitle = new Span("Growth Resource Planning");
+        Span subtitle = new Span("Growth Manufacturing And Operational System");
         subtitle.getStyle()
                 .set("font-size", "0.7rem")
                 .set("color", "#94a3b8")
@@ -428,15 +428,17 @@ public class PortalView extends AppLayout {
             }
         }
 
-        AppMenu seqMenu = appMenuRepository.findById("MD_SEQUENCE").orElseGet(AppMenu::new);
-        seqMenu.setMenuCode("MD_SEQUENCE");
-        seqMenu.setMenuTitle("Master Penomoran Dokumen");
-        seqMenu.setParentMenuCode(targetParent);
-        seqMenu.setIconName("BARCODE");
-        seqMenu.setDisplayOrder(45);
-        seqMenu.setMenuType("ITEM");
-        seqMenu.setRoutePath("MD_SEQUENCE");
-        appMenuRepository.save(seqMenu);
+        if (!appMenuRepository.existsById("MD_SEQUENCE")) {
+            AppMenu seqMenu = new AppMenu();
+            seqMenu.setMenuCode("MD_SEQUENCE");
+            seqMenu.setMenuTitle("Master Penomoran Dokumen");
+            seqMenu.setParentMenuCode(targetParent);
+            seqMenu.setIconName("BARCODE");
+            seqMenu.setDisplayOrder(45);
+            seqMenu.setMenuType("ITEM");
+            seqMenu.setRoutePath("MD_SEQUENCE");
+            appMenuRepository.save(seqMenu);
+        }
 
         if (roleMenuPermissionRepository != null) {
             for (String rCode : java.util.List.of("ADMIN", "SUPER_ADMIN")) {
@@ -593,17 +595,17 @@ public class PortalView extends AppLayout {
 
     private void ensureAdminOnlyMenuExists(String code, String title, String parentCode, String icon, int order,
             String type) {
-        AppMenu m = appMenuRepository.findById(code).orElseGet(AppMenu::new);
-        m.setMenuCode(code);
-        m.setMenuTitle(title);
-        m.setParentMenuCode(parentCode);
-        m.setIconName(icon);
-        m.setDisplayOrder(order);
-        m.setMenuType(type);
-        if (m.getRoutePath() == null || m.getRoutePath().isEmpty()) {
+        if (!appMenuRepository.existsById(code)) {
+            AppMenu m = new AppMenu();
+            m.setMenuCode(code);
+            m.setMenuTitle(title);
+            m.setParentMenuCode(parentCode);
+            m.setIconName(icon);
+            m.setDisplayOrder(order);
+            m.setMenuType(type);
             m.setRoutePath(code.toLowerCase().replace('_', '-'));
+            appMenuRepository.save(m);
         }
-        appMenuRepository.save(m);
         if (!"GROUP".equals(type) && roleMenuPermissionRepository != null) {
             for (String rCode : java.util.List.of("ADMIN", "SUPER_ADMIN")) {
                 if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, code).isEmpty()) {

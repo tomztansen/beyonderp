@@ -102,6 +102,17 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         }
     }
 
+    public void setComponentReadOnly(String fieldName, boolean readOnly) {
+        String name = fieldName;
+        if (name != null && name.startsWith("header.")) {
+            name = name.substring(7);
+        }
+        Component comp = formComponents != null ? formComponents.get(name) : null;
+        if (comp != null) {
+            com.vaadinerp.components.ComponentFactory.setComponentReadOnly(comp, readOnly);
+        }
+    }
+
     private java.util.List<Map<String, Object>> gridItems = new java.util.ArrayList<>();
     private java.util.List<Map<String, Object>> allGridItems = new java.util.ArrayList<>();
 

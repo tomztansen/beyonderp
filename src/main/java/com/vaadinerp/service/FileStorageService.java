@@ -1,6 +1,5 @@
 package com.vaadinerp.service;
 
-import com.vaadin.flow.server.StreamResource;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +11,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import com.vaadin.flow.server.streams.DownloadHandler;
+import com.vaadin.flow.server.streams.DownloadResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -34,12 +35,10 @@ public class FileStorageService {
     private Path uploadDir;
 
     private static final Set<String> ALLOWED_EXTENSIONS = new HashSet<>(Arrays.asList(
-            "pdf", "doc", "docx", "xls", "xlsx", "txt", "csv", "jpg", "jpeg", "png", "webp", "zip", "rar", "7z"
-    ));
+            "pdf", "doc", "docx", "xls", "xlsx", "txt", "csv", "jpg", "jpeg", "png", "webp", "zip", "rar", "7z"));
 
     private static final Set<String> IMAGE_EXTENSIONS = new HashSet<>(Arrays.asList(
-            "jpg", "jpeg", "png", "webp", "gif", "bmp"
-    ));
+            "jpg", "jpeg", "png", "webp", "gif", "bmp"));
 
     @PostConstruct
     public void init() {
@@ -58,7 +57,7 @@ public class FileStorageService {
     /**
      * Menyimpan file dari input stream ke disk dengan penamaan UUID aman.
      *
-     * @param inputStream Stream data file
+     * @param inputStream      Stream data file
      * @param originalFilename Nama asli file
      * @return Nama file unik yang tersimpan di disk
      */
@@ -91,9 +90,10 @@ public class FileStorageService {
     }
 
     /**
-     * Memuat file dari disk sebagai StreamResource Vaadin untuk preview atau download.
+     * Memuat file dari disk sebagai DownloadHandler Vaadin untuk preview atau
+     * download.
      */
-    public StreamResource loadFileAsResource(String storedFilename) {
+    public DownloadHandler loadFileAsResource(String storedFilename) {
         if (storedFilename == null || storedFilename.trim().isEmpty()) {
             return null;
         }
@@ -110,16 +110,46 @@ public class FileStorageService {
             return null;
         }
 
-        // Buat StreamResource
+        // Buat DownloadHandler (pengganti StreamResource yang deprecated)
         String displayFilename = getDisplayFilename(storedFilename);
-        return new StreamResource(displayFilename, () -> {
+        String mimeType = getMimeType(storedFilename);
+        return DownloadHandler.fromInputStream(event -> {
             try {
-                return new FileInputStream(file);
+                return new DownloadResponse(
+                        new FileInputStream(file),
+                        displayFilename,
+                        mimeType,
+                        file.length());
             } catch (FileNotFoundException e) {
                 log.error("File hilang saat streaming: {}", filePath, e);
-                return null;
+                return DownloadResponse.error(404);
             }
-        });
+        }).inline();
+    }
+
+    /**
+     * Menentukan MIME type berdasarkan ekstensi file.
+     */
+    public String getMimeType(String filename) {
+        String ext = getFileExtension(filename).toLowerCase();
+        return switch (ext) {
+            case "pdf" -> "application/pdf";
+            case "doc" -> "application/msword";
+            case "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "xls" -> "application/vnd.ms-excel";
+            case "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            case "csv" -> "text/csv";
+            case "txt" -> "text/plain";
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "webp" -> "image/webp";
+            case "gif" -> "image/gif";
+            case "bmp" -> "image/bmp";
+            case "zip" -> "application/zip";
+            case "rar" -> "application/x-rar-compressed";
+            case "7z" -> "application/x-7z-compressed";
+            default -> "application/octet-stream";
+        };
     }
 
     /**
@@ -147,7 +177,8 @@ public class FileStorageService {
     }
 
     /**
-     * Menghapus banyak file sekaligus berdasarkan string koma-delimited (digunakan untuk cascade delete record DB).
+     * Menghapus banyak file sekaligus berdasarkan string koma-delimited (digunakan
+     * untuk cascade delete record DB).
      */
     public void deleteFilesByDelimitedString(String delimitedFilenames) {
         if (delimitedFilenames == null || delimitedFilenames.trim().isEmpty()) {
@@ -163,7 +194,8 @@ public class FileStorageService {
      * Memeriksa apakah sebuah nama file adalah file gambar berdasarkan ekstensinya.
      */
     public boolean isImageFile(String filename) {
-        if (filename == null) return false;
+        if (filename == null)
+            return false;
         String ext = getFileExtension(filename).toLowerCase();
         return IMAGE_EXTENSIONS.contains(ext);
     }
@@ -173,7 +205,8 @@ public class FileStorageService {
      * Contoh: "a1b2c3d4_faktur_pajak.pdf" -> "faktur_pajak.pdf"
      */
     public String getDisplayFilename(String storedFilename) {
-        if (storedFilename == null) return "";
+        if (storedFilename == null)
+            return "";
         int idx = storedFilename.indexOf('_');
         if (idx == 8 && storedFilename.length() > 9) { // Pola 8 karakter UUID + _
             return storedFilename.substring(idx + 1);
@@ -182,7 +215,8 @@ public class FileStorageService {
     }
 
     /**
-     * Sanitasi nama file: ubah ke lowercase, ganti spasi dengan _, hapus karakter aneh.
+     * Sanitasi nama file: ubah ke lowercase, ganti spasi dengan _, hapus karakter
+     * aneh.
      */
     public String sanitizeFilename(String originalName) {
         String name = originalName.replace("\\", "/");
@@ -191,7 +225,8 @@ public class FileStorageService {
             name = name.substring(lastSlash + 1);
         }
         name = name.trim().toLowerCase();
-        // Ganti spasi dengan underscore dan hapus karakter selain huruf, angka, titik, strip, underscore
+        // Ganti spasi dengan underscore dan hapus karakter selain huruf, angka, titik,
+        // strip, underscore
         name = name.replaceAll("\\s+", "_");
         name = name.replaceAll("[^a-z0-9\\.\\-_]", "");
         if (name.isEmpty() || name.startsWith(".")) {
@@ -204,7 +239,8 @@ public class FileStorageService {
      * Mengambil ekstensi file dari nama file.
      */
     public String getFileExtension(String filename) {
-        if (filename == null) return "";
+        if (filename == null)
+            return "";
         int dotIdx = filename.lastIndexOf('.');
         if (dotIdx >= 0 && dotIdx < filename.length() - 1) {
             return filename.substring(dotIdx + 1);

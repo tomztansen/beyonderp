@@ -987,6 +987,48 @@ public class DynamicDataService {
         jdbcTemplate.execute(sqlScript);
     }
 
+    public List<Map<String, Object>> fetchDatabaseViews(String schemaFilter) {
+        try {
+            String sql = "SELECT n.nspname AS schema_name, c.relname AS view_name, " +
+                    "pg_get_viewdef(c.oid) AS view_definition, " +
+                    "c.oid AS oid " +
+                    "FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid " +
+                    "WHERE c.relkind = 'v' AND n.nspname IN ('dynamic', 'public') ";
+            if (schemaFilter != null && !schemaFilter.trim().isEmpty() && !"ALL".equalsIgnoreCase(schemaFilter)) {
+                sql += " AND n.nspname = '" + schemaFilter.trim().toLowerCase() + "' ";
+            }
+            sql += " ORDER BY n.nspname, c.relname";
+            return jdbcTemplate.queryForList(sql);
+        } catch (Exception e) {
+            log.error("Gagal memuat list view: " + e.getMessage(), e);
+            return new ArrayList<>();
+        }
+    }
+
+    public String fetchViewDefinitionByOid(Long oid) {
+        if (oid == null)
+            return "";
+        try {
+            String def = jdbcTemplate.queryForObject("SELECT pg_get_viewdef(?)", String.class, oid);
+            return def != null ? def : "";
+        } catch (Exception e) {
+            log.error("Gagal memuat definisi view oid {}: {}", oid, e.getMessage());
+            return "";
+        }
+    }
+
+    @Transactional
+    public void executeViewScript(String sqlScript) {
+        if (!isCurrentUserSuperAdmin()) {
+            throw new SecurityException(
+                    "Akses ditolak: Hanya SUPER_ADMIN yang boleh membuat, mengubah, atau menghapus view!");
+        }
+        if (sqlScript == null || sqlScript.trim().isEmpty()) {
+            throw new IllegalArgumentException("Script SQL tidak boleh kosong.");
+        }
+        jdbcTemplate.execute(sqlScript);
+    }
+
     public List<Map<String, Object>> fetchTableConstraints(String tableName) {
         if (tableName == null || tableName.trim().isEmpty()) {
             return new ArrayList<>();

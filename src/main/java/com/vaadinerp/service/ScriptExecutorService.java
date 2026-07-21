@@ -94,6 +94,7 @@ public class ScriptExecutorService {
         try {
             if (scriptText != null) {
                 scriptText = scriptText.replaceAll("(?i)setElementEnabled\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementEnabled('$1',");
+                scriptText = scriptText.replaceAll("(?i)setElementReadonly\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementReadonly('$1',");
                 scriptText = scriptText.replaceAll("(?i)setElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementValue('$1',");
                 scriptText = scriptText.replaceAll("(?i)getElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "getElementValue('$1',");
             }
@@ -127,6 +128,15 @@ public class ScriptExecutorService {
                         ctx.setElementEnabled(ref, enabled);
                         if (currentView instanceof com.vaadinerp.components.SubformGridField sub) {
                             sub.setComponentEnabled(ref != null ? ref.toString() : null, enabled);
+                        }
+                    }
+                });
+                binding.setVariable("setElementReadonly", new groovy.lang.Closure<Void>(null) {
+                    @SuppressWarnings("unused")
+                    public void doCall(Object ref, boolean readOnly) {
+                        ctx.setElementReadonly(ref, readOnly);
+                        if (currentView instanceof com.vaadinerp.components.SubformGridField sub) {
+                            sub.setComponentReadOnly(ref != null ? ref.toString() : null, readOnly);
                         }
                     }
                 });
@@ -196,6 +206,7 @@ public class ScriptExecutorService {
 
         // Tambahan syntax sugar untuk referensi object (mengubah setElementEnabled(row.tagid, ...) -> setElementEnabled('tagid', ...))
         scriptText = scriptText.replaceAll("(?i)setElementEnabled\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementEnabled('$1',");
+        scriptText = scriptText.replaceAll("(?i)setElementReadonly\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementReadonly('$1',");
         scriptText = scriptText.replaceAll("(?i)setElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementValue('$1',");
         scriptText = scriptText.replaceAll("(?i)getElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "getElementValue('$1',");
 
@@ -307,6 +318,11 @@ public class ScriptExecutorService {
             binding.setVariable("setElementEnabled", new groovy.lang.Closure<Void>(null) {
                 public void doCall(Object ref, boolean enabled) {
                     ctx.setElementEnabled(ref, enabled);
+                }
+            });
+            binding.setVariable("setElementReadonly", new groovy.lang.Closure<Void>(null) {
+                public void doCall(Object ref, boolean readOnly) {
+                    ctx.setElementReadonly(ref, readOnly);
                 }
             });
             binding.setVariable("refreshForm", new groovy.lang.Closure<Void>(null) {
