@@ -360,146 +360,12 @@ public class PortalView extends AppLayout {
 
     /**
      * Membersihkan dan menormalisasi struktur menu di database.
-     * Mengunci hanya 4 Group Utama yang sah berada di Root (parent IS NULL).
+     * Hardcoded menu synchronization has been removed to allow users to permanently delete menus.
+     * Initial menu seeding is now solely handled by DataInitializer.
      */
     private void cleanAndSyncMenuTree() {
-        if (!appMenuRepository.existsById("GRP_FORMS")) {
-            AppMenu grp = new AppMenu();
-            grp.setMenuCode("GRP_FORMS");
-            grp.setMenuTitle("Formulir & Transaksi");
-            grp.setIconName("BRIEFCASE");
-            grp.setDisplayOrder(5);
-            grp.setMenuType("GROUP");
-            appMenuRepository.save(grp);
-        }
+        // No longer forcing menus to exist on every page load.
 
-        // Pastikan menu Report & Cetak selalu ada
-        ensureMenuExists("GRP_REPORTS", "Report & Cetak", null, "FILE_TEXT", 20, "GROUP");
-        ensureAdminOnlyMenuExists("REPORT_BUILDER", "Report Designer", "GRP_REPORTS", "EDIT", 10, "ITEM");
-        ensureMenuExists("REPORT_VIEWER", "Report Viewer", "GRP_REPORTS", "PRINT", 20, "ITEM");
-
-        // Pastikan LOV Builder selalu ada (di bawah SYS_FORM jika ada, atau root)
-        String sysParent = appMenuRepository.existsById("SYS_FORM") ? "SYS_FORM"
-                : (appMenuRepository.existsById("GRP_DEV_TOOLS") ? "GRP_DEV_TOOLS" : null);
-        ensureAdminOnlyMenuExists("LOV_BUILDER", "LOV Metadata Builder", sysParent, "LIST", 30, "ITEM");
-        ensureAdminOnlyMenuExists("STANDARD_FORMAT", "Konfigurasi Format Standar", sysParent, "SLIDERS", 40, "ITEM");
-
-        AppMenu lov = appMenuRepository.findById("LOV_BUILDER").orElse(null);
-        String targetParent = (lov != null && lov.getParentMenuCode() != null) ? lov.getParentMenuCode() : sysParent;
-
-        AppMenu actionMenu = appMenuRepository.findById("FORM_ACTION_BUILDER").orElseGet(AppMenu::new);
-        actionMenu.setMenuCode("FORM_ACTION_BUILDER");
-        actionMenu.setMenuTitle("Extra Toolbar Builder");
-        actionMenu.setParentMenuCode(targetParent);
-        actionMenu.setIconName("BOLT");
-        actionMenu.setDisplayOrder(35);
-        actionMenu.setMenuType("ITEM");
-        actionMenu.setRoutePath("action-builder");
-        appMenuRepository.save(actionMenu);
-
-        if (roleMenuPermissionRepository != null) {
-            for (String rCode : java.util.List.of("SUPER_ADMIN", "ADMIN")) {
-                if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, "FORM_ACTION_BUILDER").isEmpty()) {
-                    RoleMenuPermission p = new RoleMenuPermission();
-                    p.setRoleCode(rCode);
-                    p.setMenuCode("FORM_ACTION_BUILDER");
-                    p.setCanAdd(true);
-                    p.setCanEdit(true);
-                    p.setCanDelete(true);
-                    p.setCanPrint(true);
-                    roleMenuPermissionRepository.save(p);
-                }
-            }
-            if (appRoleRepository != null) {
-                for (com.vaadinerp.security.entity.AppRole r : appRoleRepository.findAll()) {
-                    if (r.getRoleCode() != null && r.getRoleCode().toUpperCase().contains("ADMIN")
-                            && roleMenuPermissionRepository
-                                    .findByRoleCodeAndMenuCode(r.getRoleCode(), "FORM_ACTION_BUILDER").isEmpty()) {
-                        RoleMenuPermission p = new RoleMenuPermission();
-                        p.setRoleCode(r.getRoleCode());
-                        p.setMenuCode("FORM_ACTION_BUILDER");
-                        p.setCanAdd(true);
-                        p.setCanEdit(true);
-                        p.setCanDelete(true);
-                        p.setCanPrint(true);
-                        roleMenuPermissionRepository.save(p);
-                    }
-                }
-            }
-        }
-
-        if (!appMenuRepository.existsById("MD_SEQUENCE")) {
-            AppMenu seqMenu = new AppMenu();
-            seqMenu.setMenuCode("MD_SEQUENCE");
-            seqMenu.setMenuTitle("Master Penomoran Dokumen");
-            seqMenu.setParentMenuCode(targetParent);
-            seqMenu.setIconName("BARCODE");
-            seqMenu.setDisplayOrder(45);
-            seqMenu.setMenuType("ITEM");
-            seqMenu.setRoutePath("MD_SEQUENCE");
-            appMenuRepository.save(seqMenu);
-        }
-
-        if (roleMenuPermissionRepository != null) {
-            for (String rCode : java.util.List.of("ADMIN", "SUPER_ADMIN")) {
-                if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, "MD_SEQUENCE").isEmpty()) {
-                    RoleMenuPermission p = new RoleMenuPermission();
-                    p.setRoleCode(rCode);
-                    p.setMenuCode("MD_SEQUENCE");
-                    p.setCanAdd(true);
-                    p.setCanEdit(true);
-                    p.setCanDelete(true);
-                    p.setCanPrint(true);
-                    roleMenuPermissionRepository.save(p);
-                }
-            }
-            if (appRoleRepository != null) {
-                for (com.vaadinerp.security.entity.AppRole r : appRoleRepository.findAll()) {
-                    if (r.getRoleCode() != null && r.getRoleCode().toUpperCase().contains("ADMIN")
-                            && roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), "MD_SEQUENCE")
-                                    .isEmpty()) {
-                        RoleMenuPermission p = new RoleMenuPermission();
-                        p.setRoleCode(r.getRoleCode());
-                        p.setMenuCode("MD_SEQUENCE");
-                        p.setCanAdd(true);
-                        p.setCanEdit(true);
-                        p.setCanDelete(true);
-                        p.setCanPrint(true);
-                        roleMenuPermissionRepository.save(p);
-                    }
-                }
-            }
-        }
-
-        ensureMenuExists("GRP_SYSTEM", "Sistem & Keamanan", null, "COG", 30, "GROUP");
-        ensureAdminOnlyMenuExists("FIELD_AUDIT_LOG", "Field Audit Log Viewer", "GRP_SYSTEM", "CLOCK", 20, "ITEM");
-
-        AppMenu fieldLogMenu = appMenuRepository.findById("FIELD_AUDIT_LOG").orElse(null);
-        String actualSysParent = fieldLogMenu != null && fieldLogMenu.getParentMenuCode() != null
-                ? fieldLogMenu.getParentMenuCode()
-                : (appMenuRepository.existsById("SYS_FORM") ? "SYS_FORM" : "GRP_SYSTEM");
-        ensureAdminOnlyMenuExists("AUDIT_TRAIL_RESTORE", "Audit Trail & Restore Center", actualSysParent, "SHIELD", 25,
-                "ITEM");
-
-        ensureMenuExists("GRP_MFG", "Manufaktur & Produksi", null, "FACTORY", 15, "GROUP");
-        ensureMenuExists("PRODUCTION_SCHEDULER", "Production Gantt Scheduler", "GRP_MFG", "CALENDAR_CLOCK", 10, "ITEM");
-        if (roleMenuPermissionRepository != null) {
-            for (String rCode : java.util.List.of("STAFF", "ADMIN", "SUPER_ADMIN")) {
-                if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode("SUPER_ADMIN", "PRODUCTION_SCHEDULER")
-                        .isEmpty()
-                        && roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, "PRODUCTION_SCHEDULER")
-                                .isEmpty()) {
-                    RoleMenuPermission p = new RoleMenuPermission();
-                    p.setRoleCode(rCode);
-                    p.setMenuCode("PRODUCTION_SCHEDULER");
-                    p.setCanAdd(true);
-                    p.setCanEdit(true);
-                    p.setCanDelete(true);
-                    p.setCanPrint(true);
-                    roleMenuPermissionRepository.save(p);
-                }
-            }
-        }
 
         List<FormMeta> forms = formMetaRepository.findAll();
         int order = 10;
@@ -708,8 +574,8 @@ public class PortalView extends AppLayout {
             if (isGroup) {
                 // GROUP: tampilkan hanya jika punya minimal 1 child yang accessible
                 if (accessibleChildren.isEmpty()) {
-                    System.out.println("[MENU-TREE]   → SKIPPED (group tanpa child accessible)");
-                    continue;
+                    System.out.println("[MENU-TREE]   → EMPTY GROUP (tetap ditampilkan sesuai request)");
+                    // continue; // Dihapus agar grup kosong tetap tampil
                 }
             } else {
                 // ITEM: cek permission langsung

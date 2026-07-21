@@ -1090,9 +1090,14 @@ public class DataInitializer implements CommandLineRunner {
         if (mCount == null || mCount == 0) {
             jdbcTemplate.execute("INSERT INTO public.app_menus (menu_code, menu_title, route_path, icon_name, parent_menu_code, display_order, menu_type) VALUES " +
                     // === Top-level Groups ===
+                    "('SYS_FORM', 'Master Data', NULL, 'BRIEFCASE', NULL, 5, 'GROUP'), " +
+                    "('GRP_FORMS', 'Formulir & Transaksi', NULL, 'BRIEFCASE', NULL, 6, 'GROUP'), " +
+                    "('GRP_MFG', 'Manufaktur & Produksi', NULL, 'FACTORY', NULL, 15, 'GROUP'), " +
                     "('GRP_DEV_TOOLS', 'Developer Tools', NULL, 'TOOLS', NULL, 10, 'GROUP'), " +
                     "('GRP_REPORTS', 'Report & Cetak', NULL, 'FILE_TEXT', NULL, 20, 'GROUP'), " +
                     "('GRP_SYSTEM', 'Sistem & Keamanan', NULL, 'COG', NULL, 30, 'GROUP'), " +
+                    // === Manufaktur children ===
+                    "('PRODUCTION_SCHEDULER', 'Production Gantt Scheduler', 'PRODUCTION_SCHEDULER', 'CALENDAR_CLOCK', 'GRP_MFG', 10, 'ITEM'), " +
                     // === Developer Tools children ===
                     "('FORM_BUILDER', 'Form Metadata Builder', 'builder', 'WRENCH', 'GRP_DEV_TOOLS', 10, 'ITEM'), " +
                     "('DB_EXPLORER', 'Database Manager', 'explorer', 'DATABASE', 'GRP_DEV_TOOLS', 20, 'ITEM'), " +
