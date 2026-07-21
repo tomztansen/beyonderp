@@ -1050,6 +1050,23 @@ public class ComponentFactory {
         }
     }
 
+    public static void setComponentReadOnly(Component component, boolean ro) {
+        if (component == null) return;
+        if (component instanceof com.vaadin.flow.component.HasValueAndElement hve) {
+            hve.setReadOnly(ro);
+        } else if (component instanceof com.vaadin.flow.component.select.Select<?> sel) {
+            sel.setEnabled(!ro);
+        } else if (component instanceof SubformGridField sg) {
+            sg.setReadOnly(ro);
+        } else if (component instanceof BandboxField bf) {
+            bf.setReadOnly(ro);
+        } else if (component instanceof FileUploadField fu) {
+            fu.setReadOnly(ro);
+        } else if (component instanceof com.vaadin.flow.component.HasEnabled he) {
+            he.setEnabled(!ro);
+        }
+    }
+
     public static void applyReadonlyMode(Component component, FieldMeta field, boolean isNewRecord) {
         if (component == null || field == null) return;
         boolean ro = field.isReadonlyFor(isNewRecord);

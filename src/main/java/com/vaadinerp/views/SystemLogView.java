@@ -14,7 +14,8 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.server.StreamResource;
+import com.vaadin.flow.server.streams.DownloadHandler;
+import com.vaadin.flow.server.streams.DownloadResponse;
 import com.vaadinerp.security.service.SessionSecurityService;
 
 import java.io.ByteArrayInputStream;
@@ -89,16 +90,33 @@ public class SystemLogView extends VerticalLayout {
         Button downloadBtn = new Button("⬇️ Download Log File", new Icon(VaadinIcon.DOWNLOAD));
         downloadBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
         downloadAnchor.add(downloadBtn);
-        downloadAnchor.setHref(new StreamResource("server-export.log", () -> {
+        downloadAnchor.setHref(DownloadHandler.fromInputStream(event -> {
             File f = new File(logFilePathField.getValue().trim());
             if (f.exists() && f.isFile()) {
                 try {
-                    return new java.io.FileInputStream(f);
+                    return new DownloadResponse(
+                            new java.io.FileInputStream(f),
+                            "server-export.log",
+                            "text/plain",
+                            f.length()
+                    );
                 } catch (Exception ex) {
-                    return new ByteArrayInputStream(("Gagal membaca file: " + ex.getMessage()).getBytes(StandardCharsets.UTF_8));
+                    byte[] errBytes = ("Gagal membaca file: " + ex.getMessage()).getBytes(StandardCharsets.UTF_8);
+                    return new DownloadResponse(
+                            new ByteArrayInputStream(errBytes),
+                            "error.log",
+                            "text/plain",
+                            errBytes.length
+                    );
                 }
             }
-            return new ByteArrayInputStream("File log tidak ditemukan di path tersebut.".getBytes(StandardCharsets.UTF_8));
+            byte[] notFoundBytes = "File log tidak ditemukan di path tersebut.".getBytes(StandardCharsets.UTF_8);
+            return new DownloadResponse(
+                    new ByteArrayInputStream(notFoundBytes),
+                    "not_found.log",
+                    "text/plain",
+                    notFoundBytes.length
+            );
         }));
 
         HorizontalLayout toolbar = new HorizontalLayout(logFilePathField, searchKeywordField, refreshBtn, autoRefreshCheckbox, downloadAnchor, statusBadge);

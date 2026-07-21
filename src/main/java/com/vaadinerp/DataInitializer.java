@@ -1311,8 +1311,6 @@ public class DataInitializer implements CommandLineRunner {
             if (seqMenuExists == null || seqMenuExists == 0) {
                 jdbcTemplate.execute("INSERT INTO public.app_menus (menu_code, menu_title, route_path, icon_name, parent_menu_code, display_order, menu_type) " +
                         "VALUES ('MD_SEQUENCE', 'Master Penomoran Dokumen', 'MD_SEQUENCE', 'BARCODE', '" + targetParent + "', 45, 'ITEM')");
-            } else {
-                jdbcTemplate.execute("UPDATE public.app_menus SET parent_menu_code = '" + targetParent + "', menu_title = 'Master Penomoran Dokumen', route_path = 'MD_SEQUENCE', display_order = 45 WHERE menu_code = 'MD_SEQUENCE'");
             }
             jdbcTemplate.execute("INSERT INTO public.app_role_menu_permissions (role_code, menu_code, can_add, can_edit, can_delete, can_print) " +
                     "SELECT DISTINCT role_code, 'MD_SEQUENCE', TRUE, TRUE, TRUE, TRUE FROM public.app_role_menu_permissions WHERE role_code NOT IN (SELECT role_code FROM public.app_role_menu_permissions WHERE menu_code = 'MD_SEQUENCE')");

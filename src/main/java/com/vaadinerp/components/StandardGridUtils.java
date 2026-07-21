@@ -10,7 +10,8 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.textfield.TextFieldVariant;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.data.value.ValueChangeMode;
-import com.vaadin.flow.server.StreamResource;
+import com.vaadin.flow.server.streams.DownloadHandler;
+import com.vaadin.flow.server.streams.DownloadResponse;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -460,7 +461,7 @@ public class StandardGridUtils {
         btnExport.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         btnExport.getStyle().set("cursor", "pointer");
 
-        StreamResource resource = new StreamResource(fileNamePrefix + "_" + System.currentTimeMillis() + ".csv", () -> {
+        DownloadHandler downloadHandler = DownloadHandler.fromInputStream(event -> {
             try {
                 StringBuilder sb = new StringBuilder();
                 // Sep directive for Excel recognition of comma delimiter across locales
@@ -521,9 +522,21 @@ public class StandardGridUtils {
                 System.arraycopy(bom, 0, finalBytes, 0, bom.length);
                 System.arraycopy(bytes, 0, finalBytes, bom.length, bytes.length);
 
-                return new ByteArrayInputStream(finalBytes);
+                String exportFileName = fileNamePrefix + "_" + System.currentTimeMillis() + ".csv";
+                return new DownloadResponse(
+                        new ByteArrayInputStream(finalBytes),
+                        exportFileName,
+                        "text/csv",
+                        finalBytes.length
+                );
             } catch (Exception e) {
-                return new ByteArrayInputStream("Error exporting data".getBytes(StandardCharsets.UTF_8));
+                byte[] errBytes = "Error exporting data".getBytes(StandardCharsets.UTF_8);
+                return new DownloadResponse(
+                        new ByteArrayInputStream(errBytes),
+                        "error.csv",
+                        "text/csv",
+                        errBytes.length
+                );
             }
         });
 
@@ -536,7 +549,7 @@ public class StandardGridUtils {
             }
         });
 
-        Anchor anchor = new Anchor(resource, "");
+        Anchor anchor = new Anchor(downloadHandler, "");
         anchor.getElement().setAttribute("download", true);
         anchor.add(btnExport);
         return anchor;

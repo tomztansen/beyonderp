@@ -84,6 +84,18 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         }
     }
 
+    public void setComponentReadOnly(String fieldName, boolean readOnly) {
+        if (fieldName == null) return;
+        String name = fieldName;
+        if (name.startsWith("detail.") || name.startsWith("row.")) {
+            name = name.substring(name.indexOf('.') + 1);
+        }
+        Component comp = editorComponents.get(name);
+        if (comp != null) {
+            com.vaadinerp.components.ComponentFactory.setComponentReadOnly(comp, readOnly);
+        }
+    }
+
     private static class FilterCriteria {
         String operator = "Contains";
         String value = "";
