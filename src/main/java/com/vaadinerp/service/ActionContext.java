@@ -57,7 +57,7 @@ public class ActionContext {
 
         Command openDialog = () -> {
             ConfirmDialog dialog = new ConfirmDialog();
-            dialog.setHeader(title != null ? title : "Konfirmasi");
+            dialog.setHeader(title != null ? title : "Confirmation");
 
             if (message != null && (message.contains("<br") || message.contains("</br>") || message.contains("<b")
                     || message.contains("<span"))) {
@@ -152,7 +152,8 @@ public class ActionContext {
             layout.add(pre);
             dlg.add(layout);
 
-            com.vaadin.flow.component.button.Button btnClose = new com.vaadin.flow.component.button.Button("Tutup", e -> dlg.close());
+            com.vaadin.flow.component.button.Button btnClose = new com.vaadin.flow.component.button.Button("Close",
+                    e -> dlg.close());
             dlg.getFooter().add(btnClose);
 
             dlg.open();
@@ -177,8 +178,10 @@ public class ActionContext {
                 view.refreshBinderBean(headerBean);
             }
         };
-        if (ui != null) ui.access(update);
-        else update.execute();
+        if (ui != null)
+            ui.access(update);
+        else
+            update.execute();
     }
 
     public void clearForm() {
@@ -189,7 +192,8 @@ public class ActionContext {
     }
 
     public void setElementValue(Object ref, Object val) {
-        if (ref == null) return;
+        if (ref == null)
+            return;
         String fieldName = ref.toString();
         if (fieldName.startsWith("@formfield{") && fieldName.endsWith("}")) {
             fieldName = fieldName.substring(11, fieldName.length() - 1).trim();
@@ -213,12 +217,13 @@ public class ActionContext {
     }
 
     public void setElementEnabled(Object ref, boolean enabled) {
-        if (ref == null) return;
+        if (ref == null)
+            return;
         String fieldName = ref.toString();
         if (fieldName.startsWith("@formfield{") && fieldName.endsWith("}")) {
             fieldName = fieldName.substring(11, fieldName.length() - 1).trim();
         }
-        
+
         UI ui = UI.getCurrent();
         if (ui == null && currentView != null && currentView.getUI().isPresent()) {
             ui = currentView.getUI().get();
@@ -231,17 +236,20 @@ public class ActionContext {
                 view.setComponentEnabled(finalFieldName, enabled);
             }
         };
-        if (ui != null) ui.access(update);
-        else update.execute();
+        if (ui != null)
+            ui.access(update);
+        else
+            update.execute();
     }
 
     public void setElementReadonly(Object ref, boolean readOnly) {
-        if (ref == null) return;
+        if (ref == null)
+            return;
         String fieldName = ref.toString();
         if (fieldName.startsWith("@formfield{") && fieldName.endsWith("}")) {
             fieldName = fieldName.substring(11, fieldName.length() - 1).trim();
         }
-        
+
         UI ui = UI.getCurrent();
         if (ui == null && currentView != null && currentView.getUI().isPresent()) {
             ui = currentView.getUI().get();
@@ -254,8 +262,10 @@ public class ActionContext {
                 view.setComponentReadOnly(finalFieldName, readOnly);
             }
         };
-        if (ui != null) ui.access(update);
-        else update.execute();
+        if (ui != null)
+            ui.access(update);
+        else
+            update.execute();
     }
 
     public boolean executeProcedure(Object procRef, Object callbackOrJson, Object... rest) {
@@ -295,11 +305,14 @@ public class ActionContext {
                     }
                 } else if (procRef != null) {
                     procName = procRef.toString().trim();
-                    if ("3".equals(procName) || "proc_3".equalsIgnoreCase(procName) || "dynamic.proc_3".equalsIgnoreCase(procName)) {
+                    if ("3".equals(procName) || "proc_3".equalsIgnoreCase(procName)
+                            || "dynamic.proc_3".equalsIgnoreCase(procName)) {
                         procName = "dynamic.salesordertoproduction";
-                    } else if ("4".equals(procName) || "proc_4".equalsIgnoreCase(procName) || "dynamic.proc_4".equalsIgnoreCase(procName)) {
+                    } else if ("4".equals(procName) || "proc_4".equalsIgnoreCase(procName)
+                            || "dynamic.proc_4".equalsIgnoreCase(procName)) {
                         procName = "dynamic.generate_production_serial_no";
-                    } else if ("5".equals(procName) || "proc_5".equalsIgnoreCase(procName) || "dynamic.proc_5".equalsIgnoreCase(procName)) {
+                    } else if ("5".equals(procName) || "proc_5".equalsIgnoreCase(procName)
+                            || "dynamic.proc_5".equalsIgnoreCase(procName)) {
                         procName = "dynamic.generate_production_tag";
                     } else if (!procName.contains(".")) {
                         procName = "dynamic." + procName;
@@ -325,20 +338,27 @@ public class ActionContext {
                                     } else {
                                         arg = l;
                                     }
-                                } catch (NumberFormatException ignored) {}
+                                } catch (NumberFormatException ignored) {
+                                }
                             }
                         }
                         cleanRest[i] = arg;
                     }
 
                     if (cleanRest.length >= 4) {
-                        System.out.println("Executing Procedure [" + procName + "] with 4 arguments: " + cleanRest[0] + ", " + cleanRest[1] + ", " + cleanRest[2] + ", " + cleanRest[3]);
-                        dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?, ?, ?)", cleanRest[0], cleanRest[1], cleanRest[2], cleanRest[3]);
+                        System.out.println("Executing Procedure [" + procName + "] with 4 arguments: " + cleanRest[0]
+                                + ", " + cleanRest[1] + ", " + cleanRest[2] + ", " + cleanRest[3]);
+                        dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?, ?, ?)", cleanRest[0],
+                                cleanRest[1], cleanRest[2], cleanRest[3]);
                     } else if (cleanRest.length == 3) {
-                        System.out.println("Executing Procedure [" + procName + "] with 3 arguments: " + cleanRest[0] + ", " + cleanRest[1] + ", " + cleanRest[2]);
-                        dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?, ?)", cleanRest[0], cleanRest[1], cleanRest[2]);
-                    } else if (cleanRest.length == 2 && jsonParams != null && !jsonParams.trim().startsWith("{") && !jsonParams.trim().startsWith("[")) {
-                        System.out.println("Executing Procedure [" + procName + "] with 2 non-json arguments: " + cleanRest[0] + ", " + cleanRest[1]);
+                        System.out.println("Executing Procedure [" + procName + "] with 3 arguments: " + cleanRest[0]
+                                + ", " + cleanRest[1] + ", " + cleanRest[2]);
+                        dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?, ?)", cleanRest[0],
+                                cleanRest[1], cleanRest[2]);
+                    } else if (cleanRest.length == 2 && jsonParams != null && !jsonParams.trim().startsWith("{")
+                            && !jsonParams.trim().startsWith("[")) {
+                        System.out.println("Executing Procedure [" + procName + "] with 2 non-json arguments: "
+                                + cleanRest[0] + ", " + cleanRest[1]);
                         dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?)", cleanRest[0], cleanRest[1]);
                     } else {
                         System.out.println("Executing Procedure [" + procName + "] with params: " + jsonParams
@@ -351,7 +371,7 @@ public class ActionContext {
             status = false;
             String cleanMsg = extractCleanErrorMessage(ex);
             System.err.println("Procedure execution failed: " + cleanMsg);
-            showError("Gagal Eksekusi Procedure", "<b>Error:</b><br/>" + cleanMsg);
+            showError("Procedure execution failed", "<b>Error:</b><br/>" + cleanMsg);
         }
 
         if (callback instanceof Closure<?> closure) {
@@ -456,7 +476,8 @@ public class ActionContext {
 
     public void showMainTab(String tabIdOrCode, String tabTitle, String url, Object extra) {
         Object finalExtra = extra;
-        if (url != null && ("HIDE_HISTORIS".equalsIgnoreCase(url.trim()) || "HIDE_HISTORY".equalsIgnoreCase(url.trim()))) {
+        if (url != null
+                && ("HIDE_HISTORIS".equalsIgnoreCase(url.trim()) || "HIDE_HISTORY".equalsIgnoreCase(url.trim()))) {
             if (finalExtra == null) {
                 finalExtra = "HIDE_HISTORIS";
             } else if (finalExtra instanceof Map<?, ?> mapExtra) {
@@ -498,7 +519,7 @@ public class ActionContext {
                 if (portal != null) {
                     portal.openTabByCode(tabIdOrCode != null ? tabIdOrCode : tabTitle, tabTitle, effectiveExtra);
                 } else {
-                    Notification.show("Membuka Tab [" + tabTitle + " (ID: " + tabIdOrCode + ")]...", 3000,
+                    Notification.show("Opening Tab [" + tabTitle + " (ID: " + tabIdOrCode + ")]...", 3000,
                             Notification.Position.MIDDLE);
                 }
             });

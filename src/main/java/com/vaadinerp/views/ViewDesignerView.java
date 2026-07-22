@@ -28,7 +28,7 @@ public class ViewDesignerView extends VerticalLayout {
     private final DynamicDataService dynamicDataService;
     private final Grid<Map<String, Object>> viewsGrid = new Grid<>();
     private final ComboBox<String> schemaFilter = new ComboBox<>("Filter Schema");
-    private final TextField searchField = new TextField("Cari View");
+    private final TextField searchField = new TextField("Search View");
     private final Span recordCountSpan = new Span();
     private List<Map<String, Object>> allViewsList = new ArrayList<>();
 
@@ -54,7 +54,7 @@ public class ViewDesignerView extends VerticalLayout {
         Button btnRefresh = new Button("Refresh List", VaadinIcon.REFRESH.create());
         btnRefresh.addClickListener(e -> loadViews());
 
-        Button btnCreateNew = new Button("⚡ Buat View Baru", VaadinIcon.PLUS.create());
+        Button btnCreateNew = new Button("⚡ Create New View", VaadinIcon.PLUS.create());
         btnCreateNew.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnCreateNew.addClickListener(e -> openViewDialog(null));
 
@@ -68,21 +68,21 @@ public class ViewDesignerView extends VerticalLayout {
         StandardGridUtils.enableCellClipboardCopy(viewsGrid);
 
         viewsGrid.addColumn(row -> row.get("schema_name")).setHeader("Schema").setWidth("120px").setFlexGrow(0).setSortable(true);
-        viewsGrid.addColumn(row -> row.get("view_name")).setHeader("Nama View").setWidth("300px").setFlexGrow(1).setSortable(true);
+        viewsGrid.addColumn(row -> row.get("view_name")).setHeader("View Name").setWidth("300px").setFlexGrow(1).setSortable(true);
 
         viewsGrid.addComponentColumn(row -> {
             Button btnEdit = new Button("Edit Code", VaadinIcon.EDIT.create());
             btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
             btnEdit.addClickListener(e -> openViewDialog(row));
 
-            Button btnDrop = new Button("Hapus", VaadinIcon.TRASH.create());
+            Button btnDrop = new Button("Delete", VaadinIcon.TRASH.create());
             btnDrop.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
             btnDrop.addClickListener(e -> confirmDropView(row));
 
             HorizontalLayout actions = new HorizontalLayout(btnEdit, btnDrop);
             actions.setSpacing(true);
             return actions;
-        }).setHeader("Aksi").setWidth("210px").setFlexGrow(0);
+        }).setHeader("Action").setWidth("210px").setFlexGrow(0);
 
         HorizontalLayout footer = new HorizontalLayout(recordCountSpan);
         footer.setAlignItems(Alignment.CENTER);
@@ -107,13 +107,13 @@ public class ViewDesignerView extends VerticalLayout {
         }).collect(Collectors.toList());
 
         viewsGrid.setItems(filtered);
-        recordCountSpan.setText("Total Views: " + filtered.size() + " dari " + allViewsList.size());
+        recordCountSpan.setText("Total Views: " + filtered.size() + " of " + allViewsList.size());
     }
 
     public void openViewDialog(Map<String, Object> existingRow) {
         boolean isNew = (existingRow == null);
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle(isNew ? "Buat Database View Baru" : "Edit Database View");
+        dialog.setHeaderTitle(isNew ? "Create New Database View" : "Edit Database View");
         dialog.setWidth("85vw");
         dialog.setHeight("85vh");
 
@@ -130,7 +130,7 @@ public class ViewDesignerView extends VerticalLayout {
         if (isNew) {
             ComboBox<String> schemaSelect = new ComboBox<>("Schema", "dynamic", "public");
             schemaSelect.setValue("dynamic");
-            TextField nameField = new TextField("Nama View");
+            TextField nameField = new TextField("View Name");
             nameField.setPlaceholder("contoh: v_rekap_penjualan");
 
             Button btnGenerateTemplate = new Button("⚡ Generate Template Code", VaadinIcon.CODE.create());
@@ -166,17 +166,17 @@ public class ViewDesignerView extends VerticalLayout {
 
         dialogLayout.add(codeArea);
 
-        Button btnSave = new Button("💾 Simpan & Eksekusi ke Database", VaadinIcon.CHECK.create());
+        Button btnSave = new Button("💾 Save & Execute to Database", VaadinIcon.CHECK.create());
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnSave.addClickListener(e -> {
             String sql = codeArea.getValue();
             if (sql == null || sql.trim().isEmpty()) {
-                Notification.show("Script SQL tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+                Notification.show("SQL Script cannot be empty!", 3000, Notification.Position.MIDDLE);
                 return;
             }
             try {
                 dynamicDataService.executeViewScript(sql);
-                Notification.show("✅ View berhasil disimpan dan diaktifkan di server!", 3500, Notification.Position.BOTTOM_END);
+                Notification.show("✅ View saved and activated on server!", 3500, Notification.Position.BOTTOM_END);
                 dialog.close();
                 loadViews();
             } catch (Exception ex) {
@@ -184,7 +184,7 @@ public class ViewDesignerView extends VerticalLayout {
             }
         });
 
-        Button btnCancel = new Button("Batal", e -> dialog.close());
+        Button btnCancel = new Button("Cancel", e -> dialog.close());
         dialog.getFooter().add(btnCancel, btnSave);
         dialog.add(dialogLayout);
         dialog.open();
@@ -195,14 +195,14 @@ public class ViewDesignerView extends VerticalLayout {
         String viewName = row.get("view_name") != null ? row.get("view_name").toString() : "";
 
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Konfirmasi Hapus View");
-        dialog.add(new Span("Apakah Anda yakin ingin menghapus view berikut secara permanen dari server?"));
+        dialog.setHeaderTitle("Confirm Delete View");
+        dialog.add(new Span("Are you sure you want to permanently delete the following view from the server?"));
         dialog.add(new VerticalLayout(
                 new Span("Schema: " + schemaName),
                 new Span("Nama: " + viewName)
         ));
 
-        Button btnYes = new Button("Ya, Hapus Sekarang", VaadinIcon.TRASH.create(), e -> {
+        Button btnYes = new Button("Yes, Delete Now", VaadinIcon.TRASH.create(), e -> {
             try {
                 String dropSql = "DROP VIEW IF EXISTS \"" + schemaName + "\".\"" + viewName + "\";";
                 dynamicDataService.executeViewScript(dropSql);
@@ -210,12 +210,12 @@ public class ViewDesignerView extends VerticalLayout {
                 dialog.close();
                 loadViews();
             } catch (Exception ex) {
-                Notification.show("❌ Error menghapus: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                Notification.show("❌ Error deleting: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
             }
         });
         btnYes.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
 
-        Button btnNo = new Button("Batal", e -> dialog.close());
+        Button btnNo = new Button("Cancel", e -> dialog.close());
         dialog.getFooter().add(btnNo, btnYes);
         dialog.open();
     }

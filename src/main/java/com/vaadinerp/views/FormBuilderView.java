@@ -396,13 +396,13 @@ public class FormBuilderView extends VerticalLayout {
         historyGrid.setSelectionMode(Grid.SelectionMode.MULTI);
         historyGrid.setAllRowsVisible(true);
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(historyGrid);
-        Grid.Column<FormMeta> codeCol = historyGrid.addColumn(FormMeta::getFormCode).setHeader("Kode Form")
+        Grid.Column<FormMeta> codeCol = historyGrid.addColumn(FormMeta::getFormCode).setHeader("Form Code")
                 .setSortable(true).setAutoWidth(true).setKey("formCode");
         Grid.Column<FormMeta> titleCol = historyGrid.addColumn(FormMeta::getFormTitle).setHeader("Judul Form")
                 .setSortable(true).setAutoWidth(true).setKey("formTitle");
-        Grid.Column<FormMeta> typeCol = historyGrid.addColumn(FormMeta::getFormType).setHeader("Tipe Form")
+        Grid.Column<FormMeta> typeCol = historyGrid.addColumn(FormMeta::getFormType).setHeader("Form Type")
                 .setSortable(true).setAutoWidth(true).setKey("formType");
-        Grid.Column<FormMeta> tableCol = historyGrid.addColumn(FormMeta::getTableName).setHeader("Nama Tabel")
+        Grid.Column<FormMeta> tableCol = historyGrid.addColumn(FormMeta::getTableName).setHeader("Table Name")
                 .setSortable(true).setAutoWidth(true).setKey("tableName");
         Grid.Column<FormMeta> dtlTableCol = historyGrid.addColumn(FormMeta::getDetailTableName)
                 .setHeader("Tabel Detail").setSortable(true).setAutoWidth(true).setKey("detailTableName");
@@ -491,7 +491,7 @@ public class FormBuilderView extends VerticalLayout {
         });
 
         historisLayout.add(historyTitle, historyGrid);
-        historisTab = tabSheet.add("Historis", historisLayout);
+        historisTab = tabSheet.add("History", historisLayout);
 
         // TAB 2: TRANSAKSI / DESAINER
         VerticalLayout transaksiLayout = new VerticalLayout();
@@ -526,11 +526,11 @@ public class FormBuilderView extends VerticalLayout {
             if (checked) {
                 tableNameField.setPlaceholder("e.g. m_customer");
             } else {
-                tableNameField.setPlaceholder("Kosongkan untuk form virtual / view");
+                tableNameField.setPlaceholder("Leave blank for virtual form/view");
             }
         });
         tableNameField.setRequiredIndicatorVisible(false);
-        tableNameField.setPlaceholder("Kosongkan untuk form virtual / view");
+        tableNameField.setPlaceholder("Leave blank for virtual form/view");
 
         Button btnAutoGenerateFields = new Button("⚡ Auto-Generate Fields dari Tabel/View",
                 VaadinIcon.DATABASE.create());
@@ -795,11 +795,11 @@ public class FormBuilderView extends VerticalLayout {
 
         // Configure propLovCode BandboxField
         propLovCode.getGrid().addColumn(row -> row.get("code") != null ? row.get("code").toString() : "")
-                .setHeader("Kode").setWidth("150px");
+                .setHeader("Code").setWidth("150px");
         propLovCode.getGrid().addColumn(row -> row.get("name") != null ? row.get("name").toString() : "")
-                .setHeader("Nama").setWidth("250px");
+                .setHeader("Name").setWidth("250px");
         propLovCode.getGrid().addColumn(row -> row.get("type") != null ? row.get("type").toString() : "")
-                .setHeader("Tipe").setWidth("150px");
+                .setHeader("Type").setWidth("150px");
 
         propLovCode.setItemLabelGenerator(row -> row.get("code") != null ? row.get("code").toString() : "");
         propLovCode.setItemValueGenerator(row -> row.get("code") != null ? row.get("code").toString() : "");
@@ -868,11 +868,11 @@ public class FormBuilderView extends VerticalLayout {
 
         propValidationRule.setAllowCustomValue(true);
         propValidationRule.addCustomValueSetListener(e -> propValidationRule.setValue(e.getDetail()));
-        propValidationRule.setPlaceholder("Pilih / ketik rule...");
+        propValidationRule.setPlaceholder("Select / Type rule...");
 
         propSequenceCode.setAllowCustomValue(true);
         propSequenceCode.addCustomValueSetListener(e -> propSequenceCode.setValue(e.getDetail()));
-        propSequenceCode.setPlaceholder("Pilih / ketik kode sequence...");
+        propSequenceCode.setPlaceholder("Select / Type sequence code...");
         propSequenceCode.setClearButtonVisible(true);
         propSequenceCode.setItems(dynamicDataService.getActiveSequenceCodes());
 
@@ -1756,7 +1756,7 @@ public class FormBuilderView extends VerticalLayout {
                 Grid<String> mockGrid = new Grid<>();
                 mockGrid.setWidthFull();
                 mockGrid.setAllRowsVisible(true);
-                mockGrid.addColumn(s -> s).setHeader("Contoh Kolom Detail...");
+                mockGrid.addColumn(s -> s).setHeader("Sample Detail Column...");
                 mockGrid.setItems(java.util.Collections.singletonList("Data detail akan dimuat di sini..."));
                 subformContainer.add(sTitle, mockGrid);
                 return subformContainer;
@@ -1835,11 +1835,11 @@ public class FormBuilderView extends VerticalLayout {
                 } else {
                     ruleField.setVisible(true);
                     if (val.startsWith("REGEX"))
-                        ruleField.setLabel("Pola Regex (e.g. ^[0-9]{15}$)");
+                        ruleField.setLabel("Regex Pattern (e.g. ^[0-9]{15}$)");
                     else if (val.startsWith("MIN_LEN") || val.startsWith("MAX_LEN"))
-                        ruleField.setLabel("Jumlah Karakter (e.g. 5)");
+                        ruleField.setLabel("Character Count (e.g. 5)");
                     else
-                        ruleField.setLabel("Nilai Angka (e.g. 1500000)");
+                        ruleField.setLabel("Numeric Value (e.g. 1500000)");
                 }
             }
         });
@@ -1853,7 +1853,7 @@ public class FormBuilderView extends VerticalLayout {
         Button btnSave = new Button("Terapkan Validasi", VaadinIcon.CHECK.create(), e -> {
             String selectedType = typeCombo.getValue();
             if (selectedType == null) {
-                Notification.show("Pilih tipe validasi terlebih dahulu!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Please select a validation type first!", 3000, Notification.Position.MIDDLE);
                 return;
             }
             String prefix = "";
@@ -1898,7 +1898,7 @@ public class FormBuilderView extends VerticalLayout {
         });
         btnClear.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY);
 
-        Button btnCancel = new Button("Batal", e -> dialog.close());
+        Button btnCancel = new Button("Cancel", e -> dialog.close());
 
         dialog.add(layout);
         dialog.getFooter().add(btnClear, btnCancel, btnSave);
@@ -2199,7 +2199,7 @@ public class FormBuilderView extends VerticalLayout {
         });
         btnClear.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY);
 
-        Button btnCancel = new Button("Batal", e -> dialog.close());
+        Button btnCancel = new Button("Cancel", e -> dialog.close());
 
         dialog.add(layout);
         dialog.getFooter().add(btnClear, btnCancel, btnSave);
@@ -2300,12 +2300,12 @@ public class FormBuilderView extends VerticalLayout {
         filtersGrid.addColumn(FieldFilterMetaTemp::getFilterColumn).setHeader("Target Kolom").setFlexGrow(1);
         filtersGrid.addColumn(FieldFilterMetaTemp::getComparisonOperator).setHeader("Op").setWidth("80px")
                 .setFlexGrow(0);
-        filtersGrid.addColumn(FieldFilterMetaTemp::getSourceType).setHeader("Tipe Sumber").setWidth("100px")
+        filtersGrid.addColumn(FieldFilterMetaTemp::getSourceType).setHeader("Source Type").setWidth("100px")
                 .setFlexGrow(0);
-        filtersGrid.addColumn(FieldFilterMetaTemp::getSourceName).setHeader("Nama Sumber").setFlexGrow(1);
+        filtersGrid.addColumn(FieldFilterMetaTemp::getSourceName).setHeader("Source Name").setFlexGrow(1);
 
         final FieldFilterMetaTemp[] currentEditing = new FieldFilterMetaTemp[1];
-        Button btnAddFilter = new Button("Tambah", VaadinIcon.PLUS.create());
+        Button btnAddFilter = new Button("Add", VaadinIcon.PLUS.create());
         Button btnCancelEdit = new Button("Batal Edit", VaadinIcon.CLOSE.create());
         btnCancelEdit.setVisible(false);
 
@@ -2318,7 +2318,7 @@ public class FormBuilderView extends VerticalLayout {
             sourceTypeField.setValue("FIELD");
             sourceNameField.setEnabled(true);
             sourceTypeField.setEnabled(true);
-            btnAddFilter.setText("Tambah");
+            btnAddFilter.setText("Add");
             btnAddFilter.setIcon(VaadinIcon.PLUS.create());
             btnCancelEdit.setVisible(false);
         };
@@ -2353,7 +2353,7 @@ public class FormBuilderView extends VerticalLayout {
             HorizontalLayout actions = new HorizontalLayout(btnEdit, btnDel);
             actions.setSpacing(true);
             return actions;
-        }).setHeader("Aksi").setWidth("120px").setFlexGrow(0);
+        }).setHeader("Action").setWidth("120px").setFlexGrow(0);
 
         filtersGrid.setItems(fieldTemp.filters);
 
@@ -2434,7 +2434,7 @@ public class FormBuilderView extends VerticalLayout {
         }
 
         if (fieldsList.isEmpty()) {
-            Notification.show("Harus ada minimal 1 field untuk disimpan!", 3000, Notification.Position.MIDDLE);
+            Notification.show("At least 1 field is required to save!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
@@ -2899,7 +2899,7 @@ public class FormBuilderView extends VerticalLayout {
             HorizontalLayout actions = new HorizontalLayout(btnEdit, btnDel);
             actions.setSpacing(true);
             return actions;
-        }).setHeader("Aksi").setWidth("120px").setFlexGrow(0);
+        }).setHeader("Action").setWidth("120px").setFlexGrow(0);
 
         grid.setItems(fieldTemp.lovTargets);
 
@@ -2974,7 +2974,7 @@ public class FormBuilderView extends VerticalLayout {
                 .set("box-shadow", "0 4px 10px rgba(0,0,0,0.08)");
 
         // 1. TAMBAH BUTTON
-        Button btnNew = new Button("Tambah");
+        Button btnNew = new Button("Add");
         Icon iconNew = VaadinIcon.PLUS_CIRCLE.create();
         iconNew.getStyle().set("color", "#22c55e").set("font-size", "1.2rem");
         btnNew.setIcon(iconNew);
@@ -3016,7 +3016,7 @@ public class FormBuilderView extends VerticalLayout {
                     loadFormDefinition(selectedForm);
                     tabSheet.setSelectedTab(transaksiTab);
                 } else {
-                    Notification.show("Pilih form yang akan diedit terlebih dahulu di tab Historis!", 3000,
+                    Notification.show("Please select a form from the History tab to edit!", 3000,
                             Notification.Position.MIDDLE);
                 }
             } else {
@@ -3025,7 +3025,7 @@ public class FormBuilderView extends VerticalLayout {
         });
 
         // 2. HAPUS BUTTON
-        Button btnDelete = new Button("Hapus");
+        Button btnDelete = new Button("Delete");
         Icon iconDelete = VaadinIcon.CLOSE_CIRCLE.create();
         iconDelete.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnDelete.setIcon(iconDelete);
@@ -3035,7 +3035,7 @@ public class FormBuilderView extends VerticalLayout {
             if (tabSheet.getSelectedTab() == historisTab) {
                 java.util.Set<FormMeta> selectedItems = historyGrid.getSelectedItems();
                 if (selectedItems != null && !selectedItems.isEmpty()) {
-                    showConfirmDialog("Konfirmasi Hapus",
+                    showConfirmDialog("Confirm Delete",
                             "Apakah Anda yakin ingin menghapus " + selectedItems.size() + " definisi form ini?", () -> {
                                 try {
                                     formMetaRepository.deleteAll(selectedItems);
@@ -3047,18 +3047,18 @@ public class FormBuilderView extends VerticalLayout {
                                         onFormSavedListener.run();
                                     }
                                 } catch (Exception ex) {
-                                    Notification.show("Gagal menghapus: " + ex.getMessage(), 5000,
+                                    Notification.show("Failed to delete: " + ex.getMessage(), 5000,
                                             Notification.Position.MIDDLE);
                                 }
                             });
                 } else {
-                    Notification.show("Pilih baris form pada grid terlebih dahulu untuk dihapus.", 3000,
+                    Notification.show("Please select a form row from the grid first to delete.", 3000,
                             Notification.Position.MIDDLE);
                 }
             } else {
                 String formCode = formCodeField.getValue().trim();
                 if (!formCode.isEmpty() && formMetaRepository.existsById(formCode)) {
-                    showConfirmDialog("Konfirmasi Hapus", "Apakah Anda yakin ingin menghapus definisi form ini?",
+                    showConfirmDialog("Confirm Delete", "Apakah Anda yakin ingin menghapus definisi form ini?",
                             () -> {
                                 try {
                                     formMetaRepository.deleteById(formCode);
@@ -3089,7 +3089,7 @@ public class FormBuilderView extends VerticalLayout {
                                         onFormSavedListener.run();
                                     }
                                 } catch (Exception ex) {
-                                    Notification.show("Gagal menghapus: " + ex.getMessage(), 5000,
+                                    Notification.show("Failed to delete: " + ex.getMessage(), 5000,
                                             Notification.Position.MIDDLE);
                                 }
                             });
@@ -3134,12 +3134,12 @@ public class FormBuilderView extends VerticalLayout {
                         Notification.Position.MIDDLE);
                 formCodeField.focus();
             } else {
-                Notification.show("Pilih form yang sudah tersimpan untuk di-copy.", 3000, Notification.Position.MIDDLE);
+                Notification.show("Please select a saved form to copy.", 3000, Notification.Position.MIDDLE);
             }
         });
 
         // 3. SIMPAN BUTTON
-        Button btnSave = new Button("Simpan");
+        Button btnSave = new Button("Save");
         Icon iconSave = VaadinIcon.DOWNLOAD.create();
         iconSave.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnSave.setIcon(iconSave);
@@ -3150,7 +3150,7 @@ public class FormBuilderView extends VerticalLayout {
         });
 
         // 4. BATAL BUTTON
-        Button btnCancel = new Button("Batal");
+        Button btnCancel = new Button("Cancel");
         Icon iconCancel = VaadinIcon.BAN.create();
         iconCancel.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnCancel.setIcon(iconCancel);
@@ -3298,7 +3298,7 @@ public class FormBuilderView extends VerticalLayout {
         });
         btnConfirm.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
 
-        Button btnCancel = new Button("Batal", event -> dialog.close());
+        Button btnCancel = new Button("Cancel", event -> dialog.close());
         btnCancel.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
         dialog.getFooter().add(btnCancel, btnConfirm);
@@ -3491,7 +3491,7 @@ public class FormBuilderView extends VerticalLayout {
         }, searchColField, gridColsField);
         dialog.add(layout);
 
-        Button btnSave = new Button("Simpan", VaadinIcon.DOWNLOAD.create());
+        Button btnSave = new Button("Save", VaadinIcon.DOWNLOAD.create());
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnSave.addClickListener(e -> {
             String newCode = codeField.getValue().trim();
@@ -3518,11 +3518,11 @@ public class FormBuilderView extends VerticalLayout {
                 }
                 dialog.close();
             } catch (Exception ex) {
-                Notification.show("Gagal menyimpan LOV: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                Notification.show("Failed to save LOV: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
             }
         });
 
-        Button btnCancel = new Button("Batal", e -> dialog.close());
+        Button btnCancel = new Button("Cancel", e -> dialog.close());
 
         dialog.getFooter().add(btnCancel, btnSave);
         dialog.open();
@@ -3555,13 +3555,13 @@ public class FormBuilderView extends VerticalLayout {
         layout.setSpacing(true);
 
         Select<String> tableSelect = new Select<>();
-        tableSelect.setLabel("Pilih Tabel / View Sumber:");
+        tableSelect.setLabel("Select Source Table / View:");
         tableSelect.setItems(availableTables);
         tableSelect.setValue(availableTables.get(0));
         tableSelect.setWidthFull();
 
         Select<String> layoutSelect = new Select<>();
-        layoutSelect.setLabel("Pilih Mode Layout Tampilan:");
+        layoutSelect.setLabel("Select Display Layout Mode:");
         layoutSelect.setItems(
                 "Standar Form (1 Kolom / Vertikal)",
                 "Standar Form (2 Kolom / Berjejer)",
@@ -3735,7 +3735,7 @@ public class FormBuilderView extends VerticalLayout {
             dialog.close();
         });
 
-        Button btnCancelDialog = new Button("Batal", e -> dialog.close());
+        Button btnCancelDialog = new Button("Cancel", e -> dialog.close());
         dialog.getFooter().add(btnCancelDialog, btnGenerate);
         dialog.open();
     }
@@ -3755,7 +3755,7 @@ public class FormBuilderView extends VerticalLayout {
         layout.setSpacing(true);
 
         Select<Integer> colsSelect = new Select<>();
-        colsSelect.setLabel("Jumlah Kolom Berjejer per Baris:");
+        colsSelect.setLabel("Number of Columns per Row:");
         colsSelect.setItems(1, 2, 3, 4, 5, 6, 8, 10, 12);
         colsSelect.setValue(3);
         colsSelect.setWidthFull();
@@ -3796,7 +3796,7 @@ public class FormBuilderView extends VerticalLayout {
             dialog.close();
         });
 
-        Button btnCancel = new Button("Batal", e -> dialog.close());
+        Button btnCancel = new Button("Cancel", e -> dialog.close());
         dialog.getFooter().add(btnCancel, btnApply);
         dialog.open();
     }

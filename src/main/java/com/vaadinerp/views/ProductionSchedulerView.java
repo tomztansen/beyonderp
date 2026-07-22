@@ -85,14 +85,14 @@ public class ProductionSchedulerView extends VerticalLayout {
         titleBox.add(factoryIcon, titleText);
 
         HorizontalLayout actions = new HorizontalLayout();
-        Button btnAddSlot = new Button("➕ Buat Jadwal / Slot SPK", e -> openScheduleDialog(null));
+        Button btnAddSlot = new Button("➕ Create Schedule / WO Slot", e -> openScheduleDialog(null));
         btnAddSlot.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnAddSlot.getStyle().set("background", "linear-gradient(135deg, #4f46e5, #4338ca)").set("border-radius", "8px");
 
         Button btnSeed = new Button("🔄 Reset Sample Data", VaadinIcon.REFRESH.create(), e -> {
             initAndSeedManufacturingData(true);
             refreshAllViews();
-            Notification.show("Sample Data Manufaktur berhasil direset & dimuat ulang!", 3000, Notification.Position.BOTTOM_END)
+            Notification.show("Manufacturing sample data reset & reloaded!", 3000, Notification.Position.BOTTOM_END)
                     .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
         });
         btnSeed.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
@@ -159,7 +159,7 @@ public class ProductionSchedulerView extends VerticalLayout {
 
         Tab tabTimeline = tabSheet.add("🕒 Interactive Gantt Board & Timeline", timelineContainer);
         Tab tabMonitor = tabSheet.add("📊 Machine Load & Bottleneck Leveling", loadMonitorContainer);
-        Tab tabWo = tabSheet.add("📋 Master Work Order (SPK Produksi)", woListContainer);
+        Tab tabWo = tabSheet.add("📋 Master Work Order (Production WO)", woListContainer);
 
         add(tabSheet);
     }
@@ -176,7 +176,7 @@ public class ProductionSchedulerView extends VerticalLayout {
 
         List<Map<String, Object>> workCenters = getFilteredWorkCenters();
         if (workCenters.isEmpty()) {
-            timelineContainer.add(new Span("Tidak ada stasiun kerja yang cocok dengan filter."));
+            timelineContainer.add(new Span("No workstations match the filter."));
             return;
         }
 
@@ -254,7 +254,7 @@ public class ProductionSchedulerView extends VerticalLayout {
 
             if (slots.isEmpty()) {
                 Div emptySlot = new Div();
-                emptySlot.setText("✨ Belum ada antrean jadwal produksi di mesin ini.");
+                emptySlot.setText("✨ No production schedule queued for this machine.");
                 emptySlot.getStyle().set("color", "#94a3b8").set("font-style", "italic").set("padding", "20px 10px");
                 slotsLayout.add(emptySlot);
             } else {
@@ -281,7 +281,7 @@ public class ProductionSchedulerView extends VerticalLayout {
                         String oldWcCode = (String) draggedSlot.get("work_center_code");
                         if (!targetWcCode.equals(oldWcCode)) {
                             jdbcTemplate.update("UPDATE trx_production_schedule SET work_center_code = ?, status = 'SCHEDULED' WHERE id = ?", targetWcCode, slotId);
-                            Notification.show("✅ Jadwal SPK #" + draggedSlot.get("wo_no") + " (" + draggedSlot.get("operation_name") + ") berhasil dipindahkan ke Mesin: [" + targetWcCode + "] " + targetWcName, 4000, Notification.Position.BOTTOM_END)
+                            Notification.show("✅ WO Schedule #" + draggedSlot.get("wo_no") + " (" + draggedSlot.get("operation_name") + ") berhasil dipindahkan ke Mesin: [" + targetWcCode + "] " + targetWcName, 4000, Notification.Position.BOTTOM_END)
                                     .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
                             refreshAllViews();
                         }
@@ -420,7 +420,7 @@ public class ProductionSchedulerView extends VerticalLayout {
 
         DragSource<VerticalLayout> dragSource = DragSource.create(card);
         dragSource.setDragData(slot);
-        card.getElement().setAttribute("title", "💡 Drag & Drop kartu ini ke stasiun kerja/mesin lain di atas/bawah untuk pindah jadwal");
+        card.getElement().setAttribute("title", "💡 Drag & Drop this card to another workstation/machine above/below to reschedule");
         card.getStyle().set("cursor", "grab");
 
         return card;
@@ -499,17 +499,17 @@ public class ProductionSchedulerView extends VerticalLayout {
         Grid<Map<String, Object>> grid = new Grid<>();
         grid.setWidthFull();
         grid.setHeight("400px");
-        grid.addColumn(m -> m.get("work_center_code")).setHeader("Mesin / Stasiun").setAutoWidth(true);
-        grid.addColumn(m -> m.get("wo_no")).setHeader("No. SPK").setAutoWidth(true);
-        grid.addColumn(m -> m.get("operation_name")).setHeader("Proses / Tahapan").setAutoWidth(true);
+        grid.addColumn(m -> m.get("work_center_code")).setHeader("Machine / Station").setAutoWidth(true);
+        grid.addColumn(m -> m.get("wo_no")).setHeader("WO No.").setAutoWidth(true);
+        grid.addColumn(m -> m.get("operation_name")).setHeader("Process / Stage").setAutoWidth(true);
         grid.addColumn(m -> {
             LocalDateTime st = parseToLocalDateTime(m.get("start_time"));
             return st != null ? DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(st) : "-";
-        }).setHeader("Waktu Mulai").setAutoWidth(true);
+        }).setHeader("Start Time").setAutoWidth(true);
         grid.addColumn(m -> {
             LocalDateTime en = parseToLocalDateTime(m.get("end_time"));
             return en != null ? DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(en) : "-";
-        }).setHeader("Waktu Selesai").setAutoWidth(true);
+        }).setHeader("End Time").setAutoWidth(true);
         grid.addColumn(m -> m.get("status")).setHeader("Status").setAutoWidth(true);
 
         try {
@@ -531,7 +531,7 @@ public class ProductionSchedulerView extends VerticalLayout {
         H4 title = new H4("📋 Master Work Order (Surat Perintah Kerja Produksi)");
         title.getStyle().set("margin", "0");
 
-        Button btnAddWo = new Button("➕ Buat SPK Baru", e -> openWorkOrderDialog());
+        Button btnAddWo = new Button("➕ Create New Work Order", e -> openWorkOrderDialog());
         btnAddWo.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         woTop.add(title, btnAddWo);
         woListContainer.add(woTop);
@@ -539,16 +539,16 @@ public class ProductionSchedulerView extends VerticalLayout {
         Grid<Map<String, Object>> grid = new Grid<>();
         grid.setWidthFull();
         grid.setHeight("450px");
-        grid.addColumn(m -> m.get("wo_no")).setHeader("No. SPK").setAutoWidth(true);
-        grid.addColumn(m -> m.get("product_name")).setHeader("Produk Jadi (Finished Goods)").setAutoWidth(true);
-        grid.addColumn(m -> m.get("alloy_grade") != null ? m.get("alloy_grade") : "-").setHeader("Grade Logam").setAutoWidth(true);
+        grid.addColumn(m -> m.get("wo_no")).setHeader("WO No.").setAutoWidth(true);
+        grid.addColumn(m -> m.get("product_name")).setHeader("Finished Goods").setAutoWidth(true);
+        grid.addColumn(m -> m.get("alloy_grade") != null ? m.get("alloy_grade") : "-").setHeader("Alloy Grade").setAutoWidth(true);
         grid.addColumn(m -> m.get("target_qty")).setHeader("Target Qty").setAutoWidth(true);
-        grid.addColumn(m -> m.get("total_pour_weight_kg") != null ? String.format("%.2f Kg", ((Number) m.get("total_pour_weight_kg")).doubleValue()) : "-").setHeader("Total Bobot Cor").setAutoWidth(true);
+        grid.addColumn(m -> m.get("total_pour_weight_kg") != null ? String.format("%.2f Kg", ((Number) m.get("total_pour_weight_kg")).doubleValue()) : "-").setHeader("Total Pour Weight").setAutoWidth(true);
         grid.addColumn(m -> {
             LocalDate dt = parseToLocalDate(m.get("due_date"));
             return dt != null ? DateTimeFormatter.ofPattern("dd/MM/yyyy").format(dt) : "-";
-        }).setHeader("Batas Waktu (Due Date)").setAutoWidth(true);
-        grid.addColumn(m -> m.get("status")).setHeader("Status SPK").setAutoWidth(true);
+        }).setHeader("Due Date").setAutoWidth(true);
+        grid.addColumn(m -> m.get("status")).setHeader("Work Order Status").setAutoWidth(true);
         grid.addComponentColumn(m -> {
             Button btnBuatJadwal = new Button("➕ Jadwalkan Mesin", e -> {
                 Map<String, Object> pre = new HashMap<>();
@@ -557,7 +557,7 @@ public class ProductionSchedulerView extends VerticalLayout {
             });
             btnBuatJadwal.addThemeVariants(ButtonVariant.LUMO_SMALL);
             return btnBuatJadwal;
-        }).setHeader("Aksi");
+        }).setHeader("Action");
 
         try {
             grid.setItems(jdbcTemplate.queryForList("SELECT * FROM trx_work_order ORDER BY wo_no ASC"));
@@ -569,7 +569,7 @@ public class ProductionSchedulerView extends VerticalLayout {
     private void updateSlotStatus(Long id, String newStatus) {
         try {
             jdbcTemplate.update("UPDATE trx_production_schedule SET status = ? WHERE id = ?", newStatus, id);
-            Notification.show("Status jadwal produksi berhasil diubah menjadi: " + newStatus, 3000, Notification.Position.BOTTOM_END)
+            Notification.show("Production schedule status successfully changed to: " + newStatus, 3000, Notification.Position.BOTTOM_END)
                     .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             refreshAllViews();
         } catch (Exception ex) {
@@ -580,7 +580,7 @@ public class ProductionSchedulerView extends VerticalLayout {
 
     private void openScheduleDialog(Map<String, Object> existingOrPre) {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle(existingOrPre != null && existingOrPre.get("id") != null ? "✏ Edit / Geser Jadwal Produksi" : "➕ Buat Slot Jadwal Mesin Baru");
+        dialog.setHeaderTitle(existingOrPre != null && existingOrPre.get("id") != null ? "✏ Edit / Move Production Schedule" : "➕ Create New Machine Schedule Slot");
         dialog.setWidth("520px");
 
         FormLayout form = new FormLayout();
@@ -610,7 +610,7 @@ public class ProductionSchedulerView extends VerticalLayout {
         DateTimePicker fieldEnd = new DateTimePicker("Waktu Selesai (End Time)");
         fieldEnd.setStep(java.time.Duration.ofMinutes(15));
 
-        ComboBox<String> fieldStatus = new ComboBox<>("Status Slot");
+        ComboBox<String> fieldStatus = new ComboBox<>("Slot Status");
         fieldStatus.setItems("SCHEDULED", "RUNNING", "COMPLETED");
         fieldStatus.setValue("SCHEDULED");
 
@@ -619,7 +619,7 @@ public class ProductionSchedulerView extends VerticalLayout {
 
         ComboBox<String> fieldAlloyGrade = new ComboBox<>("🧪 Grade Logam (Alloy Specification)");
         fieldAlloyGrade.setItems("Hadfield Mn18Cr2", "Hadfield Mn13Cr2", "High Chrome Cr20Mo2", "High Chrome Cr15Mo3", "Chrome-Moly Steel", "Low Alloy Steel");
-        fieldAlloyGrade.setPlaceholder("Pilih / Ketik Grade Logam...");
+        fieldAlloyGrade.setPlaceholder("Select / Type Metal Grade...");
         fieldAlloyGrade.setAllowCustomValue(true);
         fieldAlloyGrade.addCustomValueSetListener(e -> fieldAlloyGrade.setValue(e.getDetail()));
 
@@ -648,7 +648,7 @@ public class ProductionSchedulerView extends VerticalLayout {
         form.add(fieldWo, fieldWc, fieldOp, fieldStart, fieldEnd, fieldStatus, fieldHeatNo, fieldAlloyGrade, fieldPourWeight, fieldNotes);
         dialog.add(form);
 
-        Button btnSave = new Button("Simpan Jadwal", e -> {
+        Button btnSave = new Button("Save Schedule", e -> {
             if (fieldWo.isEmpty() || fieldWc.isEmpty() || fieldOp.isEmpty() || fieldStart.isEmpty() || fieldEnd.isEmpty()) {
                 Notification.show("Mohon lengkapi data SPK, Mesin, Nama Operasi, serta Waktu Mulai & Selesai!", 3000, Notification.Position.MIDDLE)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -664,7 +664,7 @@ public class ProductionSchedulerView extends VerticalLayout {
                     jdbcTemplate.update("INSERT INTO trx_production_schedule (wo_no, work_center_code, operation_name, start_time, end_time, status, notes, heat_no, alloy_grade, pour_weight_kg) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                             fieldWo.getValue(), fieldWc.getValue(), fieldOp.getValue(), fieldStart.getValue(), fieldEnd.getValue(), fieldStatus.getValue(), fieldNotes.getValue(), fieldHeatNo.getValue(), fieldAlloyGrade.getValue(), pourW);
                 }
-                Notification.show("Jadwal produksi berhasil disimpan & kapasitas mesin diperbarui!", 3000, Notification.Position.BOTTOM_END)
+                Notification.show("Production schedule saved & machine capacity updated!", 3000, Notification.Position.BOTTOM_END)
                         .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
                 dialog.close();
                 refreshAllViews();
@@ -676,13 +676,13 @@ public class ProductionSchedulerView extends VerticalLayout {
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnCancel = new Button("Batal", e -> dialog.close());
+        Button btnCancel = new Button("Cancel", e -> dialog.close());
         dialog.getFooter().add(btnCancel, btnSave);
         dialog.open();
     }
 
     private void openWorkOrderDialog() {
-        Dialog dialog = new Dialog("➕ Buat Surat Perintah Kerja (SPK Produksi)");
+        Dialog dialog = new Dialog("➕ Create Work Order (Production WO)");
         dialog.setWidth("450px");
 
         FormLayout form = new FormLayout();
@@ -698,12 +698,12 @@ public class ProductionSchedulerView extends VerticalLayout {
         form.add(fieldWo, fieldProd, fieldQty, fieldDue);
         dialog.add(form);
 
-        Button btnSave = new Button("Simpan SPK", e -> {
+        Button btnSave = new Button("Save Work Order", e -> {
             try {
                 int qty = Integer.parseInt(fieldQty.getValue().trim());
                 jdbcTemplate.update("INSERT INTO trx_work_order (wo_no, product_name, target_qty, due_date, status) VALUES (?, ?, ?, ?, 'SCHEDULED')",
                         fieldWo.getValue(), fieldProd.getValue(), qty, fieldDue.getValue());
-                Notification.show("SPK Baru berhasil dibuat!", 3000, Notification.Position.BOTTOM_END)
+                Notification.show("New Work Order created successfully!", 3000, Notification.Position.BOTTOM_END)
                         .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
                 dialog.close();
                 refreshAllViews();
@@ -714,7 +714,7 @@ public class ProductionSchedulerView extends VerticalLayout {
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnCancel = new Button("Batal", e -> dialog.close());
+        Button btnCancel = new Button("Cancel", e -> dialog.close());
         dialog.getFooter().add(btnCancel, btnSave);
         dialog.open();
     }

@@ -28,7 +28,7 @@ public class ProcedureDesignerView extends VerticalLayout {
     private final DynamicDataService dynamicDataService;
     private final Grid<Map<String, Object>> routinesGrid = new Grid<>();
     private final ComboBox<String> schemaFilter = new ComboBox<>("Filter Schema");
-    private final TextField searchField = new TextField("Cari Routine / Argumen");
+    private final TextField searchField = new TextField("Search Routine / Argument");
     private final Span recordCountSpan = new Span();
     private List<Map<String, Object>> allRoutinesList = new ArrayList<>();
 
@@ -54,7 +54,7 @@ public class ProcedureDesignerView extends VerticalLayout {
         Button btnRefresh = new Button("Refresh List", VaadinIcon.REFRESH.create());
         btnRefresh.addClickListener(e -> loadRoutines());
 
-        Button btnCreateNew = new Button("⚡ Buat Procedure / Function Baru", VaadinIcon.PLUS.create());
+        Button btnCreateNew = new Button("⚡ Create New Procedure / Function", VaadinIcon.PLUS.create());
         btnCreateNew.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnCreateNew.addClickListener(e -> openProcedureDialog(null));
 
@@ -68,8 +68,8 @@ public class ProcedureDesignerView extends VerticalLayout {
         StandardGridUtils.enableCellClipboardCopy(routinesGrid);
 
         routinesGrid.addColumn(row -> row.get("schema_name")).setHeader("Schema").setWidth("120px").setFlexGrow(0).setSortable(true);
-        routinesGrid.addColumn(row -> row.get("routine_type")).setHeader("Tipe").setWidth("120px").setFlexGrow(0).setSortable(true);
-        routinesGrid.addColumn(row -> row.get("procedure_name")).setHeader("Nama Routine / Procedure").setWidth("260px").setFlexGrow(1).setSortable(true);
+        routinesGrid.addColumn(row -> row.get("routine_type")).setHeader("Type").setWidth("120px").setFlexGrow(0).setSortable(true);
+        routinesGrid.addColumn(row -> row.get("procedure_name")).setHeader("Routine / Procedure Name").setWidth("260px").setFlexGrow(1).setSortable(true);
         routinesGrid.addColumn(row -> row.get("identity_args")).setHeader("Daftar Argumen").setWidth("350px").setFlexGrow(2);
 
         routinesGrid.addComponentColumn(row -> {
@@ -77,14 +77,14 @@ public class ProcedureDesignerView extends VerticalLayout {
             btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
             btnEdit.addClickListener(e -> openProcedureDialog(row));
 
-            Button btnDrop = new Button("Hapus", VaadinIcon.TRASH.create());
+            Button btnDrop = new Button("Delete", VaadinIcon.TRASH.create());
             btnDrop.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
             btnDrop.addClickListener(e -> confirmDropRoutine(row));
 
             HorizontalLayout actions = new HorizontalLayout(btnEdit, btnDrop);
             actions.setSpacing(true);
             return actions;
-        }).setHeader("Aksi").setWidth("210px").setFlexGrow(0);
+        }).setHeader("Action").setWidth("210px").setFlexGrow(0);
 
         HorizontalLayout footer = new HorizontalLayout(recordCountSpan);
         footer.setAlignItems(Alignment.CENTER);
@@ -116,7 +116,7 @@ public class ProcedureDesignerView extends VerticalLayout {
     public void openProcedureDialog(Map<String, Object> existingRow) {
         boolean isNew = (existingRow == null);
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle(isNew ? "Buat Stored Procedure / Function Baru" : "Edit Stored Procedure / Function");
+        dialog.setHeaderTitle(isNew ? "Create New Stored Procedure / Function" : "Edit Stored Procedure / Function");
         dialog.setWidth("85vw");
         dialog.setHeight("85vh");
 
@@ -177,17 +177,17 @@ public class ProcedureDesignerView extends VerticalLayout {
 
         dialogLayout.add(codeArea);
 
-        Button btnSave = new Button("💾 Simpan & Eksekusi ke Database", VaadinIcon.CHECK.create());
+        Button btnSave = new Button("💾 Save & Execute to Database", VaadinIcon.CHECK.create());
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnSave.addClickListener(e -> {
             String sql = codeArea.getValue();
             if (sql == null || sql.trim().isEmpty()) {
-                Notification.show("Script SQL tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+                Notification.show("SQL Script cannot be empty!", 3000, Notification.Position.MIDDLE);
                 return;
             }
             try {
                 dynamicDataService.executeProcedureScript(sql);
-                Notification.show("✅ Stored Procedure / Function berhasil disimpan dan diaktifkan di server!", 3500, Notification.Position.BOTTOM_END);
+                Notification.show("✅ Stored Procedure / Function saved and activated on server!", 3500, Notification.Position.BOTTOM_END);
                 dialog.close();
                 loadRoutines();
             } catch (Exception ex) {
@@ -195,7 +195,7 @@ public class ProcedureDesignerView extends VerticalLayout {
             }
         });
 
-        Button btnCancel = new Button("Batal", e -> dialog.close());
+        Button btnCancel = new Button("Cancel", e -> dialog.close());
         dialog.getFooter().add(btnCancel, btnSave);
         dialog.add(dialogLayout);
         dialog.open();
@@ -208,15 +208,15 @@ public class ProcedureDesignerView extends VerticalLayout {
         String routineType = row.get("routine_type") != null ? row.get("routine_type").toString() : "PROCEDURE";
 
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Konfirmasi Hapus " + routineType);
-        dialog.add(new Span("Apakah Anda yakin ingin menghapus " + routineType.toLowerCase() + " berikut secara permanen dari server?"));
+        dialog.setHeaderTitle("Confirm Delete " + routineType);
+        dialog.add(new Span("Are you sure you want to permanently delete this " + routineType.toLowerCase() + " from the server?"));
         dialog.add(new VerticalLayout(
                 new Span("Schema: " + schemaName),
                 new Span("Nama: " + procedureName),
                 new Span("Argumen: (" + identityArgs + ")")
         ));
 
-        Button btnYes = new Button("Ya, Hapus Sekarang", VaadinIcon.TRASH.create(), e -> {
+        Button btnYes = new Button("Yes, Delete Now", VaadinIcon.TRASH.create(), e -> {
             try {
                 String dropSql = "DROP " + routineType + " IF EXISTS \"" + schemaName + "\".\"" + procedureName + "\"(" + identityArgs + ")" + ("FUNCTION".equalsIgnoreCase(routineType) ? " CASCADE;" : ";");
                 dynamicDataService.executeProcedureScript(dropSql);
@@ -224,12 +224,12 @@ public class ProcedureDesignerView extends VerticalLayout {
                 dialog.close();
                 loadRoutines();
             } catch (Exception ex) {
-                Notification.show("❌ Error menghapus: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                Notification.show("❌ Error deleting: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
             }
         });
         btnYes.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
 
-        Button btnNo = new Button("Batal", e -> dialog.close());
+        Button btnNo = new Button("Cancel", e -> dialog.close());
         dialog.getFooter().add(btnNo, btnYes);
         dialog.open();
     }

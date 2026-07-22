@@ -252,7 +252,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         setSizeFull();
         setPadding(false);
         setSpacing(false);
-        getStyle().set("gap", "4px").set("padding", "8px 12px");
+        getStyle().set("gap", "4px");
 
         title = new H3("Loading Master-Detail...");
         title.getStyle().set("margin", "0").set("padding", "0");
@@ -299,7 +299,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         HorizontalLayout detailsToolbar = new HorizontalLayout();
         detailsToolbar.setWidthFull();
         detailsToolbar.setAlignItems(Alignment.CENTER);
-        H4 detailTitle = new H4("Rincian / Details");
+        H4 detailTitle = new H4("Details");
         detailTitle.getStyle().set("margin", "0");
 
         Button btnAddRow = new Button("Tambah Baris", VaadinIcon.PLUS.create());
@@ -309,7 +309,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             icAdd.getStyle().set("color", "#22c55e").set("font-size", "1.1rem");
         }
 
-        Button btnDeleteRow = new Button("Hapus Baris", VaadinIcon.TRASH.create());
+        Button btnDeleteRow = new Button("Delete Row", VaadinIcon.TRASH.create());
         btnDeleteRow.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         btnDeleteRow.getStyle().set("font-weight", "500").set("color", "#374151");
         if (btnDeleteRow.getIcon() instanceof com.vaadin.flow.component.icon.Icon icDel) {
@@ -346,7 +346,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         tabSheet = new TabSheet();
         tabSheet.setSizeFull();
-        historisTab = tabSheet.add("Historis", historisLayout);
+        historisTab = tabSheet.add("History", historisLayout);
         transaksiTab = tabSheet.add("Transaksi", transaksiLayout);
 
         tabSheet.addSelectedChangeListener(event -> {
@@ -456,7 +456,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                             detailsGrid.deselectAll();
                         });
             } else {
-                Notification.show("Pilih baris rincian yang ingin dihapus terlebih dahulu.", 3000,
+                Notification.show("Please select a detail row to delete first.", 3000,
                         Notification.Position.MIDDLE);
             }
         });
@@ -774,7 +774,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         toolbar.removeAll();
 
         // 1. TAMBAH BUTTON
-        Button btnNew = new Button("Tambah");
+        Button btnNew = new Button("Add");
         Icon iconNew = VaadinIcon.PLUS_CIRCLE.create();
         iconNew.getStyle().set("color", "#22c55e").set("font-size", "1.2rem");
         btnNew.setIcon(iconNew);
@@ -801,7 +801,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             if (tabSheet.getSelectedTab() == historisTab) {
                 java.util.Set<Map<String, Object>> selectedItems = masterGrid.getSelectedItems();
                 if (selectedItems == null || selectedItems.isEmpty()) {
-                    Notification.show("Pilih data yang akan diedit terlebih dahulu di tab Historis!", 3000,
+                    Notification.show("Please select data from the History tab to edit!", 3000,
                             Notification.Position.MIDDLE);
                     return;
                 }
@@ -814,7 +814,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         });
 
         // 2. HAPUS BUTTON
-        Button btnDelete = new Button("Hapus");
+        Button btnDelete = new Button("Delete");
         Icon iconDelete = VaadinIcon.CLOSE_CIRCLE.create();
         iconDelete.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnDelete.setIcon(iconDelete);
@@ -824,7 +824,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             if (tabSheet.getSelectedTab() == historisTab) {
                 java.util.Set<Map<String, Object>> selectedItems = masterGrid.getSelectedItems();
                 if (selectedItems != null && !selectedItems.isEmpty()) {
-                    showConfirmDialog("Konfirmasi Hapus", "Apakah Anda yakin ingin menghapus " + selectedItems.size()
+                    showConfirmDialog("Confirm Delete", "Apakah Anda yakin ingin menghapus " + selectedItems.size()
                             + " data Master-Detail yang dipilih ini?", () -> {
                                 toolbar.setEnabled(false);
                                 try {
@@ -836,14 +836,14 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                                     refreshMasterGridData();
                                     masterGrid.deselectAll();
                                 } catch (Exception ex) {
-                                    Notification.show("Gagal menghapus: " + ex.getMessage(), 5000,
+                                    Notification.show("Failed to delete: " + ex.getMessage(), 5000,
                                             Notification.Position.MIDDLE);
                                 } finally {
                                     toolbar.setEnabled(true);
                                 }
                             });
                 } else {
-                    Notification.show("Pilih baris data pada grid terlebih dahulu untuk dihapus.", 3000,
+                    Notification.show("Please select a row from the grid first to delete.", 3000,
                             Notification.Position.MIDDLE);
                 }
             } else {
@@ -851,7 +851,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 String pk = formDef.getPrimaryKey() != null ? formDef.getPrimaryKey() : "id";
                 if (bean != null && bean.containsKey(pk) && bean.get(pk) != null
                         && !bean.get(pk).toString().trim().isEmpty()) {
-                    showConfirmDialog("Konfirmasi Hapus",
+                    showConfirmDialog("Confirm Delete",
                             "Apakah Anda yakin ingin menghapus data transaksi Master-Detail ini?", () -> {
                                 toolbar.setEnabled(false);
                                 try {
@@ -866,21 +866,21 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                                     refreshMasterGridData();
                                     tabSheet.setSelectedTab(historisTab);
                                 } catch (Exception ex) {
-                                    Notification.show("Gagal menghapus: " + ex.getMessage(), 5000,
+                                    Notification.show("Failed to delete: " + ex.getMessage(), 5000,
                                             Notification.Position.MIDDLE);
                                 } finally {
                                     toolbar.setEnabled(true);
                                 }
                             });
                 } else {
-                    Notification.show("Tidak ada data master terpilih untuk dihapus.", 3000,
+                    Notification.show("No master data selected to delete.", 3000,
                             Notification.Position.MIDDLE);
                 }
             }
         });
 
         // 3. SIMPAN BUTTON
-        Button btnSave = new Button("Simpan");
+        Button btnSave = new Button("Save");
         Icon iconSave = VaadinIcon.DOWNLOAD.create();
         iconSave.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnSave.setIcon(iconSave);
@@ -911,7 +911,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                                 if (comp instanceof com.vaadin.flow.component.HasValidation) {
                                     ((com.vaadin.flow.component.HasValidation) comp).setInvalid(true);
                                     ((com.vaadin.flow.component.HasValidation) comp)
-                                            .setErrorMessage(field.getFieldLabel() + " wajib diisi");
+                                            .setErrorMessage(field.getFieldLabel() + " is required");
                                 }
                             }
                         }
@@ -962,13 +962,13 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         formBinder.validate().getValidationErrors().forEach(err -> errMsgs.add(err.getErrorMessage()));
                     }
                     if (!masterRequiredOk) {
-                        errMsgs.add("Kolom master wajib diisi belum lengkap");
+                        errMsgs.add("Kolom master is required belum lengkap");
                     }
                     if (!rulesOk) {
                         errMsgs.add("Aturan validasi kolom master tidak terpenuhi");
                     }
                     if (!detailsOk) {
-                        errMsgs.add("Kolom rincian wajib diisi belum lengkap");
+                        errMsgs.add("Kolom rincian is required belum lengkap");
                     }
                     String finalMsg = errMsgs.isEmpty() ? "Silakan periksa kembali inputan form Anda."
                             : String.join(" | ", errMsgs);
@@ -1001,7 +1001,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         });
 
         // 4. BATAL BUTTON
-        Button btnCancel = new Button("Batal");
+        Button btnCancel = new Button("Cancel");
         Icon iconCancel = VaadinIcon.BAN.create();
         iconCancel.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnCancel.setIcon(iconCancel);
@@ -1084,7 +1084,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     }
                 }
             } catch (Exception ex) {
-                Notification.show("Gagal menyegarkan: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
+                Notification.show("Failed to refresh: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
             } finally {
                 btnRefresh.setEnabled(true);
             }
@@ -1594,7 +1594,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         com.vaadin.flow.component.checkbox.Checkbox cbPilihSemuaHalIni = new com.vaadin.flow.component.checkbox.Checkbox();
         com.vaadin.flow.component.html.Span lblPilihSemuaHalIni = new com.vaadin.flow.component.html.Span(
-                "Pilih Semua (Hal Ini)");
+                "Select All (This Page)");
         lblPilihSemuaHalIni.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "500")
                 .set("cursor", "pointer").set("user-select", "none").set("white-space", "nowrap");
         lblPilihSemuaHalIni.addClickListener(
@@ -1606,7 +1606,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         boxHalIni.getStyle().set("gap", "4px").set("margin-left", "10px");
 
         com.vaadin.flow.component.checkbox.Checkbox cbPilihSemua = new com.vaadin.flow.component.checkbox.Checkbox();
-        com.vaadin.flow.component.html.Span lblPilihSemua = new com.vaadin.flow.component.html.Span("Pilih Semua");
+        com.vaadin.flow.component.html.Span lblPilihSemua = new com.vaadin.flow.component.html.Span("Select All");
         lblPilihSemua.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "500")
                 .set("cursor", "pointer").set("user-select", "none").set("white-space", "nowrap");
         lblPilihSemua.addClickListener(e -> cbPilihSemua.setValue(!Boolean.TRUE.equals(cbPilihSemua.getValue())));
@@ -1886,7 +1886,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 dynamicDataService.saveUserGridOrder(currentFormCode, "masterGrid", orderedFieldNames);
                 Notification.show("Urutan kolom disimpan", 1500, Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
-                Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000,
+                Notification.show("Failed to save column order: " + ex.getMessage(), 3000,
                         Notification.Position.MIDDLE);
             }
         });
@@ -1996,7 +1996,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             HasValue<?, Object> hasValue = (HasValue<?, Object>) editorComp;
             Binder.BindingBuilder<Map<String, Object>, Object> builder = gridBinder.forField(hasValue);
             if (field.isRequired()) {
-                builder.asRequired(field.getFieldLabel() + " wajib diisi");
+                builder.asRequired(field.getFieldLabel() + " is required");
             }
             builder.bind(map -> convertToFieldValue(getValueCaseInsensitive(map, fieldName), editorComp),
                     (map, val) -> putValueCaseInsensitive(map, fieldName, val));
@@ -2344,7 +2344,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 dynamicDataService.saveUserGridOrder(currentFormCode, "detailsGrid", orderedFieldNames);
                 Notification.show("Urutan kolom disimpan", 1500, Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
-                Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000,
+                Notification.show("Failed to save column order: " + ex.getMessage(), 3000,
                         Notification.Position.MIDDLE);
             }
         });
@@ -2736,7 +2736,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         HasValue<?, V> hasValue = (HasValue<?, V>) editComponent;
         Binder.BindingBuilder<Map<String, Object>, V> builder = binder.forField(hasValue);
         if (field.isRequired()) {
-            builder.asRequired(field.getFieldLabel() + " wajib diisi");
+            builder.asRequired(field.getFieldLabel() + " is required");
         }
         builder.bind(
                 map -> convertToFieldValue(getValueCaseInsensitive(map, field.getFieldName()), editComponent),
@@ -2861,7 +2861,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         btnConfirm.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY,
                 com.vaadin.flow.component.button.ButtonVariant.LUMO_ERROR);
 
-        Button btnCancel = new Button("Batal", event -> dialog.close());
+        Button btnCancel = new Button("Cancel", event -> dialog.close());
         btnCancel.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
 
         dialog.getFooter().add(btnCancel, btnConfirm);

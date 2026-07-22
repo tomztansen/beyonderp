@@ -120,7 +120,7 @@ public class FormDebugUtils {
             return hl;
         }).setHeader("Nilai Saat Ini").setAutoWidth(true).setResizable(true).setFlexGrow(2);
 
-        grid.addColumn(DebugItem::getType).setHeader("Tipe Data").setAutoWidth(true).setResizable(true);
+        grid.addColumn(DebugItem::getType).setHeader("Data Type").setAutoWidth(true).setResizable(true);
 
         grid.setItems(allItems);
 
@@ -150,7 +150,7 @@ public class FormDebugUtils {
             Notification.show("📋 Semua data berhasil disalin ke clipboard!", 2000, Notification.Position.BOTTOM_END);
         });
 
-        Button closeBtn = new Button("Tutup", e -> dialog.close());
+        Button closeBtn = new Button("Close", e -> dialog.close());
         closeBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         dialog.getFooter().add(copyAllBtn, closeBtn);

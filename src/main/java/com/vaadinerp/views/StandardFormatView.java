@@ -62,7 +62,7 @@ public class StandardFormatView extends VerticalLayout {
         title.getStyle().set("margin", "0").set("color", "#0f172a").set("font-size", "1.4rem");
 
         Span subtitle = new Span(
-                "Atur format tampilan default secara global untuk setiap komponen yang formatnya kosong (NONE).");
+                "Set the global default display format for each component whose format is empty (NONE).");
         subtitle.getStyle().set("color", "#64748b").set("font-size", "0.85rem");
 
         titleBox.add(title, subtitle);
@@ -95,7 +95,7 @@ public class StandardFormatView extends VerticalLayout {
                     .set("background", "#e0e7ff")
                     .set("color", "#3730a3");
             return badge;
-        }).setHeader("Tipe Komponen").setWidth("180px").setFlexGrow(0);
+        }).setHeader("Component Type").setWidth("180px").setFlexGrow(0);
 
         grid.addComponentColumn(fmt -> {
             Span code = new Span(fmt.getFormatPattern());
@@ -107,9 +107,9 @@ public class StandardFormatView extends VerticalLayout {
                     .set("padding", "3px 8px")
                     .set("border-radius", "4px");
             return code;
-        }).setHeader("Pola Format (Pattern)").setWidth("220px").setFlexGrow(0);
+        }).setHeader("Format Pattern").setWidth("220px").setFlexGrow(0);
 
-        grid.addColumn(AppStandardFormat::getDescription).setHeader("Deskripsi").setFlexGrow(1);
+        grid.addColumn(AppStandardFormat::getDescription).setHeader("Description").setFlexGrow(1);
 
         grid.addComponentColumn(fmt -> {
             String preview = generateSamplePreview(fmt.getComponentType(), fmt.getFormatPattern());
@@ -122,13 +122,13 @@ public class StandardFormatView extends VerticalLayout {
                     .set("border-radius", "6px")
                     .set("border", "1px solid #a7f3d0");
             return previewSpan;
-        }).setHeader("Contoh Tampilan (Live Preview)").setWidth("250px").setFlexGrow(0);
+        }).setHeader("Display Sample (Live Preview)").setWidth("250px").setFlexGrow(0);
 
         grid.addComponentColumn(fmt -> {
-            Button btnEdit = new Button("Ubah", VaadinIcon.EDIT.create(), e -> openEditDialog(fmt));
+            Button btnEdit = new Button("Edit", VaadinIcon.EDIT.create(), e -> openEditDialog(fmt));
             btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
             return btnEdit;
-        }).setHeader("Aksi").setWidth("120px").setFlexGrow(0);
+        }).setHeader("Action").setWidth("120px").setFlexGrow(0);
 
         add(grid);
         setFlexGrow(1, grid);
@@ -141,7 +141,7 @@ public class StandardFormatView extends VerticalLayout {
 
     private void openEditDialog(AppStandardFormat format) {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Ubah Format Standar: " + format.getComponentType());
+        dialog.setHeaderTitle("Edit Standard Format: " + format.getComponentType());
         dialog.setWidth("500px");
 
         VerticalLayout formLayout = new VerticalLayout();
@@ -158,7 +158,7 @@ public class StandardFormatView extends VerticalLayout {
         txtPattern.setWidthFull();
         txtPattern.setValueChangeMode(ValueChangeMode.EAGER);
 
-        TextField txtDesc = new TextField("Deskripsi");
+        TextField txtDesc = new TextField("Description");
         txtDesc.setValue(format.getDescription() != null ? format.getDescription() : "");
         txtDesc.setWidthFull();
 
@@ -187,20 +187,20 @@ public class StandardFormatView extends VerticalLayout {
         formLayout.add(txtType, txtPattern, txtDesc, previewBox);
         dialog.add(formLayout);
 
-        Button btnSave = new Button("Simpan Format", VaadinIcon.CHECK.create(), e -> {
+        Button btnSave = new Button("Save Format", VaadinIcon.CHECK.create(), e -> {
             if (txtPattern.getValue() == null || txtPattern.getValue().trim().isEmpty()) {
-                Notification.show("Pola format tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Format pattern cannot be empty!", 3000, Notification.Position.MIDDLE);
                 return;
             }
             service.saveFormat(format.getComponentType(), txtPattern.getValue(), txtDesc.getValue());
             refreshData();
             dialog.close();
-            Notification.show("Format " + format.getComponentType() + " berhasil diperbarui!", 3000,
+            Notification.show("Format " + format.getComponentType() + " successfully updated!", 3000,
                     Notification.Position.BOTTOM_END);
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnCancel = new Button("Batal", e -> dialog.close());
+        Button btnCancel = new Button("Cancel", e -> dialog.close());
         btnCancel.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
         dialog.getFooter().add(btnCancel, btnSave);

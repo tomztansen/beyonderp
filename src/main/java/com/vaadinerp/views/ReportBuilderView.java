@@ -52,7 +52,7 @@ public class ReportBuilderView extends VerticalLayout {
     // Properties Panel
     private final VerticalLayout propertiesPanel = new VerticalLayout();
     private final FormLayout propertiesForm = new FormLayout();
-    private final Span propPlaceholderLabel = new Span("Pilih elemen di kanvas untuk mengkonfigurasi propertinya.");
+    private final Span propPlaceholderLabel = new Span("Select an element on canvas to configure its properties.");
     private final TextField propElementValue = new TextField("Element Value / Text");
     private final ComboBox<String> propElementFieldCombo = new ComboBox<>("Table Field");
     private final TextField propColumnWidth = new TextField("Width (e.g. 120px or 25%)");
@@ -96,11 +96,11 @@ public class ReportBuilderView extends VerticalLayout {
         loadLayout.getStyle().set("margin-bottom", "10px");
 
         loadReportCombo.setWidth("350px");
-        loadReportCombo.setPlaceholder("Pilih laporan untuk diedit...");
+        loadReportCombo.setPlaceholder("Select report to edit...");
         loadReportCombo.setItems(reportMetaRepository.findAll());
         loadReportCombo.setItemLabelGenerator(r -> r.getReportTitle() + " (" + r.getReportCode() + ")");
 
-        Button btnClear = new Button("Buat Baru (Reset)", VaadinIcon.REFRESH.create());
+        Button btnClear = new Button("Create New (Reset)", VaadinIcon.REFRESH.create());
         btnClear.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnClear.addClickListener(e -> {
             loadReportCombo.clear();
@@ -152,7 +152,7 @@ public class ReportBuilderView extends VerticalLayout {
                 }
                 selectElement(null);
                 rebuildCanvas();
-                Notification.show("Laporan berhasil dimuat: " + selectedReport.getReportCode(), 3000, Notification.Position.TOP_CENTER);
+                Notification.show("Report loaded: " + selectedReport.getReportCode(), 3000, Notification.Position.TOP_CENTER);
             }
         });
 
@@ -362,11 +362,11 @@ public class ReportBuilderView extends VerticalLayout {
         pageCanvas.removeAll();
 
         // RENDER STACKED BANDS
-        pageCanvas.add(buildBandLayout("TITLE", "[TITLE BAND] - Dicetak sekali pada halaman pembuka laporan"));
-        pageCanvas.add(buildBandLayout("PAGE_HEADER", "[PAGE HEADER BAND] - Dicetak pada bagian atas setiap halaman"));
+        pageCanvas.add(buildBandLayout("TITLE", "[TITLE BAND] - Printed once on the opening page of the report"));
+        pageCanvas.add(buildBandLayout("PAGE_HEADER", "[PAGE HEADER BAND] - Printed at the top of every page"));
         pageCanvas.add(buildBandLayout("COLUMN_HEADER", "[COLUMN HEADER BAND] - Kepala kolom tabel data"));
-        pageCanvas.add(buildBandLayout("DETAIL", "[DETAIL BAND] - Diulang untuk setiap baris data transaksi"));
-        pageCanvas.add(buildBandLayout("PAGE_FOOTER", "[PAGE FOOTER BAND] - Dicetak pada bagian bawah setiap halaman"));
+        pageCanvas.add(buildBandLayout("DETAIL", "[DETAIL BAND] - Repeated for each transaction data row"));
+        pageCanvas.add(buildBandLayout("PAGE_FOOTER", "[PAGE FOOTER BAND] - Printed at the bottom of every page"));
         pageCanvas.add(buildBandLayout("SUMMARY", "[SUMMARY BAND] - Dicetak sekali di akhir laporan (total/grand total)"));
     }
 
@@ -428,7 +428,7 @@ public class ReportBuilderView extends VerticalLayout {
                 .collect(Collectors.toList());
 
         if (bandElements.isEmpty()) {
-            Span emptyPlaceholder = new Span("Belum ada elemen. Klik '+' untuk menambahkan.");
+            Span emptyPlaceholder = new Span("No elements yet. Click '+' to add one.");
             emptyPlaceholder.getStyle().set("color", "#94a3b8").set("font-size", "0.8rem");
             elementsRow.add(emptyPlaceholder);
         } else {
@@ -624,7 +624,7 @@ public class ReportBuilderView extends VerticalLayout {
                         Notification.show("Elemen diurutkan ulang!", 2000, Notification.Position.BOTTOM_END);
                     }
                 } else {
-                    Notification.show("Elemen hanya bisa digeser dalam band yang sama!", 3000, Notification.Position.MIDDLE);
+                    Notification.show("Elements can only be dragged within the same band!", 3000, Notification.Position.MIDDLE);
                 }
             }
             draggedElement = null;
@@ -708,14 +708,14 @@ public class ReportBuilderView extends VerticalLayout {
                 elemType = "LABEL";
                 elemValue = valText.getValue().trim();
                 if (elemValue.isEmpty()) {
-                    Notification.show("Text tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+                    Notification.show("Text cannot be empty!", 3000, Notification.Position.MIDDLE);
                     return;
                 }
             } else if (selectedType.startsWith("TextField")) {
                 elemType = "FIELD";
                 elemValue = fieldCombo.getValue();
                 if (elemValue == null || elemValue.trim().isEmpty()) {
-                    Notification.show("Silakan pilih field tabel!", 3000, Notification.Position.MIDDLE);
+                    Notification.show("Please select a table field!", 3000, Notification.Position.MIDDLE);
                     return;
                 }
             } else {
@@ -724,7 +724,7 @@ public class ReportBuilderView extends VerticalLayout {
                 if ("SUM()".equals(func) || "AVG()".equals(func) || "COUNT()".equals(func)) {
                     String col = aggFieldCombo.getValue();
                     if (col == null || col.trim().isEmpty()) {
-                        Notification.show("Pilih field target untuk agregasi!", 3000, Notification.Position.MIDDLE);
+                        Notification.show("Select target field for aggregation!", 3000, Notification.Position.MIDDLE);
                         return;
                     }
                     elemValue = func.replace("()", "(" + col + ")");
@@ -766,12 +766,12 @@ public class ReportBuilderView extends VerticalLayout {
         String orientation = orientationSelect.getValue();
 
         if (reportCode.isEmpty() || reportTitle.isEmpty() || sourceForm == null) {
-            Notification.show("Report Code, Title, dan Source Table tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Report Code, Title, and Source Table cannot be empty!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
         if (elementsList.isEmpty()) {
-            Notification.show("Silakan tambahkan minimal 1 elemen untuk laporan ini!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Please add at least 1 element to this report!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
@@ -805,7 +805,7 @@ public class ReportBuilderView extends VerticalLayout {
 
         try {
             reportMetaRepository.save(repMeta);
-            Notification.show("Laporan " + reportTitle + " berhasil disimpan!", 4000, Notification.Position.TOP_CENTER);
+            Notification.show("Report " + reportTitle + " saved successfully!", 4000, Notification.Position.TOP_CENTER);
             
             // Clear inputs
             loadReportCombo.clear();
@@ -826,7 +826,7 @@ public class ReportBuilderView extends VerticalLayout {
                 onReportSavedListener.run();
             }
         } catch (Exception ex) {
-            Notification.show("Gagal menyimpan laporan: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+            Notification.show("Failed to save report: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
         }
     }
 }

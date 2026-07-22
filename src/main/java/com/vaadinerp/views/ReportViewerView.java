@@ -33,8 +33,8 @@ public class ReportViewerView extends VerticalLayout {
     private final DynamicDataService dynamicDataService;
 
     // Controls
-    private final ComboBox<ReportMeta> selectReportCombo = new ComboBox<>("Pilih Laporan");
-    private final TextField globalSearchField = new TextField("Cari Data (Global)");
+    private final ComboBox<ReportMeta> selectReportCombo = new ComboBox<>("Select Report");
+    private final TextField globalSearchField = new TextField("Search Data (Global)");
     private final Button btnPrint = new Button("Cetak Laporan", VaadinIcon.PRINT.create());
 
     // Printable Page Container
@@ -58,7 +58,7 @@ public class ReportViewerView extends VerticalLayout {
         controlsLayout.setSpacing(true);
         controlsLayout.addClassName("no-print"); // Will be hidden on print
 
-        selectReportCombo.setPlaceholder("Pilih laporan...");
+        selectReportCombo.setPlaceholder("Select report...");
         selectReportCombo.setWidth("350px");
         selectReportCombo.setItems(reportMetaRepository.findAll());
         selectReportCombo.setItemLabelGenerator(r -> r.getReportTitle() + " (" + r.getReportCode() + ")");

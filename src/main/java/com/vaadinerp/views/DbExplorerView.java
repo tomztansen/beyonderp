@@ -37,24 +37,24 @@ import java.util.Map;
 public class DbExplorerView extends VerticalLayout {
 
     private final DynamicDataService dynamicDataService;
-    private final ComboBox<String> tableSelect = new ComboBox<>("Pilih Tabel Dinamis");
+    private final ComboBox<String> tableSelect = new ComboBox<>("Select Dynamic Table");
 
     // Tab 1 Components (Data)
     private final Grid<Map<String, Object>> dataGrid = new Grid<>();
-    private final Span recordCount = new Span("Pilih tabel untuk melihat data");
+    private final Span recordCount = new Span("Select a table to view the data.");
 
     // Tab 2 Components (Schema Structure, Triggers, & Constraints)
     private final Grid<Map<String, Object>> schemaGrid = new Grid<>();
     private final Grid<Map<String, Object>> triggersGrid = new Grid<>();
     private final Grid<Map<String, Object>> constraintsGrid = new Grid<>();
 
-    private final Span schemaInfo = new Span("Pilih tabel untuk melihat struktur kolom");
-    private final Span triggerInfo = new Span("Belum ada trigger terdaftar");
-    private final Span constraintInfo = new Span("Belum ada constraint terdaftar");
-    private final Button btnAddConstraint = new Button("Tambah Constraint", VaadinIcon.PLUS.create());
-    private final Button btnAddTrigger = new Button("Tambah Trigger", VaadinIcon.PLUS.create());
-    private final Button btnAddColumn = new Button("Tambah Kolom", VaadinIcon.PLUS.create());
-    private final Button btnAddAuditCols = new Button("⚡ Tambah Kolom Audit Default", VaadinIcon.TIME_FORWARD.create());
+    private final Span schemaInfo = new Span("Select a table to view the column structure.");
+    private final Span triggerInfo = new Span("No triggers registered yet.");
+    private final Span constraintInfo = new Span("No constraints registered yet.");
+    private final Button btnAddConstraint = new Button("Add Constraint", VaadinIcon.PLUS.create());
+    private final Button btnAddTrigger = new Button("Add Trigger", VaadinIcon.PLUS.create());
+    private final Button btnAddColumn = new Button("Add Column", VaadinIcon.PLUS.create());
+    private final Button btnAddAuditCols = new Button("⚡ Add Default Audit Columns", VaadinIcon.TIME_FORWARD.create());
 
     private List<Map<String, Object>> currentDataList = new ArrayList<>();
     private List<Map<String, Object>> currentSchemaList = new ArrayList<>();
@@ -103,7 +103,8 @@ public class DbExplorerView extends VerticalLayout {
         public String targetName; // e.g., old column name, constraint name, or trigger name
         public Map<String, Object> payload;
 
-        public PendingSchemaAction(SchemaActionType actionType, String tableName, String targetName, Map<String, Object> payload) {
+        public PendingSchemaAction(SchemaActionType actionType, String tableName, String targetName,
+                Map<String, Object> payload) {
             this.actionType = actionType;
             this.tableName = tableName;
             this.targetName = targetName;
@@ -115,7 +116,6 @@ public class DbExplorerView extends VerticalLayout {
     private final Button btnCommitChanges = new Button("Commit to DB", VaadinIcon.DATABASE.create());
     private final Button btnDiscardChanges = new Button("Discard Draft", VaadinIcon.CLOSE_CIRCLE.create());
     private final Span pendingStatusInfo = new Span("");
-
 
     public DbExplorerView(DynamicDataService dynamicDataService, SessionSecurityService securityService) {
         this.dynamicDataService = dynamicDataService;
@@ -129,7 +129,7 @@ public class DbExplorerView extends VerticalLayout {
         title.getStyle().set("margin-top", "0");
 
         tableSelect.setWidth("350px");
-        tableSelect.setPlaceholder("Cari tabel...");
+        tableSelect.setPlaceholder("Search Table..");
         tableSelect.setItems(dynamicDataService.fetchDynamicTables());
 
         tableSelect.addValueChangeListener(event -> {
@@ -162,10 +162,10 @@ public class DbExplorerView extends VerticalLayout {
             if (currentTable != null) {
                 dynamicDataService.resetUserGridOrder("DB_EXPLORER_" + currentTable, "dataGrid");
                 loadTableData(currentTable);
-                Notification.show("Layout grid data di-reset ke urutan default", 2000,
+                Notification.show("Data grid layout reset to default order", 2000,
                         Notification.Position.BOTTOM_END);
             } else {
-                Notification.show("Pilih tabel terlebih dahulu", 2000, Notification.Position.MIDDLE);
+                Notification.show("Please select a table first", 2000, Notification.Position.MIDDLE);
             }
         });
         HorizontalLayout dataHeader = new HorizontalLayout(recordCount, btnResetDataGrid,
@@ -204,14 +204,14 @@ public class DbExplorerView extends VerticalLayout {
         btnAddAuditCols.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
         btnAddAuditCols.setEnabled(false);
         btnAddAuditCols.setTooltipText(
-                "Langsung tambahkan kolom inputby, inputdt, updateby, updatedt, dan version ke tabel ini");
+                "Immediately add the columns inputby, inputdt, updateby, updatedt, and version to this table.");
         btnAddAuditCols.addClickListener(e -> {
             if (this.currentTable != null) {
                 dynamicDataService.ensureAuditColumnsExist(this.currentTable);
                 loadTableSchema(this.currentTable);
                 loadTableData(this.currentTable);
                 Notification.show(
-                        "Kolom audit default (inputby, inputdt, updateby, updatedt, version) berhasil ditambahkan ke tabel '"
+                        "Default audit columns (inputby, inputdt, updateby, updatedt, version) were successfully added to the table '"
                                 + this.currentTable + "'!",
                         3500, Notification.Position.BOTTOM_END);
             }
@@ -223,7 +223,7 @@ public class DbExplorerView extends VerticalLayout {
             dynamicDataService.resetUserGridOrder("DB_EXPLORER", "schemaGrid");
             schemaGrid.removeAllColumns();
             refreshSchemaGrid();
-            Notification.show("Layout grid skema di-reset", 2000, Notification.Position.BOTTOM_END);
+            Notification.show("Schema grid layout reset to default order", 2000, Notification.Position.BOTTOM_END);
         });
 
         HorizontalLayout columnHeader = new HorizontalLayout(schemaInfo, btnAddColumn, btnAddAuditCols,
@@ -306,7 +306,7 @@ public class DbExplorerView extends VerticalLayout {
 
         explorerTabs.add("Data Tabel", dataLayout);
         explorerTabs.add("Struktur Skema, Constraints & Trigger", schemaLayout);
-        explorerTabs.add("Buat Tabel & Trigger Baru", new TableDesignerView(dynamicDataService, this::refreshTables));
+        explorerTabs.add("Create New Table & Trigger", new TableDesignerView(dynamicDataService, this::refreshTables));
         explorerTabs.add("Manajemen Stored Procedure", procedureView);
         explorerTabs.add("Query Builder", queryBuilderView);
         explorerTabs.add("Manajemen View", viewDesignerView);
@@ -322,7 +322,7 @@ public class DbExplorerView extends VerticalLayout {
                         loadTableSchema(currentTable);
                     }
                     refreshTables();
-                    Notification.show("Data & Skema diperbarui!", 1500, Notification.Position.BOTTOM_END);
+                    Notification.show("Data & Schema updated!", 1500, Notification.Position.BOTTOM_END);
                 })
                 .onNew(() -> {
                     if (explorerTabs.getSelectedIndex() == 3) {
@@ -364,7 +364,7 @@ public class DbExplorerView extends VerticalLayout {
 
         List<String> columns = dynamicDataService.fetchTableColumns(tableName);
         if (columns.isEmpty()) {
-            recordCount.setText("Tabel tidak memiliki kolom atau terjadi kesalahan");
+            recordCount.setText("The table has no columns, or an error occurred.");
             currentDataList = new ArrayList<>();
             dataGrid.setItems(currentDataList);
             if (paginationBar != null)
@@ -395,9 +395,9 @@ public class DbExplorerView extends VerticalLayout {
             }
             try {
                 dynamicDataService.saveUserGridOrder("DB_EXPLORER_" + tableName, "dataGrid", orderedFieldNames);
-                Notification.show("Urutan kolom data disimpan", 1500, Notification.Position.BOTTOM_END);
+                Notification.show("Column order saved", 1500, Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
-                Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000,
+                Notification.show("Failed to save column order: " + ex.getMessage(), 3000,
                         Notification.Position.MIDDLE);
             }
         });
@@ -691,12 +691,18 @@ public class DbExplorerView extends VerticalLayout {
                 payload.put("expr", expr != null ? expr : "");
 
                 if (isEdit && existingRow != null) {
-                    String oldName = existingRow.get("constraint_name") != null ? existingRow.get("constraint_name").toString() : "";
-                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.EDIT_CONSTRAINT, this.currentTable, oldName, payload));
-                    Notification.show("Perubahan constraint " + name + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+                    String oldName = existingRow.get("constraint_name") != null
+                            ? existingRow.get("constraint_name").toString()
+                            : "";
+                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.EDIT_CONSTRAINT, this.currentTable,
+                            oldName, payload));
+                    Notification.show("Perubahan constraint " + name + " ditambahkan ke draf.", 2000,
+                            Notification.Position.BOTTOM_END);
                 } else {
-                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.ADD_CONSTRAINT, this.currentTable, name, payload));
-                    Notification.show("Penambahan constraint " + name + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+                    pendingChanges.add(
+                            new PendingSchemaAction(SchemaActionType.ADD_CONSTRAINT, this.currentTable, name, payload));
+                    Notification.show("Penambahan constraint " + name + " ditambahkan ke draf.", 2000,
+                            Notification.Position.BOTTOM_END);
                 }
                 updatePendingUI();
                 dialog.close();
@@ -705,7 +711,7 @@ public class DbExplorerView extends VerticalLayout {
             }
         });
 
-        Button btnCancel = new Button("Batal", e -> dialog.close());
+        Button btnCancel = new Button("Cancel", e -> dialog.close());
 
         layout.add(form);
         dialog.add(layout);
@@ -717,8 +723,10 @@ public class DbExplorerView extends VerticalLayout {
         if (this.currentTable == null || constraintName.isEmpty())
             return;
         try {
-            pendingChanges.add(new PendingSchemaAction(SchemaActionType.DROP_CONSTRAINT, this.currentTable, constraintName, null));
-            Notification.show("Penghapusan constraint " + constraintName + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+            pendingChanges.add(
+                    new PendingSchemaAction(SchemaActionType.DROP_CONSTRAINT, this.currentTable, constraintName, null));
+            Notification.show("Penghapusan constraint " + constraintName + " ditambahkan ke draf.", 2000,
+                    Notification.Position.BOTTOM_END);
             updatePendingUI();
         } catch (Exception ex) {
             Notification.show("Gagal menambahkan ke draf: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
@@ -740,7 +748,7 @@ public class DbExplorerView extends VerticalLayout {
         layout.setSizeFull();
         layout.setPadding(false);
 
-        TextField nameField = new TextField("Nama Trigger");
+        TextField nameField = new TextField("Trigger Name");
         ComboBox<String> timingField = new ComboBox<>("Timing");
         timingField.setItems("BEFORE", "AFTER");
         timingField.setValue("BEFORE");
@@ -813,12 +821,18 @@ public class DbExplorerView extends VerticalLayout {
                 payload.put("triggerDef", td);
 
                 if (isEdit && existingRow != null) {
-                    String oldName = existingRow.get("trigger_name") != null ? existingRow.get("trigger_name").toString() : "";
-                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.EDIT_TRIGGER, this.currentTable, oldName, payload));
-                    Notification.show("Perubahan trigger " + name + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+                    String oldName = existingRow.get("trigger_name") != null
+                            ? existingRow.get("trigger_name").toString()
+                            : "";
+                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.EDIT_TRIGGER, this.currentTable,
+                            oldName, payload));
+                    Notification.show("Perubahan trigger " + name + " ditambahkan ke draf.", 2000,
+                            Notification.Position.BOTTOM_END);
                 } else {
-                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.ADD_TRIGGER, this.currentTable, name, payload));
-                    Notification.show("Penambahan trigger " + name + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+                    pendingChanges.add(
+                            new PendingSchemaAction(SchemaActionType.ADD_TRIGGER, this.currentTable, name, payload));
+                    Notification.show("Penambahan trigger " + name + " ditambahkan ke draf.", 2000,
+                            Notification.Position.BOTTOM_END);
                 }
                 updatePendingUI();
                 dialog.close();
@@ -827,7 +841,7 @@ public class DbExplorerView extends VerticalLayout {
             }
         });
 
-        Button btnCancel = new Button("Batal", e -> dialog.close());
+        Button btnCancel = new Button("Cancel", e -> dialog.close());
 
         dialog.add(layout);
         dialog.getFooter().add(btnCancel, btnApply);
@@ -838,8 +852,10 @@ public class DbExplorerView extends VerticalLayout {
         if (this.currentTable == null || triggerName.isEmpty())
             return;
         try {
-            pendingChanges.add(new PendingSchemaAction(SchemaActionType.DROP_TRIGGER, this.currentTable, triggerName, null));
-            Notification.show("Penghapusan trigger " + triggerName + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+            pendingChanges
+                    .add(new PendingSchemaAction(SchemaActionType.DROP_TRIGGER, this.currentTable, triggerName, null));
+            Notification.show("Penghapusan trigger " + triggerName + " ditambahkan ke draf.", 2000,
+                    Notification.Position.BOTTOM_END);
             updatePendingUI();
         } catch (Exception ex) {
             Notification.show("Gagal menambahkan ke draf: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
@@ -861,7 +877,7 @@ public class DbExplorerView extends VerticalLayout {
         layout.setSizeFull();
         layout.setPadding(false);
 
-        TextField nameField = new TextField("Nama Kolom");
+        TextField nameField = new TextField("Column Name");
         ComboBox<String> typeField = new ComboBox<>("Tipe Data SQL");
         typeField.setItems("VARCHAR(255)", "VARCHAR(100)", "VARCHAR(50)", "VARCHAR", "TEXT", "INTEGER", "BIGINT",
                 "SERIAL", "BIGSERIAL",
@@ -966,12 +982,17 @@ public class DbExplorerView extends VerticalLayout {
                 payload.put("defVal", defVal);
 
                 if (isEdit && existingRow != null) {
-                    String oldCol = existingRow.get("column_name") != null ? existingRow.get("column_name").toString() : "";
-                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.EDIT_COLUMN, this.currentTable, oldCol, payload));
-                    Notification.show("Perubahan kolom " + name + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+                    String oldCol = existingRow.get("column_name") != null ? existingRow.get("column_name").toString()
+                            : "";
+                    pendingChanges.add(
+                            new PendingSchemaAction(SchemaActionType.EDIT_COLUMN, this.currentTable, oldCol, payload));
+                    Notification.show("Perubahan kolom " + name + " ditambahkan ke draf.", 2000,
+                            Notification.Position.BOTTOM_END);
                 } else {
-                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.ADD_COLUMN, this.currentTable, name, payload));
-                    Notification.show("Penambahan kolom " + name + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+                    pendingChanges.add(
+                            new PendingSchemaAction(SchemaActionType.ADD_COLUMN, this.currentTable, name, payload));
+                    Notification.show("Penambahan kolom " + name + " ditambahkan ke draf.", 2000,
+                            Notification.Position.BOTTOM_END);
                 }
                 updatePendingUI();
                 dialog.close();
@@ -985,7 +1006,7 @@ public class DbExplorerView extends VerticalLayout {
             }
         });
 
-        Button btnCancel = new Button("Batal", e -> dialog.close());
+        Button btnCancel = new Button("Cancel", e -> dialog.close());
 
         dialog.add(layout);
         dialog.getFooter().add(btnCancel, btnApply);
@@ -996,8 +1017,10 @@ public class DbExplorerView extends VerticalLayout {
         if (this.currentTable == null || columnName.isEmpty())
             return;
         try {
-            pendingChanges.add(new PendingSchemaAction(SchemaActionType.DROP_COLUMN, this.currentTable, columnName, null));
-            Notification.show("Penghapusan kolom " + columnName + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+            pendingChanges
+                    .add(new PendingSchemaAction(SchemaActionType.DROP_COLUMN, this.currentTable, columnName, null));
+            Notification.show("Penghapusan kolom " + columnName + " ditambahkan ke draf.", 2000,
+                    Notification.Position.BOTTOM_END);
             updatePendingUI();
         } catch (Exception ex) {
             Notification.show("Gagal menambahkan ke draf: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
@@ -1055,16 +1078,17 @@ public class DbExplorerView extends VerticalLayout {
                             span.getStyle().set("color", "var(--lumo-warning-text-color)").set("font-weight", "bold");
                             span.add(new Span(" (Modified)"));
                         } else if (row.containsKey("_pending_delete")) {
-                            span.getStyle().set("color", "var(--lumo-error-text-color)").set("text-decoration", "line-through");
+                            span.getStyle().set("color", "var(--lumo-error-text-color)").set("text-decoration",
+                                    "line-through");
                             span.add(new Span(" (Deleted)"));
                         }
                         return span;
                     })
-                    .setHeader("Nama Kolom");
+                    .setHeader("Column Name");
             Grid.Column<Map<String, Object>> c2 = schemaGrid
                     .addColumn(row -> row.get("formatted_type") != null ? row.get("formatted_type").toString()
                             : (row.get("data_type") != null ? row.get("data_type").toString() : ""))
-                    .setHeader("Tipe Data SQL");
+                    .setHeader("SQL Data Type");
             Grid.Column<Map<String, Object>> cLen = schemaGrid
                     .addColumn(row -> row.get("character_maximum_length") != null
                             && !"null".equals(row.get("character_maximum_length").toString())
@@ -1087,12 +1111,12 @@ public class DbExplorerView extends VerticalLayout {
 
                 Button btnDel = new Button(VaadinIcon.TRASH.create());
                 btnDel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
-                btnDel.setTooltipText("Hapus Kolom");
+                btnDel.setTooltipText("Delete Column");
                 btnDel.addClickListener(e -> dropColumn(colName));
                 btnDel.setVisible(false); // Hidden by user request
 
                 return new HorizontalLayout(btnEdit, btnDel);
-            }).setHeader("Aksi").setWidth("110px").setFlexGrow(0);
+            }).setHeader("Action").setWidth("110px").setFlexGrow(0);
 
             schemaColMap.put(c1, "column_name");
             schemaColMap.put(c2, "formatted_type");
@@ -1112,7 +1136,7 @@ public class DbExplorerView extends VerticalLayout {
                     dynamicDataService.saveUserGridOrder("DB_EXPLORER", "schemaGrid", orderedFieldNames);
                     Notification.show("Urutan kolom skema disimpan", 1500, Notification.Position.BOTTOM_END);
                 } catch (Exception ex) {
-                    Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000,
+                    Notification.show("Failed to save column order: " + ex.getMessage(), 3000,
                             Notification.Position.MIDDLE);
                 }
             });
@@ -1143,12 +1167,13 @@ public class DbExplorerView extends VerticalLayout {
                             span.getStyle().set("color", "var(--lumo-warning-text-color)").set("font-weight", "bold");
                             span.add(new Span(" (Modified)"));
                         } else if (row.containsKey("_pending_delete")) {
-                            span.getStyle().set("color", "var(--lumo-error-text-color)").set("text-decoration", "line-through");
+                            span.getStyle().set("color", "var(--lumo-error-text-color)").set("text-decoration",
+                                    "line-through");
                             span.add(new Span(" (Deleted)"));
                         }
                         return span;
                     })
-                    .setHeader("Nama Trigger");
+                    .setHeader("Trigger Name");
             Grid.Column<Map<String, Object>> c2 = triggersGrid
                     .addColumn(row -> row.get("action_timing") != null ? row.get("action_timing").toString() : "")
                     .setHeader("Timing");
@@ -1170,7 +1195,7 @@ public class DbExplorerView extends VerticalLayout {
                 btnDel.setVisible(false); // Hidden by user request
 
                 return new HorizontalLayout(btnEdit, btnDel);
-            }).setHeader("Aksi").setWidth("110px").setFlexGrow(0);
+            }).setHeader("Action").setWidth("110px").setFlexGrow(0);
 
             triggerColMap.put(c1, "trigger_name");
             triggerColMap.put(c2, "action_timing");
@@ -1188,7 +1213,7 @@ public class DbExplorerView extends VerticalLayout {
                     dynamicDataService.saveUserGridOrder("DB_EXPLORER", "triggersGrid", orderedFieldNames);
                     Notification.show("Urutan kolom trigger disimpan", 1500, Notification.Position.BOTTOM_END);
                 } catch (Exception ex) {
-                    Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000,
+                    Notification.show("Failed to save column order: " + ex.getMessage(), 3000,
                             Notification.Position.MIDDLE);
                 }
             });
@@ -1219,18 +1244,19 @@ public class DbExplorerView extends VerticalLayout {
                             span.getStyle().set("color", "var(--lumo-warning-text-color)").set("font-weight", "bold");
                             span.add(new Span(" (Modified)"));
                         } else if (row.containsKey("_pending_delete")) {
-                            span.getStyle().set("color", "var(--lumo-error-text-color)").set("text-decoration", "line-through");
+                            span.getStyle().set("color", "var(--lumo-error-text-color)").set("text-decoration",
+                                    "line-through");
                             span.add(new Span(" (Deleted)"));
                         }
                         return span;
                     })
-                    .setHeader("Nama Constraint");
+                    .setHeader("Constraint Name");
             Grid.Column<Map<String, Object>> c2 = constraintsGrid
                     .addColumn(row -> row.get("constraint_type") != null ? row.get("constraint_type").toString() : "")
-                    .setHeader("Tipe");
+                    .setHeader("Type");
             Grid.Column<Map<String, Object>> c3 = constraintsGrid
                     .addColumn(row -> row.get("column_name") != null ? row.get("column_name").toString() : "")
-                    .setHeader("Kolom Target");
+                    .setHeader("Target Column");
             Grid.Column<Map<String, Object>> c4 = constraintsGrid
                     .addColumn(row -> row.get("foreign_table") != null ? row.get("foreign_table").toString() : "")
                     .setHeader("Tabel Relasi (FK)");
@@ -1259,7 +1285,7 @@ public class DbExplorerView extends VerticalLayout {
                 btnDel.addClickListener(e -> dropConstraint(name));
 
                 return new HorizontalLayout(btnEdit, btnDel);
-            }).setHeader("Aksi").setWidth("110px").setFlexGrow(0);
+            }).setHeader("Action").setWidth("110px").setFlexGrow(0);
 
             constraintColMap.put(c1, "constraint_name");
             constraintColMap.put(c2, "constraint_type");
@@ -1280,7 +1306,7 @@ public class DbExplorerView extends VerticalLayout {
                     dynamicDataService.saveUserGridOrder("DB_EXPLORER", "constraintsGrid", orderedFieldNames);
                     Notification.show("Urutan kolom constraint disimpan", 1500, Notification.Position.BOTTOM_END);
                 } catch (Exception ex) {
-                    Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000,
+                    Notification.show("Failed to save column order: " + ex.getMessage(), 3000,
                             Notification.Position.MIDDLE);
                 }
             });
@@ -1307,54 +1333,64 @@ public class DbExplorerView extends VerticalLayout {
             pendingStatusInfo.setText("");
         }
 
-        if (schemaFilterRefresher != null) schemaFilterRefresher.run();
-        else schemaGrid.setItems(getMergedSchemaList());
-        
-        if (constraintFilterRefresher != null) constraintFilterRefresher.run();
-        else constraintsGrid.setItems(getMergedConstraintList());
-        
-        if (triggerFilterRefresher != null) triggerFilterRefresher.run();
-        else triggersGrid.setItems(getMergedTriggerList());
+        if (schemaFilterRefresher != null)
+            schemaFilterRefresher.run();
+        else
+            schemaGrid.setItems(getMergedSchemaList());
+
+        if (constraintFilterRefresher != null)
+            constraintFilterRefresher.run();
+        else
+            constraintsGrid.setItems(getMergedConstraintList());
+
+        if (triggerFilterRefresher != null)
+            triggerFilterRefresher.run();
+        else
+            triggersGrid.setItems(getMergedTriggerList());
     }
 
     private void commitPendingChanges() {
-        if (pendingChanges.isEmpty()) return;
+        if (pendingChanges.isEmpty())
+            return;
         try {
             for (PendingSchemaAction action : pendingChanges) {
-                if (action.tableName == null) continue;
-                String name = action.payload != null && action.payload.get("name") != null ? action.payload.get("name").toString() : "";
-                
+                if (action.tableName == null)
+                    continue;
+                String name = action.payload != null && action.payload.get("name") != null
+                        ? action.payload.get("name").toString()
+                        : "";
+
                 switch (action.actionType) {
                     case ADD_COLUMN:
-                        dynamicDataService.addTableColumn(action.tableName, name, 
-                            action.payload.get("type").toString(), 
-                            (Boolean) action.payload.get("isNull"), 
-                            action.payload.get("defVal").toString());
+                        dynamicDataService.addTableColumn(action.tableName, name,
+                                action.payload.get("type").toString(),
+                                (Boolean) action.payload.get("isNull"),
+                                action.payload.get("defVal").toString());
                         break;
                     case EDIT_COLUMN:
-                        dynamicDataService.alterTableColumn(action.tableName, action.targetName, name, 
-                            action.payload.get("type").toString(), 
-                            (Boolean) action.payload.get("isNull"), 
-                            action.payload.get("defVal").toString());
+                        dynamicDataService.alterTableColumn(action.tableName, action.targetName, name,
+                                action.payload.get("type").toString(),
+                                (Boolean) action.payload.get("isNull"),
+                                action.payload.get("defVal").toString());
                         break;
                     case DROP_COLUMN:
                         dynamicDataService.dropTableColumn(action.tableName, action.targetName);
                         break;
                     case ADD_CONSTRAINT:
-                        dynamicDataService.addTableConstraint(action.tableName, name, 
-                            action.payload.get("type").toString(), 
-                            action.payload.get("localCol").toString(), 
-                            action.payload.get("refTable").toString(), 
-                            action.payload.get("refCol").toString(), 
-                            action.payload.get("expr").toString());
+                        dynamicDataService.addTableConstraint(action.tableName, name,
+                                action.payload.get("type").toString(),
+                                action.payload.get("localCol").toString(),
+                                action.payload.get("refTable").toString(),
+                                action.payload.get("refCol").toString(),
+                                action.payload.get("expr").toString());
                         break;
                     case EDIT_CONSTRAINT:
-                        dynamicDataService.updateTableConstraint(action.tableName, action.targetName, name, 
-                            action.payload.get("type").toString(), 
-                            action.payload.get("localCol").toString(), 
-                            action.payload.get("refTable").toString(), 
-                            action.payload.get("refCol").toString(), 
-                            action.payload.get("expr").toString());
+                        dynamicDataService.updateTableConstraint(action.tableName, action.targetName, name,
+                                action.payload.get("type").toString(),
+                                action.payload.get("localCol").toString(),
+                                action.payload.get("refTable").toString(),
+                                action.payload.get("refCol").toString(),
+                                action.payload.get("expr").toString());
                         break;
                     case DROP_CONSTRAINT:
                         dynamicDataService.dropTableConstraint(action.tableName, action.targetName);
@@ -1377,7 +1413,8 @@ public class DbExplorerView extends VerticalLayout {
             }
         } catch (Exception ex) {
             Throwable cause = ex;
-            while (cause.getCause() != null && cause.getCause() != cause) cause = cause.getCause();
+            while (cause.getCause() != null && cause.getCause() != cause)
+                cause = cause.getCause();
             Notification.show("Gagal menyimpan ke database: " + cause.getMessage(), 5000, Notification.Position.MIDDLE);
         }
     }
@@ -1390,7 +1427,8 @@ public class DbExplorerView extends VerticalLayout {
 
     private List<Map<String, Object>> getMergedSchemaList() {
         List<Map<String, Object>> merged = new ArrayList<>();
-        for (Map<String, Object> map : currentSchemaList) merged.add(new HashMap<>(map));
+        for (Map<String, Object> map : currentSchemaList)
+            merged.add(new HashMap<>(map));
 
         for (PendingSchemaAction action : pendingChanges) {
             if (action.actionType == SchemaActionType.ADD_COLUMN) {
@@ -1424,7 +1462,8 @@ public class DbExplorerView extends VerticalLayout {
 
     private List<Map<String, Object>> getMergedConstraintList() {
         List<Map<String, Object>> merged = new ArrayList<>();
-        for (Map<String, Object> map : currentConstraintList) merged.add(new HashMap<>(map));
+        for (Map<String, Object> map : currentConstraintList)
+            merged.add(new HashMap<>(map));
 
         for (PendingSchemaAction action : pendingChanges) {
             if (action.actionType == SchemaActionType.ADD_CONSTRAINT) {
@@ -1462,10 +1501,12 @@ public class DbExplorerView extends VerticalLayout {
 
     private List<Map<String, Object>> getMergedTriggerList() {
         List<Map<String, Object>> merged = new ArrayList<>();
-        for (Map<String, Object> map : currentTriggerList) merged.add(new HashMap<>(map));
+        for (Map<String, Object> map : currentTriggerList)
+            merged.add(new HashMap<>(map));
 
         for (PendingSchemaAction action : pendingChanges) {
-            if (action.actionType == SchemaActionType.ADD_TRIGGER || action.actionType == SchemaActionType.EDIT_TRIGGER) {
+            if (action.actionType == SchemaActionType.ADD_TRIGGER
+                    || action.actionType == SchemaActionType.EDIT_TRIGGER) {
                 TriggerDefinition td = (TriggerDefinition) action.payload.get("triggerDef");
                 if (action.actionType == SchemaActionType.ADD_TRIGGER) {
                     Map<String, Object> newRow = new HashMap<>();

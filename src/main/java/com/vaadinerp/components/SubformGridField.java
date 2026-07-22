@@ -41,7 +41,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private final List<Map<String, Object>> deletedItems = new ArrayList<>();
     private final Grid<Map<String, Object>> grid = new Grid<>();
     private final Button btnAdd = new Button("Tambah Baris", VaadinIcon.PLUS.create());
-    private final Button btnDelete = new Button("Hapus Baris", VaadinIcon.TRASH.create());
+    private final Button btnDelete = new Button("Delete Row", VaadinIcon.TRASH.create());
     private final HorizontalLayout extraActionsContainer = new HorizontalLayout();
     private final Map<String, Component> editorComponents = new HashMap<>();
 

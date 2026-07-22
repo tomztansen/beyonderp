@@ -204,7 +204,7 @@ public class PortalView extends AppLayout {
                 "2px");
 
         // 3. Action Buttons (Change Password & Logout)
-        Button changePassBtn = new Button("Ganti Password", VaadinIcon.KEY.create(), e -> openChangePasswordDialog());
+        Button changePassBtn = new Button("Change Password", VaadinIcon.KEY.create(), e -> openChangePasswordDialog());
         changePassBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         changePassBtn.getStyle().set("color", "#4f46e5").set("font-weight", "600").set("cursor", "pointer");
 
@@ -238,36 +238,40 @@ public class PortalView extends AppLayout {
         sidebar.setPadding(false);
         sidebar.setSpacing(false);
         sidebar.getStyle()
-                .set("overflow-y", "auto")
+                .set("overflow-y", "hidden")
                 .set("overflow-x", "hidden")
                 .set("box-sizing", "border-box")
-                .set("background", "linear-gradient(180deg, #1a233a 0%, #111827 50%, #0b0f17 100%)")
-                .set("border-right", "1px solid rgba(255, 255, 255, 0.08)");
+                // .set("background", "linear-gradient(180deg, #312e81 0%, #3730a3 30%, #1e1b4b
+                // 100%)")
+                .set("background", "#5A9BD5")
+                .set("border-right", "1px solid rgba(255, 255, 255, 0.10)");
 
         // === HEADER / LOGO ===
         Div logoDiv = new Div();
         logoDiv.setWidthFull();
         logoDiv.getStyle()
-                .set("padding", "20px 16px 14px 16px")
-                .set("border-bottom", "1px solid rgba(255, 255, 255, 0.08)")
+                .set("padding", "22px 18px 16px 18px")
+                .set("border-bottom", "1px solid #5A9BD5")
                 .set("box-sizing", "border-box");
 
         Span logoText = new Span("GMS");
         logoText.getStyle()
-                .set("font-size", "1.4rem")
+                .set("font-size", "1.5rem")
                 .set("font-weight", "800")
-                .set("color", "#f8fafc")
-                .set("letter-spacing", "0.5px")
-                .set("display", "block");
+                .set("color", "#ffffff")
+                .set("letter-spacing", "2px")
+                .set("display", "block")
+                .set("text-shadow", "0 0 20px rgba(129, 140, 248, 0.5)");
 
         Span subtitle = new Span("Growth Manufacturing And Operational System");
         subtitle.getStyle()
-                .set("font-size", "0.7rem")
-                .set("color", "#94a3b8")
-                .set("letter-spacing", "1px")
+                .set("font-size", "0.68rem")
+                .set("color", "#ffffffb2")
+                .set("letter-spacing", "0.8px")
                 .set("text-transform", "uppercase")
                 .set("display", "block")
-                .set("margin-top", "2px");
+                .set("margin-top", "4px")
+                .set("opacity", "0.8");
 
         logoDiv.add(logoText, subtitle);
         sidebar.add(logoDiv);
@@ -278,36 +282,36 @@ public class PortalView extends AppLayout {
         searchToolbar.getStyle()
                 .set("display", "flex")
                 .set("align-items", "center")
-                .set("padding", "12px 12px")
+                .set("padding", "8px 14px")
                 .set("gap", "8px")
-                .set("background", "rgba(0, 0, 0, 0.15)")
-                .set("border-bottom", "1px solid rgba(255, 255, 255, 0.08)")
+                .set("background", "#5A9BD5")
+                .set("border-bottom", "1px solid #5A9BD5")
                 .set("box-sizing", "border-box")
                 .set("overflow", "hidden");
 
         TextField searchField = new TextField();
-        searchField.setPlaceholder("Cari menu.....");
+        searchField.setPlaceholder("Find menu.....");
         searchField.setWidth("75");
         Icon searchIcon = VaadinIcon.SEARCH.create();
         searchIcon.setSize("13px");
-        searchIcon.getStyle().set("color", "#475569");
+        searchIcon.getStyle().set("color", "#283785ff");
         searchField.setPrefixComponent(searchIcon);
         searchField.getStyle()
-                .set("--vaadin-input-field-background", "#f8fafc")
-                .set("--vaadin-input-field-border-color", "#cbd5e1")
-                .set("border-radius", "6px")
-                .set("box-shadow", "0 1px 2px rgba(0,0,0,0.1)")
+                .set("--vaadin-input-field-background", "#5A9BD5")
+                .set("--vaadin-input-field-border-color", "rgba(255, 255, 255, 0.15)")
+                .set("--vaadin-input-field-value-color", "#283785ff")
+                .set("--vaadin-input-field-label-color", "#a5b4fc")
+                .set("border-radius", "8px")
                 .set("min-width", "0");
         searchField.setValueChangeMode(ValueChangeMode.LAZY);
 
         Button favButton = new Button(VaadinIcon.STAR.create());
         favButton.setTooltipText("Tampilkan Menu Favorit");
         favButton.getStyle()
-                .set("background", "#f8fafc")
-                .set("color", "#64748b")
-                .set("border", "1px solid #cbd5e1")
-                .set("border-radius", "6px")
-                .set("box-shadow", "0 1px 2px rgba(0,0,0,0.1)")
+                .set("background", "rgba(255, 255, 255, 0.10)")
+                .set("color", "#c7d2fe")
+                .set("border", "1px solid rgba(255, 255, 255, 0.15)")
+                .set("border-radius", "8px")
                 .set("cursor", "pointer")
                 .set("height", "36px")
                 .set("width", "36px")
@@ -320,16 +324,16 @@ public class PortalView extends AppLayout {
             showFavoritesOnly = !showFavoritesOnly;
             if (showFavoritesOnly) {
                 favButton.getStyle()
-                        .set("color", "#d97706")
-                        .set("border", "1px solid #f59e0b")
-                        .set("background", "#fef3c7")
-                        .set("box-shadow", "0 0 8px rgba(245, 158, 11, 0.4)");
+                        .set("color", "#fbbf24")
+                        .set("border", "1px solid rgba(251, 191, 36, 0.5)")
+                        .set("background", "rgba(251, 191, 36, 0.15)")
+                        .set("box-shadow", "0 0 12px rgba(251, 191, 36, 0.25)");
             } else {
                 favButton.getStyle()
-                        .set("color", "#64748b")
-                        .set("border", "1px solid #cbd5e1")
-                        .set("background", "#f8fafc")
-                        .set("box-shadow", "0 1px 2px rgba(0,0,0,0.1)");
+                        .set("color", "#c7d2fe")
+                        .set("border", "1px solid rgba(255, 255, 255, 0.15)")
+                        .set("background", "rgba(255, 255, 255, 0.10)")
+                        .set("box-shadow", "none");
             }
             refreshFormMenu();
         });
@@ -347,7 +351,10 @@ public class PortalView extends AppLayout {
         menuContainer.setPadding(false);
         menuContainer.setSpacing(false);
         menuContainer.setWidthFull();
-        menuContainer.getStyle().set("padding", "10px 0");
+        menuContainer.getStyle()
+                .set("padding", "8px 0")
+                .set("overflow-y", "auto")
+                .set("overflow-x", "hidden");
 
         cleanAndSyncMenuTree();
         buildCustomMenuTree(null, menuContainer, 0);
@@ -360,12 +367,12 @@ public class PortalView extends AppLayout {
 
     /**
      * Membersihkan dan menormalisasi struktur menu di database.
-     * Hardcoded menu synchronization has been removed to allow users to permanently delete menus.
+     * Hardcoded menu synchronization has been removed to allow users to permanently
+     * delete menus.
      * Initial menu seeding is now solely handled by DataInitializer.
      */
     private void cleanAndSyncMenuTree() {
         // No longer forcing menus to exist on every page load.
-
 
         List<FormMeta> forms = formMetaRepository.findAll();
         int order = 10;
@@ -391,12 +398,24 @@ public class PortalView extends AppLayout {
                 // Jangan buat ulang secara otomatis agar menu yang dihapus tetap terhapus.
                 continue;
             }
-            m.setMenuTitle(f.getFormTitle());
-            m.setRoutePath(code);
-            m.setIconName("FILE_TEXT_O");
-            if (m.getDisplayOrder() == null)
+            boolean changed = false;
+            // Hanya update jika kosong agar tidak menimpa editan manual user
+            if (m.getMenuTitle() == null || m.getMenuTitle().trim().isEmpty()) {
+                m.setMenuTitle(f.getFormTitle());
+                changed = true;
+            }
+            if (m.getIconName() == null || m.getIconName().trim().isEmpty()) {
+                m.setIconName("FILE_TEXT_O");
+                changed = true;
+            }
+            if (m.getDisplayOrder() == null) {
                 m.setDisplayOrder(order);
-            appMenuRepository.save(m);
+                changed = true;
+            }
+
+            if (changed) {
+                appMenuRepository.save(m);
+            }
             order += 10;
 
             if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode("SUPER_ADMIN", code).isEmpty()
@@ -430,23 +449,23 @@ public class PortalView extends AppLayout {
         }
     }
 
-
-
     private boolean matchesSearchOrFav(AppMenu menu, Set<String> favMenuCodes) {
         List<AppMenu> children = appMenuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(menu.getMenuCode());
         List<AppMenu> accessibleChildren = children.stream()
-                .filter(c -> securityService.hasMenuAccess(c.getMenuCode()))
+                .filter(c -> "GROUP".equalsIgnoreCase(c.getMenuType()) || securityService.hasMenuAccess(c.getMenuCode()))
                 .toList();
 
         boolean isGroup = "GROUP".equalsIgnoreCase(menu.getMenuType());
         if (isGroup) {
-            // Jika tidak ada pencarian dan bukan mode favorit, selalu tampilkan grup (kosong atau tidak)
+            // Jika tidak ada pencarian dan bukan mode favorit, selalu tampilkan grup
+            // (kosong atau tidak)
             if (!showFavoritesOnly && menuSearchText.isEmpty()) {
                 return true;
             }
-            
+
             // Jika ada filter pencarian, cek apakah judul grup cocok
-            if (!menuSearchText.isEmpty() && menu.getMenuTitle() != null && menu.getMenuTitle().toLowerCase().contains(menuSearchText)) {
+            if (!menuSearchText.isEmpty() && menu.getMenuTitle() != null
+                    && menu.getMenuTitle().toLowerCase().contains(menuSearchText)) {
                 return true;
             }
 
@@ -498,7 +517,7 @@ public class PortalView extends AppLayout {
 
             List<AppMenu> children = appMenuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(menu.getMenuCode());
             List<AppMenu> accessibleChildren = children.stream()
-                    .filter(c -> securityService.hasMenuAccess(c.getMenuCode()))
+                    .filter(c -> "GROUP".equalsIgnoreCase(c.getMenuType()) || securityService.hasMenuAccess(c.getMenuCode()))
                     .toList();
 
             boolean isGroup = "GROUP".equalsIgnoreCase(menu.getMenuType());
@@ -532,48 +551,54 @@ public class PortalView extends AppLayout {
                 Div groupRow = new Div();
                 groupRow.setWidthFull();
                 groupRow.getStyle()
-                        .set("padding", "9px 14px 9px " + baseIndent + "px")
+                        .set("padding", "11px 14px 11px " + baseIndent + "px")
                         .set("display", "flex")
                         .set("align-items", "center")
                         .set("cursor", "pointer")
                         .set("user-select", "none")
-                        .set("transition", "background 0.15s ease")
+                        .set("transition", "background 0.2s ease")
                         .set("box-sizing", "border-box");
 
                 groupRow.getElement().addEventListener("mouseover", e -> {
-                }).addEventData("element.style.background='rgba(255,255,255,0.06)'");
+                }).addEventData("element.style.background='rgba(255,255,255,0.08)'");
                 groupRow.getElement().addEventListener("mouseout", e -> {
                 }).addEventData("element.style.background=''");
 
                 Icon chevron = VaadinIcon.CHEVRON_RIGHT.create();
-                chevron.setSize("13px");
+                chevron.setSize("11px");
                 chevron.getStyle()
-                        .set("color", "#64748b")
+                        .set("color", "rgba(255, 255, 255, 0.30)")
                         .set("margin-right", "8px")
                         .set("flex-shrink", "0")
                         .set("transition", "transform 0.2s ease");
 
                 Icon folder = resolveIcon(menu.getIconName());
-                folder.setSize("16px");
-                folder.getStyle()
-                        .set("color", depth == 0 ? "#38bdf8" : "#818cf8")
-                        .set("margin-right", "10px")
-                        .set("flex-shrink", "0");
+                if (folder != null) {
+                    folder.setSize("17px");
+                    folder.getStyle()
+                            .set("color", depth == 0 ? "#c7d2fe" : "#a5b4fc")
+                            .set("margin-right", "10px")
+                            .set("flex-shrink", "0")
+                            .set("opacity", "0.9");
+                }
 
                 Span title = new Span(menu.getMenuTitle());
                 title.getStyle()
                         .set("font-size", depth == 0 ? "0.82rem" : "0.80rem")
-                        .set("font-weight", depth == 0 ? "700" : "600")
-                        .set("color", depth == 0 ? "#f1f5f9" : "#cbd5e1")
-                        .set("letter-spacing", depth == 0 ? "0.6px" : "0px")
-                        .set("text-transform", depth == 0 ? "uppercase" : "none")
+                        .set("font-weight", depth == 0 ? "800" : "700")
+                        .set("color", depth == 0 ? "#e0e7ff" : "#c7d2fe")
+                        .set("letter-spacing", depth == 0 ? "0.3px" : "0px")
                         .set("display", "-webkit-box")
                         .set("-webkit-line-clamp", "2")
                         .set("-webkit-box-orient", "vertical")
                         .set("overflow", "hidden")
                         .set("line-height", "1.3");
 
-                groupRow.add(chevron, folder, title);
+                if (folder != null) {
+                    groupRow.add(chevron, folder, title);
+                } else {
+                    groupRow.add(chevron, title);
+                }
 
                 VerticalLayout childBox = new VerticalLayout();
                 childBox.setPadding(false);
@@ -603,39 +628,45 @@ public class PortalView extends AppLayout {
                 // Indentasi leaf sama persis (baseIndent + 21px) sehingga sejajar sempurna
                 // vertikal lurus
                 leafRow.getStyle()
-                        .set("padding", "8px 14px 8px " + (baseIndent + 21) + "px")
+                        .set("padding", "10px 14px 10px " + (baseIndent + 21) + "px")
                         .set("display", "flex")
                         .set("align-items", "center")
                         .set("cursor", "pointer")
                         .set("user-select", "none")
-                        .set("transition", "all 0.15s ease")
-                        .set("color", "#cbd5e1")
+                        .set("transition", "all 0.2s ease")
+                        .set("color", "#c7d2fe")
                         .set("box-sizing", "border-box")
                         .set("border-left", "3px solid transparent");
 
                 leafRow.getElement().addEventListener("mouseover", e -> {
-                }).addEventData("element.style.background='rgba(99,102,241,0.15)'");
+                }).addEventData("element.style.background='rgba(255,255,255,0.08)'");
                 leafRow.getElement().addEventListener("mouseout", e -> {
                 }).addEventData("element.style.background=''");
 
                 Icon ic = resolveIcon(menu.getIconName());
-                ic.setSize("16px");
-                ic.getStyle()
-                        .set("color", "#a5b4fc")
-                        .set("margin-right", "10px")
-                        .set("flex-shrink", "0");
+                if (ic != null) {
+                    ic.setSize("16px");
+                    ic.getStyle()
+                            .set("color", "rgba(255, 255, 255, 0.55)")
+                            .set("margin-right", "10px")
+                            .set("flex-shrink", "0");
+                }
 
                 Span t = new Span(menu.getMenuTitle());
                 t.getStyle()
-                        .set("font-size", "0.85rem")
-                        .set("font-weight", "400")
+                        .set("font-size", "0.84rem")
+                        .set("font-weight", "600")
                         .set("display", "-webkit-box")
                         .set("-webkit-line-clamp", "2")
                         .set("-webkit-box-orient", "vertical")
                         .set("overflow", "hidden")
                         .set("line-height", "1.3");
 
-                leafRow.add(ic, t);
+                if (ic != null) {
+                    leafRow.add(ic, t);
+                } else {
+                    leafRow.add(t);
+                }
 
                 boolean isFav = favMenuCodes.contains(menu.getMenuCode());
                 if (isFav) {
@@ -684,15 +715,15 @@ public class PortalView extends AppLayout {
 
     private void setActiveLeaf(Div clickedRow) {
         clearActiveLeaves();
-        clickedRow.getStyle().set("background", "rgba(99,102,241,0.28)");
+        clickedRow.getStyle().set("background", "rgba(255, 255, 255, 0.12)");
         clickedRow.getStyle().set("color", "#ffffff");
-        clickedRow.getStyle().set("border-left-color", "#818cf8");
+        clickedRow.getStyle().set("border-left-color", "#a5b4fc");
     }
 
     private void clearActiveLeaves() {
         for (Div row : leafRows) {
             row.getStyle().remove("background");
-            row.getStyle().set("color", "#cbd5e1");
+            row.getStyle().set("color", "#c7d2fe");
             row.getStyle().set("border-left-color", "transparent");
         }
     }
@@ -854,7 +885,7 @@ public class PortalView extends AppLayout {
     private void openChangePasswordDialog() {
         AppUser curr = securityService.getCurrentUser();
         if (curr == null) {
-            Notification.show("Anda belum login!", 3000, Notification.Position.TOP_CENTER);
+            Notification.show("You are not logged in!", 3000, Notification.Position.TOP_CENTER);
             return;
         }
 
@@ -863,31 +894,32 @@ public class PortalView extends AppLayout {
         dialog.setCloseOnEsc(true);
         dialog.setCloseOnOutsideClick(false);
 
-        H3 title = new H3("Ganti Password");
+        H3 title = new H3("Change Password");
         title.getStyle().set("margin", "0 0 16px 0").set("color", "#1e293b");
 
-        PasswordField oldPassField = new PasswordField("Password Lama");
+        PasswordField oldPassField = new PasswordField("Current Password");
         oldPassField.setWidthFull();
-        PasswordField newPassField = new PasswordField("Password Baru");
+        PasswordField newPassField = new PasswordField("New Password");
         newPassField.setWidthFull();
-        PasswordField confirmPassField = new PasswordField("Konfirmasi Password Baru");
+        PasswordField confirmPassField = new PasswordField("Confirm New Password");
         confirmPassField.setWidthFull();
 
         VerticalLayout formLayout = new VerticalLayout(title, oldPassField, newPassField, confirmPassField);
         formLayout.setPadding(false);
         formLayout.setSpacing(true);
 
-        Button btnSimpan = new Button("Simpan", VaadinIcon.CHECK.create(), e -> {
+        Button btnSimpan = new Button("Save", VaadinIcon.CHECK.create(), e -> {
             String oldP = oldPassField.getValue();
             String newP = newPassField.getValue();
             String confP = confirmPassField.getValue();
 
             if (oldP.isEmpty() || newP.isEmpty() || confP.isEmpty()) {
-                Notification.show("Semua field harus diisi!", 3000, Notification.Position.TOP_CENTER);
+                Notification.show("All fields are required!", 3000, Notification.Position.TOP_CENTER);
                 return;
             }
             if (!newP.equals(confP)) {
-                Notification.show("Password baru dan konfirmasi tidak cocok!", 3000, Notification.Position.TOP_CENTER);
+                Notification.show("New password and confirmation do not match!", 3000,
+                        Notification.Position.TOP_CENTER);
                 return;
             }
 
@@ -896,13 +928,13 @@ public class PortalView extends AppLayout {
                 Notification.show(error, 3000, Notification.Position.TOP_CENTER);
                 return;
             }
-            Notification.show("Password berhasil diubah!", 3000, Notification.Position.TOP_CENTER);
+            Notification.show("Password changed successfully!", 3000, Notification.Position.TOP_CENTER);
             dialog.close();
         });
         btnSimpan.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnSimpan.getStyle().set("background", "#4f46e5");
 
-        Button btnBatal = new Button("Batal", e -> dialog.close());
+        Button btnBatal = new Button("Cancel", e -> dialog.close());
         btnBatal.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
         HorizontalLayout btnLayout = new HorizontalLayout(btnBatal, btnSimpan);
@@ -917,7 +949,7 @@ public class PortalView extends AppLayout {
 
     private Icon resolveIcon(String iconName) {
         if (iconName == null || iconName.isBlank())
-            return VaadinIcon.FILE.create();
+            return null;
         try {
             return VaadinIcon.valueOf(iconName.toUpperCase().replace("-", "_")).create();
         } catch (IllegalArgumentException e) {
