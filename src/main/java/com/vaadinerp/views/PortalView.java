@@ -430,78 +430,7 @@ public class PortalView extends AppLayout {
         }
     }
 
-    /**
-     * Helper: membuat menu jika belum ada di database.
-     */
-    private void ensureMenuExists(String code, String title, String parentCode, String icon, int order, String type) {
-        if (!appMenuRepository.existsById(code)) {
-            AppMenu m = new AppMenu();
-            m.setMenuCode(code);
-            m.setMenuTitle(title);
-            m.setParentMenuCode(parentCode);
-            m.setIconName(icon);
-            m.setDisplayOrder(order);
-            m.setMenuType(type);
-            m.setRoutePath(code.toLowerCase().replace('_', '-'));
-            appMenuRepository.save(m);
-        }
-        if (!"GROUP".equals(type) && roleMenuPermissionRepository != null
-                && roleMenuPermissionRepository.findByRoleCodeAndMenuCode("SUPER_ADMIN", code).isEmpty()
-                && roleMenuPermissionRepository.findByRoleCodeAndMenuCode("STAFF", code).isEmpty()) {
-            RoleMenuPermission perm = new RoleMenuPermission();
-            perm.setRoleCode("STAFF");
-            perm.setMenuCode(code);
-            perm.setCanAdd(true);
-            perm.setCanEdit(true);
-            perm.setCanDelete(true);
-            perm.setCanPrint(true);
-            roleMenuPermissionRepository.save(perm);
-        }
-    }
 
-    private void ensureAdminOnlyMenuExists(String code, String title, String parentCode, String icon, int order,
-            String type) {
-        if (!appMenuRepository.existsById(code)) {
-            AppMenu m = new AppMenu();
-            m.setMenuCode(code);
-            m.setMenuTitle(title);
-            m.setParentMenuCode(parentCode);
-            m.setIconName(icon);
-            m.setDisplayOrder(order);
-            m.setMenuType(type);
-            m.setRoutePath(code.toLowerCase().replace('_', '-'));
-            appMenuRepository.save(m);
-        }
-        if (!"GROUP".equals(type) && roleMenuPermissionRepository != null) {
-            for (String rCode : java.util.List.of("ADMIN", "SUPER_ADMIN")) {
-                if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode(rCode, code).isEmpty()) {
-                    RoleMenuPermission perm = new RoleMenuPermission();
-                    perm.setRoleCode(rCode);
-                    perm.setMenuCode(code);
-                    perm.setCanAdd(true);
-                    perm.setCanEdit(true);
-                    perm.setCanDelete(true);
-                    perm.setCanPrint(true);
-                    roleMenuPermissionRepository.save(perm);
-                }
-            }
-            if (appRoleRepository != null) {
-                for (com.vaadinerp.security.entity.AppRole r : appRoleRepository.findAll()) {
-                    if (r.getRoleCode() != null && r.getRoleCode().toUpperCase().contains("ADMIN") &&
-                            roleMenuPermissionRepository.findByRoleCodeAndMenuCode(r.getRoleCode(), code).isEmpty()) {
-                        RoleMenuPermission perm = new RoleMenuPermission();
-                        perm.setRoleCode(r.getRoleCode());
-                        perm.setMenuCode(code);
-                        perm.setCanAdd(true);
-                        perm.setCanEdit(true);
-                        perm.setCanDelete(true);
-                        perm.setCanPrint(true);
-                        roleMenuPermissionRepository.save(perm);
-                    }
-                }
-            }
-        }
-    }
 
     private boolean matchesSearchOrFav(AppMenu menu, Set<String> favMenuCodes) {
         List<AppMenu> children = appMenuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(menu.getMenuCode());
@@ -509,8 +438,19 @@ public class PortalView extends AppLayout {
                 .filter(c -> securityService.hasMenuAccess(c.getMenuCode()))
                 .toList();
 
-        boolean isGroup = "GROUP".equalsIgnoreCase(menu.getMenuType()) || !accessibleChildren.isEmpty();
+        boolean isGroup = "GROUP".equalsIgnoreCase(menu.getMenuType());
         if (isGroup) {
+            // Jika tidak ada pencarian dan bukan mode favorit, selalu tampilkan grup (kosong atau tidak)
+            if (!showFavoritesOnly && menuSearchText.isEmpty()) {
+                return true;
+            }
+            
+            // Jika ada filter pencarian, cek apakah judul grup cocok
+            if (!menuSearchText.isEmpty() && menu.getMenuTitle() != null && menu.getMenuTitle().toLowerCase().contains(menuSearchText)) {
+                return true;
+            }
+
+            // Atau cek apakah ada child yang cocok
             for (AppMenu child : accessibleChildren) {
                 if (matchesSearchOrFav(child, favMenuCodes)) {
                     return true;
@@ -561,7 +501,7 @@ public class PortalView extends AppLayout {
                     .filter(c -> securityService.hasMenuAccess(c.getMenuCode()))
                     .toList();
 
-            boolean isGroup = "GROUP".equalsIgnoreCase(menu.getMenuType()) || !accessibleChildren.isEmpty();
+            boolean isGroup = "GROUP".equalsIgnoreCase(menu.getMenuType());
 
             System.out.println("[MENU-TREE] code=" + menu.getMenuCode()
                     + " | type=" + menu.getMenuType()
@@ -627,9 +567,11 @@ public class PortalView extends AppLayout {
                         .set("color", depth == 0 ? "#f1f5f9" : "#cbd5e1")
                         .set("letter-spacing", depth == 0 ? "0.6px" : "0px")
                         .set("text-transform", depth == 0 ? "uppercase" : "none")
-                        .set("white-space", "nowrap")
+                        .set("display", "-webkit-box")
+                        .set("-webkit-line-clamp", "2")
+                        .set("-webkit-box-orient", "vertical")
                         .set("overflow", "hidden")
-                        .set("text-overflow", "ellipsis");
+                        .set("line-height", "1.3");
 
                 groupRow.add(chevron, folder, title);
 
@@ -687,9 +629,11 @@ public class PortalView extends AppLayout {
                 t.getStyle()
                         .set("font-size", "0.85rem")
                         .set("font-weight", "400")
-                        .set("white-space", "nowrap")
+                        .set("display", "-webkit-box")
+                        .set("-webkit-line-clamp", "2")
+                        .set("-webkit-box-orient", "vertical")
                         .set("overflow", "hidden")
-                        .set("text-overflow", "ellipsis");
+                        .set("line-height", "1.3");
 
                 leafRow.add(ic, t);
 

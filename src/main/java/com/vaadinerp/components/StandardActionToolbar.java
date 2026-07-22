@@ -47,7 +47,7 @@ public class StandardActionToolbar extends HorizontalLayout {
     private final Button btnSave = new Button("Simpan");
     private final Button btnCancel = new Button("Batal");
     private final Button btnRefresh = new Button("Refresh");
-    private final Button btnClose = new Button("Tutup");
+
     private final Button btnPrint = new Button("Cetak");
 
     public StandardActionToolbar() {
@@ -86,9 +86,6 @@ public class StandardActionToolbar extends HorizontalLayout {
         // 5. REFRESH
         setupButton(btnRefresh, VaadinIcon.REFRESH, "#3b82f6");
 
-        // 6. TUTUP
-        setupButton(btnClose, VaadinIcon.SIGN_OUT, "#22c55e");
-
         // 7. CETAK
         setupButton(btnPrint, VaadinIcon.PRINT, "#374151");
 
@@ -98,10 +95,9 @@ public class StandardActionToolbar extends HorizontalLayout {
         btnSave.setVisible(false);
         btnCancel.setVisible(false);
         btnRefresh.setVisible(false);
-        btnClose.setVisible(false);
         btnPrint.setVisible(false);
 
-        add(btnNew, btnDelete, btnSave, btnCancel, btnRefresh, btnClose, btnPrint);
+        add(btnNew, btnDelete, btnSave, btnCancel, btnRefresh, btnPrint);
     }
 
     private void setupButton(Button btn, VaadinIcon iconType, String iconColor) {
@@ -158,12 +154,6 @@ public class StandardActionToolbar extends HorizontalLayout {
         return this;
     }
 
-    public StandardActionToolbar onClose(Runnable action) {
-        btnClose.setVisible(true);
-        btnClose.addClickListener(e -> action.run());
-        return this;
-    }
-
     public StandardActionToolbar onPrint(Runnable action) {
         btnPrint.setVisible(true);
         btnPrint.addClickListener(e -> action.run());
@@ -195,6 +185,13 @@ public class StandardActionToolbar extends HorizontalLayout {
             btnPrint.setVisible(false);
             btnPrint.setEnabled(false);
         }
+        
+        // Logika Opsi 1/2: Tombol Batal hanya aktif jika user memiliki hak Add atau Edit
+        if (!auth.canAdd && !auth.canEdit) {
+            btnCancel.setVisible(false);
+            btnCancel.setEnabled(false);
+        }
+        
         return this;
     }
 
@@ -205,6 +202,6 @@ public class StandardActionToolbar extends HorizontalLayout {
     public Button getBtnSave() { return btnSave; }
     public Button getBtnCancel() { return btnCancel; }
     public Button getBtnRefresh() { return btnRefresh; }
-    public Button getBtnClose() { return btnClose; }
+
     public Button getBtnPrint() { return btnPrint; }
 }

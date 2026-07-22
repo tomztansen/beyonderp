@@ -548,19 +548,6 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             tabSheet.setSelectedTab(historisTab);
         });
 
-        // 5. TUTUP BUTTON
-        Button btnClose = new Button("Tutup");
-        Icon iconClose = VaadinIcon.SIGN_OUT.create();
-        iconClose.getStyle().set("color", "#22c55e").set("font-size", "1.2rem");
-        btnClose.setIcon(iconClose);
-        btnClose.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
-        btnClose.getStyle().set("font-weight", "500").set("color", "#374151");
-        btnClose.addClickListener(e -> {
-            if (closeHandler != null) {
-                closeHandler.run();
-            }
-        });
-
         // 6. CETAK BUTTON
         Button btnPrint = new Button("Cetak");
         Icon iconPrint = VaadinIcon.PRINT.create();
@@ -647,6 +634,11 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             btnPrint.setVisible(false);
             btnPrint.setEnabled(false);
         }
+        
+        if (!auth.canAdd && !auth.canEdit) {
+            btnCancel.setVisible(false);
+            btnCancel.setEnabled(false);
+        }
 
         // 8. DEBUG CONTEXT BUTTON
         Button btnDebug = new Button("Debug Context");
@@ -661,8 +653,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             com.vaadinerp.components.FormDebugUtils.showDebugDialog(bean);
         });
 
-        extraActionsContainer.setSpacing(true);
-        toolbar.add(btnNew, btnEdit, btnDelete, btnSave, btnCancel, btnRefresh, btnClose, btnPrint, btnDebug, extraActionsContainer);
+        toolbar.add(btnNew, btnEdit, btnDelete, btnSave, btnCancel, btnRefresh, btnPrint, btnDebug, extraActionsContainer);
         refreshExtraToolbarButtons();
     }
 

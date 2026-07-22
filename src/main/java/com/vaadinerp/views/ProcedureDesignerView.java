@@ -169,7 +169,7 @@ public class ProcedureDesignerView extends VerticalLayout {
 
             // Generate initial default template
             btnGenerateTemplate.click();
-        } else {
+        } else if (existingRow != null) {
             Long oid = existingRow.get("oid") instanceof Number n ? n.longValue() : null;
             String existingDef = dynamicDataService.fetchRoutineDefinitionByOid(oid);
             codeArea.setValue(existingDef);

@@ -98,11 +98,11 @@ public class LovBuilderView extends VerticalLayout {
 
     private void setupGrid() {
         grid.setSizeFull();
-        grid.addColumn(LovMeta::getLovCode).setHeader("LOV Code").setSortable(true).setAutoWidth(true);
-        grid.addColumn(LovMeta::getLovName).setHeader("Name").setSortable(true).setAutoWidth(true);
-        grid.addColumn(LovMeta::getTableName).setHeader("Table Name").setSortable(true).setAutoWidth(true);
-        grid.addColumn(LovMeta::getValueColumn).setHeader("Value Col").setAutoWidth(true);
-        grid.addColumn(LovMeta::getLabelColumn).setHeader("Label Col").setAutoWidth(true);
+        grid.addColumn(meta -> meta != null ? meta.getLovCode() : "").setHeader("LOV Code").setSortable(true).setAutoWidth(true);
+        grid.addColumn(meta -> meta != null ? meta.getLovName() : "").setHeader("Name").setSortable(true).setAutoWidth(true);
+        grid.addColumn(meta -> meta != null ? meta.getTableName() : "").setHeader("Table Name").setSortable(true).setAutoWidth(true);
+        grid.addColumn(meta -> meta != null ? meta.getValueColumn() : "").setHeader("Value Col").setAutoWidth(true);
+        grid.addColumn(meta -> meta != null ? meta.getLabelColumn() : "").setHeader("Label Col").setAutoWidth(true);
 
         grid.asSingleSelect().addValueChangeListener(event -> {
             if (event.getValue() != null) {

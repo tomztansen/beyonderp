@@ -1554,7 +1554,7 @@ public class DynamicDataService {
                 try {
                     String returningSql = sql + " RETURNING " + finalMasterPk;
                     System.out.println("EXECUTING INSERT WITH RETURNING: " + returningSql);
-                    Object genId = jdbcTemplate.queryForObject(returningSql, args.toArray(), Object.class);
+                    Object genId = jdbcTemplate.queryForObject(returningSql, Object.class, args.toArray());
                     if (genId != null) {
                         masterId = genId;
                         data.put(pk, masterId);
@@ -1804,7 +1804,7 @@ public class DynamicDataService {
         if (val == null)
             return null;
         if (val instanceof java.util.Collection<?> col) {
-            val = col.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(", "));
+            val = col.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(", "));
         } else if (val.getClass().isArray()) {
             int len = java.lang.reflect.Array.getLength(val);
             java.util.StringJoiner sj = new java.util.StringJoiner(", ");
@@ -3479,7 +3479,7 @@ public class DynamicDataService {
                     if (json == null || json.trim().isEmpty())
                         return new ArrayList<String>();
                     return java.util.Arrays.stream(json.split(","))
-                            .map(String::trim)
+                            .map(s -> s != null ? s.trim() : "")
                             .filter(s -> !s.isEmpty())
                             .collect(java.util.stream.Collectors.toList());
                 })
@@ -3800,7 +3800,7 @@ public class DynamicDataService {
                 try {
                     String returningSql = sql + " RETURNING " + finalMasterPk;
                     System.out.println("EXECUTING MASTER INSERT WITH RETURNING: " + returningSql);
-                    Object genId = jdbcTemplate.queryForObject(returningSql, args.toArray(), Object.class);
+                    Object genId = jdbcTemplate.queryForObject(returningSql, Object.class, args.toArray());
                     if (genId != null) {
                         masterId = genId;
                         masterData.put(masterPk, masterId);

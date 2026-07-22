@@ -659,6 +659,10 @@ public class UserAuthorityAdminView extends VerticalLayout {
         StandardActionToolbar toolbar = new StandardActionToolbar()
                 .onNew(this::openPermissionDialog)
                 .onRefresh(this::refreshMatrixGrid);
+        
+        Button btnCopy = new Button("Copy Akses", VaadinIcon.COPY.create(), e -> openCopyAccessDialog());
+        btnCopy.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
+        toolbar.add(btnCopy);
 
         var colRole = matrixGrid.addColumn(RoleMenuPermission::getRoleCode).setHeader("Role").setSortable(true).setAutoWidth(true);
         var colMenu = matrixGrid.addColumn(RoleMenuPermission::getMenuCode).setHeader("Kode Menu").setSortable(true).setAutoWidth(true);
@@ -798,6 +802,77 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.add(form, cbLayout);
+        dialog.open();
+    }
+
+    private void openCopyAccessDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Copy Akses Menu Antar Role");
+        dialog.setWidth("400px");
+
+        FormLayout form = new FormLayout();
+        
+        List<String> roles = roleRepository.findAll().stream().map(AppRole::getRoleCode).toList();
+        
+        ComboBox<String> sourceRoleSelect = new ComboBox<>("Role Sumber (Dari)");
+        sourceRoleSelect.setItems(roles);
+        sourceRoleSelect.setRequired(true);
+        sourceRoleSelect.setWidthFull();
+        
+        ComboBox<String> targetRoleSelect = new ComboBox<>("Role Tujuan (Ke)");
+        targetRoleSelect.setItems(roles);
+        targetRoleSelect.setRequired(true);
+        targetRoleSelect.setWidthFull();
+
+        form.add(sourceRoleSelect, targetRoleSelect);
+
+        Button saveBtn = new Button("Copy Akses", VaadinIcon.COPY.create(), e -> {
+            String source = sourceRoleSelect.getValue();
+            String target = targetRoleSelect.getValue();
+            
+            if (source == null || target == null) {
+                Notification.show("Role Sumber dan Tujuan wajib dipilih!", 3000, Notification.Position.TOP_CENTER);
+                return;
+            }
+            if (source.equals(target)) {
+                Notification.show("Role Sumber dan Tujuan tidak boleh sama!", 3000, Notification.Position.TOP_CENTER);
+                return;
+            }
+            
+            List<RoleMenuPermission> sourcePerms = permissionRepository.findByRoleCode(source);
+            List<RoleMenuPermission> targetPerms = permissionRepository.findByRoleCode(target);
+            
+            List<String> targetMenuCodes = targetPerms.stream().map(RoleMenuPermission::getMenuCode).toList();
+            
+            int copiedCount = 0;
+            for (RoleMenuPermission sPerm : sourcePerms) {
+                if (!targetMenuCodes.contains(sPerm.getMenuCode())) {
+                    RoleMenuPermission newPerm = new RoleMenuPermission();
+                    newPerm.setRoleCode(target);
+                    newPerm.setMenuCode(sPerm.getMenuCode());
+                    newPerm.setCanAdd(sPerm.getCanAdd());
+                    newPerm.setCanEdit(sPerm.getCanEdit());
+                    newPerm.setCanDelete(sPerm.getCanDelete());
+                    newPerm.setCanPrint(sPerm.getCanPrint());
+                    permissionRepository.save(newPerm);
+                    copiedCount++;
+                }
+            }
+            
+            dialog.close();
+            refreshMatrixGrid();
+            Notification.show(copiedCount + " menu berhasil di-copy dari " + source + " ke " + target, 3000, Notification.Position.BOTTOM_END);
+        });
+        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        
+        Button cancelBtn = new Button("Batal", e -> dialog.close());
+        dialog.getFooter().add(cancelBtn, saveBtn);
+        dialog.add(form);
+        
+        Paragraph hint = new Paragraph("Catatan: Menu yang sudah ada di Role Tujuan tidak akan ditimpa/di-copy ulang.");
+        hint.getStyle().set("font-size", "0.8rem").set("color", "#64748b").set("margin-top", "10px");
+        dialog.add(hint);
+        
         dialog.open();
     }
 

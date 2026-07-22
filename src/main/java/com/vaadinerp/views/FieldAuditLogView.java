@@ -90,8 +90,9 @@ public class FieldAuditLogView extends VerticalLayout {
         textBox.setPadding(false);
         textBox.setSpacing(false);
 
-        H2 title = new H2("Field Audit Log Viewer");
-        title.getStyle().set("margin", "0").set("font-size", "1.25rem").set("font-weight", "700").set("color", "#1e293b");
+        H2 title = new H2("");
+        title.getStyle().set("margin", "0").set("font-size", "1.25rem").set("font-weight", "700").set("color",
+                "#1e293b");
         Span subtitle = new Span("Riwayat perubahan data tingkat kolom (Audit Trail) pada semua tabel & formulir");
         subtitle.getStyle().set("font-size", "0.85rem").set("color", "#64748b");
 
@@ -154,7 +155,8 @@ public class FieldAuditLogView extends VerticalLayout {
             refreshGrid();
         });
 
-        toolbar.add(filterFormCode, filterTableName, filterRecordId, filterFieldName, filterActionBy, btnSearch, btnReset);
+        toolbar.add(filterFormCode, filterTableName, filterRecordId, filterFieldName, filterActionBy, btnSearch,
+                btnReset);
         return toolbar;
     }
 
@@ -233,13 +235,16 @@ public class FieldAuditLogView extends VerticalLayout {
             String action = row.get("action_type") != null ? row.get("action_type").toString().toUpperCase() : "-";
             Span badge = new Span(action);
             if ("INSERT".equals(action)) {
-                badge.getStyle().set("background-color", "#dcfce7").set("color", "#15803d").set("border", "1px solid #bbf7d0");
+                badge.getStyle().set("background-color", "#dcfce7").set("color", "#15803d").set("border",
+                        "1px solid #bbf7d0");
             } else if ("UPDATE".equals(action)) {
-                badge.getStyle().set("background-color", "#fef9c3").set("color", "#a16207").set("border", "1px solid #fde047");
+                badge.getStyle().set("background-color", "#fef9c3").set("color", "#a16207").set("border",
+                        "1px solid #fde047");
             } else {
                 badge.getStyle().set("background-color", "#f3f4f6").set("color", "#4b5563");
             }
-            badge.getStyle().set("padding", "3px 10px").set("border-radius", "9999px").set("font-size", "0.75rem").set("font-weight", "700");
+            badge.getStyle().set("padding", "3px 10px").set("border-radius", "9999px").set("font-size", "0.75rem")
+                    .set("font-weight", "700");
             return badge;
         }).setHeader("Aksi").setWidth("100px").setFlexGrow(0);
 
@@ -295,8 +300,7 @@ public class FieldAuditLogView extends VerticalLayout {
                 filterRecordId.getValue(),
                 filterFieldName.getValue(),
                 filterActionBy.getValue(),
-                500
-        );
+                500);
         grid.setItems(logs);
         recordCountBadge.setText("Total: " + logs.size() + " log perubahan (Limit 500)");
     }
