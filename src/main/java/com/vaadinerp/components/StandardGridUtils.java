@@ -500,7 +500,9 @@ public class StandardGridUtils {
                         grid.getListDataView().getItems().forEach(items::add);
                     } catch (Exception ignored) {
                         if (grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
-                            items.addAll(((com.vaadin.flow.data.provider.ListDataProvider<T>) grid.getDataProvider()).getItems());
+                            @SuppressWarnings("unchecked")
+                            com.vaadin.flow.data.provider.ListDataProvider<T> ldp = (com.vaadin.flow.data.provider.ListDataProvider<T>) grid.getDataProvider();
+                            items.addAll(ldp.getItems());
                         }
                     }
                 }

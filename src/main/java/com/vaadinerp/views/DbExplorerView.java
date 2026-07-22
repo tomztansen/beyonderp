@@ -7,7 +7,6 @@ import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H3;
-import com.vaadin.flow.component.html.H4;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.html.Hr;
 
@@ -91,6 +90,32 @@ public class DbExplorerView extends VerticalLayout {
     }
 
     private final Map<String, FilterCriteria> dataFilterValues = new HashMap<>();
+
+    public enum SchemaActionType {
+        ADD_COLUMN, EDIT_COLUMN, DROP_COLUMN,
+        ADD_CONSTRAINT, EDIT_CONSTRAINT, DROP_CONSTRAINT,
+        ADD_TRIGGER, EDIT_TRIGGER, DROP_TRIGGER
+    }
+
+    public static class PendingSchemaAction {
+        public SchemaActionType actionType;
+        public String tableName;
+        public String targetName; // e.g., old column name, constraint name, or trigger name
+        public Map<String, Object> payload;
+
+        public PendingSchemaAction(SchemaActionType actionType, String tableName, String targetName, Map<String, Object> payload) {
+            this.actionType = actionType;
+            this.tableName = tableName;
+            this.targetName = targetName;
+            this.payload = payload;
+        }
+    }
+
+    private final List<PendingSchemaAction> pendingChanges = new ArrayList<>();
+    private final Button btnCommitChanges = new Button("Commit to DB", VaadinIcon.DATABASE.create());
+    private final Button btnDiscardChanges = new Button("Discard Draft", VaadinIcon.CLOSE_CIRCLE.create());
+    private final Span pendingStatusInfo = new Span("");
+
 
     public DbExplorerView(DynamicDataService dynamicDataService, SessionSecurityService securityService) {
         this.dynamicDataService = dynamicDataService;
@@ -255,7 +280,22 @@ public class DbExplorerView extends VerticalLayout {
                 "Active Database Triggers", triggerLayout);
         triggerDetails.setWidthFull();
 
+        btnCommitChanges.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
+        btnCommitChanges.setVisible(false);
+        btnCommitChanges.addClickListener(e -> commitPendingChanges());
+
+        btnDiscardChanges.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
+        btnDiscardChanges.setVisible(false);
+        btnDiscardChanges.addClickListener(e -> discardPendingChanges());
+
+        pendingStatusInfo.getStyle().set("font-weight", "bold").set("color", "var(--lumo-error-text-color)");
+
+        HorizontalLayout pendingToolbar = new HorizontalLayout(btnCommitChanges, btnDiscardChanges, pendingStatusInfo);
+        pendingToolbar.setAlignItems(Alignment.CENTER);
+        pendingToolbar.setSpacing(true);
+
         schemaLayout.add(
+                pendingToolbar,
                 columnHeader, schemaGrid,
                 constraintDetails,
                 triggerDetails);
@@ -293,7 +333,6 @@ public class DbExplorerView extends VerticalLayout {
                         openColumnDialog(null);
                     }
                 })
-                .onClose(() -> Notification.show("Menutup Explorer...", 1500, Notification.Position.MIDDLE))
                 .onPrint(() -> Notification.show(
                         "Mengekspor dokumentasi skema dynamic." + (currentTable != null ? currentTable : "") + "...",
                         3000, Notification.Position.BOTTOM_END));
@@ -534,7 +573,13 @@ public class DbExplorerView extends VerticalLayout {
         typeField.setValue("UNIQUE");
 
         ComboBox<String> localColField = new ComboBox<>("Kolom Lokal");
-        localColField.setItems(dynamicDataService.fetchTableColumns(this.currentTable));
+        List<String> mergedColumns = new ArrayList<>();
+        for (Map<String, Object> map : getMergedSchemaList()) {
+            if (!map.containsKey("_pending_delete")) {
+                mergedColumns.add((String) map.get("column_name"));
+            }
+        }
+        localColField.setItems(mergedColumns);
 
         ComboBox<String> refTableField = new ComboBox<>("Tabel Referensi (Target FK)");
         refTableField.setItems(dynamicDataService.fetchDynamicTables());
@@ -637,24 +682,26 @@ public class DbExplorerView extends VerticalLayout {
             }
 
             try {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("name", name);
+                payload.put("type", type);
+                payload.put("localCol", localCol != null ? localCol : "");
+                payload.put("refTable", refTable != null ? refTable : "");
+                payload.put("refCol", refCol != null ? refCol : "");
+                payload.put("expr", expr != null ? expr : "");
+
                 if (isEdit && existingRow != null) {
-                    String oldName = existingRow.get("constraint_name") != null
-                            ? existingRow.get("constraint_name").toString()
-                            : "";
-                    dynamicDataService.updateTableConstraint(this.currentTable, oldName, name, type, localCol, refTable,
-                            refCol, expr);
-                    Notification.show("Constraint " + name + " berhasil diperbarui secara fisik!", 3000,
-                            Notification.Position.TOP_CENTER);
+                    String oldName = existingRow.get("constraint_name") != null ? existingRow.get("constraint_name").toString() : "";
+                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.EDIT_CONSTRAINT, this.currentTable, oldName, payload));
+                    Notification.show("Perubahan constraint " + name + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
                 } else {
-                    dynamicDataService.addTableConstraint(this.currentTable, name, type, localCol, refTable, refCol,
-                            expr);
-                    Notification.show("Constraint " + name + " berhasil dibuat secara fisik!", 3000,
-                            Notification.Position.TOP_CENTER);
+                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.ADD_CONSTRAINT, this.currentTable, name, payload));
+                    Notification.show("Penambahan constraint " + name + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
                 }
-                loadTableSchema(this.currentTable);
+                updatePendingUI();
                 dialog.close();
             } catch (Exception ex) {
-                Notification.show("Gagal menyimpan constraint: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
+                Notification.show("Gagal menambahkan ke draf: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
             }
         });
 
@@ -670,12 +717,11 @@ public class DbExplorerView extends VerticalLayout {
         if (this.currentTable == null || constraintName.isEmpty())
             return;
         try {
-            dynamicDataService.dropTableConstraint(this.currentTable, constraintName);
-            Notification.show("Constraint " + constraintName + " berhasil dihapus secara fisik!", 3000,
-                    Notification.Position.TOP_CENTER);
-            loadTableSchema(this.currentTable);
+            pendingChanges.add(new PendingSchemaAction(SchemaActionType.DROP_CONSTRAINT, this.currentTable, constraintName, null));
+            Notification.show("Penghapusan constraint " + constraintName + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+            updatePendingUI();
         } catch (Exception ex) {
-            Notification.show("Gagal menghapus constraint: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
+            Notification.show("Gagal menambahkan ke draf: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
         }
     }
 
@@ -763,13 +809,21 @@ public class DbExplorerView extends VerticalLayout {
             td.setTriggerBody(body);
 
             try {
-                dynamicDataService.addOrUpdateTableTrigger(this.currentTable, td);
-                Notification.show("Trigger " + name + " berhasil disimpan secara fisik!", 3000,
-                        Notification.Position.TOP_CENTER);
-                loadTableSchema(this.currentTable);
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("triggerDef", td);
+
+                if (isEdit && existingRow != null) {
+                    String oldName = existingRow.get("trigger_name") != null ? existingRow.get("trigger_name").toString() : "";
+                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.EDIT_TRIGGER, this.currentTable, oldName, payload));
+                    Notification.show("Perubahan trigger " + name + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+                } else {
+                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.ADD_TRIGGER, this.currentTable, name, payload));
+                    Notification.show("Penambahan trigger " + name + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+                }
+                updatePendingUI();
                 dialog.close();
             } catch (Exception ex) {
-                Notification.show("Gagal menyimpan trigger: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
+                Notification.show("Gagal menambahkan ke draf: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
             }
         });
 
@@ -784,12 +838,11 @@ public class DbExplorerView extends VerticalLayout {
         if (this.currentTable == null || triggerName.isEmpty())
             return;
         try {
-            dynamicDataService.dropTableTrigger(this.currentTable, triggerName);
-            Notification.show("Trigger " + triggerName + " berhasil dihapus secara fisik!", 3000,
-                    Notification.Position.TOP_CENTER);
-            loadTableSchema(this.currentTable);
+            pendingChanges.add(new PendingSchemaAction(SchemaActionType.DROP_TRIGGER, this.currentTable, triggerName, null));
+            Notification.show("Penghapusan trigger " + triggerName + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+            updatePendingUI();
         } catch (Exception ex) {
-            Notification.show("Gagal menghapus trigger: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
+            Notification.show("Gagal menambahkan ke draf: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
         }
     }
 
@@ -906,19 +959,21 @@ public class DbExplorerView extends VerticalLayout {
             }
 
             try {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("name", name);
+                payload.put("type", type);
+                payload.put("isNull", isNull);
+                payload.put("defVal", defVal);
+
                 if (isEdit && existingRow != null) {
-                    String oldCol = existingRow.get("column_name") != null ? existingRow.get("column_name").toString()
-                            : "";
-                    dynamicDataService.alterTableColumn(this.currentTable, oldCol, name, type, isNull, defVal);
-                    Notification.show("Kolom " + name + " berhasil diperbarui secara fisik menjadi " + type + "!", 3000,
-                            Notification.Position.TOP_CENTER);
+                    String oldCol = existingRow.get("column_name") != null ? existingRow.get("column_name").toString() : "";
+                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.EDIT_COLUMN, this.currentTable, oldCol, payload));
+                    Notification.show("Perubahan kolom " + name + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
                 } else {
-                    dynamicDataService.addTableColumn(this.currentTable, name, type, isNull, defVal);
-                    Notification.show("Kolom " + name + " berhasil ditambahkan secara fisik (" + type + ")!", 3000,
-                            Notification.Position.TOP_CENTER);
+                    pendingChanges.add(new PendingSchemaAction(SchemaActionType.ADD_COLUMN, this.currentTable, name, payload));
+                    Notification.show("Penambahan kolom " + name + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
                 }
-                loadTableData(this.currentTable);
-                loadTableSchema(this.currentTable);
+                updatePendingUI();
                 dialog.close();
             } catch (Exception ex) {
                 Throwable cause = ex;
@@ -926,7 +981,7 @@ public class DbExplorerView extends VerticalLayout {
                     cause = cause.getCause();
                 }
                 String msg = cause.getMessage() != null ? cause.getMessage() : ex.getMessage();
-                Notification.show("Gagal menyimpan kolom: " + msg, 5000, Notification.Position.MIDDLE);
+                Notification.show("Gagal menambahkan ke draf: " + msg, 5000, Notification.Position.MIDDLE);
             }
         });
 
@@ -941,17 +996,17 @@ public class DbExplorerView extends VerticalLayout {
         if (this.currentTable == null || columnName.isEmpty())
             return;
         try {
-            dynamicDataService.dropTableColumn(this.currentTable, columnName);
-            Notification.show("Kolom " + columnName + " berhasil dihapus secara fisik!", 3000,
-                    Notification.Position.TOP_CENTER);
-            loadTableData(this.currentTable);
-            loadTableSchema(this.currentTable);
+            pendingChanges.add(new PendingSchemaAction(SchemaActionType.DROP_COLUMN, this.currentTable, columnName, null));
+            Notification.show("Penghapusan kolom " + columnName + " ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+            updatePendingUI();
         } catch (Exception ex) {
-            Notification.show("Gagal menghapus kolom: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
+            Notification.show("Gagal menambahkan ke draf: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
         }
     }
 
     private void clearView() {
+        pendingChanges.clear();
+        updatePendingUI();
         dataFilterValues.clear();
         currentSortField = null;
         currentSortDir = null;
@@ -990,7 +1045,21 @@ public class DbExplorerView extends VerticalLayout {
         if (schemaGrid.getColumns().isEmpty()) {
             schemaColMap.clear();
             Grid.Column<Map<String, Object>> c1 = schemaGrid
-                    .addColumn(row -> row.get("column_name") != null ? row.get("column_name").toString() : "")
+                    .addComponentColumn(row -> {
+                        String name = row.get("column_name") != null ? row.get("column_name").toString() : "";
+                        Span span = new Span(name);
+                        if (row.containsKey("_pending_add")) {
+                            span.getStyle().set("color", "var(--lumo-success-text-color)").set("font-weight", "bold");
+                            span.add(new Span(" (New)"));
+                        } else if (row.containsKey("_pending_edit")) {
+                            span.getStyle().set("color", "var(--lumo-warning-text-color)").set("font-weight", "bold");
+                            span.add(new Span(" (Modified)"));
+                        } else if (row.containsKey("_pending_delete")) {
+                            span.getStyle().set("color", "var(--lumo-error-text-color)").set("text-decoration", "line-through");
+                            span.add(new Span(" (Deleted)"));
+                        }
+                        return span;
+                    })
                     .setHeader("Nama Kolom");
             Grid.Column<Map<String, Object>> c2 = schemaGrid
                     .addColumn(row -> row.get("formatted_type") != null ? row.get("formatted_type").toString()
@@ -1020,6 +1089,7 @@ public class DbExplorerView extends VerticalLayout {
                 btnDel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
                 btnDel.setTooltipText("Hapus Kolom");
                 btnDel.addClickListener(e -> dropColumn(colName));
+                btnDel.setVisible(false); // Hidden by user request
 
                 return new HorizontalLayout(btnEdit, btnDel);
             }).setHeader("Aksi").setWidth("110px").setFlexGrow(0);
@@ -1063,7 +1133,21 @@ public class DbExplorerView extends VerticalLayout {
         if (triggersGrid.getColumns().isEmpty()) {
             triggerColMap.clear();
             Grid.Column<Map<String, Object>> c1 = triggersGrid
-                    .addColumn(row -> row.get("trigger_name") != null ? row.get("trigger_name").toString() : "")
+                    .addComponentColumn(row -> {
+                        String name = row.get("trigger_name") != null ? row.get("trigger_name").toString() : "";
+                        Span span = new Span(name);
+                        if (row.containsKey("_pending_add")) {
+                            span.getStyle().set("color", "var(--lumo-success-text-color)").set("font-weight", "bold");
+                            span.add(new Span(" (New)"));
+                        } else if (row.containsKey("_pending_edit")) {
+                            span.getStyle().set("color", "var(--lumo-warning-text-color)").set("font-weight", "bold");
+                            span.add(new Span(" (Modified)"));
+                        } else if (row.containsKey("_pending_delete")) {
+                            span.getStyle().set("color", "var(--lumo-error-text-color)").set("text-decoration", "line-through");
+                            span.add(new Span(" (Deleted)"));
+                        }
+                        return span;
+                    })
                     .setHeader("Nama Trigger");
             Grid.Column<Map<String, Object>> c2 = triggersGrid
                     .addColumn(row -> row.get("action_timing") != null ? row.get("action_timing").toString() : "")
@@ -1083,6 +1167,7 @@ public class DbExplorerView extends VerticalLayout {
                 btnDel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
                 btnDel.setTooltipText("Hapus Trigger");
                 btnDel.addClickListener(e -> dropTrigger(name));
+                btnDel.setVisible(false); // Hidden by user request
 
                 return new HorizontalLayout(btnEdit, btnDel);
             }).setHeader("Aksi").setWidth("110px").setFlexGrow(0);
@@ -1124,7 +1209,21 @@ public class DbExplorerView extends VerticalLayout {
         if (constraintsGrid.getColumns().isEmpty()) {
             constraintColMap.clear();
             Grid.Column<Map<String, Object>> c1 = constraintsGrid
-                    .addColumn(row -> row.get("constraint_name") != null ? row.get("constraint_name").toString() : "")
+                    .addComponentColumn(row -> {
+                        String name = row.get("constraint_name") != null ? row.get("constraint_name").toString() : "";
+                        Span span = new Span(name);
+                        if (row.containsKey("_pending_add")) {
+                            span.getStyle().set("color", "var(--lumo-success-text-color)").set("font-weight", "bold");
+                            span.add(new Span(" (New)"));
+                        } else if (row.containsKey("_pending_edit")) {
+                            span.getStyle().set("color", "var(--lumo-warning-text-color)").set("font-weight", "bold");
+                            span.add(new Span(" (Modified)"));
+                        } else if (row.containsKey("_pending_delete")) {
+                            span.getStyle().set("color", "var(--lumo-error-text-color)").set("text-decoration", "line-through");
+                            span.add(new Span(" (Deleted)"));
+                        }
+                        return span;
+                    })
                     .setHeader("Nama Constraint");
             Grid.Column<Map<String, Object>> c2 = constraintsGrid
                     .addColumn(row -> row.get("constraint_type") != null ? row.get("constraint_type").toString() : "")
@@ -1196,6 +1295,204 @@ public class DbExplorerView extends VerticalLayout {
         }
         List<String> userOrder = dynamicDataService.getUserGridOrder("DB_EXPLORER", "constraintsGrid");
         StandardGridUtils.applySafeColumnOrder(constraintsGrid, constraintColMap, userOrder);
+    }
+
+    private void updatePendingUI() {
+        boolean hasPending = !pendingChanges.isEmpty();
+        btnCommitChanges.setVisible(hasPending);
+        btnDiscardChanges.setVisible(hasPending);
+        if (hasPending) {
+            pendingStatusInfo.setText(pendingChanges.size() + " perubahan tertunda (belum disimpan ke DB)");
+        } else {
+            pendingStatusInfo.setText("");
+        }
+
+        if (schemaFilterRefresher != null) schemaFilterRefresher.run();
+        else schemaGrid.setItems(getMergedSchemaList());
+        
+        if (constraintFilterRefresher != null) constraintFilterRefresher.run();
+        else constraintsGrid.setItems(getMergedConstraintList());
+        
+        if (triggerFilterRefresher != null) triggerFilterRefresher.run();
+        else triggersGrid.setItems(getMergedTriggerList());
+    }
+
+    private void commitPendingChanges() {
+        if (pendingChanges.isEmpty()) return;
+        try {
+            for (PendingSchemaAction action : pendingChanges) {
+                if (action.tableName == null) continue;
+                String name = action.payload != null && action.payload.get("name") != null ? action.payload.get("name").toString() : "";
+                
+                switch (action.actionType) {
+                    case ADD_COLUMN:
+                        dynamicDataService.addTableColumn(action.tableName, name, 
+                            action.payload.get("type").toString(), 
+                            (Boolean) action.payload.get("isNull"), 
+                            action.payload.get("defVal").toString());
+                        break;
+                    case EDIT_COLUMN:
+                        dynamicDataService.alterTableColumn(action.tableName, action.targetName, name, 
+                            action.payload.get("type").toString(), 
+                            (Boolean) action.payload.get("isNull"), 
+                            action.payload.get("defVal").toString());
+                        break;
+                    case DROP_COLUMN:
+                        dynamicDataService.dropTableColumn(action.tableName, action.targetName);
+                        break;
+                    case ADD_CONSTRAINT:
+                        dynamicDataService.addTableConstraint(action.tableName, name, 
+                            action.payload.get("type").toString(), 
+                            action.payload.get("localCol").toString(), 
+                            action.payload.get("refTable").toString(), 
+                            action.payload.get("refCol").toString(), 
+                            action.payload.get("expr").toString());
+                        break;
+                    case EDIT_CONSTRAINT:
+                        dynamicDataService.updateTableConstraint(action.tableName, action.targetName, name, 
+                            action.payload.get("type").toString(), 
+                            action.payload.get("localCol").toString(), 
+                            action.payload.get("refTable").toString(), 
+                            action.payload.get("refCol").toString(), 
+                            action.payload.get("expr").toString());
+                        break;
+                    case DROP_CONSTRAINT:
+                        dynamicDataService.dropTableConstraint(action.tableName, action.targetName);
+                        break;
+                    case ADD_TRIGGER:
+                    case EDIT_TRIGGER:
+                        TriggerDefinition td = (TriggerDefinition) action.payload.get("triggerDef");
+                        dynamicDataService.addOrUpdateTableTrigger(action.tableName, td);
+                        break;
+                    case DROP_TRIGGER:
+                        dynamicDataService.dropTableTrigger(action.tableName, action.targetName);
+                        break;
+                }
+            }
+            pendingChanges.clear();
+            Notification.show("Semua perubahan berhasil disimpan ke database!", 3000, Notification.Position.TOP_CENTER);
+            if (this.currentTable != null) {
+                loadTableData(this.currentTable);
+                loadTableSchema(this.currentTable);
+            }
+        } catch (Exception ex) {
+            Throwable cause = ex;
+            while (cause.getCause() != null && cause.getCause() != cause) cause = cause.getCause();
+            Notification.show("Gagal menyimpan ke database: " + cause.getMessage(), 5000, Notification.Position.MIDDLE);
+        }
+    }
+
+    private void discardPendingChanges() {
+        pendingChanges.clear();
+        updatePendingUI();
+        Notification.show("Draf perubahan dibatalkan.", 2000, Notification.Position.BOTTOM_END);
+    }
+
+    private List<Map<String, Object>> getMergedSchemaList() {
+        List<Map<String, Object>> merged = new ArrayList<>();
+        for (Map<String, Object> map : currentSchemaList) merged.add(new HashMap<>(map));
+
+        for (PendingSchemaAction action : pendingChanges) {
+            if (action.actionType == SchemaActionType.ADD_COLUMN) {
+                Map<String, Object> newRow = new HashMap<>();
+                newRow.put("column_name", action.payload.get("name"));
+                newRow.put("formatted_type", action.payload.get("type"));
+                newRow.put("is_nullable", (Boolean) action.payload.get("isNull") ? "YES" : "NO");
+                newRow.put("column_default", action.payload.get("defVal"));
+                newRow.put("_pending_add", true);
+                merged.add(newRow);
+            } else if (action.actionType == SchemaActionType.EDIT_COLUMN) {
+                for (Map<String, Object> map : merged) {
+                    if (map.get("column_name") != null && map.get("column_name").equals(action.targetName)) {
+                        map.put("column_name", action.payload.get("name"));
+                        map.put("formatted_type", action.payload.get("type"));
+                        map.put("is_nullable", (Boolean) action.payload.get("isNull") ? "YES" : "NO");
+                        map.put("column_default", action.payload.get("defVal"));
+                        map.put("_pending_edit", true);
+                    }
+                }
+            } else if (action.actionType == SchemaActionType.DROP_COLUMN) {
+                for (Map<String, Object> map : merged) {
+                    if (map.get("column_name") != null && map.get("column_name").equals(action.targetName)) {
+                        map.put("_pending_delete", true);
+                    }
+                }
+            }
+        }
+        return merged;
+    }
+
+    private List<Map<String, Object>> getMergedConstraintList() {
+        List<Map<String, Object>> merged = new ArrayList<>();
+        for (Map<String, Object> map : currentConstraintList) merged.add(new HashMap<>(map));
+
+        for (PendingSchemaAction action : pendingChanges) {
+            if (action.actionType == SchemaActionType.ADD_CONSTRAINT) {
+                Map<String, Object> newRow = new HashMap<>();
+                newRow.put("constraint_name", action.payload.get("name"));
+                newRow.put("constraint_type", action.payload.get("type"));
+                newRow.put("column_name", action.payload.get("localCol"));
+                newRow.put("foreign_table", action.payload.get("refTable"));
+                newRow.put("foreign_column", action.payload.get("refCol"));
+                newRow.put("check_expression", action.payload.get("expr"));
+                newRow.put("_pending_add", true);
+                merged.add(newRow);
+            } else if (action.actionType == SchemaActionType.EDIT_CONSTRAINT) {
+                for (Map<String, Object> map : merged) {
+                    if (map.get("constraint_name") != null && map.get("constraint_name").equals(action.targetName)) {
+                        map.put("constraint_name", action.payload.get("name"));
+                        map.put("constraint_type", action.payload.get("type"));
+                        map.put("column_name", action.payload.get("localCol"));
+                        map.put("foreign_table", action.payload.get("refTable"));
+                        map.put("foreign_column", action.payload.get("refCol"));
+                        map.put("check_expression", action.payload.get("expr"));
+                        map.put("_pending_edit", true);
+                    }
+                }
+            } else if (action.actionType == SchemaActionType.DROP_CONSTRAINT) {
+                for (Map<String, Object> map : merged) {
+                    if (map.get("constraint_name") != null && map.get("constraint_name").equals(action.targetName)) {
+                        map.put("_pending_delete", true);
+                    }
+                }
+            }
+        }
+        return merged;
+    }
+
+    private List<Map<String, Object>> getMergedTriggerList() {
+        List<Map<String, Object>> merged = new ArrayList<>();
+        for (Map<String, Object> map : currentTriggerList) merged.add(new HashMap<>(map));
+
+        for (PendingSchemaAction action : pendingChanges) {
+            if (action.actionType == SchemaActionType.ADD_TRIGGER || action.actionType == SchemaActionType.EDIT_TRIGGER) {
+                TriggerDefinition td = (TriggerDefinition) action.payload.get("triggerDef");
+                if (action.actionType == SchemaActionType.ADD_TRIGGER) {
+                    Map<String, Object> newRow = new HashMap<>();
+                    newRow.put("trigger_name", td.getTriggerName());
+                    newRow.put("action_timing", td.getTiming());
+                    newRow.put("event_manipulation", String.join(", ", td.getEvents()));
+                    newRow.put("_pending_add", true);
+                    merged.add(newRow);
+                } else {
+                    for (Map<String, Object> map : merged) {
+                        if (map.get("trigger_name") != null && map.get("trigger_name").equals(action.targetName)) {
+                            map.put("trigger_name", td.getTriggerName());
+                            map.put("action_timing", td.getTiming());
+                            map.put("event_manipulation", String.join(", ", td.getEvents()));
+                            map.put("_pending_edit", true);
+                        }
+                    }
+                }
+            } else if (action.actionType == SchemaActionType.DROP_TRIGGER) {
+                for (Map<String, Object> map : merged) {
+                    if (map.get("trigger_name") != null && map.get("trigger_name").equals(action.targetName)) {
+                        map.put("_pending_delete", true);
+                    }
+                }
+            }
+        }
+        return merged;
     }
 
     public void refreshTables() {

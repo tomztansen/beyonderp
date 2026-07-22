@@ -141,6 +141,7 @@ public class ScriptExecutorService {
                     }
                 });
                 binding.setVariable("msgBox", new groovy.lang.Closure<Void>(null) {
+                    @SuppressWarnings("unused")
                     public void doCall(Object... args) {
                         if (args != null && args.length == 1) {
                             ctx.msgBox("Message Box", args[0]);
@@ -274,13 +275,13 @@ public class ScriptExecutorService {
                 public void doCall(Object tabId, String tabTitle, Object url, Object extra) {
                     ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, url != null ? url.toString() : null, extra);
                 }
-                public void doCall(Map namedArgs, Object tabId, String tabTitle) {
+                public void doCall(Map<?, ?> namedArgs, Object tabId, String tabTitle) {
                     ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, null, namedArgs);
                 }
-                public void doCall(Map namedArgs, Object tabId, String tabTitle, Object url) {
+                public void doCall(Map<?, ?> namedArgs, Object tabId, String tabTitle, Object url) {
                     ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, url != null ? url.toString() : null, namedArgs);
                 }
-                public void doCall(Map namedArgs, Object tabId, String tabTitle, Object url, Object extra) {
+                public void doCall(Map<?, ?> namedArgs, Object tabId, String tabTitle, Object url, Object extra) {
                     ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, url != null ? url.toString() : null, namedArgs);
                 }
                 public void doCall(Object... args) {
@@ -537,7 +538,7 @@ public class ScriptExecutorService {
         }
 
         @Override
-        @SuppressWarnings({"unchecked", "rawtypes"})
+        @SuppressWarnings("unchecked")
         public int compareTo(Object o) {
             if (primaryValue instanceof Comparable c1 && o != null) {
                 if (o instanceof SmartHeaderNode shn && shn.primaryValue != null) {
