@@ -36,11 +36,11 @@ public class TableDesignerView extends VerticalLayout {
     private final Runnable onTableCreatedListener;
 
     // Table Meta
-    private final TextField tableNameField = new TextField("Nama Tabel (Schema: dynamic)");
-    private final Checkbox includeAuditColsCheckbox = new Checkbox("Sertakan Kolom Audit Default (inputby, inputdt, updateby, updatedt)", true);
+    private final TextField tableNameField = new TextField("Table Name (Schema: dynamic)");
+    private final Checkbox includeAuditColsCheckbox = new Checkbox("Include Default Audit Columns (inputby, inputdt, updateby, updatedt)", true);
 
     // Column Inputs
-    private final TextField colNameInput = new TextField("Nama Kolom");
+    private final TextField colNameInput = new TextField("Column Name");
     private final ComboBox<String> colTypeInput = new ComboBox<>("Tipe Data SQL");
     private final Checkbox isNullableInput = new Checkbox("Nullable (Bisa Null)");
     private final Checkbox isPkInput = new Checkbox("Primary Key");
@@ -52,12 +52,12 @@ public class TableDesignerView extends VerticalLayout {
     private Runnable columnsGridRefresher;
 
     // Trigger Inputs
-    private final Checkbox enableTriggerCheckbox = new Checkbox("Aktifkan Database Trigger PL/pgSQL");
+    private final Checkbox enableTriggerCheckbox = new Checkbox("Enable PL/pgSQL Database Trigger");
     private final VerticalLayout triggerPanel = new VerticalLayout();
-    private final TextField triggerNameField = new TextField("Nama Trigger");
+    private final TextField triggerNameField = new TextField("Trigger Name");
     private final ComboBox<String> triggerTiming = new ComboBox<>("Timing");
     private final CheckboxGroup<String> triggerEvents = new CheckboxGroup<>("Trigger Events");
-    private final TextArea triggerBodyArea = new TextArea("Trigger PL/pgSQL Body (Di dalam blok Function)");
+    private final TextArea triggerBodyArea = new TextArea("Trigger PL/pgSQL Body (Inside Function Block)");
 
     public TableDesignerView(DynamicDataService dynamicDataService) {
         this(dynamicDataService, null);
@@ -123,7 +123,7 @@ public class TableDesignerView extends VerticalLayout {
         flagsLayout.setSpacing(true);
         flagsLayout.getStyle().set("margin-top", "25px");
 
-        Button btnAddColumn = new Button("Tambah Kolom", VaadinIcon.PLUS.create());
+        Button btnAddColumn = new Button("Add Column", VaadinIcon.PLUS.create());
         btnAddColumn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnAddColumn.getStyle().set("margin-top", "20px");
         btnAddColumn.addClickListener(e -> addColumnToList());
@@ -170,8 +170,8 @@ public class TableDesignerView extends VerticalLayout {
     private void setupGrid() {
         columnsGrid.setHeight("400px");
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(columnsGrid);
-        Grid.Column<ColumnDefinition> c1 = columnsGrid.addColumn(ColumnDefinition::getColumnName).setHeader("Nama Kolom");
-        Grid.Column<ColumnDefinition> c2 = columnsGrid.addColumn(ColumnDefinition::getDataType).setHeader("Tipe Data");
+        Grid.Column<ColumnDefinition> c1 = columnsGrid.addColumn(ColumnDefinition::getColumnName).setHeader("Column Name");
+        Grid.Column<ColumnDefinition> c2 = columnsGrid.addColumn(ColumnDefinition::getDataType).setHeader("Data Type");
         Grid.Column<ColumnDefinition> c3 = columnsGrid.addColumn(col -> col.isPrimaryKey() ? "YES" : "NO").setHeader("PK");
         Grid.Column<ColumnDefinition> c4 = columnsGrid.addColumn(col -> col.isNullable() ? "YES" : "NO").setHeader("Nullable");
         Grid.Column<ColumnDefinition> c5 = columnsGrid.addColumn(ColumnDefinition::getDefaultValue).setHeader("Default Value");
@@ -179,7 +179,7 @@ public class TableDesignerView extends VerticalLayout {
         columnsGrid.addComponentColumn(col -> {
             Button btnDel = new Button(VaadinIcon.TRASH.create());
             btnDel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
-            btnDel.setTooltipText("Hapus Kolom");
+            btnDel.setTooltipText("Delete Column");
             btnDel.addClickListener(e -> {
                 columnsList.remove(col);
                 if (columnsGridRefresher != null) columnsGridRefresher.run();
@@ -187,7 +187,7 @@ public class TableDesignerView extends VerticalLayout {
             // Don't allow deleting PK 'id'
             btnDel.setEnabled(!"id".equalsIgnoreCase(col.getColumnName()));
             return btnDel;
-        }).setHeader("Aksi").setWidth("80px").setFlexGrow(0);
+        }).setHeader("Action").setWidth("80px").setFlexGrow(0);
 
         Map<Grid.Column<ColumnDefinition>, Function<ColumnDefinition, String>> getterMap = new HashMap<>();
         getterMap.put(c1, col -> col.getColumnName() != null ? col.getColumnName() : "");
@@ -212,9 +212,9 @@ public class TableDesignerView extends VerticalLayout {
             }
             try {
                 dynamicDataService.saveUserGridOrder("TABLE_DESIGNER", "columnsGrid", orderedFieldNames);
-                Notification.show("Urutan kolom desain disimpan", 1500, Notification.Position.BOTTOM_END);
+                Notification.show("Design column order saved", 1500, Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
-                Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
+                Notification.show("Failed to save column order: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
             }
         });
         this.columnsGridRefresher = StandardGridUtils.attachGridFilters(columnsGrid, getterMap, () -> columnsList);
@@ -257,7 +257,7 @@ public class TableDesignerView extends VerticalLayout {
         triggerBodyArea.getStyle().set("font-family", "monospace");
         updateTriggerTemplate();
 
-        triggerPanel.add(new H4("Pengaturan Database Trigger PL/pgSQL"), triggerForm, triggerBodyArea);
+        triggerPanel.add(new H4("PL/pgSQL Database Trigger Settings"), triggerForm, triggerBodyArea);
     }
 
     private void updateTriggerTemplate() {
@@ -265,7 +265,7 @@ public class TableDesignerView extends VerticalLayout {
         String table = rawTable.isEmpty() ? "nama_tabel" : rawTable;
         
         String template = "BEGIN\n" +
-                "    -- Contoh Trigger: Mengisi audit log otomatis sebelum simpan data\n" +
+                "    -- Example Trigger: Auto-fill audit log before saving data\n" +
                 "    -- NEW.updated_at = NOW();\n" +
                 "    \n" +
                 "    -- Kembalikan record target (NEW) agar query berlanjut\n" +
@@ -282,14 +282,14 @@ public class TableDesignerView extends VerticalLayout {
         String defVal = defaultValueInput.getValue().trim();
 
         if (colName.isEmpty() || colType == null) {
-            Notification.show("Nama kolom dan Tipe data tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Column Name and Data Type cannot be empty!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
         // Duplicate Check
         boolean exists = columnsList.stream().anyMatch(c -> c.getColumnName().equalsIgnoreCase(colName));
         if (exists) {
-            Notification.show("Kolom '" + colName + "' sudah ditambahkan!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Column '" + colName + "' already added!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
@@ -310,13 +310,13 @@ public class TableDesignerView extends VerticalLayout {
         isNullableInput.setValue(true);
         isPkInput.setValue(false);
 
-        Notification.show("Kolom ditambahkan!", 2000, Notification.Position.BOTTOM_END);
+        Notification.show("Column added!", 2000, Notification.Position.BOTTOM_END);
     }
 
     private void buildTableAndTrigger() {
         String table = tableNameField.getValue().trim();
         if (table.isEmpty()) {
-            Notification.show("Nama tabel tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Table name cannot be empty!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
@@ -333,7 +333,7 @@ public class TableDesignerView extends VerticalLayout {
             HashSet<String> events = new HashSet<>(triggerEvents.getValue());
 
             if (trgName.isEmpty() || trgBody.isEmpty() || events.isEmpty()) {
-                Notification.show("Nama trigger, Event, dan Body trigger PL/pgSQL harus diatur!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Trigger Name, Event, and PL/pgSQL Trigger Body must be set!", 3000, Notification.Position.MIDDLE);
                 return;
             }
 
@@ -348,7 +348,7 @@ public class TableDesignerView extends VerticalLayout {
             // Build Table & Trigger via DynamicDataService
             dynamicDataService.createPhysicalTableAndTrigger(table, columnsList, trigger);
             
-            Notification.show("Tabel dynamic." + table + " dan Database Trigger berhasil dibentuk!", 4000, Notification.Position.TOP_CENTER);
+            Notification.show("Tabel dynamic." + table + " and Database Trigger successfully created!", 4000, Notification.Position.TOP_CENTER);
 
             // Reset UI
             tableNameField.clear();
@@ -373,7 +373,7 @@ public class TableDesignerView extends VerticalLayout {
                 onTableCreatedListener.run();
             }
         } catch (Exception ex) {
-            Notification.show("Gagal membuild Tabel/Trigger: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+            Notification.show("Failed to build Table/Trigger: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
         }
     }
 

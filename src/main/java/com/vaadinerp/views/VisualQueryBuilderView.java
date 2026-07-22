@@ -24,24 +24,24 @@ public class VisualQueryBuilderView extends VerticalLayout {
 
     private final DynamicDataService dynamicDataService;
     
-    private final ComboBox<String> tableSelect = new ComboBox<>("Pilih Tabel Dasar");
-    private final MultiSelectComboBox<String> columnSelect = new MultiSelectComboBox<>("Pilih Kolom");
+    private final ComboBox<String> tableSelect = new ComboBox<>("Select Base Table");
+    private final MultiSelectComboBox<String> columnSelect = new MultiSelectComboBox<>("Select Column");
     private final TextArea sqlEditor = new TextArea("SQL Text (Generated / Manual Edit)");
     private final Button btnExecute = new Button("Execute Query", VaadinIcon.PLAY.create());
     private final Button btnCopy = new Button("Copy SQL", VaadinIcon.COPY.create());
     
     // Filters UI
     private final VerticalLayout filtersLayout = new VerticalLayout();
-    private final Button btnAddFilter = new Button("Tambah Filter", VaadinIcon.PLUS.create());
+    private final Button btnAddFilter = new Button("Add Filter", VaadinIcon.PLUS.create());
     
     // Aggregates UI
     private final VerticalLayout aggregateLayout = new VerticalLayout();
-    private final Button btnAddAggregate = new Button("Tambah Aggregate", VaadinIcon.PLUS.create());
+    private final Button btnAddAggregate = new Button("Add Aggregate", VaadinIcon.PLUS.create());
     private final List<AggregateRow> activeAggregates = new ArrayList<>();
 
     // JOIN UI
     private final VerticalLayout joinLayout = new VerticalLayout();
-    private final Button btnAddJoin = new Button("Tambah Join", VaadinIcon.PLUS.create());
+    private final Button btnAddJoin = new Button("Add Join", VaadinIcon.PLUS.create());
     private final List<JoinRow> activeJoins = new ArrayList<>();
 
     // ===================== INNER CLASSES =====================
@@ -70,7 +70,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
             joinTypeSelect.setValue("INNER JOIN");
             joinTypeSelect.setWidth("140px");
 
-            targetTableSelect.setPlaceholder("Tabel Target...");
+            targetTableSelect.setPlaceholder("Target Table...");
             targetTableSelect.setItems(allTables);
             targetTableSelect.setWidth("200px");
 
@@ -136,11 +136,11 @@ public class VisualQueryBuilderView extends VerticalLayout {
             Button btnRemovePair = new Button(VaadinIcon.CLOSE_SMALL.create());
 
             JoinOnPair(List<String> srcCols, List<String> tgtCols) {
-                sourceColSelect.setPlaceholder("Kolom Sumber (ON)...");
+                sourceColSelect.setPlaceholder("Source Column (ON)...");
                 sourceColSelect.setItems(srcCols);
                 sourceColSelect.setWidth("180px");
 
-                targetColSelect.setPlaceholder("Kolom Target (ON)...");
+                targetColSelect.setPlaceholder("Target Column (ON)...");
                 targetColSelect.setItems(tgtCols);
                 targetColSelect.setWidth("180px");
                 targetColSelect.setEnabled(!tgtCols.isEmpty());
@@ -152,7 +152,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
                         onPairs.remove(this);
                         generateSql();
                     } else {
-                        Notification.show("Minimal 1 kondisi ON per JOIN", 2000, Notification.Position.BOTTOM_END);
+                        Notification.show("At least 1 ON condition is required per JOIN", 2000, Notification.Position.BOTTOM_END);
                     }
                 });
 
@@ -182,7 +182,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
         boolean isColumnMode = false;
 
         FilterRow(List<String> availableColumns) {
-            fieldSelect.setPlaceholder("Pilih Kolom...");
+            fieldSelect.setPlaceholder("Select Column...");
             fieldSelect.setItems(availableColumns);
             fieldSelect.setWidth("200px");
 
@@ -193,12 +193,12 @@ public class VisualQueryBuilderView extends VerticalLayout {
             valueField.setPlaceholder("Nilai...");
             valueField.setWidth("200px");
 
-            columnRefSelect.setPlaceholder("Pilih Kolom...");
+            columnRefSelect.setPlaceholder("Select Column...");
             columnRefSelect.setItems(availableColumns);
             columnRefSelect.setWidth("200px");
             columnRefSelect.setVisible(false);
 
-            useColumnRef.setTooltipText("Centang untuk membandingkan dengan kolom lain, bukan nilai teks");
+            useColumnRef.setTooltipText("Check to compare with another column, not a text value");
             useColumnRef.addValueChangeListener(e -> {
                 isColumnMode = e.getValue();
                 valueField.setVisible(!isColumnMode);
@@ -235,7 +235,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
             funcSelect.setWidth("120px");
 
             colSelect.setItems(availableColumns);
-            colSelect.setPlaceholder("Pilih Kolom...");
+            colSelect.setPlaceholder("Select Column...");
             colSelect.setWidth("200px");
 
             btnRemove.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_ICON);
@@ -254,7 +254,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
     }
     
     private final Grid<Map<String, Object>> resultGrid = new Grid<>();
-    private final Span recordCount = new Span("Menunggu eksekusi query...");
+    private final Span recordCount = new Span("Waiting for query execution...");
     private final List<FilterRow> activeFilters = new ArrayList<>();
 
     // ===================== CONSTRUCTOR =====================
@@ -312,7 +312,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
                 joinLayout.add(row);
                 activeJoins.add(row);
             } else {
-                Notification.show("Pilih tabel terlebih dahulu");
+                Notification.show("Please select a table first");
             }
         });
 
@@ -333,7 +333,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
                 filtersLayout.add(row);
                 activeFilters.add(row);
             } else {
-                Notification.show("Pilih tabel terlebih dahulu");
+                Notification.show("Please select a table first");
             }
         });
         
@@ -352,7 +352,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
                 aggregateLayout.add(row);
                 activeAggregates.add(row);
             } else {
-                Notification.show("Pilih tabel terlebih dahulu");
+                Notification.show("Please select a table first");
             }
         });
         
@@ -384,7 +384,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
         
         btnCopy.addClickListener(e -> {
             com.vaadin.flow.component.UI.getCurrent().getPage().executeJs("navigator.clipboard.writeText($0)", sqlEditor.getValue());
-            Notification.show("SQL disalin ke clipboard!", 2000, Notification.Position.BOTTOM_END);
+            Notification.show("SQL copied to clipboard!", 2000, Notification.Position.BOTTOM_END);
         });
 
         HorizontalLayout actionLayout = new HorizontalLayout(btnExecute, btnCopy);
@@ -507,7 +507,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
     private void executeQuery() {
         String sql = sqlEditor.getValue();
         if (sql == null || sql.trim().isEmpty()) {
-            Notification.show("SQL masih kosong!", 3000, Notification.Position.MIDDLE);
+            Notification.show("SQL is empty!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
@@ -527,12 +527,12 @@ public class VisualQueryBuilderView extends VerticalLayout {
             }
             
             resultGrid.setItems(data);
-            recordCount.setText("Menampilkan " + data.size() + " baris data.");
+            recordCount.setText("Showing " + data.size() + " rows.");
             
         } catch (Exception ex) {
             Notification.show("Error eksekusi query: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
             resultGrid.setItems(new ArrayList<>());
-            recordCount.setText("Error saat eksekusi.");
+            recordCount.setText("Error during execution.");
         }
     }
 

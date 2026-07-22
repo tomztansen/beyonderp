@@ -328,7 +328,7 @@ public class FileUploadField extends CustomField<String> {
         layout.setSizeFull();
         dialog.add(layout);
 
-        Button closeBtn = new Button("Tutup", VaadinIcon.CLOSE.create(), e -> dialog.close());
+        Button closeBtn = new Button("Close", VaadinIcon.CLOSE.create(), e -> dialog.close());
         closeBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         dialog.getFooter().add(closeBtn);
 

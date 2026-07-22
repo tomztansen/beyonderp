@@ -70,6 +70,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
     private Runnable userFilterRefresher;
     private Runnable roleFilterRefresher;
     private Runnable matrixFilterRefresher;
+    private Runnable menuFilterRefresher;
 
     public UserAuthorityAdminView(AppUserRepository userRepository, AppRoleRepository roleRepository,
                                   AppMenuRepository menuRepository,
@@ -91,13 +92,13 @@ public class UserAuthorityAdminView extends VerticalLayout {
         setPadding(true);
         setSpacing(true);
 
-        Paragraph desc = new Paragraph("Kelola pengguna, role, struktur menu tree, dan konfigurasi hak akses granular (RBAC per aksi) pada skema public PostgreSQL.");
+        Paragraph desc = new Paragraph("Manage users, roles, menu tree structure, and granular access rights (RBAC per action) on the PostgreSQL public schema.");
         desc.getStyle().set("color", "#64748b").set("margin-top", "0");
 
-        Tab tabUsers = new Tab("Manajemen Pengguna");
-        Tab tabRoles = new Tab("Manajemen Role");
-        Tab tabMenus = new Tab("Manajemen Menu");
-        Tab tabMatrix = new Tab("Matriks Otoritas Akses");
+        Tab tabUsers = new Tab("User Management");
+        Tab tabRoles = new Tab("Role Management");
+        Tab tabMenus = new Tab("Menu Management");
+        Tab tabMatrix = new Tab("Access Authority Matrix");
         Tabs tabs = new Tabs(tabUsers, tabRoles, tabMenus, tabMatrix);
         tabs.setWidthFull();
 
@@ -138,9 +139,9 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 .onRefresh(this::refreshUserGrid);
 
         var colUser = userGrid.addColumn(AppUser::getUsername).setHeader("Username").setSortable(true).setAutoWidth(true);
-        var colName = userGrid.addColumn(AppUser::getFullName).setHeader("Nama Lengkap").setSortable(true).setAutoWidth(true);
+        var colName = userGrid.addColumn(AppUser::getFullName).setHeader("Full Name").setSortable(true).setAutoWidth(true);
         var colRole = userGrid.addColumn(AppUser::getRoleCode).setHeader("Role").setSortable(true).setAutoWidth(true);
-        var colStatus = userGrid.addColumn(u -> Boolean.TRUE.equals(u.getIsActive()) ? "✅ Aktif" : "❌ Non-Aktif").setHeader("Status").setAutoWidth(true);
+        var colStatus = userGrid.addColumn(u -> Boolean.TRUE.equals(u.getIsActive()) ? "✅ Active" : "❌ Inactive").setHeader("Status").setAutoWidth(true);
         
         userGrid.addComponentColumn(u -> {
             HorizontalLayout actions = new HorizontalLayout();
@@ -150,14 +151,14 @@ public class UserAuthorityAdminView extends VerticalLayout {
             editBtn.getElement().setAttribute("title", "Edit User");
             Button deleteBtn = new Button(VaadinIcon.TRASH.create(), e -> {
                 userRepository.delete(u);
-                Notification.show("User '" + u.getUsername() + "' dihapus!", 2000, Notification.Position.BOTTOM_END);
+                Notification.show("User '" + u.getUsername() + "' deleted!", 2000, Notification.Position.BOTTOM_END);
                 refreshUserGrid();
             });
             deleteBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
-            deleteBtn.getElement().setAttribute("title", "Hapus User");
+            deleteBtn.getElement().setAttribute("title", "Delete User");
             actions.add(editBtn, deleteBtn);
             return actions;
-        }).setHeader("Aksi").setAutoWidth(true);
+        }).setHeader("Action").setAutoWidth(true);
 
         userGrid.setHeight("100%");
         userGrid.getStyle().set("border-radius", "8px").set("box-shadow", "0 1px 3px rgba(0,0,0,0.1)");
@@ -166,7 +167,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 colUser, u -> u.getUsername() != null ? u.getUsername() : "",
                 colName, u -> u.getFullName() != null ? u.getFullName() : "",
                 colRole, u -> u.getRoleCode() != null ? u.getRoleCode() : "",
-                colStatus, u -> Boolean.TRUE.equals(u.getIsActive()) ? "Aktif" : "Non-Aktif"
+                colStatus, u -> Boolean.TRUE.equals(u.getIsActive()) ? "Active" : "Inactive"
         );
         userFilterRefresher = StandardGridUtils.attachGridFilters(userGrid, getterMap, userRepository::findAll);
         toolbar.add(StandardGridUtils.createExportExcelButton(userGrid, "users_export", getterMap));
@@ -179,7 +180,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
     private void openUserDialog(AppUser existing) {
         boolean isNew = existing == null;
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle((existing == null) ? "Tambah User Baru" : "Edit User: " + existing.getUsername());
+        dialog.setHeaderTitle((existing == null) ? "Add New User" : "Edit User: " + existing.getUsername());
         dialog.setWidth("460px");
 
         FormLayout form = new FormLayout();
@@ -188,10 +189,10 @@ public class UserAuthorityAdminView extends VerticalLayout {
         usernameField.setWidthFull();
         usernameField.setRequired(true);
 
-        TextField fullNameField = new TextField("Nama Lengkap");
+        TextField fullNameField = new TextField("Full Name");
         fullNameField.setWidthFull();
 
-        PasswordField passwordField = new PasswordField(isNew ? "Password" : "Password Baru (kosongkan jika tidak diubah)");
+        PasswordField passwordField = new PasswordField(isNew ? "Password" : "New Password (leave blank if unchanged)");
         passwordField.setWidthFull();
         if (isNew) passwordField.setRequired(true);
 
@@ -200,7 +201,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         roleSelect.setItems(roleRepository.findAll().stream().map(AppRole::getRoleCode).toList());
         roleSelect.setRequired(true);
 
-        Checkbox activeCheckbox = new Checkbox("Aktif");
+        Checkbox activeCheckbox = new Checkbox("Active");
         activeCheckbox.setValue(true);
 
         if (existing != null) {
@@ -213,27 +214,27 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         form.add(usernameField, fullNameField, passwordField, roleSelect, activeCheckbox);
 
-        Button saveBtn = new Button("Simpan", VaadinIcon.CHECK.create(), e -> {
+        Button saveBtn = new Button("Save", VaadinIcon.CHECK.create(), e -> {
             String username = usernameField.getValue();
             String role = roleSelect.getValue();
             if (username == null || username.isBlank()) {
-                Notification n = Notification.show("Username wajib diisi!", 3000, Notification.Position.TOP_CENTER);
+                Notification n = Notification.show("Username is required!", 3000, Notification.Position.TOP_CENTER);
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
             if (role == null || role.isBlank()) {
-                Notification n = Notification.show("Role wajib dipilih!", 3000, Notification.Position.TOP_CENTER);
+                Notification n = Notification.show("Role must be selected!", 3000, Notification.Position.TOP_CENTER);
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
             if (isNew && (passwordField.getValue() == null || passwordField.getValue().isBlank())) {
-                Notification n = Notification.show("Password wajib diisi untuk user baru!", 3000, Notification.Position.TOP_CENTER);
+                Notification n = Notification.show("Password is required for new users!", 3000, Notification.Position.TOP_CENTER);
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
 
             if (isNew && userRepository.findByUsernameIgnoreCase(username.trim()).isPresent()) {
-                Notification n = Notification.show("Username '" + username.trim() + "' sudah digunakan!", 3000, Notification.Position.TOP_CENTER);
+                Notification n = Notification.show("Username '" + username.trim() + "' is already in use!", 3000, Notification.Position.TOP_CENTER);
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
@@ -252,11 +253,11 @@ public class UserAuthorityAdminView extends VerticalLayout {
             userRepository.save(user);
             dialog.close();
             refreshUserGrid();
-            Notification.show("User '" + username + "' berhasil " + (isNew ? "dibuat" : "diperbarui") + "!", 2000, Notification.Position.BOTTOM_END);
+            Notification.show("User '" + username + "' berhasil " + (isNew ? "created" : "updated") + "!", 2000, Notification.Position.BOTTOM_END);
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button cancelBtn = new Button("Batal", e -> dialog.close());
+        Button cancelBtn = new Button("Cancel", e -> dialog.close());
 
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.add(form);
@@ -276,9 +277,9 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 .onNew(() -> openRoleDialog(null))
                 .onRefresh(this::refreshRoleGrid);
 
-        var colCode = roleGrid.addColumn(AppRole::getRoleCode).setHeader("Kode Role").setSortable(true).setAutoWidth(true);
-        var colName = roleGrid.addColumn(AppRole::getRoleName).setHeader("Nama Role").setSortable(true).setAutoWidth(true);
-        var colDesc = roleGrid.addColumn(AppRole::getDescription).setHeader("Deskripsi").setAutoWidth(true);
+        var colCode = roleGrid.addColumn(AppRole::getRoleCode).setHeader("Role Code").setSortable(true).setAutoWidth(true);
+        var colName = roleGrid.addColumn(AppRole::getRoleName).setHeader("Role Name").setSortable(true).setAutoWidth(true);
+        var colDesc = roleGrid.addColumn(AppRole::getDescription).setHeader("Description").setAutoWidth(true);
         
         roleGrid.addComponentColumn(r -> {
             HorizontalLayout actions = new HorizontalLayout();
@@ -288,12 +289,12 @@ public class UserAuthorityAdminView extends VerticalLayout {
             Button deleteBtn = new Button(VaadinIcon.TRASH.create(), e -> {
                 roleRepository.delete(r);
                 refreshRoleGrid();
-                Notification.show("Role '" + r.getRoleCode() + "' dihapus!", 2000, Notification.Position.BOTTOM_END);
+                Notification.show("Role '" + r.getRoleCode() + "' deleted!", 2000, Notification.Position.BOTTOM_END);
             });
             deleteBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
             actions.add(editBtn, deleteBtn);
             return actions;
-        }).setHeader("Aksi").setAutoWidth(true);
+        }).setHeader("Action").setAutoWidth(true);
 
         roleGrid.setHeight("100%");
         roleGrid.getStyle().set("border-radius", "8px").set("box-shadow", "0 1px 3px rgba(0,0,0,0.1)");
@@ -314,19 +315,19 @@ public class UserAuthorityAdminView extends VerticalLayout {
     private void openRoleDialog(AppRole existing) {
         boolean isNew = existing == null;
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle((existing == null) ? "Tambah Role Baru" : "Edit Role: " + existing.getRoleCode());
+        dialog.setHeaderTitle((existing == null) ? "Add New Role" : "Edit Role: " + existing.getRoleCode());
         dialog.setWidth("400px");
 
         FormLayout form = new FormLayout();
 
-        TextField codeField = new TextField("Kode Role");
+        TextField codeField = new TextField("Role Code");
         codeField.setWidthFull();
         codeField.setRequired(true);
 
-        TextField nameField = new TextField("Nama Role");
+        TextField nameField = new TextField("Role Name");
         nameField.setWidthFull();
 
-        TextField descField = new TextField("Deskripsi");
+        TextField descField = new TextField("Description");
         descField.setWidthFull();
 
         if (existing != null) {
@@ -338,9 +339,9 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         form.add(codeField, nameField, descField);
 
-        Button saveBtn = new Button("Simpan", e -> {
+        Button saveBtn = new Button("Save", e -> {
             if (codeField.getValue() == null || codeField.getValue().isBlank()) {
-                Notification.show("Kode Role wajib diisi!", 3000, Notification.Position.TOP_CENTER);
+                Notification.show("Kode Role is required!", 3000, Notification.Position.TOP_CENTER);
                 return;
             }
             AppRole role = (existing == null) ? new AppRole() : existing;
@@ -350,11 +351,11 @@ public class UserAuthorityAdminView extends VerticalLayout {
             roleRepository.save(role);
             dialog.close();
             refreshRoleGrid();
-            Notification.show("Role berhasil " + (isNew ? "dibuat" : "diperbarui") + "!", 2000, Notification.Position.BOTTOM_END);
+            Notification.show("Role berhasil " + (isNew ? "created" : "updated") + "!", 2000, Notification.Position.BOTTOM_END);
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button cancelBtn = new Button("Batal", e -> dialog.close());
+        Button cancelBtn = new Button("Cancel", e -> dialog.close());
 
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.add(form);
@@ -373,37 +374,33 @@ public class UserAuthorityAdminView extends VerticalLayout {
         StandardActionToolbar toolbar = new StandardActionToolbar()
                 .onNew(() -> openMenuDialog(null, null))
                 .onRefresh(this::refreshMenuTreeGrid);
-        toolbar.getBtnNew().setText("Tambah Group Menu");
+        toolbar.getBtnNew().setText("Add Menu Group");
 
-        Button addItemBtn = new Button("Tambah Menu Item (Root)", VaadinIcon.PLUS.create(), e -> openMenuDialogItem(null, null));
+        Button addItemBtn = new Button("Add Menu Item (Root)", VaadinIcon.PLUS.create(), e -> openMenuDialogItem(null, null));
         StandardActionToolbar.styleToolbarButton(addItemBtn, "#3b82f6");
         toolbar.add(addItemBtn);
 
-        menuTreeGrid.addHierarchyColumn(AppMenu::getMenuTitle)
-                .setHeader("Judul Menu")
+        var colTitle = menuTreeGrid.addHierarchyColumn(AppMenu::getMenuTitle)
+                .setHeader("Menu Title")
                 .setAutoWidth(true)
                 .setFlexGrow(1);
 
-        menuTreeGrid.addColumn(AppMenu::getMenuCode)
-                .setHeader("Kode Menu")
+        var colCode = menuTreeGrid.addColumn(AppMenu::getMenuCode)
+                .setHeader("Menu Code")
                 .setSortable(true)
                 .setAutoWidth(true);
 
-        menuTreeGrid.addColumn(m -> {
+        var colType = menuTreeGrid.addColumn(m -> {
             if ("GROUP".equalsIgnoreCase(m.getMenuType())) return "📂 Folder (Group)";
-            return "📄 Item (Klik)";
-        }).setHeader("Tipe").setAutoWidth(true);
+            return "📄 Item (Click)";
+        }).setHeader("Type").setAutoWidth(true);
 
-        menuTreeGrid.addColumn(AppMenu::getIconName)
+        var colIcon = menuTreeGrid.addColumn(AppMenu::getIconName)
                 .setHeader("Icon")
                 .setAutoWidth(true);
 
-        menuTreeGrid.addColumn(m -> m.getRoutePath() != null ? m.getRoutePath() : "-")
-                .setHeader("Route Path")
-                .setAutoWidth(true);
-
-        menuTreeGrid.addColumn(m -> m.getDisplayOrder() != null ? m.getDisplayOrder() : 10)
-                .setHeader("Urutan")
+        var colOrder = menuTreeGrid.addColumn(m -> m.getDisplayOrder() != null ? m.getDisplayOrder() : 10)
+                .setHeader("Order")
                 .setAutoWidth(true);
 
         menuTreeGrid.addComponentColumn(m -> {
@@ -413,7 +410,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
             if ("GROUP".equalsIgnoreCase(m.getMenuType())) {
                 Button addChildBtn = new Button(VaadinIcon.PLUS_CIRCLE_O.create(), e -> openMenuDialog(null, m.getMenuCode()));
                 addChildBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
-                addChildBtn.getElement().setAttribute("title", "Tambah Child Menu");
+                addChildBtn.getElement().setAttribute("title", "Add Child Menu");
                 addChildBtn.getStyle().set("color", "#22c55e");
                 actions.add(addChildBtn);
             }
@@ -425,22 +422,29 @@ public class UserAuthorityAdminView extends VerticalLayout {
             Button deleteBtn = new Button(VaadinIcon.TRASH.create(), e -> {
                 deleteMenuAndDependencies(m);
                 refreshMenuTreeGrid();
-                Notification.show("Menu '" + m.getMenuCode() + "' dihapus!", 2000, Notification.Position.BOTTOM_END);
+                Notification.show("Menu '" + m.getMenuCode() + "' deleted!", 2000, Notification.Position.BOTTOM_END);
             });
             deleteBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
-            deleteBtn.getElement().setAttribute("title", "Hapus Menu");
+            deleteBtn.getElement().setAttribute("title", "Delete Menu");
 
             actions.add(editBtn, deleteBtn);
             return actions;
-        }).setHeader("Aksi").setAutoWidth(true);
+        }).setHeader("Action").setAutoWidth(true);
 
         menuTreeGrid.setHeight("100%");
         menuTreeGrid.getStyle().set("border-radius", "8px").set("box-shadow", "0 1px 3px rgba(0,0,0,0.1)");
 
-        Paragraph hint = new Paragraph("💡 Struktur menu hierarkis: Buat GROUP terlebih dahulu, lalu tambahkan ITEM di bawahnya. Gunakan tombol ⊕ pada baris GROUP untuk menambah child.");
+        Paragraph hint = new Paragraph("💡 Hierarchical menu: Create a GROUP first, then add ITEMs underneath. Use the ⊕ button on GROUP rows to add children.");
         hint.getStyle().set("font-size", "0.8rem").set("color", "#64748b").set("margin", "0");
 
-        toolbar.add(StandardGridUtils.createExportExcelButton(menuTreeGrid, "menus_export"));
+        Map<Grid.Column<AppMenu>, Function<AppMenu, String>> getterMap = Map.of(
+                colTitle, m -> m.getMenuTitle() != null ? m.getMenuTitle() : "",
+                colCode, m -> m.getMenuCode() != null ? m.getMenuCode() : "",
+                colType, m -> m.getMenuType() != null ? m.getMenuType() : ""
+        );
+        menuFilterRefresher = attachMenuTreeGridFilters(getterMap);
+        toolbar.add(StandardGridUtils.createExportExcelButton(menuTreeGrid, "menus_export", getterMap));
+
         l.add(toolbar, hint, menuTreeGrid);
         l.setFlexGrow(1, menuTreeGrid);
         return l;
@@ -455,20 +459,20 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
     private void openMenuDialog(AppMenu existing, String defaultParentCode) {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle((existing == null) ? "Tambah Menu Baru" : "Edit Menu: " + existing.getMenuCode());
+        dialog.setHeaderTitle((existing == null) ? "Add New Menu" : "Edit Menu: " + existing.getMenuCode());
         dialog.setWidth("540px");
 
         FormLayout form = new FormLayout();
 
-        TextField codeField = new TextField("Kode Menu (unik)");
+        TextField codeField = new TextField("Menu Code (unique)");
         codeField.setWidthFull();
         codeField.setRequired(true);
 
-        TextField titleField = new TextField("Judul Menu");
+        TextField titleField = new TextField("Menu Title");
         titleField.setWidthFull();
         titleField.setRequired(true);
 
-        ComboBox<String> typeSelect = new ComboBox<>("Tipe Menu");
+        ComboBox<String> typeSelect = new ComboBox<>("Menu Type");
         typeSelect.setWidthFull();
         typeSelect.setItems("GROUP", "ITEM");
         typeSelect.setRequired(true);
@@ -482,7 +486,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         parentSelect.setItems(groups.stream().map(g -> g.getMenuCode() + " — " + g.getMenuTitle()).toList());
         parentSelect.setItemLabelGenerator(s -> s);
 
-        ComboBox<String> iconField = new ComboBox<>("Nama Icon (VaadinIcon)");
+        ComboBox<String> iconField = new ComboBox<>("Icon Name (VaadinIcon)");
         iconField.setWidthFull();
         iconField.setItems(java.util.Arrays.stream(com.vaadin.flow.component.icon.VaadinIcon.values())
                 .map(Enum::name)
@@ -502,8 +506,9 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         TextField routeField = new TextField("Route Path");
         routeField.setWidthFull();
+        routeField.setVisible(false);
 
-        IntegerField orderField = new IntegerField("Urutan Tampil");
+        IntegerField orderField = new IntegerField("Display Order");
         orderField.setWidthFull();
         orderField.setValue(10);
         orderField.setStepButtonsVisible(true);
@@ -534,9 +539,9 @@ public class UserAuthorityAdminView extends VerticalLayout {
         }
 
         if (existing == null) {
-            ComboBox<AvailableMenuItem> autoFillSelect = new ComboBox<>("⚡ Pilih dari Form / Modul yang Tersedia (Auto-Fill)");
+            ComboBox<AvailableMenuItem> autoFillSelect = new ComboBox<>("⚡ Select from Available Forms / Modules (Auto-Fill)");
             autoFillSelect.setWidthFull();
-            autoFillSelect.setPlaceholder("-- Pilih Modul / Form untuk Isi Otomatis --");
+            autoFillSelect.setPlaceholder("-- Select Module / Form for Auto-Fill --");
             autoFillSelect.setClearButtonVisible(true);
 
             List<AvailableMenuItem> availableList = new ArrayList<>();
@@ -593,9 +598,9 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         form.add(codeField, titleField, typeSelect, parentSelect, iconField, routeField, orderField);
 
-        Button saveBtn = new Button("Simpan", VaadinIcon.CHECK.create(), e -> {
+        Button saveBtn = new Button("Save", VaadinIcon.CHECK.create(), e -> {
             if (codeField.getValue() == null || codeField.getValue().isBlank() || titleField.getValue() == null || titleField.getValue().isBlank()) {
-                Notification.show("Kode dan Judul Menu wajib diisi!", 3000, Notification.Position.TOP_CENTER);
+                Notification.show("Kode dan Judul Menu is required!", 3000, Notification.Position.TOP_CENTER);
                 return;
             }
 
@@ -617,11 +622,11 @@ public class UserAuthorityAdminView extends VerticalLayout {
             menuRepository.save(menu);
             dialog.close();
             refreshMenuTreeGrid();
-            Notification.show("Menu berhasil disimpan!", 2000, Notification.Position.BOTTOM_END);
+            Notification.show("Menu saved successfully!", 2000, Notification.Position.BOTTOM_END);
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button cancelBtn = new Button("Batal", e -> dialog.close());
+        Button cancelBtn = new Button("Cancel", e -> dialog.close());
 
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.add(form);
@@ -665,8 +670,8 @@ public class UserAuthorityAdminView extends VerticalLayout {
         toolbar.add(btnCopy);
 
         var colRole = matrixGrid.addColumn(RoleMenuPermission::getRoleCode).setHeader("Role").setSortable(true).setAutoWidth(true);
-        var colMenu = matrixGrid.addColumn(RoleMenuPermission::getMenuCode).setHeader("Kode Menu").setSortable(true).setAutoWidth(true);
-        var colMenuDesc = matrixGrid.addColumn(p -> getMenuTitleByCode(p.getMenuCode())).setHeader("Deskripsi Menu").setSortable(true).setAutoWidth(true);
+        var colMenu = matrixGrid.addColumn(RoleMenuPermission::getMenuCode).setHeader("Menu Code").setSortable(true).setAutoWidth(true);
+        var colMenuDesc = matrixGrid.addColumn(p -> getMenuTitleByCode(p.getMenuCode())).setHeader("Menu Description").setSortable(true).setAutoWidth(true);
 
         matrixGrid.addComponentColumn(p -> {
             Checkbox cb = new Checkbox();
@@ -700,11 +705,11 @@ public class UserAuthorityAdminView extends VerticalLayout {
             Button deleteBtn = new Button(VaadinIcon.TRASH.create(), e -> {
                 permissionRepository.delete(p);
                 refreshMatrixGrid();
-                Notification.show("Izin dihapus!", 1500, Notification.Position.BOTTOM_END);
+                Notification.show("Permission deleted!", 1500, Notification.Position.BOTTOM_END);
             });
             deleteBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
             return deleteBtn;
-        }).setHeader("Hapus").setAutoWidth(true);
+        }).setHeader("Delete").setAutoWidth(true);
 
         matrixGrid.setHeight("100%");
         matrixGrid.getStyle().set("border-radius", "8px").set("box-shadow", "0 1px 3px rgba(0,0,0,0.1)");
@@ -727,7 +732,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
     private void openPermissionDialog() {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Tambah Izin Akses Menu untuk Role");
+        dialog.setHeaderTitle("Add Menu Access Permission for Role");
         dialog.setWidth("440px");
 
         FormLayout form = new FormLayout();
@@ -745,10 +750,10 @@ public class UserAuthorityAdminView extends VerticalLayout {
         menuSelect.setItemLabelGenerator(m -> m.getMenuCode() + (m.getMenuTitle() != null ? " (" + m.getMenuTitle() + ")" : ""));
         menuSelect.setRequired(true);
 
-        com.vaadin.flow.component.textfield.TextField descField = new com.vaadin.flow.component.textfield.TextField("Deskripsi Menu");
+        com.vaadin.flow.component.textfield.TextField descField = new com.vaadin.flow.component.textfield.TextField("Menu Description");
         descField.setWidthFull();
         descField.setReadOnly(true);
-        descField.setPlaceholder("Pilih menu untuk melihat deskripsi...");
+        descField.setPlaceholder("Select menu to view description...");
 
         menuSelect.addValueChangeListener(e -> {
             if (e.getValue() != null) {
@@ -771,15 +776,15 @@ public class UserAuthorityAdminView extends VerticalLayout {
         form.setColspan(menuSelect, 2);
         form.setColspan(descField, 2);
 
-        Button saveBtn = new Button("Simpan", e -> {
+        Button saveBtn = new Button("Save", e -> {
             if (roleSelect.getValue() == null || menuSelect.getValue() == null) {
-                Notification.show("Role dan Menu wajib dipilih!", 3000, Notification.Position.TOP_CENTER);
+                Notification.show("Role dan Menu must be selected!", 3000, Notification.Position.TOP_CENTER);
                 return;
             }
             String selectedMenuCode = menuSelect.getValue().getMenuCode();
             var existing = permissionRepository.findByRoleCodeAndMenuCode(roleSelect.getValue(), selectedMenuCode);
             if (existing.isPresent()) {
-                Notification n = Notification.show("Izin untuk kombinasi Role & Menu tersebut sudah ada!", 3000, Notification.Position.TOP_CENTER);
+                Notification n = Notification.show("Permission for this Role & Menu combination already exists!", 3000, Notification.Position.TOP_CENTER);
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
@@ -794,11 +799,11 @@ public class UserAuthorityAdminView extends VerticalLayout {
             permissionRepository.save(perm);
             dialog.close();
             refreshMatrixGrid();
-            Notification.show("Izin akses menu berhasil ditambahkan!", 2000, Notification.Position.BOTTOM_END);
+            Notification.show("Menu access permission successfully added!", 2000, Notification.Position.BOTTOM_END);
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button cancelBtn = new Button("Batal", e -> dialog.close());
+        Button cancelBtn = new Button("Cancel", e -> dialog.close());
 
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.add(form, cbLayout);
@@ -814,7 +819,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         
         List<String> roles = roleRepository.findAll().stream().map(AppRole::getRoleCode).toList();
         
-        ComboBox<String> sourceRoleSelect = new ComboBox<>("Role Sumber (Dari)");
+        ComboBox<String> sourceRoleSelect = new ComboBox<>("Source Role (From)");
         sourceRoleSelect.setItems(roles);
         sourceRoleSelect.setRequired(true);
         sourceRoleSelect.setWidthFull();
@@ -831,11 +836,11 @@ public class UserAuthorityAdminView extends VerticalLayout {
             String target = targetRoleSelect.getValue();
             
             if (source == null || target == null) {
-                Notification.show("Role Sumber dan Tujuan wajib dipilih!", 3000, Notification.Position.TOP_CENTER);
+                Notification.show("Role Sumber dan Tujuan must be selected!", 3000, Notification.Position.TOP_CENTER);
                 return;
             }
             if (source.equals(target)) {
-                Notification.show("Role Sumber dan Tujuan tidak boleh sama!", 3000, Notification.Position.TOP_CENTER);
+                Notification.show("Source and Target Role cannot be the same!", 3000, Notification.Position.TOP_CENTER);
                 return;
             }
             
@@ -861,15 +866,15 @@ public class UserAuthorityAdminView extends VerticalLayout {
             
             dialog.close();
             refreshMatrixGrid();
-            Notification.show(copiedCount + " menu berhasil di-copy dari " + source + " ke " + target, 3000, Notification.Position.BOTTOM_END);
+            Notification.show(copiedCount + " menus successfully copied from " + source + " to " + target, 3000, Notification.Position.BOTTOM_END);
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         
-        Button cancelBtn = new Button("Batal", e -> dialog.close());
+        Button cancelBtn = new Button("Cancel", e -> dialog.close());
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.add(form);
         
-        Paragraph hint = new Paragraph("Catatan: Menu yang sudah ada di Role Tujuan tidak akan ditimpa/di-copy ulang.");
+        Paragraph hint = new Paragraph("Note: Menus already existing in the Target Role will not be overwritten.");
         hint.getStyle().set("font-size", "0.8rem").set("color", "#64748b").set("margin-top", "10px");
         dialog.add(hint);
         
@@ -889,32 +894,188 @@ public class UserAuthorityAdminView extends VerticalLayout {
     }
 
     private void refreshMenuTreeGrid() {
-        menuTreeGrid.setDataProvider(new AbstractBackEndHierarchicalDataProvider<AppMenu, Void>() {
-            @Override
-            public int getChildCount(HierarchicalQuery<AppMenu, Void> query) {
-                AppMenu parent = query.getParent();
-                if (parent == null) {
-                    return (int) menuRepository.findByParentMenuCodeIsNullOrderByDisplayOrderAsc().size();
-                }
-                return (int) menuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(parent.getMenuCode()).size();
-            }
+        if (menuFilterRefresher != null) menuFilterRefresher.run();
+    }
 
-            @Override
-            public boolean hasChildren(AppMenu item) {
-                return "GROUP".equalsIgnoreCase(item.getMenuType())
-                        && !menuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(item.getMenuCode()).isEmpty();
-            }
+    private Runnable attachMenuTreeGridFilters(Map<Grid.Column<AppMenu>, Function<AppMenu, String>> colGetterMap) {
+        com.vaadin.flow.component.grid.HeaderRow filterRow = menuTreeGrid.appendHeaderRow();
+        Map<Grid.Column<AppMenu>, com.vaadinerp.components.StandardGridUtils.FilterCriteria> filterValues = new java.util.LinkedHashMap<>();
 
-            @Override
-            protected Stream<AppMenu> fetchChildrenFromBackEnd(HierarchicalQuery<AppMenu, Void> query) {
-                AppMenu parent = query.getParent();
-                if (parent == null) {
-                    return menuRepository.findByParentMenuCodeIsNullOrderByDisplayOrderAsc().stream();
+        Runnable applyFilters = () -> {
+            List<AppMenu> allMenus = menuRepository.findAllByOrderByDisplayOrderAsc();
+            boolean hasActiveFilter = filterValues.values().stream().anyMatch(criteria -> {
+                if ("Blank".equals(criteria.operator) || "Not blank".equals(criteria.operator)) return true;
+                return criteria.value != null && !criteria.value.trim().isEmpty();
+            });
+
+            com.vaadin.flow.data.provider.hierarchy.TreeData<AppMenu> treeData = new com.vaadin.flow.data.provider.hierarchy.TreeData<>();
+            
+            if (!hasActiveFilter) {
+                Map<String, List<AppMenu>> childrenMap = new java.util.HashMap<>();
+                List<AppMenu> roots = new ArrayList<>();
+                for (AppMenu m : allMenus) {
+                    if (m.getParentMenuCode() == null || m.getParentMenuCode().isEmpty()) {
+                        roots.add(m);
+                    } else {
+                        childrenMap.computeIfAbsent(m.getParentMenuCode(), k -> new ArrayList<>()).add(m);
+                    }
                 }
-                return menuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(parent.getMenuCode()).stream();
+                treeData.addItems(null, roots);
+                java.util.function.Consumer<List<AppMenu>> addChildren = new java.util.function.Consumer<List<AppMenu>>() {
+                    @Override
+                    public void accept(List<AppMenu> parents) {
+                        for (AppMenu p : parents) {
+                            List<AppMenu> kids = childrenMap.get(p.getMenuCode());
+                            if (kids != null && !kids.isEmpty()) {
+                                treeData.addItems(p, kids);
+                                this.accept(kids);
+                            }
+                        }
+                    }
+                };
+                addChildren.accept(roots);
+                menuTreeGrid.setDataProvider(new com.vaadin.flow.data.provider.hierarchy.TreeDataProvider<>(treeData));
+                menuTreeGrid.expand(roots);
+            } else {
+                java.util.Set<AppMenu> matchedAndParents = new java.util.HashSet<>();
+                Map<String, AppMenu> menuMap = new java.util.HashMap<>();
+                for (AppMenu m : allMenus) menuMap.put(m.getMenuCode(), m);
+                
+                for (AppMenu item : allMenus) {
+                    boolean matchesAll = true;
+                    for (Map.Entry<Grid.Column<AppMenu>, com.vaadinerp.components.StandardGridUtils.FilterCriteria> entry : filterValues.entrySet()) {
+                        Grid.Column<AppMenu> col = entry.getKey();
+                        com.vaadinerp.components.StandardGridUtils.FilterCriteria criteria = entry.getValue();
+                        String op = criteria.operator;
+                        String query = criteria.value != null ? criteria.value.trim().toLowerCase() : "";
+                        Function<AppMenu, String> getter = colGetterMap.get(col);
+                        if (getter == null) continue;
+                        String rawVal = getter.apply(item);
+                        String strVal = rawVal != null ? rawVal.toLowerCase() : "";
+                        
+                        if ("Blank".equals(op)) {
+                            if (!strVal.isEmpty()) { matchesAll = false; break; }
+                            continue;
+                        }
+                        if ("Not blank".equals(op)) {
+                            if (strVal.isEmpty()) { matchesAll = false; break; }
+                            continue;
+                        }
+                        if (query.isEmpty()) continue;
+                        
+                        switch (op) {
+                            case "Contains": if (!strVal.contains(query)) matchesAll = false; break;
+                            case "Not contains": if (strVal.contains(query)) matchesAll = false; break;
+                            case "Equals": if (!strVal.equals(query)) matchesAll = false; break;
+                            case "Not equal": if (strVal.equals(query)) matchesAll = false; break;
+                            case "Starts with": if (!strVal.startsWith(query)) matchesAll = false; break;
+                            case "Ends with": if (!strVal.endsWith(query)) matchesAll = false; break;
+                        }
+                        if (!matchesAll) break;
+                    }
+                    if (matchesAll) {
+                        AppMenu curr = item;
+                        while (curr != null) {
+                            matchedAndParents.add(curr);
+                            if (curr.getParentMenuCode() != null && !curr.getParentMenuCode().isEmpty()) {
+                                curr = menuMap.get(curr.getParentMenuCode());
+                            } else {
+                                curr = null;
+                            }
+                        }
+                    }
+                }
+                
+                List<AppMenu> matchedList = new ArrayList<>(matchedAndParents);
+                matchedList.sort(java.util.Comparator.comparing(AppMenu::getDisplayOrder, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
+                
+                Map<String, List<AppMenu>> childrenMap = new java.util.HashMap<>();
+                List<AppMenu> roots = new ArrayList<>();
+                for (AppMenu m : matchedList) {
+                    if (m.getParentMenuCode() == null || m.getParentMenuCode().isEmpty() || !matchedAndParents.contains(menuMap.get(m.getParentMenuCode()))) {
+                        roots.add(m);
+                    } else {
+                        childrenMap.computeIfAbsent(m.getParentMenuCode(), k -> new ArrayList<>()).add(m);
+                    }
+                }
+                treeData.addItems(null, roots);
+                java.util.function.Consumer<List<AppMenu>> addChildren = new java.util.function.Consumer<List<AppMenu>>() {
+                    @Override
+                    public void accept(List<AppMenu> parents) {
+                        for (AppMenu p : parents) {
+                            List<AppMenu> kids = childrenMap.get(p.getMenuCode());
+                            if (kids != null && !kids.isEmpty()) {
+                                treeData.addItems(p, kids);
+                                this.accept(kids);
+                            }
+                        }
+                    }
+                };
+                addChildren.accept(roots);
+                menuTreeGrid.setDataProvider(new com.vaadin.flow.data.provider.hierarchy.TreeDataProvider<>(treeData));
+                menuTreeGrid.expand(matchedList);
             }
+        };
+
+        colGetterMap.keySet().forEach(col -> {
+            com.vaadinerp.components.StandardGridUtils.FilterCriteria criteria = new com.vaadinerp.components.StandardGridUtils.FilterCriteria();
+            filterValues.put(col, criteria);
+            
+            TextField filterField = new TextField();
+            filterField.setPlaceholder("Filter...");
+            filterField.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.EAGER);
+            filterField.setWidthFull();
+            filterField.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
+
+            Button filterButton = new Button(VaadinIcon.FILTER.create());
+            filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+            filterButton.getStyle().set("cursor", "pointer");
+            filterButton.getElement().setProperty("title", "Contains");
+            filterField.setPrefixComponent(filterButton);
+
+            com.vaadin.flow.component.contextmenu.ContextMenu contextMenu = new com.vaadin.flow.component.contextmenu.ContextMenu(filterButton);
+            contextMenu.setOpenOnClick(true);
+
+            Runnable applyOperatorUI = () -> {
+                String op = criteria.operator;
+                filterButton.getElement().setProperty("title", op);
+                boolean needsInput = !("Blank".equals(op) || "Not blank".equals(op));
+                if (!needsInput) {
+                    filterField.setValue("");
+                    filterField.setPlaceholder(op);
+                    filterField.setReadOnly(true);
+                } else {
+                    filterField.setPlaceholder("Filter...");
+                    filterField.setReadOnly(false);
+                }
+            };
+
+            com.vaadin.flow.component.ComponentEventListener<com.vaadin.flow.component.ClickEvent<com.vaadin.flow.component.contextmenu.MenuItem>> listener = event -> {
+                if (event.getSource().getText() != null) {
+                    criteria.operator = event.getSource().getText();
+                    applyOperatorUI.run();
+                    applyFilters.run();
+                }
+            };
+
+            contextMenu.addItem("Contains", listener);
+            contextMenu.addItem("Not contains", listener);
+            contextMenu.addItem("Equals", listener);
+            contextMenu.addItem("Not equal", listener);
+            contextMenu.addItem("Starts with", listener);
+            contextMenu.addItem("Ends with", listener);
+            contextMenu.addItem("Blank", listener);
+            contextMenu.addItem("Not blank", listener);
+
+            filterField.addValueChangeListener(e -> {
+                criteria.value = e.getValue();
+                applyFilters.run();
+            });
+
+            filterRow.getCell(col).setComponent(filterField);
         });
-        menuTreeGrid.expand(menuRepository.findByParentMenuCodeIsNullOrderByDisplayOrderAsc());
+
+        return applyFilters;
     }
 
     private final Map<String, String> menuTitleCache = new java.util.concurrent.ConcurrentHashMap<>();

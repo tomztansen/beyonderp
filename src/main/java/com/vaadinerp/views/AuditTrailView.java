@@ -90,7 +90,7 @@ public class AuditTrailView extends VerticalLayout {
         titleLayout.add(shieldIcon, title);
 
         Span infoBadge = new Span(
-                "💡 Klik 'Pulihkan / Restore' untuk memulihkan data terhapus kembali ke tabel aslinya.");
+                "💡 Click 'Restore' to restore deleted data to its original table.");
         infoBadge.getStyle()
                 .set("background-color", "#e0f2fe")
                 .set("color", "#0369a1")
@@ -114,16 +114,16 @@ public class AuditTrailView extends VerticalLayout {
         searchField.setWidth("350px");
         searchField.addValueChangeListener(e -> refreshGrid());
 
-        actionFilter.setPlaceholder("Semua Aksi");
-        actionFilter.setItems("Semua Aksi", "DELETE", "UPDATE", "INSERT", "RESTORE");
-        actionFilter.setValue("Semua Aksi");
+        actionFilter.setPlaceholder("All Action");
+        actionFilter.setItems("All Action", "DELETE", "UPDATE", "INSERT", "RESTORE");
+        actionFilter.setValue("All Action");
         actionFilter.setWidth("200px");
         actionFilter.addValueChangeListener(e -> refreshGrid());
 
-        Button btnRefresh = new Button("Segarkan", VaadinIcon.REFRESH.create());
+        Button btnRefresh = new Button("Refresh", VaadinIcon.REFRESH.create());
         btnRefresh.addClickListener(e -> refreshGrid());
 
-        Button btnRecycleBinHelp = new Button("ℹ️ Bantuan & Panduan Restore", e -> showHelpDialog());
+        Button btnRecycleBinHelp = new Button("ℹ️ Help & Restore Guide", e -> showHelpDialog());
         btnRecycleBinHelp.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
         toolbar.add(searchField, actionFilter, btnRefresh, btnRecycleBinHelp);
@@ -138,7 +138,7 @@ public class AuditTrailView extends VerticalLayout {
                 .setHeader("Log ID").setWidth("100px").setFlexGrow(0);
 
         grid.addColumn(row -> row.get("action_dt") != null ? row.get("action_dt").toString() : "")
-                .setHeader("Waktu Kejadian").setWidth("180px").setFlexGrow(0);
+                .setHeader("Timestamp").setWidth("180px").setFlexGrow(0);
 
         grid.addColumn(new ComponentRenderer<>(row -> {
             String action = row.get("action_type") != null ? row.get("action_type").toString() : "UNKNOWN";
@@ -161,7 +161,7 @@ public class AuditTrailView extends VerticalLayout {
                 badge.getStyle().set("background-color", "#f1f5f9").set("color", "#475569");
             }
             return badge;
-        })).setHeader("Aksi").setWidth("130px").setFlexGrow(0);
+        })).setHeader("Action").setWidth("130px").setFlexGrow(0);
 
         grid.addColumn(row -> row.get("table_name"))
                 .setHeader("Tabel Target").setWidth("180px").setFlexGrow(0);
@@ -176,7 +176,7 @@ public class AuditTrailView extends VerticalLayout {
             HorizontalLayout actions = new HorizontalLayout();
             actions.setSpacing(true);
 
-            Button btnViewJson = new Button("Lihat Snapshot", VaadinIcon.FILE_TEXT.create());
+            Button btnViewJson = new Button("See Snapshot", VaadinIcon.FILE_TEXT.create());
             btnViewJson.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
             btnViewJson.addClickListener(e -> showSnapshotDialog(row));
             actions.add(btnViewJson);
@@ -269,7 +269,7 @@ public class AuditTrailView extends VerticalLayout {
         content.add(lblOld, preOld, lblNew, preNew);
         dialog.add(content);
 
-        Button btnClose = new Button("Tutup", e -> dialog.close());
+        Button btnClose = new Button("Close", e -> dialog.close());
         dialog.getFooter().add(btnClose);
         dialog.open();
     }
@@ -309,7 +309,7 @@ public class AuditTrailView extends VerticalLayout {
             confirmDialog.close();
         });
 
-        Button btnCancel = new Button("Batal", e -> confirmDialog.close());
+        Button btnCancel = new Button("Cancel", e -> confirmDialog.close());
         confirmDialog.getFooter().add(btnCancel, btnConfirm);
         confirmDialog.open();
     }

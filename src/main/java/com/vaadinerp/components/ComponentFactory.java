@@ -960,14 +960,14 @@ public class ComponentFactory {
                                         Object valObj = getCaseInsensitiveVal(row, lovMeta.getValueColumn());
                                         return valObj != null ? valObj.toString() : "";
                                     })
-                                    .setHeader("Kode")
+                                    .setHeader("Code")
                                     .setAutoWidth(true).setResizable(true);
                             bandbox.getGrid()
                                     .addColumn(row -> {
                                         Object valObj = getCaseInsensitiveVal(row, lovMeta.getLabelColumn());
                                         return valObj != null ? valObj.toString() : "";
                                     })
-                                    .setHeader("Nama")
+                                    .setHeader("Name")
                                     .setAutoWidth(true).setResizable(true);
                         } else {
                             for (String colName : allCols) {
@@ -1022,9 +1022,9 @@ public class ComponentFactory {
                 } else {
                     // Fallback static jika LovMeta tidak ditemukan di DB
                     bandbox.getGrid().addColumn(row -> row.get("code") != null ? row.get("code").toString() : "")
-                            .setHeader("Kode");
+                            .setHeader("Code");
                     bandbox.getGrid().addColumn(row -> row.get("name") != null ? row.get("name").toString() : "")
-                            .setHeader("Nama");
+                            .setHeader("Name");
                 }
 
                 return bandbox;

@@ -77,15 +77,15 @@ public class LovBuilderView extends VerticalLayout {
                 .set("z-index", "100")
                 .set("box-shadow", "0 4px 10px rgba(0,0,0,0.08)");
 
-        Button btnNew = new Button("Baru", VaadinIcon.PLUS_CIRCLE.create(), e -> clearForm());
+        Button btnNew = new Button("New", VaadinIcon.PLUS_CIRCLE.create(), e -> clearForm());
         btnNew.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnNew.getStyle().set("color", "#22c55e");
 
-        Button btnSave = new Button("Simpan", VaadinIcon.DOWNLOAD.create(), e -> saveLovMeta());
+        Button btnSave = new Button("Save", VaadinIcon.DOWNLOAD.create(), e -> saveLovMeta());
         btnSave.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnSave.getStyle().set("color", "#3b82f6");
 
-        Button btnDelete = new Button("Hapus", VaadinIcon.CLOSE_CIRCLE.create(), e -> deleteLovMeta());
+        Button btnDelete = new Button("Delete", VaadinIcon.CLOSE_CIRCLE.create(), e -> deleteLovMeta());
         btnDelete.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
 
         Button btnCopy = new Button("Copy", VaadinIcon.COPY.create(), e -> copyLovMeta());
@@ -221,7 +221,7 @@ public class LovBuilderView extends VerticalLayout {
             refreshGrid();
             populateForm(lovMeta);
         } catch (Exception e) {
-            Notification.show("Gagal menyimpan LOV: " + e.getMessage(), 5000, Notification.Position.MIDDLE);
+            Notification.show("Failed to save LOV: " + e.getMessage(), 5000, Notification.Position.MIDDLE);
         }
     }
 
@@ -234,10 +234,10 @@ public class LovBuilderView extends VerticalLayout {
                 refreshGrid();
                 clearForm();
             } catch (Exception e) {
-                Notification.show("Gagal menghapus LOV: " + e.getMessage(), 5000, Notification.Position.MIDDLE);
+                Notification.show("Failed to delete LOV: " + e.getMessage(), 5000, Notification.Position.MIDDLE);
             }
         } else {
-            Notification.show("Pilih LOV yang akan dihapus terlebih dahulu.", 3000, Notification.Position.MIDDLE);
+            Notification.show("Please select a LOV to delete first.", 3000, Notification.Position.MIDDLE);
         }
     }
 

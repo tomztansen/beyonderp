@@ -28,7 +28,7 @@ public class SystemLogView extends VerticalLayout {
 
     private final SessionSecurityService securityService;
     private final TextField logFilePathField = new TextField("Lokasi File Log (Path)");
-    private final TextField searchKeywordField = new TextField("Cari Kata (Keyword Filter)");
+    private final TextField searchKeywordField = new TextField("Search Keyword (Keyword Filter)");
     private final Checkbox autoRefreshCheckbox = new Checkbox("Auto-Refresh Real-Time (3 detik)");
     private final Span statusBadge = new Span("Status: Standby");
     private final Pre logContainer = new Pre();
@@ -101,7 +101,7 @@ public class SystemLogView extends VerticalLayout {
                             f.length()
                     );
                 } catch (Exception ex) {
-                    byte[] errBytes = ("Gagal membaca file: " + ex.getMessage()).getBytes(StandardCharsets.UTF_8);
+                    byte[] errBytes = ("Failed to read file: " + ex.getMessage()).getBytes(StandardCharsets.UTF_8);
                     return new DownloadResponse(
                             new ByteArrayInputStream(errBytes),
                             "error.log",
@@ -110,7 +110,7 @@ public class SystemLogView extends VerticalLayout {
                     );
                 }
             }
-            byte[] notFoundBytes = "File log tidak ditemukan di path tersebut.".getBytes(StandardCharsets.UTF_8);
+            byte[] notFoundBytes = "Log file not found at the specified path.".getBytes(StandardCharsets.UTF_8);
             return new DownloadResponse(
                     new ByteArrayInputStream(notFoundBytes),
                     "not_found.log",
@@ -180,14 +180,14 @@ public class SystemLogView extends VerticalLayout {
     private void refreshLogContent() {
         String path = logFilePathField.getValue();
         if (path == null || path.trim().isEmpty()) {
-            logContainer.setText("⚠️ Path file log belum diisi.");
+            logContainer.setText("⚠️ Log file path has not been set.");
             return;
         }
 
         File file = new File(path.trim());
         if (!file.exists() || !file.isFile()) {
-            logContainer.setText("⚠️ File log tidak ditemukan di path:\n" + file.getAbsolutePath() +
-                    "\n\nTips: Pastikan aplikasi Spring Boot Anda dikonfigurasi untuk menulis log ke file tersebut (misal: logging.file.name=logs/server.log).");
+            logContainer.setText("⚠️ Log file not found at path:\n" + file.getAbsolutePath() +
+                    "\n\nTips: Ensure your Spring Boot app is configured to write logs to this file (e.g., logging.file.name=logs/server.log).");
             return;
         }
 
@@ -206,7 +206,7 @@ public class SystemLogView extends VerticalLayout {
             String[] lines = text.split("\\r?\\n");
 
             StringBuilder sb = new StringBuilder();
-            sb.append("=== Menampilkan ").append(lines.length).append(" baris log terakhir dari: ").append(file.getAbsolutePath()).append(" ===\n\n");
+            sb.append("=== Showing last ").append(lines.length).append(" log lines from: ").append(file.getAbsolutePath()).append(" ===\n\n");
 
             int matchCount = 0;
             for (String line : lines) {
@@ -226,7 +226,7 @@ public class SystemLogView extends VerticalLayout {
             UI.getCurrent().getPage().executeJs("arguments[0].scrollTop = arguments[0].scrollHeight;", logContainer.getElement());
 
         } catch (Exception ex) {
-            logContainer.setText("❌ Gagal membaca file log: " + ex.getMessage());
+            logContainer.setText("❌ Failed to read log file: " + ex.getMessage());
         }
     }
 }

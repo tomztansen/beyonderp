@@ -26,7 +26,8 @@ public class AuditEntityListener {
     }
 
     private Class<?> getTargetClass(Object entity) {
-        if (entity == null) return Object.class;
+        if (entity == null)
+            return Object.class;
         Class<?> clazz = entity.getClass();
         if (org.hibernate.proxy.HibernateProxy.class.isAssignableFrom(clazz)) {
             return ((org.hibernate.proxy.HibernateProxy) entity).getHibernateLazyInitializer().getPersistentClass();
@@ -35,7 +36,8 @@ public class AuditEntityListener {
     }
 
     private String getTableName(Object entity) {
-        if (entity == null) return "unknown";
+        if (entity == null)
+            return "unknown";
         Class<?> targetClass = getTargetClass(entity);
         Table tableAnn = targetClass.getAnnotation(Table.class);
         if (tableAnn != null && !tableAnn.name().isEmpty()) {
@@ -45,7 +47,8 @@ public class AuditEntityListener {
     }
 
     private String getRecordId(Object entity) {
-        if (entity == null) return "UNKNOWN";
+        if (entity == null)
+            return "UNKNOWN";
         try {
             Class<?> targetClass = getTargetClass(entity);
             Class<?> current = targetClass;
@@ -59,12 +62,14 @@ public class AuditEntityListener {
                 }
                 current = current.getSuperclass();
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return "UNKNOWN";
     }
 
     private Map<String, Object> entityToMap(Object entity) {
-        if (entity == null) return null;
+        if (entity == null)
+            return null;
         try {
             if (entity instanceof FormMeta fm) {
                 Map<String, Object> map = new LinkedHashMap<>();
@@ -116,7 +121,9 @@ public class AuditEntityListener {
                 return map;
             }
             String json = getObjectMapper().writeValueAsString(entity);
-            return getObjectMapper().readValue(json, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+            return getObjectMapper().readValue(json,
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+                    });
         } catch (Exception e) {
             return Map.of("entity_string", entity.toString());
         }
@@ -137,7 +144,8 @@ public class AuditEntityListener {
         logToAudit(entity, "DELETE", entityToMap(entity), null);
     }
 
-    private void logToAudit(Object entity, String actionType, Map<String, Object> oldData, Map<String, Object> newData) {
+    private void logToAudit(Object entity, String actionType, Map<String, Object> oldData,
+            Map<String, Object> newData) {
         try {
             DynamicDataService dds = getDynamicDataService();
             if (dds != null) {
@@ -149,18 +157,24 @@ public class AuditEntityListener {
                     String currentUser = dds.getCurrentLoggedUser();
                     if (entity instanceof FormMeta fm && fm.getFields() != null) {
                         for (FieldMeta f : fm.getFields()) {
-                            Object fId = f.getId() != null ? f.getId() : (f.getFieldName() != null ? f.getFieldName() : "UNKNOWN");
-                            dds.recordFieldAuditLog(fm.getFormCode(), "meta_field", fId, "DELETE", f.getFieldName() != null ? f.getFieldName() : "field", entityToMap(f), null, currentUser);
+                            Object fId = f.getId() != null ? f.getId()
+                                    : (f.getFieldName() != null ? f.getFieldName() : "UNKNOWN");
+                            dds.recordFieldAuditLog(fm.getFormCode(), "meta_field", fId, "DELETE",
+                                    f.getFieldName() != null ? f.getFieldName() : "field", entityToMap(f), null,
+                                    currentUser);
                         }
                     } else if (entity instanceof FieldMeta fm) {
-                        Object fId = fm.getId() != null ? fm.getId() : (fm.getFieldName() != null ? fm.getFieldName() : "UNKNOWN");
+                        Object fId = fm.getId() != null ? fm.getId()
+                                : (fm.getFieldName() != null ? fm.getFieldName() : "UNKNOWN");
                         String formCode = fm.getFormMeta() != null ? fm.getFormMeta().getFormCode() : "FORM_BUILDER";
-                        dds.recordFieldAuditLog(formCode, "meta_field", fId, "DELETE", fm.getFieldName() != null ? fm.getFieldName() : "field", oldData, null, currentUser);
+                        dds.recordFieldAuditLog(formCode, "meta_field", fId, "DELETE",
+                                fm.getFieldName() != null ? fm.getFieldName() : "field", oldData, null, currentUser);
                     }
                 }
             }
         } catch (Exception e) {
-            System.err.println("Gagal merekam audit log untuk entity " + getTargetClass(entity).getSimpleName() + ": " + e.getMessage());
+            System.err.println("Failed to record audit log for entity " + getTargetClass(entity).getSimpleName() + ": "
+                    + e.getMessage());
         }
     }
 }

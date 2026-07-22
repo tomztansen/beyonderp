@@ -106,15 +106,15 @@ public class FormActionBuilderView extends VerticalLayout {
                 .set("z-index", "100")
                 .set("box-shadow", "0 4px 10px rgba(0,0,0,0.08)");
 
-        Button btnNew = new Button("Baru", VaadinIcon.PLUS_CIRCLE.create(), e -> clearForm());
+        Button btnNew = new Button("New", VaadinIcon.PLUS_CIRCLE.create(), e -> clearForm());
         btnNew.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnNew.getStyle().set("color", "#22c55e");
 
-        Button btnSave = new Button("Simpan", VaadinIcon.DOWNLOAD.create(), e -> saveAction());
+        Button btnSave = new Button("Save", VaadinIcon.DOWNLOAD.create(), e -> saveAction());
         btnSave.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnSave.getStyle().set("color", "#3b82f6");
 
-        Button btnDelete = new Button("Hapus", VaadinIcon.CLOSE_CIRCLE.create(), e -> deleteAction());
+        Button btnDelete = new Button("Delete", VaadinIcon.CLOSE_CIRCLE.create(), e -> deleteAction());
         btnDelete.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
 
         toolbar.add(btnNew, btnSave, btnDelete);
@@ -137,7 +137,7 @@ public class FormActionBuilderView extends VerticalLayout {
         formFilter.setWidthFull();
         formFilter.addValueChangeListener(e -> refreshGrid());
 
-        formCodeCombo.setLabel("Form Code Target (Kosongkan = Katalog Reusable)");
+        formCodeCombo.setLabel("Target Form Code (Leave blank = Reusable Catalog)");
         formCodeCombo.setItems(formCodes);
         formCodeCombo.setClearButtonVisible(true);
 
@@ -308,7 +308,7 @@ public class FormActionBuilderView extends VerticalLayout {
         content.add(new com.vaadin.flow.component.Html("<div>" + html + "</div>"));
         dlg.add(content);
 
-        Button closeBtn = new Button("Tutup", e -> dlg.close());
+        Button closeBtn = new Button("Close", e -> dlg.close());
         closeBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
         dlg.getFooter().add(closeBtn);
         dlg.open();
@@ -337,7 +337,7 @@ public class FormActionBuilderView extends VerticalLayout {
             return """
                     def selectedRows = getElementValue("grid1", true)
                     if (!selectedRows || selectedRows.isEmpty()) {
-                        showError("Peringatan", "Silakan pilih atau centang minimal satu baris data terlebih dahulu!")
+                        showError("Warning", "Silakan pilih atau centang minimal satu baris data terlebih dahulu!")
                         return
                     }
                     """.stripIndent();
@@ -356,7 +356,7 @@ public class FormActionBuilderView extends VerticalLayout {
             return """
                     def selectedRows = getElementValue("grid1", true)
                     if (!selectedRows || selectedRows.isEmpty()) {
-                        showError("Peringatan", "Silakan pilih minimal 1 baris data!")
+                        showError("Warning", "Silakan pilih minimal 1 baris data!")
                         return
                     }
                     def ids = []
@@ -366,7 +366,7 @@ public class FormActionBuilderView extends VerticalLayout {
                     showYesNoDialog("Release Confirmation", "Lanjutkan rilis untuk " + ids.size() + " data terpilih?", {
                         executeProcedure(3, { status ->
                             if (status) {
-                                showSuccess("Sukses", "Data berhasil dirilis!")
+                                showSuccess("Success", "Data berhasil dirilis!")
                                 showMainTab(691, "Sales Line - Production Order", null, null)
                             }
                         }, groovy.json.JsonOutput.toJson(ids), ctx.userId)
@@ -491,7 +491,7 @@ public class FormActionBuilderView extends VerticalLayout {
         });
         saveBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
 
-        Button cancelBtn = new Button("Batal", e -> dlg.close());
+        Button cancelBtn = new Button("Cancel", e -> dlg.close());
 
         dlg.getFooter().add(cancelBtn, saveBtn);
         dlg.open();
@@ -598,7 +598,7 @@ public class FormActionBuilderView extends VerticalLayout {
         grid.addColumn(FormActionMeta::getActionCode).setHeader("Action Code").setSortable(true).setAutoWidth(true);
         grid.addColumn(FormActionMeta::getActionLabel).setHeader("Label Tombol").setAutoWidth(true);
         grid.addColumn(FormActionMeta::getTargetScope).setHeader("Posisi").setAutoWidth(true);
-        grid.addColumn(FormActionMeta::getActionType).setHeader("Tipe Aksi").setAutoWidth(true);
+        grid.addColumn(FormActionMeta::getActionType).setHeader("Action Type").setAutoWidth(true);
         grid.addColumn(FormActionMeta::getMenuGroup).setHeader("Menu Group").setAutoWidth(true);
         grid.addColumn(FormActionMeta::getSourceLovCode).setHeader("Source LOV").setAutoWidth(true);
 
@@ -728,7 +728,7 @@ public class FormActionBuilderView extends VerticalLayout {
 
     private void saveAction() {
         if (actionCodeField.getValue().isBlank() || actionLabelField.getValue().isBlank()) {
-            Notification.show("Action Code dan Label Tombol wajib diisi!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Action Code dan Label Tombol is required!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
@@ -788,13 +788,13 @@ public class FormActionBuilderView extends VerticalLayout {
         Button btnAddRow = new Button("Tambah Baris", VaadinIcon.PLUS.create());
         btnAddRow.addClickListener(e -> addMappingRow(rowsLayout, isTargetMapping));
 
-        Button btnSave = new Button("Simpan", e -> {
+        Button btnSave = new Button("Save", e -> {
             String generated = generateMappingString(rowsLayout, isTargetMapping);
             targetField.setValue(generated);
             dialog.close();
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        Button btnCancel = new Button("Batal", e -> dialog.close());
+        Button btnCancel = new Button("Cancel", e -> dialog.close());
 
         String existing = targetField.getValue();
         if (existing != null && !existing.isBlank()) {
@@ -1030,7 +1030,7 @@ public class FormActionBuilderView extends VerticalLayout {
 
     private void deleteAction() {
         if (currentAction == null || currentAction.getId() == null) {
-            Notification.show("Pilih aksi yang akan dihapus dari tabel!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Please select an action to delete!", 3000, Notification.Position.MIDDLE);
             return;
         }
         try {
@@ -1039,7 +1039,7 @@ public class FormActionBuilderView extends VerticalLayout {
             refreshGrid();
             clearForm();
         } catch (Exception e) {
-            Notification.show("Gagal menghapus: " + e.getMessage(), 4000, Notification.Position.MIDDLE);
+            Notification.show("Failed to delete: " + e.getMessage(), 4000, Notification.Position.MIDDLE);
         }
     }
 }

@@ -343,14 +343,14 @@ public class DynamicDataService {
         String oldJson = (String) logRow.get("old_data_json");
         if (tableName == null || oldJson == null || oldJson.trim().isEmpty()) {
             throw new IllegalStateException(
-                    "Data snapshot JSON lama (old_data_json) tidak ditemukan pada log ID " + auditId);
+                    "The old JSON data snapshot (old_data_json) was not found in the log ID " + auditId);
         }
 
         Map<String, Object> oldData = getObjectMapper().readValue(oldJson,
                 new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
                 });
         if (oldData == null || oldData.isEmpty()) {
-            throw new IllegalStateException("Snapshot data kosong pada log ID " + auditId);
+            throw new IllegalStateException("Empty data snapshot in ID log " + auditId);
         }
 
         List<Map<String, Object>> cols = fetchTableSchemaDetails(tableName);
@@ -372,7 +372,7 @@ public class DynamicDataService {
         }
 
         if (insertCols.isEmpty()) {
-            throw new IllegalStateException("Tidak ada kolom valid yang cocok untuk direstore ke tabel " + tableName);
+            throw new IllegalStateException("No valid columns found to restore to the table. " + tableName);
         }
 
         String qTable = getQualifiedTableName(tableName);
@@ -459,7 +459,7 @@ public class DynamicDataService {
      */
     public static String validateAndSanitizeSelectQuery(String sql) {
         if (sql == null || sql.trim().isEmpty()) {
-            throw new IllegalArgumentException("Query SQL tidak boleh kosong.");
+            throw new IllegalArgumentException("SQL Query cannot be empty.");
         }
         String trimmed = sql.trim();
         while (trimmed.startsWith("(") && trimmed.endsWith(")") && trimmed.length() > 2) {
@@ -1343,7 +1343,8 @@ public class DynamicDataService {
             List<String> existingCols = fetchTableColumns(formMeta.getTableName());
             if (!existingCols.stream().anyMatch(fkColumn::equalsIgnoreCase)) {
                 try {
-                    jdbcTemplate.execute("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS " + fkColumn + " INTEGER");
+                    jdbcTemplate
+                            .execute("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS " + fkColumn + " INTEGER");
                 } catch (Exception ex) {
                     log.warn("Gagal menambah kolom FK '{}' ke tabel '{}': {}", fkColumn, tableName, ex.getMessage());
                 }
@@ -1846,7 +1847,8 @@ public class DynamicDataService {
                     }
                 } else if ("bigint".equals(colType) || "bigserial".equals(colType) || "int8".equals(colType)
                         || (colType.isEmpty() && trimmedStr.matches("^-?\\d+$")
-                                && (columnName.equalsIgnoreCase("id") || columnName.toLowerCase().endsWith("id") || columnName.equalsIgnoreCase("version")))
+                                && (columnName.equalsIgnoreCase("id") || columnName.toLowerCase().endsWith("id")
+                                        || columnName.equalsIgnoreCase("version")))
                         || ("numeric".equals(colType) && trimmedStr.matches("^-?\\d+$")
                                 && (columnName.equalsIgnoreCase("id") || columnName.toLowerCase().endsWith("id")))) {
                     try {
@@ -2313,7 +2315,8 @@ public class DynamicDataService {
             jdbcTemplate.execute(createSql.toString());
         }
 
-        // 2. Tambahkan kolom satu per satu jika belum ada (ALTER TABLE ADD COLUMN IF NOT EXISTS)
+        // 2. Tambahkan kolom satu per satu jika belum ada (ALTER TABLE ADD COLUMN IF
+        // NOT EXISTS)
         for (FieldMeta field : formMeta.getFields()) {
             if (field.isDetail() && "MASTER_DETAIL".equalsIgnoreCase(formMeta.getFormType()))
                 continue; // Skip detail columns for master table
@@ -4138,7 +4141,8 @@ public class DynamicDataService {
                                         || "STRING".equalsIgnoreCase(fm.getComponentType()))) {
                             isDetailTextPk = true;
                         }
-                        if (fm.getFieldName().equalsIgnoreCase(detailFk) || fm.getFieldName().equalsIgnoreCase(masterPk)) {
+                        if (fm.getFieldName().equalsIgnoreCase(detailFk)
+                                || fm.getFieldName().equalsIgnoreCase(masterPk)) {
                             if (fm.getSequenceCode() != null || "TEXTBOX".equalsIgnoreCase(fm.getComponentType())
                                     || "VARCHAR".equalsIgnoreCase(fm.getComponentType())
                                     || "STRING".equalsIgnoreCase(fm.getComponentType())
@@ -4150,7 +4154,8 @@ public class DynamicDataService {
                 }
                 StringBuilder createSql = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
                 createSql.append(qDetailTable).append(" (");
-                createSql.append(detailPk).append(isDetailTextPk ? " VARCHAR(100) PRIMARY KEY, " : " SERIAL PRIMARY KEY, ");
+                createSql.append(detailPk)
+                        .append(isDetailTextPk ? " VARCHAR(100) PRIMARY KEY, " : " SERIAL PRIMARY KEY, ");
                 createSql.append(detailFk).append(isFkText ? " VARCHAR(100) NOT NULL" : " INTEGER NOT NULL");
                 createSql.append(")");
                 jdbcTemplate.execute(createSql.toString());
@@ -4484,9 +4489,9 @@ public class DynamicDataService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> executeSafeAdhocQuery(String sqlText, int maxRows) {
         if (sqlText == null || sqlText.trim().isEmpty()) {
-            throw new IllegalArgumentException("Query SQL tidak boleh kosong.");
+            throw new IllegalArgumentException("SQL Query cannot be empty.");
         }
-        
+
         // 1. Validasi string query
         String safeQuery = validateAndSanitizeSelectQuery(sqlText);
 

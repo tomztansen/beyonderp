@@ -224,7 +224,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         setSizeFull();
         setPadding(false);
         setSpacing(false);
-        getStyle().set("gap", "4px").set("padding", "8px 12px");
+        getStyle().set("gap", "4px");
 
         title = new H3("Loading...");
         title.getStyle().set("margin", "0").set("padding", "0");
@@ -266,7 +266,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         tabSheet = new TabSheet();
         tabSheet.setSizeFull();
-        historisTab = tabSheet.add("Historis", historisLayout);
+        historisTab = tabSheet.add("History", historisLayout);
         transaksiTab = tabSheet.add("Transaksi", transaksiLayout);
 
         tabSheet.addSelectedChangeListener(event -> {
@@ -323,7 +323,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 .set("gap", "15px");
 
         // 1. TAMBAH BUTTON
-        Button btnNew = new Button("Tambah");
+        Button btnNew = new Button("Add");
         Icon iconNew = VaadinIcon.PLUS_CIRCLE.create();
         iconNew.getStyle().set("color", "#22c55e").set("font-size", "1.2rem");
         btnNew.setIcon(iconNew);
@@ -347,7 +347,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             if (tabSheet.getSelectedTab() == historisTab) {
                 java.util.Set<Map<String, Object>> selectedItems = grid.getSelectedItems();
                 if (selectedItems == null || selectedItems.isEmpty()) {
-                    Notification.show("Pilih data yang akan diedit terlebih dahulu di tab Historis!", 3000, Notification.Position.MIDDLE);
+                    Notification.show("Please select data from the History tab to edit!", 3000, Notification.Position.MIDDLE);
                     return;
                 }
                 loadAndEditData(selectedItems.iterator().next());
@@ -358,7 +358,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         // 2. HAPUS BUTTON
-        Button btnDelete = new Button("Hapus");
+        Button btnDelete = new Button("Delete");
         Icon iconDelete = VaadinIcon.CLOSE_CIRCLE.create();
         iconDelete.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnDelete.setIcon(iconDelete);
@@ -368,7 +368,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             if (tabSheet.getSelectedTab() == historisTab) {
                 java.util.Set<Map<String, Object>> selectedItems = grid.getSelectedItems();
                 if (selectedItems != null && !selectedItems.isEmpty()) {
-                    showConfirmDialog("Konfirmasi Hapus",
+                    showConfirmDialog("Confirm Delete",
                             "Apakah Anda yakin ingin menghapus " + selectedItems.size() + " data yang dipilih ini?",
                             () -> {
                                 toolbar.setEnabled(false);
@@ -380,14 +380,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                                     refreshGridData(formDef);
                                     grid.deselectAll();
                                 } catch (Exception ex) {
-                                    Notification.show("Gagal menghapus: " + ex.getMessage(), 5000,
+                                    Notification.show("Failed to delete: " + ex.getMessage(), 5000,
                                             Notification.Position.MIDDLE);
                                 } finally {
                                     toolbar.setEnabled(true);
                                 }
                             });
                 } else {
-                    Notification.show("Pilih baris data pada grid terlebih dahulu untuk dihapus.", 3000,
+                    Notification.show("Please select a row from the grid first to delete.", 3000,
                             Notification.Position.MIDDLE);
                 }
             } else {
@@ -395,7 +395,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 String pk = formDef.getPrimaryKey() != null ? formDef.getPrimaryKey() : "id";
                 if (bean != null && bean.containsKey(pk) && bean.get(pk) != null
                         && !bean.get(pk).toString().trim().isEmpty()) {
-                    showConfirmDialog("Konfirmasi Hapus", "Apakah Anda yakin ingin menghapus data transaksi ini?",
+                    showConfirmDialog("Confirm Delete", "Apakah Anda yakin ingin menghapus data transaksi ini?",
                             () -> {
                                 toolbar.setEnabled(false);
                                 try {
@@ -406,7 +406,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                                     refreshGridData(formDef);
                                     tabSheet.setSelectedTab(historisTab);
                                 } catch (Exception ex) {
-                                    Notification.show("Gagal menghapus: " + ex.getMessage(), 5000,
+                                    Notification.show("Failed to delete: " + ex.getMessage(), 5000,
                                             Notification.Position.MIDDLE);
                                 } finally {
                                     toolbar.setEnabled(true);
@@ -420,7 +420,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         // 3. SIMPAN BUTTON
-        Button btnSave = new Button("Simpan");
+        Button btnSave = new Button("Save");
         Icon iconSave = VaadinIcon.DOWNLOAD.create(); // matches floppy disk design
         iconSave.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnSave.setIcon(iconSave);
@@ -448,7 +448,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                                 if (comp instanceof com.vaadin.flow.component.HasValidation) {
                                     ((com.vaadin.flow.component.HasValidation) comp).setInvalid(true);
                                     ((com.vaadin.flow.component.HasValidation) comp)
-                                            .setErrorMessage(field.getFieldLabel() + " wajib diisi");
+                                            .setErrorMessage(field.getFieldLabel() + " is required");
                                 }
                             }
                         }
@@ -497,7 +497,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         formBinder.validate().getValidationErrors().forEach(err -> errMsgs.add(err.getErrorMessage()));
                     }
                     if (!requiredOk) {
-                        errMsgs.add("Kolom wajib diisi belum lengkap");
+                        errMsgs.add("Kolom is required belum lengkap");
                     }
                     if (!rulesOk) {
                         errMsgs.add("Terdapat inputan yang tidak memenuhi aturan validasi");
@@ -536,7 +536,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         // 4. BATAL BUTTON
-        Button btnCancel = new Button("Batal");
+        Button btnCancel = new Button("Cancel");
         Icon iconCancel = VaadinIcon.BAN.create();
         iconCancel.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnCancel.setIcon(iconCancel);
@@ -605,7 +605,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     }
                 }
             } catch (Exception ex) {
-                Notification.show("Gagal menyegarkan: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
+                Notification.show("Failed to refresh: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
             } finally {
                 btnRefresh.setEnabled(true);
             }
@@ -1251,7 +1251,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 .createExportExcelButton(grid, currentFormCode != null ? currentFormCode + "_export" : "data_export", colGetterMap);
 
         com.vaadin.flow.component.checkbox.Checkbox cbPilihSemuaHalIni = new com.vaadin.flow.component.checkbox.Checkbox();
-        com.vaadin.flow.component.html.Span lblPilihSemuaHalIni = new com.vaadin.flow.component.html.Span("Pilih Semua (Hal Ini)");
+        com.vaadin.flow.component.html.Span lblPilihSemuaHalIni = new com.vaadin.flow.component.html.Span("Select All (This Page)");
         lblPilihSemuaHalIni.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "500").set("cursor", "pointer").set("user-select", "none").set("white-space", "nowrap");
         lblPilihSemuaHalIni.addClickListener(e -> cbPilihSemuaHalIni.setValue(!Boolean.TRUE.equals(cbPilihSemuaHalIni.getValue())));
 
@@ -1261,7 +1261,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         boxHalIni.getStyle().set("gap", "4px").set("margin-left", "10px");
 
         com.vaadin.flow.component.checkbox.Checkbox cbPilihSemua = new com.vaadin.flow.component.checkbox.Checkbox();
-        com.vaadin.flow.component.html.Span lblPilihSemua = new com.vaadin.flow.component.html.Span("Pilih Semua");
+        com.vaadin.flow.component.html.Span lblPilihSemua = new com.vaadin.flow.component.html.Span("Select All");
         lblPilihSemua.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "500").set("cursor", "pointer").set("user-select", "none").set("white-space", "nowrap");
         lblPilihSemua.addClickListener(e -> cbPilihSemua.setValue(!Boolean.TRUE.equals(cbPilihSemua.getValue())));
 
@@ -1539,7 +1539,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 dynamicDataService.saveUserGridOrder(currentFormCode, "mainGrid", orderedFieldNames);
                 Notification.show("Urutan kolom disimpan", 1500, Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
-                Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(),
+                Notification.show("Failed to save column order: " + ex.getMessage(),
                         3000, Notification.Position.MIDDLE);
             }
         });
@@ -1829,7 +1829,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         com.vaadin.flow.component.HasValue<?, V> hasValue = (com.vaadin.flow.component.HasValue<?, V>) editComponent;
         Binder.BindingBuilder<Map<String, Object>, V> builder = binder.forField(hasValue);
         if (field.isRequired()) {
-            builder.asRequired(field.getFieldLabel() + " wajib diisi");
+            builder.asRequired(field.getFieldLabel() + " is required");
         }
         builder.bind(
                 map -> convertToFieldValue(getValueCaseInsensitive(map, field.getFieldName()), editComponent),
@@ -1959,7 +1959,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnConfirm.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY,
                 com.vaadin.flow.component.button.ButtonVariant.LUMO_ERROR);
 
-        Button btnCancel = new Button("Batal", event -> dialog.close());
+        Button btnCancel = new Button("Cancel", event -> dialog.close());
         btnCancel.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
 
         dialog.getFooter().add(btnCancel, btnConfirm);

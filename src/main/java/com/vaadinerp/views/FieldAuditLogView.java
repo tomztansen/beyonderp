@@ -188,7 +188,7 @@ public class FieldAuditLogView extends VerticalLayout {
             Span s = new Span(formatted);
             s.getStyle().set("font-size", "0.82rem").set("color", "#475569").set("font-weight", "500");
             return s;
-        }).setHeader("Waktu").setWidth("150px").setFlexGrow(0).setSortable(true);
+        }).setHeader("Timestamp").setWidth("150px").setFlexGrow(0).setSortable(true);
 
         grid.addComponentColumn(row -> {
             String user = row.get("action_by") != null ? row.get("action_by").toString() : "-";
@@ -246,7 +246,7 @@ public class FieldAuditLogView extends VerticalLayout {
             badge.getStyle().set("padding", "3px 10px").set("border-radius", "9999px").set("font-size", "0.75rem")
                     .set("font-weight", "700");
             return badge;
-        }).setHeader("Aksi").setWidth("100px").setFlexGrow(0);
+        }).setHeader("Action").setWidth("100px").setFlexGrow(0);
 
         grid.addComponentColumn(row -> {
             String field = row.get("field_name") != null ? row.get("field_name").toString() : "-";
@@ -301,6 +301,12 @@ public class FieldAuditLogView extends VerticalLayout {
                 filterFieldName.getValue(),
                 filterActionBy.getValue(),
                 500);
+        
+        // Filter out DELETE actions as requested
+        logs = logs.stream()
+                .filter(row -> row.get("action_type") == null || !"DELETE".equalsIgnoreCase(row.get("action_type").toString()))
+                .collect(java.util.stream.Collectors.toList());
+        
         grid.setItems(logs);
         recordCountBadge.setText("Total: " + logs.size() + " log perubahan (Limit 500)");
     }
