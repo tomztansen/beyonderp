@@ -452,7 +452,8 @@ public class PortalView extends AppLayout {
     private boolean matchesSearchOrFav(AppMenu menu, Set<String> favMenuCodes) {
         List<AppMenu> children = appMenuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(menu.getMenuCode());
         List<AppMenu> accessibleChildren = children.stream()
-                .filter(c -> "GROUP".equalsIgnoreCase(c.getMenuType()) || securityService.hasMenuAccess(c.getMenuCode()))
+                .filter(c -> "GROUP".equalsIgnoreCase(c.getMenuType())
+                        || securityService.hasMenuAccess(c.getMenuCode()))
                 .toList();
 
         boolean isGroup = "GROUP".equalsIgnoreCase(menu.getMenuType());
@@ -517,7 +518,8 @@ public class PortalView extends AppLayout {
 
             List<AppMenu> children = appMenuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(menu.getMenuCode());
             List<AppMenu> accessibleChildren = children.stream()
-                    .filter(c -> "GROUP".equalsIgnoreCase(c.getMenuType()) || securityService.hasMenuAccess(c.getMenuCode()))
+                    .filter(c -> "GROUP".equalsIgnoreCase(c.getMenuType())
+                            || securityService.hasMenuAccess(c.getMenuCode()))
                     .toList();
 
             boolean isGroup = "GROUP".equalsIgnoreCase(menu.getMenuType());
@@ -737,12 +739,22 @@ public class PortalView extends AppLayout {
     }
 
     public void openMenuTab(AppMenu menu, Object extra) {
+        openMenuTab(menu, extra, null);
+    }
+
+    public void openMenuTab(AppMenu menu, Object extra, String forceTabId) {
         String code = menu.getMenuCode();
         String title = menu.getMenuTitle();
 
         Component content = switch (code) {
-            case "FORM_BUILDER" ->
-                new FormBuilderView(formMetaRepository, lovMetaRepository, dynamicDataService, this::refreshFormMenu);
+            case "FORM_BUILDER" -> {
+                FormBuilderView fb = new FormBuilderView(formMetaRepository, lovMetaRepository, dynamicDataService, this::refreshFormMenu);
+                if (extra instanceof String formCode && !formCode.isBlank()) {
+                    formMetaRepository.findById(formCode).ifPresent(fb::loadFormDefinition);
+                    fb.setFilterFormCode(formCode);
+                }
+                yield fb;
+            }
             case "DB_EXPLORER" -> new DbExplorerView(dynamicDataService, securityService);
             case "REPORT_BUILDER" -> new ReportBuilderView(reportMetaRepository, formMetaRepository);
             case "REPORT_VIEWER" -> new ReportViewerView(reportMetaRepository, dynamicDataService);
@@ -768,10 +780,11 @@ public class PortalView extends AppLayout {
                         mdView.getStyle().set("padding", "4px");
                         mdView.applyInitialParameters(extra);
                         mdView.setCloseHandler(() -> {
-                            Tab tab = openTabs.get(code);
+                            String activeTabId = forceTabId != null ? forceTabId : code;
+                            Tab tab = openTabs.get(activeTabId);
                             if (tab != null) {
                                 tabSheet.remove(tab);
-                                openTabs.remove(code);
+                                openTabs.remove(activeTabId);
                                 if (openTabs.isEmpty()) {
                                     tabSheet.setSelectedIndex(0);
                                     clearActiveLeaves();
@@ -787,10 +800,11 @@ public class PortalView extends AppLayout {
                         gView.getStyle().set("padding", "4px");
                         gView.applyInitialParameters(extra);
                         gView.setCloseHandler(() -> {
-                            Tab tab = openTabs.get(code);
+                            String activeTabId = forceTabId != null ? forceTabId : code;
+                            Tab tab = openTabs.get(activeTabId);
                             if (tab != null) {
                                 tabSheet.remove(tab);
-                                openTabs.remove(code);
+                                openTabs.remove(activeTabId);
                                 if (openTabs.isEmpty()) {
                                     tabSheet.setSelectedIndex(0);
                                     clearActiveLeaves();
@@ -812,7 +826,8 @@ public class PortalView extends AppLayout {
             }
         };
 
-        openTab(code, title, content);
+        String activeTabId = forceTabId != null ? forceTabId : code;
+        openTab(activeTabId, title, content, code, extra);
     }
 
     public void openTabByCode(String code, String title) {
@@ -1039,33 +1054,94 @@ public class PortalView extends AppLayout {
         return card;
     }
 
-    private void openTab(String tabId, String tabTitle, Component content) {
+    private void openTab(String tabId, String tabTitle, Component content, String originalCode, Object extra) {
         if (openTabs.containsKey(tabId)) {
             tabSheet.setSelectedTab(openTabs.get(tabId));
             return;
         }
 
-        HorizontalLayout headerLayout = new HorizontalLayout();
-        headerLayout.setSpacing(true);
-        headerLayout.setAlignItems(Alignment.CENTER);
+        Div headerLayout = new Div();
+        headerLayout.getStyle()
+                .set("display", "flex")
+                .set("align-items", "center")
+                .set("gap", "0");
 
         Span titleSpan = new Span(tabTitle);
-        titleSpan.getStyle().set("font-size", "0.9rem");
+        titleSpan.getStyle().set("font-size", "0.9rem").set("margin-right", "6px");
 
-        Button closeBtn = new Button(new Icon(VaadinIcon.CLOSE_SMALL));
-        closeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
-        closeBtn.getStyle().set("cursor", "pointer");
+        // Ikon duplikat: menggunakan Icon murni tanpa Button (zero Shadow DOM padding)
+        Icon duplicateIcon = VaadinIcon.COPY_O.create();
+        duplicateIcon.setSize("14px");
+        duplicateIcon.getStyle()
+                .set("cursor", "pointer")
+                .set("color", "#94a3b8")
+                .set("opacity", "0") // Default hidden (Hover-Reveal)
+                .set("transition", "opacity 0.2s ease-in-out");
+        duplicateIcon.getElement().setAttribute("title", "Duplicate Tab");
+        duplicateIcon.addClickListener(e -> {
+            int copyNum = 2;
+            while (openTabs.containsKey(originalCode + "_DUP_" + copyNum)) {
+                copyNum++;
+            }
+            String newTabId = originalCode + "_DUP_" + copyNum;
+            AppMenu mockMenu = new AppMenu();
+            mockMenu.setMenuCode(originalCode);
+            String baseTitle = tabTitle.replaceAll(" \\(\\d+\\)$", "");
+            mockMenu.setMenuTitle(baseTitle + " (" + copyNum + ")");
 
-        headerLayout.add(titleSpan, closeBtn);
+            openMenuTab(mockMenu, extra, newTabId);
+        });
+
+        // Ikon tutup: menggunakan Icon murni tanpa Button
+        Icon closeIcon = VaadinIcon.CLOSE_SMALL.create();
+        closeIcon.setSize("14px");
+        closeIcon.getStyle()
+                .set("cursor", "pointer")
+                .set("color", "#64748b")
+                .set("margin-left", "2px");
+
+        headerLayout.add(titleSpan, duplicateIcon, closeIcon);
 
         Tab tab = tabSheet.add(headerLayout, content);
         openTabs.put(tabId, tab);
 
-        closeBtn.addClickListener(e -> {
+        // Hover-reveal logic: Ikon duplikat hanya muncul saat mouse di atas tab
+        tab.getElement().addEventListener("mouseenter", e -> duplicateIcon.getStyle().set("opacity", "1"));
+        tab.getElement().addEventListener("mouseleave", e -> duplicateIcon.getStyle().set("opacity", "0"));
+
+        closeIcon.addClickListener(e -> {
             closeTabById(tabId);
         });
 
+        // Context Menu untuk Tab (Klik Kanan)
+        com.vaadin.flow.component.contextmenu.ContextMenu contextMenu = new com.vaadin.flow.component.contextmenu.ContextMenu(
+                tab);
+        // contextMenu.addItem("Close This Tab", e -> closeTabById(tabId));
+        contextMenu.addItem("Close Other Tabs", e -> {
+            java.util.List<String> allTabIds = new java.util.ArrayList<>(openTabs.keySet());
+            for (String id : allTabIds) {
+                if (!id.equals(tabId)) {
+                    closeTabById(id);
+                }
+            }
+            tabSheet.setSelectedTab(tab);
+        });
+        contextMenu.addItem("Close All Tabs", e -> {
+            java.util.List<String> allTabIds = new java.util.ArrayList<>(openTabs.keySet());
+            for (String id : allTabIds) {
+                closeTabById(id);
+            }
+        });
+
         tabSheet.setSelectedTab(tab);
+    }
+
+    public int getNextDuplicateNumber(String originalCode) {
+        int copyNum = 2;
+        while (openTabs.containsKey(originalCode + "_DUP_" + copyNum)) {
+            copyNum++;
+        }
+        return copyNum;
     }
 
     public void closeTabById(String tabId) {

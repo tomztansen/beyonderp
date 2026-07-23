@@ -281,6 +281,7 @@ public class FormBuilderView extends VerticalLayout {
     }
 
     private java.util.Map<String, FilterCriteria> filterValues = new java.util.HashMap<>();
+    private final java.util.Map<String, TextField> filterFields = new java.util.HashMap<>();
     private java.util.List<FormMeta> allHistoryItems = new java.util.ArrayList<>();
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -420,6 +421,7 @@ public class FormBuilderView extends VerticalLayout {
             filterValues.put(fieldName, criteria);
 
             TextField filterField = new TextField();
+            filterFields.put(fieldName, filterField);
             filterField.setPlaceholder("Filter...");
             filterField.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.EAGER);
             filterField.setWidthFull();
@@ -1759,6 +1761,26 @@ public class FormBuilderView extends VerticalLayout {
                 mockGrid.addColumn(s -> s).setHeader("Sample Detail Column...");
                 mockGrid.setItems(java.util.Collections.singletonList("Data detail akan dimuat di sini..."));
                 subformContainer.add(sTitle, mockGrid);
+
+                if (temp.lovCode != null && !temp.lovCode.trim().isEmpty()) {
+                    com.vaadin.flow.component.contextmenu.ContextMenu ctxMenu = new com.vaadin.flow.component.contextmenu.ContextMenu();
+                    ctxMenu.setTarget(subformContainer);
+                    ctxMenu.addItem("Open Subform Builder in New Tab", e -> {
+                        com.vaadin.flow.component.UI.getCurrent().getChildren()
+                            .filter(c -> c instanceof com.vaadinerp.views.PortalView)
+                            .findFirst()
+                            .ifPresent(portal -> {
+                                com.vaadinerp.views.PortalView pView = (com.vaadinerp.views.PortalView) portal;
+                                int copyNum = pView.getNextDuplicateNumber("FORM_BUILDER");
+                                String newTabId = "FORM_BUILDER_DUP_" + copyNum;
+                                com.vaadinerp.security.entity.AppMenu mockMenu = new com.vaadinerp.security.entity.AppMenu();
+                                mockMenu.setMenuCode("FORM_BUILDER");
+                                mockMenu.setMenuTitle("Form Metadata Builder (" + copyNum + ")");
+                                pView.openMenuTab(mockMenu, temp.lovCode, newTabId);
+                            });
+                    });
+                }
+
                 return subformContainer;
             case "FILE_UPLOAD":
                 return new FileUploadField(label,
@@ -2034,100 +2056,114 @@ public class FormBuilderView extends VerticalLayout {
             }
         });
 
-        // AI Generator logic
+        // AI Generator logic (Ollama Integration)
         btnGenerateAi.addClickListener(e -> {
-            String prompt = aiInput.getValue().toLowerCase().trim();
+            String prompt = aiInput.getValue().trim();
             if (prompt.isEmpty()) {
                 Notification.show("Ketik instruksi untuk AI terlebih dahulu!", 3000, Notification.Position.MIDDLE);
                 return;
             }
-            StringBuilder generated = new StringBuilder(
-                    "// ✨ Di-generate oleh AI Assistant dari perintah: \"" + aiInput.getValue() + "\"\n");
-            boolean handled = false;
 
-            // Helper untuk mengekstrak nama kolom target dari kalimat natural language
-            String targetCol = "status"; // default
-            List<String> reservedWords = Arrays.asList(
-                    "jika", "maka", "baris", "pertama", "kedua", "ketiga", "ke", "1", "2", "3", "4", "5",
-                    "dst", "selanjutnya", "lainnya", "sampai", "sd", "s/d", "kolom", "field", "param", "=", "==",
-                    "true", "false", "centang", "aktif", "tidak", "bukan", "di", "dari", "header",
-                    "master", "form", "ambil", "isi", "dengan", "sama", "adalah", "saja", "kalo", "kalau",
-                    "row", "index", "rowindex");
+            // Siapkan UI untuk loading state
+            btnGenerateAi.setEnabled(false);
+            btnGenerateAi.setText("⏳ Memikirkan...");
 
-            if (prompt.contains("kolom ")) {
-                String after = prompt.substring(prompt.indexOf("kolom ") + 6).trim();
-                String[] words = after.split("[\\s=,]+");
-                if (words.length > 0 && !words[0].isEmpty()) {
-                    targetCol = words[0];
-                }
-            } else if (prompt.contains("field ")) {
-                String after = prompt.substring(prompt.indexOf("field ") + 6).trim();
-                String[] words = after.split("[\\s=,]+");
-                if (words.length > 0 && !words[0].isEmpty()) {
-                    targetCol = words[0];
-                }
-            } else {
-                String[] tokens = prompt.split("[\\s=,().]+");
-                for (String t : tokens) {
-                    if (!t.isEmpty() && !reservedWords.contains(t) && !t.matches("^[0-9]+$")) {
-                        targetCol = t;
-                        break;
+            // Menggunakan Java Reflection untuk membaca fungsi db.* secara dinamis
+            StringBuilder dbFunctions = new StringBuilder();
+            try {
+                for (java.lang.reflect.Method m : com.vaadinerp.service.ScriptExecutorService.DatabaseHelper.class.getDeclaredMethods()) {
+                    if (java.lang.reflect.Modifier.isPublic(m.getModifiers()) && !m.getName().startsWith("get")) {
+                        dbFunctions.append("- db.").append(m.getName()).append("(");
+                        java.lang.reflect.Parameter[] params = m.getParameters();
+                        for (int i = 0; i < params.length; i++) {
+                            dbFunctions.append(params[i].getType().getSimpleName()).append(" ").append(params[i].getName());
+                            if (i < params.length - 1) dbFunctions.append(", ");
+                        }
+                        dbFunctions.append(") mengembalikan ").append(m.getReturnType().getSimpleName()).append("\n");
                     }
                 }
+            } catch (Exception ex) {
+                dbFunctions.append("- db.find(String tableName, String keyColumn, Object keyValue)\n- db.getValue(String sql, Object[] args)\n");
             }
 
-            boolean valTrue = !prompt.contains("tidak centang") && !prompt.contains("false")
-                    && !prompt.contains("bukan");
+            // Siapkan konteks (System Prompt)
+            String sysPrompt = "Kamu adalah asisten ahli pembuat Groovy Script untuk ERP.\n" +
+                "Aturan wajib:\n" +
+                "1. Jika instruksi user relevan dengan logika kode, balas HANYA dengan kode Groovy murni. Tanpa penjelasan, tanpa markdown (```).\n" +
+                "2. Jika instruksi user TIDAK relevan (sekadar bertanya/mengobrol di luar kode), berikan jawaban dalam bahasa Indonesia, tetapi WAJIB awali setiap baris jawaban dengan komentar ganda (//) agar tidak memicu error sintaks.\n" +
+                "3. Variabel 'row' mewakili data baris saat ini (Map).\n" +
+                "4. Variabel 'header' mewakili data form utama.\n" +
+                "5. Gunakan 'rowIndex' (int) untuk nomor urut baris (mulai dari 1).\n" +
+                "Fungsi database dinamis (terbaca dari Java Reflection):\n" + dbFunctions.toString() +
+                "Kolom child/row yang valid: " + String.join(", ", childCols) + "\n" +
+                "Kolom header yang valid: " + String.join(", ", headerCols);
 
-            if (prompt.contains("baris pertama")
-                    || (prompt.contains("baris 1") && !prompt.contains("sampai") && !prompt.contains("sd"))) {
-                generated.append("if (rowIndex == 1) {\n    row.").append(targetCol).append(" = ").append(valTrue)
-                        .append("\n} else {\n    row.").append(targetCol).append(" = ").append(!valTrue)
-                        .append("\n}\n");
-                handled = true;
-            } else if (prompt.contains("baris 1")
-                    && (prompt.contains("sampai") || prompt.contains("sd") || prompt.contains("-"))) {
-                int maxRow = 3;
-                if (prompt.contains("2"))
-                    maxRow = 2;
-                else if (prompt.contains("3"))
-                    maxRow = 3;
-                else if (prompt.contains("4"))
-                    maxRow = 4;
-                else if (prompt.contains("5"))
-                    maxRow = 5;
-                generated.append("if (rowIndex <= ").append(maxRow).append(") {\n    row.").append(targetCol)
-                        .append(" = ").append(valTrue).append("\n} else {\n    row.").append(targetCol).append(" = ")
-                        .append(!valTrue).append("\n}\n");
-                handled = true;
-            }
-            if (prompt.contains("ambil") || prompt.contains("dari header") || prompt.contains("dari master")) {
-                String toCol = targetCol;
-                String fromCol = "qty";
-                String[] tokens = prompt.split("[\\s=,().]+");
-                List<String> nonReserved = new ArrayList<>();
-                for (String t : tokens) {
-                    if (!t.isEmpty() && !reservedWords.contains(t) && !t.matches("^[0-9]+$")) {
-                        nonReserved.add(t);
+            // Jalankan Asynchronous agar UI tidak freeze
+            com.vaadin.flow.component.UI ui = e.getSource().getUI().orElse(com.vaadin.flow.component.UI.getCurrent());
+            
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
+                    payloadMap.put("model", "qwen2.5:7b");
+                    payloadMap.put("system", sysPrompt);
+                    payloadMap.put("prompt", prompt);
+                    payloadMap.put("stream", false);
+
+                    String jsonPayload = mapper.writeValueAsString(payloadMap);
+
+                    java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                            .uri(java.net.URI.create("http://172.16.0.63:11434/api/generate"))
+                            .header("Content-Type", "application/json")
+                            .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonPayload))
+                            .timeout(java.time.Duration.ofSeconds(60)) // Proses AI bisa butuh waktu agak lama
+                            .build();
+
+                    java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                            .connectTimeout(java.time.Duration.ofSeconds(10))
+                            .build();
+
+                    java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+
+                    if (response.statusCode() == 200) {
+                        com.fasterxml.jackson.databind.JsonNode rootNode = mapper.readTree(response.body());
+                        String aiResponse = rootNode.path("response").asText();
+                        
+                        // Bersihkan markdown ```groovy jika AI membandel
+                        aiResponse = aiResponse.replaceAll("(?s)^```[a-zA-Z]*\\n?", "").replaceAll("(?s)\\n?```$", "").trim();
+
+                        final String finalCode = "// ✨ Di-generate oleh Ollama (qwen2.5:7b) dari perintah: \"" + prompt + "\"\n" + aiResponse;
+
+                        ui.access(() -> {
+                            String existingScript = scriptArea.getValue() != null ? scriptArea.getValue().trim() : "";
+                            if (!existingScript.isEmpty()) {
+                                scriptArea.setValue(existingScript + "\n\n" + finalCode);
+                            } else {
+                                scriptArea.setValue(finalCode);
+                            }
+                            btnGenerateAi.setEnabled(true);
+                            btnGenerateAi.setText("✨ Buatkan Aturan (AI)");
+                            Notification.show("✅ Berhasil generate dari Ollama!", 3000, Notification.Position.BOTTOM_END);
+                            aiInput.clear();
+                        });
+                    } else {
+                        ui.access(() -> {
+                            scriptArea.setValue("// ❌ Gagal memanggil Ollama.\n// HTTP Status: " + response.statusCode() + "\n// Response:\n" + response.body());
+                            btnGenerateAi.setEnabled(true);
+                            btnGenerateAi.setText("✨ Buatkan Aturan (AI)");
+                            Notification.show("Gagal memanggil AI!", 4000, Notification.Position.MIDDLE);
+                        });
                     }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    ui.access(() -> {
+                        scriptArea.setValue("// ❌ Terjadi kesalahan saat memanggil Ollama di IP 172.16.0.63:11434.\n// Pastikan server Ollama menyala dan bisa diping dari server ini.\n// Error: " + ex.getMessage());
+                        btnGenerateAi.setEnabled(true);
+                        btnGenerateAi.setText("✨ Buatkan Aturan (AI)");
+                        Notification.show("Koneksi ke Ollama gagal: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                    });
                 }
-                if (nonReserved.size() >= 1)
-                    toCol = nonReserved.get(0);
-                if (nonReserved.size() >= 2)
-                    fromCol = nonReserved.get(1);
-                generated.append("row.").append(toCol).append(" = header.").append(fromCol).append(" != null ? header.")
-                        .append(fromCol).append(" : 0\n");
-                handled = true;
-            }
-            if (!handled) {
-                generated.append(
-                        "// AI: Struktur umum bersyarat berdasarkan indeks baris\nif (rowIndex == 1) {\n    row.")
-                        .append(targetCol).append(" = ").append(valTrue).append("\n} else {\n    row.")
-                        .append(targetCol).append(" = ").append(!valTrue).append("\n}\n");
-            }
-            scriptArea.setValue(generated.toString());
-            Notification.show("✨ Aturan berhasil dibuat oleh AI!", 3000, Notification.Position.BOTTOM_END);
-            aiInput.clear();
+            });
         });
 
         // 4. Live Simulator (Dry-Run)
@@ -3305,7 +3341,7 @@ public class FormBuilderView extends VerticalLayout {
         dialog.open();
     }
 
-    private void loadFormDefinition(FormMeta selectedForm) {
+    public void loadFormDefinition(FormMeta selectedForm) {
         if (selectedForm != null) {
             // Populate Form Meta fields
             formCodeField.setValue(selectedForm.getFormCode() != null ? selectedForm.getFormCode() : "");
@@ -3853,5 +3889,16 @@ public class FormBuilderView extends VerticalLayout {
             return "TEXTBOX";
         }
         return "TEXTBOX";
+    }
+
+    public void setFilterFormCode(String formCode) {
+        FilterCriteria criteria = filterValues.get("formCode");
+        TextField field = filterFields.get("formCode");
+        if (criteria != null && field != null) {
+            criteria.operator = "Equals";
+            criteria.value = formCode;
+            field.setValue(formCode);
+            applyHistoryFilters();
+        }
     }
 }
