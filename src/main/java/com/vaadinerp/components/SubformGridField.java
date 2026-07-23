@@ -212,6 +212,44 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             buildGridColumns();
         }
 
+        // Add Context Menu to open in new tab
+        com.vaadin.flow.component.grid.contextmenu.GridContextMenu<Map<String, Object>> gridMenu = grid.addContextMenu();
+        gridMenu.addItem("Open in New Tab", e -> {
+            if (e.getItem().isPresent()) {
+                Map<String, Object> selectedRow = e.getItem().get();
+                Object pkValue = null;
+                if (childFormDef != null && childFormDef.getPrimaryKey() != null) {
+                    pkValue = selectedRow.get(childFormDef.getPrimaryKey());
+                }
+                if (pkValue == null) {
+                    pkValue = selectedRow.get("id"); // fallback
+                }
+                
+                if (pkValue != null && childFormDef != null) {
+                    com.vaadin.flow.component.Component parent = this.getParent().orElse(null);
+                    com.vaadinerp.views.PortalView portalView = null;
+                    while (parent != null) {
+                        if (parent instanceof com.vaadinerp.views.PortalView) {
+                            portalView = (com.vaadinerp.views.PortalView) parent;
+                            break;
+                        }
+                        parent = parent.getParent().orElse(null);
+                    }
+                    if (portalView != null) {
+                        com.vaadinerp.security.entity.AppMenu mockMenu = new com.vaadinerp.security.entity.AppMenu();
+                        mockMenu.setMenuCode(childFormDef.getFormCode());
+                        mockMenu.setMenuTitle(childFormDef.getFormTitle());
+                        String tabId = childFormDef.getFormCode() + "_EDIT_" + pkValue.toString();
+                        portalView.openMenuTab(mockMenu, pkValue, tabId);
+                    } else {
+                        Notification.show("Cannot find main PortalView.", 3000, Notification.Position.MIDDLE);
+                    }
+                } else {
+                     Notification.show("Data is not saved yet (no ID). Cannot open in a new tab.", 4000, Notification.Position.MIDDLE);
+                }
+            }
+        });
+
         layout.add(toolbar, grid);
         add(layout);
         setupGridListeners();
