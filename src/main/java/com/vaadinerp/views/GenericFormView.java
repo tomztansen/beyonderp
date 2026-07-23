@@ -67,14 +67,16 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
     /**
      * Menyembunyikan judul H3 di dalam view.
-     * Dipanggil ketika view di-embed di dalam tab portal yang sudah menampilkan judul.
+     * Dipanggil ketika view di-embed di dalam tab portal yang sudah menampilkan
+     * judul.
      */
     public void hideTitle() {
         title.setVisible(false);
     }
 
     /**
-     * Menyembunyikan tab Historis dan langsung mengarahkan tampilan ke tab Transaksi.
+     * Menyembunyikan tab Historis dan langsung mengarahkan tampilan ke tab
+     * Transaksi.
      */
     public void hideHistorisTab() {
         if (historisTab != null) {
@@ -119,8 +121,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private static class FilterCriteria {
         String operator = "Contains";
         String value = "";
-        public String getOperator() { return operator; }
-        public String getValue() { return value; }
+
+        public String getOperator() {
+            return operator;
+        }
+
+        public String getValue() {
+            return value;
+        }
     }
 
     private java.util.Map<String, FilterCriteria> filterValues = new java.util.HashMap<>();
@@ -266,8 +274,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         tabSheet = new TabSheet();
         tabSheet.setSizeFull();
-        historisTab = tabSheet.add("History", historisLayout);
-        transaksiTab = tabSheet.add("Transaksi", transaksiLayout);
+        historisTab = tabSheet.add("Header", historisLayout);
+        transaksiTab = tabSheet.add("Detail", transaksiLayout);
 
         tabSheet.addSelectedChangeListener(event -> {
             if (currentFormDef != null) {
@@ -347,12 +355,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             if (tabSheet.getSelectedTab() == historisTab) {
                 java.util.Set<Map<String, Object>> selectedItems = grid.getSelectedItems();
                 if (selectedItems == null || selectedItems.isEmpty()) {
-                    Notification.show("Please select data from the History tab to edit!", 3000, Notification.Position.MIDDLE);
+                    Notification.show("Please select data from the History tab to edit!", 3000,
+                            Notification.Position.MIDDLE);
                     return;
                 }
                 loadAndEditData(selectedItems.iterator().next());
             } else {
-                Notification.show("Silakan pilih data di tab Historis terlebih dahulu.", 3000, Notification.Position.MIDDLE);
+                Notification.show("Silakan pilih data di tab Historis terlebih dahulu.", 3000,
+                        Notification.Position.MIDDLE);
                 tabSheet.setSelectedTab(historisTab);
             }
         });
@@ -586,7 +596,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     if (bean != null && bean.containsKey(pk) && bean.get(pk) != null
                             && !bean.get(pk).toString().trim().isEmpty()) {
                         Object idVal = bean.get(pk);
-                        String srcTable = (formDef.getViewTable() != null && !formDef.getViewTable().trim().isEmpty()) ? formDef.getViewTable().trim() : formDef.getTableName();
+                        String srcTable = (formDef.getViewTable() != null && !formDef.getViewTable().trim().isEmpty())
+                                ? formDef.getViewTable().trim()
+                                : formDef.getTableName();
                         Map<String, Object> freshRecord = dynamicDataService.fetchLovRecord(srcTable, pk,
                                 idVal);
                         if (freshRecord != null) {
@@ -634,7 +646,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             btnPrint.setVisible(false);
             btnPrint.setEnabled(false);
         }
-        
+
         if (!auth.canAdd && !auth.canEdit) {
             btnCancel.setVisible(false);
             btnCancel.setEnabled(false);
@@ -653,7 +665,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             com.vaadinerp.components.FormDebugUtils.showDebugDialog(bean);
         });
 
-        toolbar.add(btnNew, btnEdit, btnDelete, btnSave, btnCancel, btnRefresh, btnPrint, btnDebug, extraActionsContainer);
+        toolbar.add(btnNew, btnEdit, btnDelete, btnSave, btnCancel, btnRefresh, btnPrint, btnDebug,
+                extraActionsContainer);
         refreshExtraToolbarButtons();
     }
 
@@ -664,7 +677,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             Map<String, Object> freshRow = selectedRow;
             if (pkVal != null && !pkVal.toString().trim().isEmpty()) {
                 try {
-                    String srcTable = (currentFormDef.getViewTable() != null && !currentFormDef.getViewTable().trim().isEmpty()) ? currentFormDef.getViewTable().trim() : currentFormDef.getTableName();
+                    String srcTable = (currentFormDef.getViewTable() != null
+                            && !currentFormDef.getViewTable().trim().isEmpty()) ? currentFormDef.getViewTable().trim()
+                                    : currentFormDef.getTableName();
                     Map<String, Object> dbRow = dynamicDataService.fetchLovRecord(srcTable, pk, pkVal);
                     if (dbRow != null && !dbRow.isEmpty()) {
                         freshRow = dbRow;
@@ -691,10 +706,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
     private void refreshExtraToolbarButtons() {
         extraActionsContainer.removeAll();
-        if (currentFormDef == null || dynamicDataService == null) return;
-        List<com.vaadinerp.meta.FormActionMeta> masterActions = dynamicDataService.getFormActions(currentFormDef.getFormCode(),
+        if (currentFormDef == null || dynamicDataService == null)
+            return;
+        List<com.vaadinerp.meta.FormActionMeta> masterActions = dynamicDataService.getFormActions(
+                currentFormDef.getFormCode(),
                 "MASTER_TOOLBAR");
-        if (masterActions == null || masterActions.isEmpty()) return;
+        if (masterActions == null || masterActions.isEmpty())
+            return;
 
         java.util.Map<String, java.util.List<com.vaadinerp.meta.FormActionMeta>> groupedActions = new java.util.LinkedHashMap<>();
         List<com.vaadinerp.meta.FormActionMeta> standaloneActions = new ArrayList<>();
@@ -728,7 +746,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         for (Map.Entry<String, List<com.vaadinerp.meta.FormActionMeta>> entry : groupedActions.entrySet()) {
             com.vaadin.flow.component.menubar.MenuBar menuBar = new com.vaadin.flow.component.menubar.MenuBar();
             menuBar.addThemeVariants(com.vaadin.flow.component.menubar.MenuBarVariant.LUMO_TERTIARY);
-            
+
             HorizontalLayout menuBtnLayout = new HorizontalLayout();
             menuBtnLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
             menuBtnLayout.setSpacing(true);
@@ -740,7 +758,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             grpSpan.getStyle().set("font-weight", "500").set("color", "#374151");
             menuBtnLayout.add(grpIcon, grpSpan, chevronIcon);
             com.vaadin.flow.component.contextmenu.MenuItem parentItem = menuBar.addItem(menuBtnLayout);
-            
+
             com.vaadin.flow.component.contextmenu.SubMenu subMenu = parentItem.getSubMenu();
             for (com.vaadinerp.meta.FormActionMeta act : entry.getValue()) {
                 com.vaadin.flow.component.icon.Icon icon = null;
@@ -754,7 +772,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     icon = VaadinIcon.FILE_TEXT.create();
                 }
                 icon.getStyle().set("color", "#2563eb").set("font-size", "1rem");
-                subMenu.addItem(new HorizontalLayout(icon, new com.vaadin.flow.component.html.Span(act.getActionLabel())), e -> executeToolbarAction(act));
+                subMenu.addItem(
+                        new HorizontalLayout(icon, new com.vaadin.flow.component.html.Span(act.getActionLabel())),
+                        e -> executeToolbarAction(act));
             }
             extraActionsContainer.add(menuBar);
         }
@@ -766,7 +786,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         if (grid != null && grid.getSelectedItems() != null) {
             selectedRows.addAll(grid.getSelectedItems());
         }
-        if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType()) || (act.getScriptContent() != null && !act.getScriptContent().isBlank())) {
+        if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType())
+                || (act.getScriptContent() != null && !act.getScriptContent().isBlank())) {
             if (dynamicDataService != null && dynamicDataService.getScriptExecutorService() != null) {
                 dynamicDataService.getScriptExecutorService().executeActionScript(act, headerBean, selectedRows, this);
             }
@@ -784,9 +805,11 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     }
 
     private void executeOnLoadActions(String scope) {
-        if (currentFormDef == null || dynamicDataService == null) return;
+        if (currentFormDef == null || dynamicDataService == null)
+            return;
         List<com.vaadinerp.meta.FormActionMeta> actions = dynamicDataService.getFormActions(currentFormCode, scope);
-        if (actions == null || actions.isEmpty()) return;
+        if (actions == null || actions.isEmpty())
+            return;
 
         Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : new HashMap<>();
         for (com.vaadinerp.meta.FormActionMeta act : actions) {
@@ -795,8 +818,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         act.getSourceLovCode(),
                         act.getFilterMapping(),
                         headerBean,
-                        ""
-                );
+                        "");
                 if (fetchedRecords != null && !fetchedRecords.isEmpty()) {
                     Map<String, Object> srcRec = fetchedRecords.get(0);
                     if (headerBean != null) {
@@ -813,7 +835,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     }
                 }
             } catch (Exception ex) {
-                System.err.println("Error executing OnLoad action [" + act.getActionCode() + "] in scope [" + scope + "]: " + ex.getMessage());
+                System.err.println("Error executing OnLoad action [" + act.getActionCode() + "] in scope [" + scope
+                        + "]: " + ex.getMessage());
             }
         }
     }
@@ -837,16 +860,21 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     srcCol = srcCol.substring(7);
                 }
                 Object val = null;
-                if (srcRecord != null && !srcCol.toLowerCase().contains("coalesce(") && !srcCol.toLowerCase().contains("ifnull(") && !srcCol.contains("+") && !srcCol.contains("*") && !srcCol.contains("/")) {
+                if (srcRecord != null && !srcCol.toLowerCase().contains("coalesce(")
+                        && !srcCol.toLowerCase().contains("ifnull(") && !srcCol.contains("+") && !srcCol.contains("*")
+                        && !srcCol.contains("/")) {
                     val = getValueCaseInsensitive(srcRecord, srcCol);
                 }
                 if (val == null && srcCol != null && !srcCol.isBlank()) {
                     if (srcCol.toLowerCase().contains("coalesce(") || srcCol.toLowerCase().contains("ifnull(")
-                            || ((srcCol.contains("+") || srcCol.contains("*") || srcCol.contains("/") || (srcCol.contains("-") && !srcCol.startsWith("-")))
-                                && srcCol.matches(".*[a-zA-Z\\(\\)].*"))) {
+                            || ((srcCol.contains("+") || srcCol.contains("*") || srcCol.contains("/")
+                                    || (srcCol.contains("-") && !srcCol.startsWith("-")))
+                                    && srcCol.matches(".*[a-zA-Z\\(\\)].*"))) {
                         val = com.vaadinerp.util.FormulaEvaluator.evaluateTargetExpression(srcCol, srcRecord, destRow);
-                    } else if ((srcCol.startsWith("'") && srcCol.endsWith("'")) || (srcCol.startsWith("\"") && srcCol.endsWith("\""))) {
-                        if (srcCol.length() >= 2) val = srcCol.substring(1, srcCol.length() - 1);
+                    } else if ((srcCol.startsWith("'") && srcCol.endsWith("'"))
+                            || (srcCol.startsWith("\"") && srcCol.endsWith("\""))) {
+                        if (srcCol.length() >= 2)
+                            val = srcCol.substring(1, srcCol.length() - 1);
                     } else if ("true".equalsIgnoreCase(srcCol) || "false".equalsIgnoreCase(srcCol)) {
                         val = Boolean.parseBoolean(srcCol);
                     } else if ("null".equalsIgnoreCase(srcCol)) {
@@ -898,7 +926,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     }
 
     public void applyInitialParameters(Object extra) {
-        if (extra == null) return;
+        if (extra == null)
+            return;
         if (extra instanceof String strExtra) {
             String trimmed = strExtra.trim();
             if ("HIDE_HISTORIS".equalsIgnoreCase(trimmed) || "HIDE_HISTORY".equalsIgnoreCase(trimmed)) {
@@ -918,10 +947,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             for (Map.Entry<?, ?> entry : mapExtra.entrySet()) {
                 String key = entry.getKey() != null ? entry.getKey().toString().trim() : "";
                 Object val = entry.getValue();
-                if (key.isEmpty()) continue;
+                if (key.isEmpty())
+                    continue;
                 if ("HIDE_HISTORIS".equalsIgnoreCase(key) || "HIDE_HISTORY".equalsIgnoreCase(key)
-                        || "HIDEHISTORIS".equalsIgnoreCase(key.replace("_", "")) || "HIDEHISTORY".equalsIgnoreCase(key.replace("_", ""))) {
-                    if (val == null || "true".equalsIgnoreCase(val.toString()) || "HIDE_HISTORIS".equalsIgnoreCase(val.toString()) || "1".equals(val.toString())) {
+                        || "HIDEHISTORIS".equalsIgnoreCase(key.replace("_", ""))
+                        || "HIDEHISTORY".equalsIgnoreCase(key.replace("_", ""))) {
+                    if (val == null || "true".equalsIgnoreCase(val.toString())
+                            || "HIDE_HISTORIS".equalsIgnoreCase(val.toString()) || "1".equals(val.toString())) {
                         hideHistorisTab();
                     }
                 } else {
@@ -932,7 +964,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     }
 
     private void applySingleParameter(String key, Object val) {
-        if (formComponents == null || key == null || key.isEmpty() || val == null) return;
+        if (formComponents == null || key == null || key.isEmpty() || val == null)
+            return;
         Component comp = formComponents.get(key);
         if (comp == null) {
             for (Map.Entry<String, Component> entry : formComponents.entrySet()) {
@@ -1013,8 +1046,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             FormLayout rowLayout = new FormLayout();
             rowLayout.setWidthFull();
 
-            com.vaadinerp.components.FormLayoutUtils.RowLayoutConfig rowConfig =
-                    com.vaadinerp.components.FormLayoutUtils.calculateRowConfig(groupFields, maxColsInForm);
+            com.vaadinerp.components.FormLayoutUtils.RowLayoutConfig rowConfig = com.vaadinerp.components.FormLayoutUtils
+                    .calculateRowConfig(groupFields, maxColsInForm);
             int cols = rowConfig.getCols();
             com.vaadinerp.components.FormLayoutUtils.applyResponsiveSteps(rowLayout, cols);
 
@@ -1030,13 +1063,15 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
                 int span = rowConfig.getSpan(field);
 
-                // Checkbox: bungkus dengan Div agar label muncul di ATAS (sama persis seperti TextField/ComboBox)
+                // Checkbox: bungkus dengan Div agar label muncul di ATAS (sama persis seperti
+                // TextField/ComboBox)
                 // sehingga checkbox square sejajar satu baris dengan input box di sampingnya
                 if (input instanceof com.vaadin.flow.component.checkbox.Checkbox cb) {
                     String cbLabel = cb.getLabel();
                     cb.setLabel(null); // hapus label dari checkbox agar tidak duplikat
 
-                    com.vaadin.flow.component.html.Span labelSpan = new com.vaadin.flow.component.html.Span(cbLabel != null ? cbLabel : "");
+                    com.vaadin.flow.component.html.Span labelSpan = new com.vaadin.flow.component.html.Span(
+                            cbLabel != null ? cbLabel : "");
                     labelSpan.getStyle()
                             .set("color", "var(--lumo-secondary-text-color)")
                             .set("font-weight", "500")
@@ -1058,7 +1093,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             .set("justify-content", "flex-start")
                             .set("width", "100%");
 
-                    com.vaadin.flow.component.html.Div cbWrapper = new com.vaadin.flow.component.html.Div(labelSpan, cbBox);
+                    com.vaadin.flow.component.html.Div cbWrapper = new com.vaadin.flow.component.html.Div(labelSpan,
+                            cbBox);
                     cbWrapper.getStyle()
                             .set("display", "flex")
                             .set("flex-direction", "column")
@@ -1080,7 +1116,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 formComponents.put(field.getFieldName(), input);
                 bindComponent(formBinder, input, field);
 
-                if ("TEXTAREA".equalsIgnoreCase(field.getComponentType()) && input instanceof com.vaadin.flow.component.textfield.TextArea ta) {
+                if ("TEXTAREA".equalsIgnoreCase(field.getComponentType())
+                        && input instanceof com.vaadin.flow.component.textfield.TextArea ta) {
                     ta.getStyle().set("resize", "vertical");
                 }
             }
@@ -1092,19 +1129,25 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             if (field.getFilters() != null) {
                 for (FieldFilterMeta filter : field.getFilters()) {
                     Component targetComponent = formComponents.get(field.getFieldName());
-                    if (targetComponent == null) continue;
+                    if (targetComponent == null)
+                        continue;
 
                     if ("FIELD".equalsIgnoreCase(filter.getSourceType())) {
                         String sourceFieldName = filter.getSourceName();
                         String lookupKey = sourceFieldName;
-                        if (lookupKey != null && (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header."))) {
-                            lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                        if (lookupKey != null
+                                && (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header."))) {
+                            lookupKey = lookupKey.replaceAll("[\"']", "")
+                                    .substring(lookupKey.indexOf("header.") + "header.".length()).trim();
                         }
                         Component sourceComponent = lookupKey != null ? formComponents.get(lookupKey) : null;
-                        if (sourceComponent == null && sourceFieldName != null) sourceComponent = formComponents.get(sourceFieldName);
-                        if (sourceComponent == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                        if (sourceComponent == null && sourceFieldName != null)
+                            sourceComponent = formComponents.get(sourceFieldName);
+                        if (sourceComponent == null
+                                && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
                             sourceComponent = formComponents.get("unique");
-                            if (sourceComponent == null) sourceComponent = formComponents.get("isunique");
+                            if (sourceComponent == null)
+                                sourceComponent = formComponents.get("isunique");
                         }
                         if (sourceComponent instanceof com.vaadin.flow.component.HasValue) {
                             @SuppressWarnings("unchecked")
@@ -1127,7 +1170,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         } else {
                             Map<String, Object> currentRecordData = formBinder != null ? formBinder.getBean() : null;
                             Object fallbackVal = filter.getSourceName();
-                            if (currentRecordData != null && lookupKey != null && currentRecordData.containsKey(lookupKey)) {
+                            if (currentRecordData != null && lookupKey != null
+                                    && currentRecordData.containsKey(lookupKey)) {
                                 fallbackVal = currentRecordData.get(lookupKey);
                             }
                             com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(
@@ -1139,11 +1183,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         Object staticVal = filter.getSourceName();
                         String lookupKey = staticVal != null ? staticVal.toString() : "";
                         if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")) {
-                            lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                            lookupKey = lookupKey.replaceAll("[\"']", "")
+                                    .substring(lookupKey.indexOf("header.") + "header.".length()).trim();
                             Component sc = formComponents.get(lookupKey);
-                            if (sc == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                            if (sc == null && ("unique".equalsIgnoreCase(lookupKey)
+                                    || "isunique".equalsIgnoreCase(lookupKey))) {
                                 sc = formComponents.get("unique");
-                                if (sc == null) sc = formComponents.get("isunique");
+                                if (sc == null)
+                                    sc = formComponents.get("isunique");
                             }
                             Map<String, Object> currentRecordData = formBinder != null ? formBinder.getBean() : null;
                             if (sc instanceof com.vaadin.flow.component.HasValue<?, ?> hv) {
@@ -1248,12 +1295,16 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         com.vaadin.flow.component.html.Anchor btnExportExcel = com.vaadinerp.components.StandardGridUtils
-                .createExportExcelButton(grid, currentFormCode != null ? currentFormCode + "_export" : "data_export", colGetterMap);
+                .createExportExcelButton(grid, currentFormCode != null ? currentFormCode + "_export" : "data_export",
+                        colGetterMap);
 
         com.vaadin.flow.component.checkbox.Checkbox cbPilihSemuaHalIni = new com.vaadin.flow.component.checkbox.Checkbox();
-        com.vaadin.flow.component.html.Span lblPilihSemuaHalIni = new com.vaadin.flow.component.html.Span("Select All (This Page)");
-        lblPilihSemuaHalIni.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "500").set("cursor", "pointer").set("user-select", "none").set("white-space", "nowrap");
-        lblPilihSemuaHalIni.addClickListener(e -> cbPilihSemuaHalIni.setValue(!Boolean.TRUE.equals(cbPilihSemuaHalIni.getValue())));
+        com.vaadin.flow.component.html.Span lblPilihSemuaHalIni = new com.vaadin.flow.component.html.Span(
+                "Select All (This Page)");
+        lblPilihSemuaHalIni.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "500")
+                .set("cursor", "pointer").set("user-select", "none").set("white-space", "nowrap");
+        lblPilihSemuaHalIni.addClickListener(
+                e -> cbPilihSemuaHalIni.setValue(!Boolean.TRUE.equals(cbPilihSemuaHalIni.getValue())));
 
         HorizontalLayout boxHalIni = new HorizontalLayout(cbPilihSemuaHalIni, lblPilihSemuaHalIni);
         boxHalIni.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
@@ -1262,7 +1313,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         com.vaadin.flow.component.checkbox.Checkbox cbPilihSemua = new com.vaadin.flow.component.checkbox.Checkbox();
         com.vaadin.flow.component.html.Span lblPilihSemua = new com.vaadin.flow.component.html.Span("Select All");
-        lblPilihSemua.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "500").set("cursor", "pointer").set("user-select", "none").set("white-space", "nowrap");
+        lblPilihSemua.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "500")
+                .set("cursor", "pointer").set("user-select", "none").set("white-space", "nowrap");
         lblPilihSemua.addClickListener(e -> cbPilihSemua.setValue(!Boolean.TRUE.equals(cbPilihSemua.getValue())));
 
         HorizontalLayout boxAll = new HorizontalLayout(cbPilihSemua, lblPilihSemua);
@@ -1278,7 +1330,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     java.util.List<Map<String, Object>> pageItems = dynamicDataService.fetchGridDataPaged(
                             currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
                     grid.asMultiSelect().select(pageItems);
-                    Notification.show("Memilih " + pageItems.size() + " baris di halaman ini.", 1500, Notification.Position.BOTTOM_END);
+                    Notification.show("Memilih " + pageItems.size() + " baris di halaman ini.", 1500,
+                            Notification.Position.BOTTOM_END);
                 } else {
                     if (!cbPilihSemua.getValue()) {
                         grid.deselectAll();
@@ -1297,7 +1350,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             currentFormDef, 0, Integer.MAX_VALUE, filterValues, currentSortField, currentSortDir);
                     grid.asMultiSelect().select(allItems);
                     cbPilihSemuaHalIni.setValue(true);
-                    Notification.show("Memilih seluruh " + allItems.size() + " baris data.", 2000, Notification.Position.BOTTOM_END);
+                    Notification.show("Memilih seluruh " + allItems.size() + " baris data.", 2000,
+                            Notification.Position.BOTTOM_END);
                 } else {
                     cbPilihSemuaHalIni.setValue(false);
                     grid.deselectAll();
@@ -1360,6 +1414,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         .setFlexGrow(1)
                         .setResizable(true)
                         .setKey(fieldName); // setKey supaya bisa diakses ulang kalau perlu
+
+                String fType = field.getComponentType() != null ? field.getComponentType().toUpperCase() : "";
+                if ("INTBOX".equals(fType) || "DECIMALBOX".equals(fType)) {
+                    col.setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END);
+                }
+
                 colGetterMap.put(col, valueGetter);
 
                 // Setup Comparator for Sorting
@@ -1433,7 +1493,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 if (event.getSource().getText() != null) {
                     criteria.operator = event.getSource().getText();
                     applyOperatorUI.run();
-                    if (paginationBar != null) paginationBar.resetPage();
+                    if (paginationBar != null)
+                        paginationBar.resetPage();
                     applyFilters();
                 }
             };
@@ -1460,7 +1521,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
             filterField.addValueChangeListener(e -> {
                 criteria.value = e.getValue();
-                if (paginationBar != null) paginationBar.resetPage();
+                if (paginationBar != null)
+                    paginationBar.resetPage();
                 applyFilters();
             });
 
@@ -1507,14 +1569,18 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 com.vaadin.flow.component.grid.GridSortOrder<Map<String, Object>> order = event.getSortOrder().get(0);
                 if (order.getSorted().getKey() != null) {
                     currentSortField = order.getSorted().getKey();
-                    currentSortDir = order.getDirection() == com.vaadin.flow.data.provider.SortDirection.DESCENDING ? "DESC" : "ASC";
-                    if (paginationBar != null) paginationBar.resetPage();
+                    currentSortDir = order.getDirection() == com.vaadin.flow.data.provider.SortDirection.DESCENDING
+                            ? "DESC"
+                            : "ASC";
+                    if (paginationBar != null)
+                        paginationBar.resetPage();
                     applyFilters();
                 }
             } else {
                 currentSortField = null;
                 currentSortDir = null;
-                if (paginationBar != null) paginationBar.resetPage();
+                if (paginationBar != null)
+                    paginationBar.resetPage();
                 applyFilters();
             }
         });
@@ -1553,10 +1619,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(grid, columnToFieldNameMap, userOrder);
 
         com.vaadinerp.components.StandardGridUtils.attachSelectAllHeader(grid, () -> {
-            if (currentFormDef == null) return java.util.Collections.emptyList();
+            if (currentFormDef == null)
+                return java.util.Collections.emptyList();
             int offset = paginationBar != null ? paginationBar.getOffset() : 0;
             int limit = paginationBar != null ? paginationBar.getLimit() : 1000;
-            return dynamicDataService.fetchGridDataPaged(currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
+            return dynamicDataService.fetchGridDataPaged(currentFormDef, offset, limit, filterValues, currentSortField,
+                    currentSortDir);
         });
     }
 
@@ -1571,7 +1639,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     }
 
     private void applyFilters() {
-        if (currentFormDef == null) return;
+        if (currentFormDef == null)
+            return;
         long totalRecords = dynamicDataService.countGridData(currentFormDef, filterValues);
         if (paginationBar != null) {
             paginationBar.setTotalRecords(totalRecords);
@@ -1585,59 +1654,63 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     }
 
     private void updateGridDataProvider() {
-        if (currentFormDef == null) return;
-        com.vaadin.flow.data.provider.CallbackDataProvider<Map<String, Object>, Void> dataProvider =
-                new com.vaadin.flow.data.provider.CallbackDataProvider<>(
-                        query -> {
-                            int queryOffset = query.getOffset();
-                            int queryLimit = query.getLimit();
-                            int effectiveOffset = (paginationBar != null ? paginationBar.getOffset() : 0) + queryOffset;
+        if (currentFormDef == null)
+            return;
+        com.vaadin.flow.data.provider.CallbackDataProvider<Map<String, Object>, Void> dataProvider = new com.vaadin.flow.data.provider.CallbackDataProvider<>(
+                query -> {
+                    int queryOffset = query.getOffset();
+                    int queryLimit = query.getLimit();
+                    int effectiveOffset = (paginationBar != null ? paginationBar.getOffset() : 0) + queryOffset;
 
-                            String sortField = currentSortField;
-                            String sortDir = currentSortDir;
-                            if (!query.getSortOrders().isEmpty()) {
-                                com.vaadin.flow.data.provider.QuerySortOrder order = query.getSortOrders().get(0);
-                                sortField = order.getSorted();
-                                sortDir = order.getDirection() == com.vaadin.flow.data.provider.SortDirection.DESCENDING ? "DESC" : "ASC";
-                            }
+                    String sortField = currentSortField;
+                    String sortDir = currentSortDir;
+                    if (!query.getSortOrders().isEmpty()) {
+                        com.vaadin.flow.data.provider.QuerySortOrder order = query.getSortOrders().get(0);
+                        sortField = order.getSorted();
+                        sortDir = order.getDirection() == com.vaadin.flow.data.provider.SortDirection.DESCENDING
+                                ? "DESC"
+                                : "ASC";
+                    }
 
-                            java.util.List<Map<String, Object>> chunk = dynamicDataService.fetchGridDataPaged(
-                                    currentFormDef, effectiveOffset, queryLimit, filterValues, sortField, sortDir);
+                    java.util.List<Map<String, Object>> chunk = dynamicDataService.fetchGridDataPaged(
+                            currentFormDef, effectiveOffset, queryLimit, filterValues, sortField, sortDir);
 
-                            allGridItems.clear();
-                            allGridItems.addAll(chunk);
-                            gridItems.clear();
-                            gridItems.addAll(chunk);
+                    allGridItems.clear();
+                    allGridItems.addAll(chunk);
+                    gridItems.clear();
+                    gridItems.addAll(chunk);
 
-                            return chunk.stream();
-                        },
-                        query -> {
-                            long total = dynamicDataService.countGridData(currentFormDef, filterValues);
-                            if (paginationBar != null) {
-                                paginationBar.setTotalRecords(total);
-                                long pageLimit = paginationBar.getLimit();
-                                long remaining = total - paginationBar.getOffset();
-                                if (remaining < 0) remaining = 0;
-                                return (int) Math.min(pageLimit, remaining);
-                            }
-                            return (int) Math.min(total, Integer.MAX_VALUE);
-                        },
-                        item -> {
-                            if (item == null)
-                                return 0;
-                            String pk = currentFormDef != null && currentFormDef.getPrimaryKey() != null
-                                    ? currentFormDef.getPrimaryKey()
-                                    : "id";
-                            Object pkVal = item.get(pk);
-                            return pkVal != null ? pkVal : System.identityHashCode(item);
-                        }
-                );
+                    return chunk.stream();
+                },
+                query -> {
+                    long total = dynamicDataService.countGridData(currentFormDef, filterValues);
+                    if (paginationBar != null) {
+                        paginationBar.setTotalRecords(total);
+                        long pageLimit = paginationBar.getLimit();
+                        long remaining = total - paginationBar.getOffset();
+                        if (remaining < 0)
+                            remaining = 0;
+                        return (int) Math.min(pageLimit, remaining);
+                    }
+                    return (int) Math.min(total, Integer.MAX_VALUE);
+                },
+                item -> {
+                    if (item == null)
+                        return 0;
+                    String pk = currentFormDef != null && currentFormDef.getPrimaryKey() != null
+                            ? currentFormDef.getPrimaryKey()
+                            : "id";
+                    Object pkVal = item.get(pk);
+                    return pkVal != null ? pkVal : System.identityHashCode(item);
+                });
         grid.setDataProvider(dataProvider);
         com.vaadinerp.components.StandardGridUtils.attachSelectAllHeader(grid, () -> {
-            if (currentFormDef == null) return java.util.Collections.emptyList();
+            if (currentFormDef == null)
+                return java.util.Collections.emptyList();
             int offset = paginationBar != null ? paginationBar.getOffset() : 0;
             int limit = paginationBar != null ? paginationBar.getLimit() : 1000;
-            return dynamicDataService.fetchGridDataPaged(currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
+            return dynamicDataService.fetchGridDataPaged(currentFormDef, offset, limit, filterValues, currentSortField,
+                    currentSortDir);
         });
     }
 
@@ -1693,7 +1766,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 return (V) Boolean.FALSE;
             }
             if (component instanceof com.vaadin.flow.component.textfield.TextField ||
-                component instanceof com.vaadin.flow.component.textfield.TextArea) {
+                    component instanceof com.vaadin.flow.component.textfield.TextArea) {
                 return (V) "";
             }
             return null;
@@ -1843,7 +1916,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     if (editComponent instanceof com.vaadinerp.components.BandboxField<?, ?> bandbox) {
                         dispLabel = bandbox.getDisplayLabel();
                         Object selItem = bandbox.getSelectedItem();
-                        if (selItem instanceof Map) selMap = (Map<String, Object>) selItem;
+                        if (selItem instanceof Map)
+                            selMap = (Map<String, Object>) selItem;
                     } else if (editComponent instanceof com.vaadinerp.components.LovComboBox lovCombo) {
                         dispLabel = lovCombo.getDisplayLabel();
                         selMap = lovCombo.getSelectedRecord();
@@ -1860,7 +1934,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         putValueCaseInsensitive(map, field.getFieldName() + "_record", selMap);
                         for (Map.Entry<String, Object> entry : selMap.entrySet()) {
                             if (entry.getKey() != null && entry.getValue() != null) {
-                                putValueCaseInsensitive(map, field.getFieldName() + "." + entry.getKey(), entry.getValue());
+                                putValueCaseInsensitive(map, field.getFieldName() + "." + entry.getKey(),
+                                        entry.getValue());
                             }
                         }
                     }
@@ -1877,7 +1952,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 if (editComponent instanceof com.vaadinerp.components.BandboxField<?, ?> bandbox) {
                     dispLabel = bandbox.getDisplayLabel();
                     Object selItem = bandbox.getSelectedItem();
-                    if (selItem instanceof Map) selMap = (Map<String, Object>) selItem;
+                    if (selItem instanceof Map)
+                        selMap = (Map<String, Object>) selItem;
                 } else if (editComponent instanceof com.vaadinerp.components.LovComboBox lovCombo) {
                     dispLabel = lovCombo.getDisplayLabel();
                     selMap = lovCombo.getSelectedRecord();
@@ -1894,7 +1970,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     putValueCaseInsensitive(bean, field.getFieldName() + "_record", selMap);
                     for (Map.Entry<String, Object> entry : selMap.entrySet()) {
                         if (entry.getKey() != null && entry.getValue() != null) {
-                            putValueCaseInsensitive(bean, field.getFieldName() + "." + entry.getKey(), entry.getValue());
+                            putValueCaseInsensitive(bean, field.getFieldName() + "." + entry.getKey(),
+                                    entry.getValue());
                         }
                     }
                 }
@@ -1991,9 +2068,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     if (parentPkValue != null && field.getLovCode() != null && field.getFormula() != null) {
                         FormMeta childForm = formMetaRepository.findById(field.getLovCode()).orElse(null);
                         if (childForm != null) {
-                            String childTableName = (childForm.getViewTable() != null && !childForm.getViewTable().trim().isEmpty())
-                                    ? childForm.getViewTable().trim()
-                                    : childForm.getTableName();
+                            String childTableName = (childForm.getViewTable() != null
+                                    && !childForm.getViewTable().trim().isEmpty())
+                                            ? childForm.getViewTable().trim()
+                                            : childForm.getTableName();
                             String childFkColumn = field.getFormula();
                             childData = dynamicDataService.fetchDetailTableData(childTableName, childFkColumn,
                                     parentPkValue);
@@ -2014,7 +2092,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 } else if (comp instanceof SubformGridField) {
                     ((SubformGridField) comp).setValue(new ArrayList<>());
                 }
-                
+
                 if (comp instanceof com.vaadin.flow.component.HasEnabled hasEnabled) {
                     hasEnabled.setEnabled(true);
                 }

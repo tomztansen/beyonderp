@@ -459,7 +459,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
     private void openMenuDialog(AppMenu existing, String defaultParentCode) {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle((existing == null) ? "Add New Menu" : "Edit Menu: " + existing.getMenuCode());
+        dialog.setHeaderTitle((existing == null) ? "Add New Menu" : "Edit Menu: " + existing.getMenuCode() + (existing.getMenuTitle() != null ? " - " + existing.getMenuTitle() : ""));
         dialog.setWidth("540px");
 
         FormLayout form = new FormLayout();
@@ -538,62 +538,63 @@ public class UserAuthorityAdminView extends VerticalLayout {
             }
         }
 
-        if (existing == null) {
-            ComboBox<AvailableMenuItem> autoFillSelect = new ComboBox<>("⚡ Select from Available Forms / Modules (Auto-Fill)");
-            autoFillSelect.setWidthFull();
-            autoFillSelect.setPlaceholder("-- Select Module / Form for Auto-Fill --");
-            autoFillSelect.setClearButtonVisible(true);
+        ComboBox<AvailableMenuItem> autoFillSelect = new ComboBox<>("⚡ Select from Available Forms / Modules (Auto-Fill)");
+        autoFillSelect.setWidthFull();
+        autoFillSelect.setPlaceholder("-- Select Module / Form for Auto-Fill --");
+        autoFillSelect.setClearButtonVisible(true);
 
-            List<AvailableMenuItem> availableList = new ArrayList<>();
-            if (formMetaRepository != null) {
-                for (FormMeta f : formMetaRepository.findAll()) {
-                    String code = f.getFormCode();
-                    if (code == null || "MD_SEQUENCE".equalsIgnoreCase(code)) continue;
-                    boolean isSubform = "SUBFORM".equalsIgnoreCase(f.getFormType())
-                            || code.toUpperCase().endsWith("_DTL")
-                            || code.toUpperCase().endsWith("_DETAIL")
-                            || (f.getFormTitle() != null && f.getFormTitle().toLowerCase().startsWith("detail "));
-                    if (isSubform) continue;
-                    availableList.add(new AvailableMenuItem(code, f.getFormTitle() != null ? f.getFormTitle() : code, code, "FILE_TEXT_O", "Form", "GRP_FORMS"));
-                }
+        List<AvailableMenuItem> availableList = new ArrayList<>();
+        if (formMetaRepository != null) {
+            for (FormMeta f : formMetaRepository.findAll()) {
+                String code = f.getFormCode();
+                if (code == null || "MD_SEQUENCE".equalsIgnoreCase(code)) continue;
+                boolean isSubform = "SUBFORM".equalsIgnoreCase(f.getFormType())
+                        || code.toUpperCase().endsWith("_DTL")
+                        || code.toUpperCase().endsWith("_DETAIL")
+                        || (f.getFormTitle() != null && f.getFormTitle().toLowerCase().startsWith("detail "));
+                if (isSubform) continue;
+                availableList.add(new AvailableMenuItem(code, f.getFormTitle() != null ? f.getFormTitle() : code, code, "FILE_TEXT_O", "Form", "GRP_FORMS"));
             }
-            if (reportMetaRepository != null) {
-                for (ReportMeta r : reportMetaRepository.findAll()) {
-                    String code = r.getReportCode();
-                    if (code == null) continue;
-                    availableList.add(new AvailableMenuItem(code, r.getReportTitle() != null ? r.getReportTitle() : code, "report-viewer/" + code, "PRINT", "Report", "GRP_REPORTS"));
-                }
+        }
+        if (reportMetaRepository != null) {
+            for (ReportMeta r : reportMetaRepository.findAll()) {
+                String code = r.getReportCode();
+                if (code == null) continue;
+                availableList.add(new AvailableMenuItem(code, r.getReportTitle() != null ? r.getReportTitle() : code, "report-viewer/" + code, "PRINT", "Report", "GRP_REPORTS"));
             }
-            availableList.add(new AvailableMenuItem("REPORT_BUILDER", "Report Designer", "REPORT_BUILDER", "EDIT", "System", "GRP_REPORTS"));
-            availableList.add(new AvailableMenuItem("REPORT_VIEWER", "Report Viewer", "REPORT_VIEWER", "PRINT", "System", "GRP_REPORTS"));
-            availableList.add(new AvailableMenuItem("LOV_BUILDER", "LOV Metadata Builder", "LOV_BUILDER", "LIST", "System", "SYS_FORM"));
-            availableList.add(new AvailableMenuItem("STANDARD_FORMAT", "Konfigurasi Format Standar", "STANDARD_FORMAT", "SLIDERS", "System", "SYS_FORM"));
-            availableList.add(new AvailableMenuItem("FORM_ACTION_BUILDER", "Extra Toolbar Builder", "action-builder", "BOLT", "System", "SYS_FORM"));
-            availableList.add(new AvailableMenuItem("MD_SEQUENCE", "Master Penomoran Dokumen", "MD_SEQUENCE", "BARCODE", "System", "SYS_FORM"));
-            availableList.add(new AvailableMenuItem("FIELD_AUDIT_LOG", "Field Audit Log Viewer", "FIELD_AUDIT_LOG", "CLOCK", "System", "GRP_SYSTEM"));
+        }
+        availableList.add(new AvailableMenuItem("REPORT_BUILDER", "Report Designer", "REPORT_BUILDER", "EDIT", "System", "GRP_REPORTS"));
+        availableList.add(new AvailableMenuItem("REPORT_VIEWER", "Report Viewer", "REPORT_VIEWER", "PRINT", "System", "GRP_REPORTS"));
+        availableList.add(new AvailableMenuItem("LOV_BUILDER", "LOV Metadata Builder", "LOV_BUILDER", "LIST", "System", "SYS_FORM"));
+        availableList.add(new AvailableMenuItem("STANDARD_FORMAT", "Konfigurasi Format Standar", "STANDARD_FORMAT", "SLIDERS", "System", "SYS_FORM"));
+        availableList.add(new AvailableMenuItem("FORM_ACTION_BUILDER", "Extra Toolbar Builder", "action-builder", "BOLT", "System", "SYS_FORM"));
+        availableList.add(new AvailableMenuItem("MD_SEQUENCE", "Master Penomoran Dokumen", "MD_SEQUENCE", "BARCODE", "System", "SYS_FORM"));
+        availableList.add(new AvailableMenuItem("FIELD_AUDIT_LOG", "Field Audit Log Viewer", "FIELD_AUDIT_LOG", "CLOCK", "System", "GRP_SYSTEM"));
 
-            autoFillSelect.setItems(availableList);
-            autoFillSelect.setItemLabelGenerator(AvailableMenuItem::toString);
+        autoFillSelect.setItems(availableList);
+        autoFillSelect.setItemLabelGenerator(AvailableMenuItem::toString);
 
-            autoFillSelect.addValueChangeListener(e -> {
-                AvailableMenuItem item = e.getValue();
-                if (item != null) {
-                    codeField.setValue(item.code());
-                    titleField.setValue(item.title());
-                    typeSelect.setValue("ITEM");
-                    iconField.setValue(item.icon());
-                    routeField.setValue(item.route());
+        autoFillSelect.addValueChangeListener(e -> {
+            if (!e.isFromClient()) return;
+            AvailableMenuItem item = e.getValue();
+            if (item != null) {
+                codeField.setReadOnly(false);
+                codeField.setValue(item.code());
+                if (existing != null) codeField.setReadOnly(true);
+                titleField.setValue(item.title());
+                typeSelect.setValue("ITEM");
+                iconField.setValue(item.icon());
+                routeField.setValue(item.route());
+            }
+        });
 
-                    if (item.defaultParent() != null) {
-                        groups.stream()
-                                .filter(g -> g.getMenuCode().equals(item.defaultParent()))
-                                .findFirst()
-                                .ifPresent(g -> parentSelect.setValue(g.getMenuCode() + " — " + g.getMenuTitle()));
-                    }
-                }
-            });
+        form.add(autoFillSelect);
 
-            form.add(autoFillSelect);
+        if (existing != null) {
+            availableList.stream()
+                    .filter(a -> a.code().equalsIgnoreCase(existing.getMenuCode()))
+                    .findFirst()
+                    .ifPresent(autoFillSelect::setValue);
         }
 
         form.add(codeField, titleField, typeSelect, parentSelect, iconField, routeField, orderField);
@@ -604,8 +605,12 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 return;
             }
 
-            AppMenu menu = (existing == null) ? new AppMenu() : existing;
-            if (existing == null) menu.setMenuCode(codeField.getValue().trim().toUpperCase().replace(" ", "_"));
+            String newCode = codeField.getValue().trim().toUpperCase().replace(" ", "_");
+            String oldCode = (existing != null) ? existing.getMenuCode() : null;
+            boolean codeChanged = (existing != null && !newCode.equals(oldCode));
+
+            AppMenu menu = (existing == null || codeChanged) ? new AppMenu() : existing;
+            menu.setMenuCode(newCode);
             menu.setMenuTitle(titleField.getValue());
             menu.setMenuType(typeSelect.getValue() != null ? typeSelect.getValue() : "ITEM");
             menu.setIconName(iconField.getValue());
@@ -620,6 +625,33 @@ public class UserAuthorityAdminView extends VerticalLayout {
             }
 
             menuRepository.save(menu);
+
+            if (codeChanged) {
+                // Migrate children to new parent code
+                if ("GROUP".equalsIgnoreCase(existing.getMenuType())) {
+                    List<AppMenu> children = menuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(oldCode);
+                    for (AppMenu child : children) {
+                        child.setParentMenuCode(newCode);
+                        menuRepository.save(child);
+                    }
+                }
+                
+                // Migrate permissions
+                List<RoleMenuPermission> oldPerms = permissionRepository.findByMenuCode(oldCode);
+                for (RoleMenuPermission p : oldPerms) {
+                    RoleMenuPermission newP = new RoleMenuPermission();
+                    newP.setRoleCode(p.getRoleCode());
+                    newP.setMenuCode(newCode);
+                    newP.setCanAdd(p.getCanAdd());
+                    newP.setCanEdit(p.getCanEdit());
+                    newP.setCanDelete(p.getCanDelete());
+                    newP.setCanPrint(p.getCanPrint());
+                    permissionRepository.save(newP);
+                }
+                
+                // Delete the old menu (this will cleanly remove orphaned permissions/favorites)
+                deleteMenuAndDependencies(existing);
+            }
             dialog.close();
             refreshMenuTreeGrid();
             Notification.show("Menu saved successfully!", 2000, Notification.Position.BOTTOM_END);
