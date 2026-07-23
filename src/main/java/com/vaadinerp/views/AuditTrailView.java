@@ -21,7 +21,6 @@ import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadinerp.service.DynamicDataService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.ArrayList;
@@ -39,7 +38,6 @@ public class AuditTrailView extends VerticalLayout {
     private final TextField searchField = new TextField();
     private final ComboBox<String> actionFilter = new ComboBox<>();
 
-    @Autowired
     public AuditTrailView(DynamicDataService dynamicDataService, JdbcTemplate jdbcTemplate) {
         this.dynamicDataService = dynamicDataService;
         this.jdbcTemplate = jdbcTemplate;

@@ -59,6 +59,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private VerticalLayout historisLayout;
     private VerticalLayout transaksiLayout;
 
+    @SuppressWarnings("unused")
     private Runnable closeHandler;
 
     public void setCloseHandler(Runnable closeHandler) {
@@ -121,14 +122,6 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private static class FilterCriteria {
         String operator = "Contains";
         String value = "";
-
-        public String getOperator() {
-            return operator;
-        }
-
-        public String getValue() {
-            return value;
-        }
     }
 
     private java.util.Map<String, FilterCriteria> filterValues = new java.util.HashMap<>();

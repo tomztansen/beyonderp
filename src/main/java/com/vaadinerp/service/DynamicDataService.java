@@ -29,32 +29,18 @@ public class DynamicDataService {
     private final LovMetaRepository lovMetaRepository;
     private final FormMetaRepository formMetaRepository;
 
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private com.vaadinerp.security.repository.AppUserGridPreferenceRepository userGridPreferenceRepository;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private com.vaadinerp.security.service.SessionSecurityService securityService;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private com.vaadinerp.meta.FormActionMetaRepository formActionMetaRepository;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private FileStorageService fileStorageService;
+    private final com.vaadinerp.security.repository.AppUserGridPreferenceRepository userGridPreferenceRepository;
+    private final com.vaadinerp.security.service.SessionSecurityService securityService;
+    private final com.vaadinerp.meta.FormActionMetaRepository formActionMetaRepository;
+    private final FileStorageService fileStorageService;
+    private final ScriptExecutorService scriptExecutorService;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     public FileStorageService getFileStorageService() {
         return fileStorageService;
     }
 
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private ScriptExecutorService scriptExecutorService;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
-
     private com.fasterxml.jackson.databind.ObjectMapper getObjectMapper() {
-        if (objectMapper == null) {
-            objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        }
         return objectMapper;
     }
 
@@ -415,11 +401,25 @@ public class DynamicDataService {
         return scriptExecutorService;
     }
 
-    public DynamicDataService(JdbcTemplate jdbcTemplate, LovMetaRepository lovMetaRepository,
-            FormMetaRepository formMetaRepository) {
+    public DynamicDataService(
+            JdbcTemplate jdbcTemplate, 
+            LovMetaRepository lovMetaRepository,
+            FormMetaRepository formMetaRepository,
+            org.springframework.beans.factory.ObjectProvider<com.vaadinerp.security.repository.AppUserGridPreferenceRepository> userGridPreferenceRepository,
+            org.springframework.beans.factory.ObjectProvider<com.vaadinerp.security.service.SessionSecurityService> securityService,
+            org.springframework.beans.factory.ObjectProvider<com.vaadinerp.meta.FormActionMetaRepository> formActionMetaRepository,
+            org.springframework.beans.factory.ObjectProvider<FileStorageService> fileStorageService,
+            org.springframework.beans.factory.ObjectProvider<ScriptExecutorService> scriptExecutorService,
+            org.springframework.beans.factory.ObjectProvider<com.fasterxml.jackson.databind.ObjectMapper> objectMapper) {
         this.jdbcTemplate = jdbcTemplate;
         this.lovMetaRepository = lovMetaRepository;
         this.formMetaRepository = formMetaRepository;
+        this.userGridPreferenceRepository = userGridPreferenceRepository.getIfAvailable();
+        this.securityService = securityService.getIfAvailable();
+        this.formActionMetaRepository = formActionMetaRepository.getIfAvailable();
+        this.fileStorageService = fileStorageService.getIfAvailable();
+        this.scriptExecutorService = scriptExecutorService.getIfAvailable();
+        this.objectMapper = objectMapper.getIfAvailable(() -> new com.fasterxml.jackson.databind.ObjectMapper());
     }
 
     public FormMetaRepository getFormMetaRepository() {

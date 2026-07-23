@@ -1,13 +1,15 @@
 package com.vaadinerp.security.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "app_role_menu_permissions", schema = "public", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"role_code", "menu_code"})
 })
-@Data
+@Getter
+@Setter
 public class RoleMenuPermission {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

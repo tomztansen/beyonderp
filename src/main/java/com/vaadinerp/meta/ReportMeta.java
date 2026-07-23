@@ -1,13 +1,15 @@
 package com.vaadinerp.meta;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import java.util.List;
 
 @Entity
 @Table(name = "meta_report", schema = "public")
 @EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
-@Data
+@Getter
+@Setter
 public class ReportMeta {
     @Id
     @Column(name = "report_code", length = 50)

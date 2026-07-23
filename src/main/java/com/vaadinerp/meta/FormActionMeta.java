@@ -1,7 +1,8 @@
 package com.vaadinerp.meta;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.ToString;
 
 import lombok.EqualsAndHashCode;
@@ -9,7 +10,8 @@ import lombok.EqualsAndHashCode;
 @Entity
 @Table(name = "meta_form_action", schema = "public")
 @EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
-@Data
+@Getter
+@Setter
 @EqualsAndHashCode(of = {"id", "actionCode"})
 @ToString(exclude = "formMeta")
 public class FormActionMeta {
