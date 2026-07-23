@@ -76,17 +76,10 @@ public class DbExplorerView extends VerticalLayout {
     private String currentSortField;
     private String currentSortDir;
 
+    @SuppressWarnings("unused")
     private static class FilterCriteria {
         String operator = "Contains";
         String value = "";
-
-        public String getOperator() {
-            return operator;
-        }
-
-        public String getValue() {
-            return value;
-        }
     }
 
     private final Map<String, FilterCriteria> dataFilterValues = new HashMap<>();

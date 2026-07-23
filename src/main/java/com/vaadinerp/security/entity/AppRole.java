@@ -1,11 +1,13 @@
 package com.vaadinerp.security.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "app_roles", schema = "public")
-@Data
+@Getter
+@Setter
 public class AppRole {
     @Id
     @Column(name = "role_code", length = 50)

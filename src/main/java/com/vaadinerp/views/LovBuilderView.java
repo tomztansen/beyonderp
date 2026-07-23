@@ -14,7 +14,6 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.Route;
 import com.vaadinerp.meta.LovMeta;
 import com.vaadinerp.meta.LovMetaRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 
 @Route("lov-builder")
 public class LovBuilderView extends VerticalLayout {
@@ -34,7 +33,6 @@ public class LovBuilderView extends VerticalLayout {
 
     private LovMeta currentLovMeta;
 
-    @Autowired
     public LovBuilderView(LovMetaRepository lovMetaRepository, com.vaadinerp.service.DynamicDataService dataService) {
         this.lovMetaRepository = lovMetaRepository;
         this.dataService = dataService;
@@ -98,9 +96,12 @@ public class LovBuilderView extends VerticalLayout {
 
     private void setupGrid() {
         grid.setSizeFull();
-        grid.addColumn(meta -> meta != null ? meta.getLovCode() : "").setHeader("LOV Code").setSortable(true).setAutoWidth(true);
-        grid.addColumn(meta -> meta != null ? meta.getLovName() : "").setHeader("Name").setSortable(true).setAutoWidth(true);
-        grid.addColumn(meta -> meta != null ? meta.getTableName() : "").setHeader("Table Name").setSortable(true).setAutoWidth(true);
+        grid.addColumn(meta -> meta != null ? meta.getLovCode() : "").setHeader("LOV Code").setSortable(true)
+                .setAutoWidth(true);
+        grid.addColumn(meta -> meta != null ? meta.getLovName() : "").setHeader("Name").setSortable(true)
+                .setAutoWidth(true);
+        grid.addColumn(meta -> meta != null ? meta.getTableName() : "").setHeader("Table Name").setSortable(true)
+                .setAutoWidth(true);
         grid.addColumn(meta -> meta != null ? meta.getValueColumn() : "").setHeader("Value Col").setAutoWidth(true);
         grid.addColumn(meta -> meta != null ? meta.getLabelColumn() : "").setHeader("Label Col").setAutoWidth(true);
 

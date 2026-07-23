@@ -1,15 +1,17 @@
 package com.vaadinerp.meta;
 
 import jakarta.persistence.*;
-import lombok.Data;
 import lombok.ToString;
 
+import lombok.Getter;
+import lombok.Setter;
 import lombok.EqualsAndHashCode;
 
 @Entity
 @Table(name = "meta_field", schema = "public")
 @EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
-@Data
+@Getter
+@Setter
 @EqualsAndHashCode(of = {"id", "fieldName"})
 @ToString(exclude = {"formMeta", "lovTargets"})
 public class FieldMeta {

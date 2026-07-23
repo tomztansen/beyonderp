@@ -1965,3 +1965,212 @@ Vaadin is running in DEVELOPMENT mode - do not use for production deployments.
 2026-07-23T12:16:14.643+07:00  INFO 11668 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown completed.
 2026-07-23T12:16:14.645+07:00  INFO 11668 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
 2026-07-23T12:16:14.645+07:00  WARN 11668 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.cpr.DefaultBroadcaster    : AtmosphereResource 8d6480f7-5965-4bf8-bb78-6006885d360b is not suspended. If cached messages exists, this may cause unexpected situation. Suspend first
+2026-07-23T13:15:40.509+07:00  INFO 13632 --- [vaadinerp] [main] com.vaadinerp.Application                : Starting Application using Java 21.0.11 with PID 13632 (D:\PROJECT GMN\vaadinerp\target\classes started by Lenovo in D:\PROJECT GMN\vaadinerp)
+2026-07-23T13:15:40.514+07:00  INFO 13632 --- [vaadinerp] [main] com.vaadinerp.Application                : The following 1 profile is active: "dev"
+2026-07-23T13:15:41.880+07:00  INFO 13632 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-23T13:15:42.118+07:00  INFO 13632 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 213 ms. Found 14 JPA repository interfaces.
+2026-07-23T13:15:43.005+07:00  INFO 13632 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-07-23T13:15:43.021+07:00  INFO 13632 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-23T13:15:43.021+07:00  INFO 13632 --- [vaadinerp] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
+2026-07-23T13:15:43.141+07:00  INFO 13632 --- [vaadinerp] [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-07-23T13:15:43.141+07:00  INFO 13632 --- [vaadinerp] [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2315 ms
+2026-07-23T13:15:43.151+07:00  WARN 13632 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : vaadin.whitelisted-packages is deprecated and may not be supported in the future. Use vaadin.allowed-packages instead.
+2026-07-23T13:15:45.026+07:00  INFO 13632 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : Search for subclasses and classes with annotations took 1082 ms
+2026-07-23T13:15:45.180+07:00  INFO 13632 --- [vaadinerp] [main] c.v.b.d.startup.DevModeStartupListener   : Starting dev-mode updaters in D:\PROJECT GMN\vaadinerp folder.
+2026-07-23T13:15:45.231+07:00  INFO 13632 --- [vaadinerp] [main] c.v.f.s.f.s.FullDependenciesScanner      : Visited 131 classes. Took 33 ms.
+2026-07-23T13:15:45.231+07:00  INFO 13632 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : Checking if a development mode bundle build is needed
+2026-07-23T13:15:45.754+07:00  INFO 13632 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : A development mode bundle build is not needed
+2026-07-23T13:15:45.799+07:00  INFO 13632 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Copying frontend resources from jar files ...
+2026-07-23T13:15:45.909+07:00  INFO 13632 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Visited 19 resources. Took 102 ms.
+2026-07-23T13:15:46.047+07:00  INFO 13632 --- [vaadinerp] [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-07-23T13:15:46.117+07:00  INFO 13632 --- [vaadinerp] [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.2.Final
+2026-07-23T13:15:46.169+07:00  INFO 13632 --- [vaadinerp] [main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-07-23T13:15:46.608+07:00  INFO 13632 --- [vaadinerp] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-23T13:15:46.650+07:00  INFO 13632 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Starting...
+2026-07-23T13:15:46.902+07:00  INFO 13632 --- [vaadinerp] [main] com.zaxxer.hikari.pool.HikariPool        : VaadinErpHikariPool - Added connection org.postgresql.jdbc.PgConnection@18ee9a8f
+2026-07-23T13:15:46.913+07:00  INFO 13632 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Start completed.
+2026-07-23T13:15:46.957+07:00  WARN 13632 --- [vaadinerp] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-07-23T13:15:48.524+07:00  INFO 13632 --- [vaadinerp] [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-07-23T13:15:48.604+07:00 ERROR 13632 --- [vaadinerp] [main] j.LocalContainerEntityManagerFactoryBean : Failed to initialize JPA EntityManagerFactory: [PersistenceUnit: default] Unable to build Hibernate SessionFactory; nested exception is org.hibernate.tool.schema.spi.SchemaManagementException: Schema-validation: missing table [public.role_menu_permissions]
+2026-07-23T13:15:48.604+07:00  WARN 13632 --- [vaadinerp] [main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/autoconfigure/orm/jpa/HibernateJpaConfiguration.class]: [PersistenceUnit: default] Unable to build Hibernate SessionFactory; nested exception is org.hibernate.tool.schema.spi.SchemaManagementException: Schema-validation: missing table [public.role_menu_permissions]
+2026-07-23T13:15:48.604+07:00  INFO 13632 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown initiated...
+2026-07-23T13:15:48.604+07:00  INFO 13632 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown completed.
+2026-07-23T13:15:48.617+07:00  INFO 13632 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+2026-07-23T13:15:48.622+07:00  WARN 13632 --- [vaadinerp] [main] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [vaadin-dev-server-2] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base/jdk.internal.loader.BuiltinClassLoader.defineClass(BuiltinClassLoader.java:842)
+ java.base/jdk.internal.loader.BuiltinClassLoader.findClassOnClassPathOrNull(BuiltinClassLoader.java:760)
+ java.base/jdk.internal.loader.BuiltinClassLoader.loadClassOrNull(BuiltinClassLoader.java:681)
+ java.base/jdk.internal.loader.BuiltinClassLoader.loadClass(BuiltinClassLoader.java:639)
+ java.base/jdk.internal.loader.ClassLoaders$AppClassLoader.loadClass(ClassLoaders.java:188)
+ java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:526)
+ com.github.javaparser.ParserConfiguration$LanguageLevel.<clinit>(ParserConfiguration.java:54)
+ com.vaadin.copilot.Copilot.<clinit>(Copilot.java:30)
+ java.base/jdk.internal.misc.Unsafe.ensureClassInitialized0(Native Method)
+ java.base/jdk.internal.misc.Unsafe.ensureClassInitialized(Unsafe.java:1160)
+ java.base/jdk.internal.reflect.MethodHandleAccessorFactory.ensureClassInitialized(MethodHandleAccessorFactory.java:301)
+ java.base/jdk.internal.reflect.MethodHandleAccessorFactory.newConstructorAccessor(MethodHandleAccessorFactory.java:104)
+ java.base/jdk.internal.reflect.ReflectionFactory.newConstructorAccessor(ReflectionFactory.java:200)
+ java.base/java.lang.reflect.Constructor.acquireConstructorAccessor(Constructor.java:549)
+ java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:499)
+ java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:486)
+ java.base/java.util.ServiceLoader$ProviderImpl.newInstance(ServiceLoader.java:789)
+ java.base/java.util.ServiceLoader$ProviderImpl.get(ServiceLoader.java:729)
+ java.base/java.util.ServiceLoader$3.next(ServiceLoader.java:1403)
+ com.vaadin.base.devserver.DebugWindowConnection.findPlugins(DebugWindowConnection.java:104)
+ com.vaadin.base.devserver.DebugWindowConnection.<init>(DebugWindowConnection.java:97)
+ com.vaadin.base.devserver.DebugWindowConnection.<init>(DebugWindowConnection.java:90)
+ com.vaadin.base.devserver.BrowserLiveReloadAccessorImpl.lambda$getLiveReload$0(BrowserLiveReloadAccessorImpl.java:41)
+ com.vaadin.flow.server.VaadinServletContext.getAttribute(VaadinServletContext.java:73)
+ com.vaadin.base.devserver.BrowserLiveReloadAccessorImpl.getLiveReload(BrowserLiveReloadAccessorImpl.java:40)
+ com.vaadin.flow.internal.BrowserLiveReloadAccessor.lambda$getLiveReloadFromContext$2(BrowserLiveReloadAccessor.java:90)
+ java.base/java.util.Optional.flatMap(Optional.java:289)
+ com.vaadin.flow.internal.BrowserLiveReloadAccessor.getLiveReloadFromContext(BrowserLiveReloadAccessor.java:89)
+ com.vaadin.base.devserver.ThemeLiveUpdater.<init>(ThemeLiveUpdater.java:59)
+ com.vaadin.base.devserver.DevModeHandlerManagerImpl.startWatchingThemeFolder(DevModeHandlerManagerImpl.java:161)
+ com.vaadin.base.devserver.DevModeHandlerManagerImpl.lambda$initDevModeHandler$0(DevModeHandlerManagerImpl.java:116)
+ java.base/java.util.concurrent.CompletableFuture$AsyncRun.run(CompletableFuture.java:1804)
+ java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+ java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+ java.base/java.lang.Thread.run(Thread.java:1583)
+2026-07-23T13:15:48.638+07:00  INFO 13632 --- [vaadinerp] [main] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-07-23T13:15:48.664+07:00 ERROR 13632 --- [vaadinerp] [main] o.s.boot.SpringApplication               : Application run failed
+
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/autoconfigure/orm/jpa/HibernateJpaConfiguration.class]: [PersistenceUnit: default] Unable to build Hibernate SessionFactory; nested exception is org.hibernate.tool.schema.spi.SchemaManagementException: Schema-validation: missing table [public.role_menu_permissions]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1788) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:600) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:522) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:337) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:335) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:205) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:952) ~[spring-context-6.1.8.jar:6.1.8]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:624) ~[spring-context-6.1.8.jar:6.1.8]
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146) ~[spring-boot-3.3.0.jar:3.3.0]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:754) ~[spring-boot-3.3.0.jar:3.3.0]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:456) ~[spring-boot-3.3.0.jar:3.3.0]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:335) ~[spring-boot-3.3.0.jar:3.3.0]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1363) ~[spring-boot-3.3.0.jar:3.3.0]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1352) ~[spring-boot-3.3.0.jar:3.3.0]
+	at com.vaadinerp.Application.main(Application.java:27) ~[classes/:na]
+Caused by: jakarta.persistence.PersistenceException: [PersistenceUnit: default] Unable to build Hibernate SessionFactory; nested exception is org.hibernate.tool.schema.spi.SchemaManagementException: Schema-validation: missing table [public.role_menu_permissions]
+	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.buildNativeEntityManagerFactory(AbstractEntityManagerFactoryBean.java:421) ~[spring-orm-6.1.8.jar:6.1.8]
+	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.afterPropertiesSet(AbstractEntityManagerFactoryBean.java:396) ~[spring-orm-6.1.8.jar:6.1.8]
+	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.afterPropertiesSet(LocalContainerEntityManagerFactoryBean.java:366) ~[spring-orm-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1835) ~[spring-beans-6.1.8.jar:6.1.8]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1784) ~[spring-beans-6.1.8.jar:6.1.8]
+	... 15 common frames omitted
+Caused by: org.hibernate.tool.schema.spi.SchemaManagementException: Schema-validation: missing table [public.role_menu_permissions]
+	at org.hibernate.tool.schema.internal.AbstractSchemaValidator.validateTable(AbstractSchemaValidator.java:135) ~[hibernate-core-6.5.2.Final.jar:6.5.2.Final]
+	at org.hibernate.tool.schema.internal.GroupedSchemaValidatorImpl.validateTables(GroupedSchemaValidatorImpl.java:46) ~[hibernate-core-6.5.2.Final.jar:6.5.2.Final]
+	at org.hibernate.tool.schema.internal.AbstractSchemaValidator.performValidation(AbstractSchemaValidator.java:98) ~[hibernate-core-6.5.2.Final.jar:6.5.2.Final]
+	at org.hibernate.tool.schema.internal.AbstractSchemaValidator.doValidation(AbstractSchemaValidator.java:76) ~[hibernate-core-6.5.2.Final.jar:6.5.2.Final]
+	at org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator.performDatabaseAction(SchemaManagementToolCoordinator.java:289) ~[hibernate-core-6.5.2.Final.jar:6.5.2.Final]
+	at org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator.lambda$process$5(SchemaManagementToolCoordinator.java:144) ~[hibernate-core-6.5.2.Final.jar:6.5.2.Final]
+	at java.base/java.util.HashMap.forEach(HashMap.java:1429) ~[na:na]
+	at org.hibernate.tool.schema.spi.SchemaManagementToolCoordinator.process(SchemaManagementToolCoordinator.java:141) ~[hibernate-core-6.5.2.Final.jar:6.5.2.Final]
+	at org.hibernate.boot.internal.SessionFactoryObserverForSchemaExport.sessionFactoryCreated(SessionFactoryObserverForSchemaExport.java:37) ~[hibernate-core-6.5.2.Final.jar:6.5.2.Final]
+	at org.hibernate.internal.SessionFactoryObserverChain.sessionFactoryCreated(SessionFactoryObserverChain.java:35) ~[hibernate-core-6.5.2.Final.jar:6.5.2.Final]
+	at org.hibernate.internal.SessionFactoryImpl.<init>(SessionFactoryImpl.java:322) ~[hibernate-core-6.5.2.Final.jar:6.5.2.Final]
+	at org.hibernate.boot.internal.SessionFactoryBuilderImpl.build(SessionFactoryBuilderImpl.java:457) ~[hibernate-core-6.5.2.Final.jar:6.5.2.Final]
+	at org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl.build(EntityManagerFactoryBuilderImpl.java:1506) ~[hibernate-core-6.5.2.Final.jar:6.5.2.Final]
+	at org.springframework.orm.jpa.vendor.SpringHibernateJpaPersistenceProvider.createContainerEntityManagerFactory(SpringHibernateJpaPersistenceProvider.java:75) ~[spring-orm-6.1.8.jar:6.1.8]
+	at org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean.createNativeEntityManagerFactory(LocalContainerEntityManagerFactoryBean.java:390) ~[spring-orm-6.1.8.jar:6.1.8]
+	at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.buildNativeEntityManagerFactory(AbstractEntityManagerFactoryBean.java:409) ~[spring-orm-6.1.8.jar:6.1.8]
+	... 19 common frames omitted
+
+2026-07-23T13:16:50.365+07:00  INFO 20672 --- [vaadinerp] [main] com.vaadinerp.Application                : Starting Application using Java 21.0.11 with PID 20672 (D:\PROJECT GMN\vaadinerp\target\classes started by Lenovo in D:\PROJECT GMN\vaadinerp)
+2026-07-23T13:16:50.379+07:00  INFO 20672 --- [vaadinerp] [main] com.vaadinerp.Application                : The following 1 profile is active: "dev"
+2026-07-23T13:16:51.777+07:00  INFO 20672 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-23T13:16:51.995+07:00  INFO 20672 --- [vaadinerp] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 210 ms. Found 14 JPA repository interfaces.
+2026-07-23T13:16:52.891+07:00  INFO 20672 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-07-23T13:16:52.906+07:00  INFO 20672 --- [vaadinerp] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-23T13:16:52.912+07:00  INFO 20672 --- [vaadinerp] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.24]
+2026-07-23T13:16:53.011+07:00  INFO 20672 --- [vaadinerp] [main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-07-23T13:16:53.011+07:00  INFO 20672 --- [vaadinerp] [main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2314 ms
+2026-07-23T13:16:53.011+07:00  WARN 20672 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : vaadin.whitelisted-packages is deprecated and may not be supported in the future. Use vaadin.allowed-packages instead.
+2026-07-23T13:16:54.992+07:00  INFO 20672 --- [vaadinerp] [main] c.v.f.s.VaadinServletContextInitializer  : Search for subclasses and classes with annotations took 1093 ms
+2026-07-23T13:16:55.125+07:00  INFO 20672 --- [vaadinerp] [main] c.v.b.d.startup.DevModeStartupListener   : Starting dev-mode updaters in D:\PROJECT GMN\vaadinerp folder.
+2026-07-23T13:16:55.181+07:00  INFO 20672 --- [vaadinerp] [main] c.v.f.s.f.s.FullDependenciesScanner      : Visited 131 classes. Took 33 ms.
+2026-07-23T13:16:55.181+07:00  INFO 20672 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : Checking if a development mode bundle build is needed
+2026-07-23T13:16:55.470+07:00  INFO 20672 --- [vaadinerp] [main] c.v.f.s.frontend.BundleValidationUtil    : A development mode bundle build is not needed
+2026-07-23T13:16:55.515+07:00  INFO 20672 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Copying frontend resources from jar files ...
+2026-07-23T13:16:55.595+07:00  INFO 20672 --- [vaadinerp] [vaadin-dev-server-1] c.v.f.s.frontend.TaskCopyFrontendFiles   : Visited 19 resources. Took 90 ms.
+2026-07-23T13:16:55.756+07:00  INFO 20672 --- [vaadinerp] [main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-07-23T13:16:55.831+07:00  INFO 20672 --- [vaadinerp] [main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.2.Final
+2026-07-23T13:16:55.874+07:00  INFO 20672 --- [vaadinerp] [main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-07-23T13:16:56.233+07:00  INFO 20672 --- [vaadinerp] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-23T13:16:56.264+07:00  INFO 20672 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Starting...
+2026-07-23T13:16:56.389+07:00  INFO 20672 --- [vaadinerp] [main] com.zaxxer.hikari.pool.HikariPool        : VaadinErpHikariPool - Added connection org.postgresql.jdbc.PgConnection@57cc7d9e
+2026-07-23T13:16:56.389+07:00  INFO 20672 --- [vaadinerp] [main] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Start completed.
+2026-07-23T13:16:56.430+07:00  WARN 20672 --- [vaadinerp] [main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-07-23T13:16:57.978+07:00  INFO 20672 --- [vaadinerp] [main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-07-23T13:16:58.077+07:00  INFO 20672 --- [vaadinerp] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-23T13:16:59.348+07:00  WARN 20672 --- [vaadinerp] [main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-23T13:17:00.050+07:00  INFO 20672 --- [vaadinerp] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-07-23T13:17:00.130+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler mapped to context-path: /*
+2026-07-23T13:17:00.130+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed the following AtmosphereInterceptor mapped to AtmosphereHandler com.vaadin.flow.server.communication.PushAtmosphereHandler
+2026-07-23T13:17:00.179+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.util.VoidAnnotationProcessor for processing annotation
+2026-07-23T13:17:00.194+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
+2026-07-23T13:17:00.194+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed WebSocketProtocol org.atmosphere.websocket.protocol.SimpleHttpProtocol 
+2026-07-23T13:17:00.194+07:00  INFO 20672 --- [vaadinerp] [main] o.a.container.JSR356AsyncSupport         : JSR 356 Mapping path /VAADIN/push
+2026-07-23T13:17:00.219+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installing Default AtmosphereInterceptors
+2026-07-23T13:17:00.219+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CorsInterceptor : CORS Interceptor Support
+2026-07-23T13:17:00.219+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.CacheHeadersInterceptor : Default Response's Headers Interceptor
+2026-07-23T13:17:00.229+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.PaddingAtmosphereInterceptor : Browser Padding Interceptor Support
+2026-07-23T13:17:00.229+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.AndroidAtmosphereInterceptor : Android Interceptor Support
+2026-07-23T13:17:00.230+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.HeartbeatInterceptor : Heartbeat Interceptor Support
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.SSEAtmosphereInterceptor : SSE Interceptor Support
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JSONPAtmosphereInterceptor : JSONP Interceptor Support
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.JavaScriptProtocol : Atmosphere JavaScript Protocol
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor : org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.OnDisconnectInterceptor : Browser disconnection detection
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : 	org.atmosphere.interceptor.IdleResourceInterceptor : org.atmosphere.interceptor.IdleResourceInterceptor
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Set org.atmosphere.cpr.AtmosphereInterceptor.disableDefaults to disable them.
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor CORS Interceptor Support with priority FIRST_BEFORE_DEFAULT 
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Default Response's Headers Interceptor with priority AFTER_DEFAULT 
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser Padding Interceptor Support with priority AFTER_DEFAULT 
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Android Interceptor Support with priority AFTER_DEFAULT 
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] o.a.interceptor.HeartbeatInterceptor     : HeartbeatInterceptor configured with padding value 'X', client frequency 0 seconds and server frequency 60 seconds
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Heartbeat Interceptor Support with priority AFTER_DEFAULT 
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor SSE Interceptor Support with priority AFTER_DEFAULT 
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor JSONP Interceptor Support with priority AFTER_DEFAULT 
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Atmosphere JavaScript Protocol with priority AFTER_DEFAULT 
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.WebSocketMessageSuspendInterceptor with priority AFTER_DEFAULT 
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor Browser disconnection detection with priority AFTER_DEFAULT 
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor org.atmosphere.interceptor.IdleResourceInterceptor with priority BEFORE_DEFAULT 
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using EndpointMapper class org.atmosphere.util.DefaultEndpointMapper
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterCache: org.atmosphere.cache.UUIDBroadcasterCache
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Default Broadcaster Class: org.atmosphere.cpr.DefaultBroadcaster
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Shared List Resources: false
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Broadcaster Polling Wait Time 100
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Shared ExecutorService supported: true
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Messaging ExecutorService Pool Size unavailable - Not instance of ThreadPoolExecutor
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Async I/O Thread Pool Size: 200
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using BroadcasterFactory: org.atmosphere.cpr.DefaultBroadcasterFactory
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using AtmosphereResurceFactory: org.atmosphere.cpr.DefaultAtmosphereResourceFactory
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Using WebSocketProcessor: org.atmosphere.websocket.DefaultWebSocketProcessor
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Invoke AtmosphereInterceptor on WebSocket message true
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : HttpSession supported: true
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using org.atmosphere.inject.InjectableObjectFactory for dependency injection and object creation
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere is using async support: org.atmosphere.container.JSR356AsyncSupport running under container: Apache Tomcat/10.1.24 using jakarta.servlet/3.0 and jsr356/WebSocket API
+2026-07-23T13:17:00.231+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Atmosphere Framework 3.0.5.slf4jvaadin1 started.
+2026-07-23T13:17:00.249+07:00  INFO 20672 --- [vaadinerp] [main] org.atmosphere.cpr.AtmosphereFramework   : Installed AtmosphereInterceptor  Track Message Size Interceptor using | with priority BEFORE_DEFAULT 
+2026-07-23T13:17:00.297+07:00  INFO 20672 --- [vaadinerp] [main] c.v.f.s.DefaultDeploymentConfiguration   : 
+Vaadin is running in DEVELOPMENT mode - do not use for production deployments.
+2026-07-23T13:17:00.328+07:00  INFO 20672 --- [vaadinerp] [main] c.vaadin.flow.spring.SpringInstantiator  : The number of beans implementing 'I18NProvider' is 0. Cannot use Spring beans for I18N, falling back to the default behavior
+2026-07-23T13:17:00.350+07:00  INFO 20672 --- [vaadinerp] [main] c.v.config.CustomSystemMessagesConfig    : Menginisialisasi Custom System Messages & Reconnect Configuration...
+2026-07-23T13:17:00.365+07:00  INFO 20672 --- [vaadinerp] [main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-07-23T13:17:00.381+07:00  INFO 20672 --- [vaadinerp] [main] com.vaadinerp.Application                : Started Application in 10.532 seconds (process running for 11.075)
+2026-07-23T13:17:00.476+07:00  INFO 20672 --- [vaadinerp] [main] c.v.b.d.DevModeHandlerManagerImpl        : Application running at http://localhost:8080/
+2026-07-23T13:17:05.839+07:00  INFO 20672 --- [vaadinerp] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-23T13:17:05.841+07:00  INFO 20672 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-07-23T13:17:05.850+07:00  INFO 20672 --- [vaadinerp] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 7 ms
+2026-07-23T13:21:54.261+07:00  WARN 20672 --- [vaadinerp] [http-nio-8080-exec-5] c.v.f.s.c.ReturnChannelHandler           : Ignoring update for disabled return channel: {"type":"channel","node":515,"channel":0,"args":[null]}
+2026-07-23T13:23:19.108+07:00  WARN 20672 --- [vaadinerp] [http-nio-8080-exec-3] c.v.f.s.c.ReturnChannelHandler           : Ignoring update for disabled return channel: {"type":"channel","node":3357,"channel":0,"args":[null]}
+2026-07-23T13:27:03.719+07:00  INFO 20672 --- [vaadinerp] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-23T13:27:03.728+07:00  INFO 20672 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown initiated...
+2026-07-23T13:27:03.728+07:00  INFO 20672 --- [vaadinerp] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : VaadinErpHikariPool - Shutdown completed.
+2026-07-23T13:27:03.728+07:00  INFO 20672 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.util.ForkJoinPool         : Using ForkJoinPool  java.util.concurrent.ForkJoinPool. Set the org.atmosphere.cpr.broadcaster.maxAsyncWriteThreads to -1 to fully use its power.
+2026-07-23T13:27:03.743+07:00  WARN 20672 --- [vaadinerp] [SpringApplicationShutdownHook] org.atmosphere.cpr.DefaultBroadcaster    : AtmosphereResource 2d50cb88-0346-4cbb-a307-a10b0e3d59ae is not suspended. If cached messages exists, this may cause unexpected situation. Suspend first

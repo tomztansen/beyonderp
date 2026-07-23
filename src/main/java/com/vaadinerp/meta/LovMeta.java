@@ -1,12 +1,14 @@
 package com.vaadinerp.meta;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "meta_lov", schema = "public")
 @EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
-@Data
+@Getter
+@Setter
 public class LovMeta {
     @Id
     @Column(name = "lov_code", length = 50)

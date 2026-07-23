@@ -1,13 +1,15 @@
 package com.vaadinerp.meta;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "app_standard_format", schema = "public")
 @EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
-@Data
+@Getter
+@Setter
 public class AppStandardFormat {
     @Id
     @Column(name = "component_type", length = 50, nullable = false)

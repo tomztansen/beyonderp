@@ -1,14 +1,16 @@
 package com.vaadinerp.security.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "app_user_favorite_menus", schema = "public", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"username", "menu_code"})
 })
-@Data
+@Getter
+@Setter
 public class AppUserFavoriteMenu {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

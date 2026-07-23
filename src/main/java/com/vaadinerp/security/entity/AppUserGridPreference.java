@@ -1,14 +1,16 @@
 package com.vaadinerp.security.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "app_user_grid_preferences", schema = "public", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"username", "form_code", "grid_id"})
 })
-@Data
+@Getter
+@Setter
 public class AppUserGridPreference {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
