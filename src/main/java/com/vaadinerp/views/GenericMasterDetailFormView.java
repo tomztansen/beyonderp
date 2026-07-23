@@ -1711,6 +1711,12 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     .setFlexGrow(1)
                     .setResizable(true)
                     .setKey(fieldName);
+
+            String fType = field.getComponentType() != null ? field.getComponentType().toUpperCase() : "";
+            if ("INTBOX".equals(fType) || "DECIMALBOX".equals(fType)) {
+                col.setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END);
+            }
+
             masterColGetterMap.put(col, valueGetter);
 
             col.setComparator((map1, map2) -> {
@@ -1982,6 +1988,11 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     .setFlexGrow(1)
                     .setResizable(true)
                     .setKey(fieldName);
+
+            String fType = field.getComponentType() != null ? field.getComponentType().toUpperCase() : "";
+            if ("INTBOX".equals(fType) || "DECIMALBOX".equals(fType)) {
+                col.setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END);
+            }
 
             columnsMap.put(fieldName, col);
             detailsColumnToFieldNameMap.put(col, fieldName);
