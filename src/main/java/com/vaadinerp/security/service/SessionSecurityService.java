@@ -174,6 +174,7 @@ public class SessionSecurityService {
             auth.canEdit = Boolean.TRUE.equals(p.getCanEdit());
             auth.canDelete = Boolean.TRUE.equals(p.getCanDelete());
             auth.canPrint = Boolean.TRUE.equals(p.getCanPrint());
+            auth.canView = Boolean.TRUE.equals(p.getCanView());
             return auth;
         }
         return MenuAccessAuthority.readOnly();

@@ -1,6 +1,48 @@
 /* @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap'); */
+/* @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700;800&display=swap'); */
 
 @font-face {
+    font-family: 'Noto Sans';
+    src: url('../../fonts/noto-sans/NotoSans-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Noto Sans';
+    src: url('../../fonts/noto-sans/NotoSans-Medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Noto Sans';
+    src: url('../../fonts/noto-sans/NotoSans-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Noto Sans';
+    src: url('../../fonts/noto-sans/NotoSans-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Noto Sans';
+    src: url('../../fonts/noto-sans/NotoSans-ExtraBold.ttf') format('truetype');
+    font-weight: 800;
+    font-style: normal;
+    font-display: swap;
+}
+
+
+/* @font-face {
     font-family: 'Outfit';
     src: url('../../fonts/outfit/Outfit-Regular.ttf') format('truetype');
     font-weight: 400;
@@ -38,11 +80,12 @@
     font-weight: 800;
     font-style: normal;
     font-display: swap;
-}
+} */
 
 
 html {
-    --lumo-font-family: 'Outfit', sans-serif;
+    /* --lumo-font-family: 'Outfit', sans-serif; */
+    --lumo-font-family: 'Noto Sans', sans-serif;
     --lumo-border-radius-m: 8px;
     --lumo-border-radius-l: 12px;
     /* Compact spacing - satu-satunya sumber kebenaran untuk semua gap/spacing */
@@ -600,7 +643,7 @@ vaadin-text-area[disabled] {
     opacity: 0.55 !important;
     /* Restore pointer events only on host to allow cursor changes, 
        internal input is still safely disabled */
-    pointer-events: auto !important; 
+    pointer-events: auto !important;
     cursor: not-allowed !important;
 }
 

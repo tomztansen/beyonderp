@@ -23,6 +23,10 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
         <!-- Vaadin Core (100% Free / Open Source Components) -->
         <dependency>
             <groupId>com.vaadin</groupId>

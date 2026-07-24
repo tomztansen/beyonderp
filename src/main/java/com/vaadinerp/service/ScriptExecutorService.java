@@ -17,13 +17,28 @@ import java.util.concurrent.*;
 public class ScriptExecutorService {
 
     private final org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider;
-    private final ConcurrentHashMap<String, Class<? extends Script>> scriptCache = new ConcurrentHashMap<>();
+    private final com.github.benmanes.caffeine.cache.Cache<String, Class<? extends Script>> scriptCache = 
+        com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
+            .maximumSize(500)
+            .build();
+            
     private CompilerConfiguration compilerConfiguration;
-    private final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r, "groovy-script-exec");
-        t.setDaemon(true);
-        return t;
-    });
+    private final ExecutorService executorService = new ThreadPoolExecutor(
+        10, 50, 60L, TimeUnit.SECONDS,
+        new LinkedBlockingQueue<>(100),
+        r -> {
+            Thread t = new Thread(r, "groovy-script-exec");
+            t.setDaemon(true);
+            return t;
+        }
+    );
+
+    @jakarta.annotation.PreDestroy
+    public void shutdown() {
+        if (executorService != null) {
+            executorService.shutdownNow();
+        }
+    }
 
     public ScriptExecutorService(org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider) {
         this.dataServiceProvider = dataServiceProvider;
@@ -100,7 +115,7 @@ public class ScriptExecutorService {
             }
             final String finalScriptText = scriptText;
 
-            Class<? extends Script> scriptClass = scriptCache.computeIfAbsent(scriptId, id -> {
+            Class<? extends Script> scriptClass = scriptCache.get(scriptId, id -> {
                 GroovyShell shell = new GroovyShell(compilerConfiguration);
                 return shell.parse(finalScriptText).getClass();
             });
@@ -215,7 +230,7 @@ public class ScriptExecutorService {
         String scriptId = "action_" + (act.getId() != null ? act.getId() : act.getActionCode()) + "_" + finalScriptText.hashCode();
 
         try {
-            Class<? extends Script> scriptClass = scriptCache.computeIfAbsent(scriptId, id -> {
+            Class<? extends Script> scriptClass = scriptCache.get(scriptId, id -> {
                 GroovyShell shell = new GroovyShell(compilerConfiguration);
                 return shell.parse(finalScriptText).getClass();
             });
@@ -347,11 +362,11 @@ public class ScriptExecutorService {
     }
 
     public void clearCache(String scriptId) {
-        scriptCache.remove(scriptId);
+        scriptCache.invalidate(scriptId);
     }
 
     public void clearAllCache() {
-        scriptCache.clear();
+        scriptCache.invalidateAll();
     }
 
     public static Map<String, Object> prepareHeaderForScript(Map<String, Object> sourceBean) {

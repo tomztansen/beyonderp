@@ -117,7 +117,7 @@ public class PortalView extends AppLayout {
         Span titleSpan = new Span("PT. GROWTH ASIA");
         titleSpan.getStyle()
                 .set("font-weight", "700")
-                .set("font-size", "1.15rem")
+                .set("font-size", "1.25rem")
                 .set("color", "#1e293b")
                 .set("margin-left", "8px");
 
@@ -748,7 +748,8 @@ public class PortalView extends AppLayout {
 
         Component content = switch (code) {
             case "FORM_BUILDER" -> {
-                FormBuilderView fb = new FormBuilderView(formMetaRepository, lovMetaRepository, dynamicDataService, this::refreshFormMenu);
+                FormBuilderView fb = new FormBuilderView(formMetaRepository, lovMetaRepository, dynamicDataService,
+                        this::refreshFormMenu);
                 if (extra instanceof String formCode && !formCode.isBlank()) {
                     formMetaRepository.findById(formCode).ifPresent(fb::loadFormDefinition);
                     fb.setFilterFormCode(formCode);
@@ -1147,7 +1148,26 @@ public class PortalView extends AppLayout {
     public void closeTabById(String tabId) {
         Tab tab = openTabs.remove(tabId);
         if (tab != null) {
+            com.vaadin.flow.component.Component content = tabSheet.getComponent(tab);
             tabSheet.remove(tab);
+
+            if (content != null) {
+                // Explicit DOM shredding to aid GC
+                if (content instanceof com.vaadin.flow.component.HasComponents hasComponents) {
+                    hasComponents.removeAll();
+                }
+
+                // Call explicit cleanup methods to drop heavy references
+                if (content instanceof GenericFormView formView) {
+                    formView.cleanup();
+                } else if (content instanceof GenericMasterDetailFormView mdView) {
+                    mdView.cleanup();
+                } else if (content instanceof VisualQueryBuilderView vqbView) {
+                    vqbView.cleanup();
+                } else if (content instanceof ReportViewerView reportView) {
+                    reportView.cleanup();
+                }
+            }
         }
         if (openTabs.isEmpty()) {
             tabSheet.setSelectedIndex(0);

@@ -677,6 +677,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
                     RoleMenuPermission newP = new RoleMenuPermission();
                     newP.setRoleCode(p.getRoleCode());
                     newP.setMenuCode(newCode);
+                    newP.setCanView(p.getCanView());
                     newP.setCanAdd(p.getCanAdd());
                     newP.setCanEdit(p.getCanEdit());
                     newP.setCanDelete(p.getCanDelete());
@@ -743,6 +744,16 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 .setAutoWidth(true);
         var colMenuDesc = matrixGrid.addColumn(p -> getMenuTitleByCode(p.getMenuCode())).setHeader("Menu Description")
                 .setSortable(true).setAutoWidth(true);
+
+        matrixGrid.addComponentColumn(p -> {
+            Checkbox cb = new Checkbox();
+            cb.setValue(Boolean.TRUE.equals(p.getCanView()));
+            cb.addValueChangeListener(ev -> {
+                p.setCanView(ev.getValue());
+                permissionRepository.save(p);
+            });
+            return cb;
+        }).setHeader("Can View");
 
         matrixGrid.addComponentColumn(p -> {
             Checkbox cb = new Checkbox();
@@ -849,6 +860,8 @@ public class UserAuthorityAdminView extends VerticalLayout {
             }
         });
 
+        Checkbox cbView = new Checkbox("Can View");
+        cbView.setValue(true);
         Checkbox cbAdd = new Checkbox("Can Add");
         cbAdd.setValue(true);
         Checkbox cbEdit = new Checkbox("Can Edit");
@@ -858,7 +871,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         Checkbox cbPrint = new Checkbox("Can Print");
         cbPrint.setValue(true);
 
-        HorizontalLayout cbLayout = new HorizontalLayout(cbAdd, cbEdit, cbDelete, cbPrint);
+        HorizontalLayout cbLayout = new HorizontalLayout(cbView, cbAdd, cbEdit, cbDelete, cbPrint);
         cbLayout.setWidthFull();
 
         form.add(roleSelect, menuSelect, descField);
@@ -883,6 +896,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
             RoleMenuPermission perm = new RoleMenuPermission();
             perm.setRoleCode(roleSelect.getValue());
             perm.setMenuCode(selectedMenuCode);
+            perm.setCanView(cbView.getValue());
             perm.setCanAdd(cbAdd.getValue());
             perm.setCanEdit(cbEdit.getValue());
             perm.setCanDelete(cbDelete.getValue());
@@ -946,6 +960,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
                     RoleMenuPermission newPerm = new RoleMenuPermission();
                     newPerm.setRoleCode(target);
                     newPerm.setMenuCode(sPerm.getMenuCode());
+                    newPerm.setCanView(sPerm.getCanView());
                     newPerm.setCanAdd(sPerm.getCanAdd());
                     newPerm.setCanEdit(sPerm.getCanEdit());
                     newPerm.setCanDelete(sPerm.getCanDelete());
