@@ -356,8 +356,7 @@ public class PortalView extends AppLayout {
                 .set("overflow-y", "auto")
                 .set("overflow-x", "hidden");
 
-        cleanAndSyncMenuTree();
-        buildCustomMenuTree(null, menuContainer, 0);
+        buildMenuTreeInMemory();
 
         sidebar.add(menuContainer);
         sidebar.setFlexGrow(1, menuContainer);
@@ -365,120 +364,30 @@ public class PortalView extends AppLayout {
         addToDrawer(sidebar);
     }
 
-    /**
-     * Membersihkan dan menormalisasi struktur menu di database.
-     * Hardcoded menu synchronization has been removed to allow users to permanently
-     * delete menus.
-     * Initial menu seeding is now solely handled by DataInitializer.
-     */
-    private void cleanAndSyncMenuTree() {
-        // No longer forcing menus to exist on every page load.
-
-        List<FormMeta> forms = formMetaRepository.findAll();
-        int order = 10;
-        for (FormMeta f : forms) {
-            String code = f.getFormCode();
-            if ("MD_SEQUENCE".equalsIgnoreCase(code)) {
-                continue;
-            }
-            boolean isSubform = "SUBFORM".equalsIgnoreCase(f.getFormType())
-                    || code.toUpperCase().endsWith("_DTL")
-                    || code.toUpperCase().endsWith("_DETAIL")
-                    || (f.getFormTitle() != null && f.getFormTitle().toLowerCase().startsWith("detail "));
-
-            if (isSubform) {
-                appMenuRepository.findById(code).ifPresent(appMenuRepository::delete);
-                continue;
-            }
-
-            AppMenu m = appMenuRepository.findById(code).orElse(null);
-            if (m == null) {
-                // Menu untuk form ini sudah tidak ada atau telah dihapus oleh admin dari
-                // Manajemen Menu.
-                // Jangan buat ulang secara otomatis agar menu yang dihapus tetap terhapus.
-                continue;
-            }
-            boolean changed = false;
-            // Hanya update jika kosong agar tidak menimpa editan manual user
-            if (m.getMenuTitle() == null || m.getMenuTitle().trim().isEmpty()) {
-                m.setMenuTitle(f.getFormTitle());
-                changed = true;
-            }
-            if (m.getIconName() == null || m.getIconName().trim().isEmpty()) {
-                m.setIconName("FILE_TEXT_O");
-                changed = true;
-            }
-            if (m.getDisplayOrder() == null) {
-                m.setDisplayOrder(order);
-                changed = true;
-            }
-
-            if (changed) {
-                appMenuRepository.save(m);
-            }
-            order += 10;
-
-            if (roleMenuPermissionRepository.findByRoleCodeAndMenuCode("SUPER_ADMIN", code).isEmpty()
-                    && roleMenuPermissionRepository.findByRoleCodeAndMenuCode("STAFF", code).isEmpty()) {
-                RoleMenuPermission perm = new RoleMenuPermission();
-                perm.setRoleCode("STAFF");
-                perm.setMenuCode(code);
-                perm.setCanAdd(true);
-                perm.setCanEdit(true);
-                perm.setCanDelete(false);
-                perm.setCanPrint(true);
-                roleMenuPermissionRepository.save(perm);
-            }
-        }
-
-        if (roleMenuPermissionRepository != null) {
-            java.util.List<String> adminTools = java.util.List.of("LOV_BUILDER", "STANDARD_FORMAT",
-                    "FORM_ACTION_BUILDER", "MD_SEQUENCE", "FIELD_AUDIT_LOG", "REPORT_BUILDER",
-                    "AUDIT_TRAIL_RESTORE", "DB_EXPLORER", "SECURITY_ADMIN", "FORM_BUILDER");
-            for (String toolCode : adminTools) {
-                for (RoleMenuPermission p : roleMenuPermissionRepository.findAll()) {
-                    if (toolCode.equalsIgnoreCase(p.getMenuCode())) {
-                        String r = p.getRoleCode();
-                        if (r != null && !"SUPER_ADMIN".equalsIgnoreCase(r) && !"ADMIN".equalsIgnoreCase(r)
-                                && !r.toUpperCase().contains("ADMIN")) {
-                            roleMenuPermissionRepository.delete(p);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private boolean matchesSearchOrFav(AppMenu menu, Set<String> favMenuCodes) {
-        List<AppMenu> children = appMenuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(menu.getMenuCode());
+    private boolean matchesSearchOrFav(AppMenu menu, Set<String> favMenuCodes, Map<String, List<AppMenu>> menuChildrenMap, Set<String> allowedMenus) {
+        List<AppMenu> children = menuChildrenMap.getOrDefault(menu.getMenuCode(), java.util.Collections.emptyList());
         List<AppMenu> accessibleChildren = children.stream()
                 .filter(c -> "GROUP".equalsIgnoreCase(c.getMenuType())
-                        || securityService.hasMenuAccess(c.getMenuCode()))
+                        || allowedMenus.contains(c.getMenuCode()))
                 .toList();
 
         boolean isGroup = "GROUP".equalsIgnoreCase(menu.getMenuType());
         if (isGroup) {
-            // Jika tidak ada pencarian dan bukan mode favorit, selalu tampilkan grup
-            // (kosong atau tidak)
             if (!showFavoritesOnly && menuSearchText.isEmpty()) {
                 return true;
             }
-
-            // Jika ada filter pencarian, cek apakah judul grup cocok
             if (!menuSearchText.isEmpty() && menu.getMenuTitle() != null
                     && menu.getMenuTitle().toLowerCase().contains(menuSearchText)) {
                 return true;
             }
-
-            // Atau cek apakah ada child yang cocok
             for (AppMenu child : accessibleChildren) {
-                if (matchesSearchOrFav(child, favMenuCodes)) {
+                if (matchesSearchOrFav(child, favMenuCodes, menuChildrenMap, allowedMenus)) {
                     return true;
                 }
             }
             return false;
         } else {
-            if (!securityService.hasMenuAccess(menu.getMenuCode()))
+            if (!allowedMenus.contains(menu.getMenuCode()))
                 return false;
             if (showFavoritesOnly && (favMenuCodes == null || !favMenuCodes.contains(menu.getMenuCode()))) {
                 return false;
@@ -496,30 +405,19 @@ public class PortalView extends AppLayout {
      * Menggantikan Vaadin Details agar bebas dari gangguan Shadow DOM browser.
      * Indentasi dihitung pasti dalam pixel: BaseIndent = 16 + (depth * 24).
      */
-    private void buildCustomMenuTree(String parentCode, VerticalLayout container, int depth) {
-        List<AppMenu> menus;
-        if (parentCode == null) {
-            menus = appMenuRepository.findByParentMenuCodeIsNullOrderByDisplayOrderAsc();
-        } else {
-            menus = appMenuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(parentCode);
-        }
-
+    private void buildCustomMenuTree(String parentCode, VerticalLayout container, int depth, Map<String, List<AppMenu>> menuChildrenMap, Set<String> allowedMenus, Set<String> favMenuCodes) {
         AppUser currentUser = securityService.getCurrentUser();
-        Set<String> favMenuCodes = currentUser != null
-                ? appUserFavoriteMenuRepository.findByUsername(currentUser.getUsername()).stream()
-                        .map(menu -> menu.getMenuCode())
-                        .collect(Collectors.toSet())
-                : java.util.Collections.emptySet();
+        List<AppMenu> menus = menuChildrenMap.getOrDefault(parentCode, java.util.Collections.emptyList());
 
         for (AppMenu menu : menus) {
-            if (!matchesSearchOrFav(menu, favMenuCodes)) {
+            if (!matchesSearchOrFav(menu, favMenuCodes, menuChildrenMap, allowedMenus)) {
                 continue;
             }
 
-            List<AppMenu> children = appMenuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(menu.getMenuCode());
+            List<AppMenu> children = menuChildrenMap.getOrDefault(menu.getMenuCode(), java.util.Collections.emptyList());
             List<AppMenu> accessibleChildren = children.stream()
                     .filter(c -> "GROUP".equalsIgnoreCase(c.getMenuType())
-                            || securityService.hasMenuAccess(c.getMenuCode()))
+                            || allowedMenus.contains(c.getMenuCode()))
                     .toList();
 
             boolean isGroup = "GROUP".equalsIgnoreCase(menu.getMenuType());
@@ -530,17 +428,16 @@ public class PortalView extends AppLayout {
                     + " | isGroup=" + isGroup
                     + " | children=" + children.size()
                     + " | accessibleChildren=" + accessibleChildren.size()
-                    + " | hasAccess=" + securityService.hasMenuAccess(menu.getMenuCode()));
+                    + " | hasAccess=" + allowedMenus.contains(menu.getMenuCode()));
 
             if (isGroup) {
                 // GROUP: tampilkan hanya jika punya minimal 1 child yang accessible
                 if (accessibleChildren.isEmpty()) {
                     System.out.println("[MENU-TREE]   → EMPTY GROUP (tetap ditampilkan sesuai request)");
-                    // continue; // Dihapus agar grup kosong tetap tampil
                 }
             } else {
                 // ITEM: cek permission langsung
-                if (!securityService.hasMenuAccess(menu.getMenuCode())) {
+                if (!allowedMenus.contains(menu.getMenuCode())) {
                     System.out.println("[MENU-TREE]   → SKIPPED (item tanpa permission)");
                     continue;
                 }
@@ -620,7 +517,7 @@ public class PortalView extends AppLayout {
                     chevron.getStyle().set("transform", nowVisible ? "rotate(90deg)" : "rotate(0deg)");
                 });
 
-                buildCustomMenuTree(menu.getMenuCode(), childBox, depth + 1);
+                buildCustomMenuTree(menu.getMenuCode(), childBox, depth + 1, menuChildrenMap, allowedMenus, favMenuCodes);
 
                 container.add(groupRow, childBox);
             } else {
@@ -1176,9 +1073,39 @@ public class PortalView extends AppLayout {
     }
 
     private void refreshFormMenu() {
-        cleanAndSyncMenuTree();
+        buildMenuTreeInMemory();
+    }
+    private void buildMenuTreeInMemory() {
         menuContainer.removeAll();
         leafRows.clear();
-        buildCustomMenuTree(null, menuContainer, 0);
+
+        List<AppMenu> allMenus = appMenuRepository.findAllByOrderByDisplayOrderAsc();
+        
+        Map<String, List<AppMenu>> menuChildrenMap = new HashMap<>();
+        for (AppMenu m : allMenus) {
+            String parent = m.getParentMenuCode();
+            menuChildrenMap.computeIfAbsent(parent, k -> new ArrayList<>()).add(m);
+        }
+
+        AppUser currentUser = securityService.getCurrentUser();
+        Set<String> allowedMenus = new java.util.HashSet<>();
+        if (currentUser != null) {
+            if ("SUPER_ADMIN".equalsIgnoreCase(currentUser.getRoleCode())) {
+                allowedMenus.addAll(allMenus.stream().map(AppMenu::getMenuCode).collect(Collectors.toSet()));
+            } else {
+                List<RoleMenuPermission> perms = roleMenuPermissionRepository.findByRoleCode(currentUser.getRoleCode());
+                for (RoleMenuPermission p : perms) {
+                    allowedMenus.add(p.getMenuCode());
+                }
+            }
+        }
+        
+        Set<String> favMenuCodes = currentUser != null
+                ? appUserFavoriteMenuRepository.findByUsername(currentUser.getUsername()).stream()
+                        .map(AppUserFavoriteMenu::getMenuCode)
+                        .collect(Collectors.toSet())
+                : java.util.Collections.emptySet();
+
+        buildCustomMenuTree(null, menuContainer, 0, menuChildrenMap, allowedMenus, favMenuCodes);
     }
 }

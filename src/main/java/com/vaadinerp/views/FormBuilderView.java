@@ -627,7 +627,8 @@ public class FormBuilderView extends VerticalLayout {
                 .set("border", "1px solid #e2e8f0")
                 .set("border-radius", "8px")
                 .set("padding", "15px")
-                .set("overflow-y", "auto");
+                .set("overflow-y", "auto")
+                .set("position", "relative");
 
         H4 canvasTitle = new H4("Kanvas Desain Form (WYSIWYG)");
         canvasTitle.getStyle().set("margin-top", "0").set("margin-bottom", "0");
@@ -1979,21 +1980,23 @@ public class FormBuilderView extends VerticalLayout {
 
                 Div overlay = new Div();
                 overlay.getStyle()
-                        .set("position", "fixed")
-                        .set("top", "0").set("left", "0").set("width", "100vw").set("height", "100vh")
-                        .set("background", "rgba(0,0,0,0.5)")
+                        .set("position", "absolute")
+                        .set("top", "0").set("left", "0").set("width", "100%").set("height", "100%")
+                        .set("background", "rgba(0,0,0,0.4)")
                         .set("z-index", "9999")
                         .set("display", "flex")
                         .set("align-items", "center")
-                        .set("justify-content", "center");
+                        .set("justify-content", "center")
+                        .set("border-radius", "8px");
 
                 Div dialogBox = new Div();
                 dialogBox.getStyle()
                         .set("background", "white")
-                        .set("padding", "24px")
+                        .set("padding", "20px")
                         .set("border-radius", "8px")
-                        .set("box-shadow", "0 4px 6px rgba(0,0,0,0.1)")
-                        .set("min-width", "300px");
+                        .set("box-shadow", "0 10px 25px rgba(0,0,0,0.2)")
+                        .set("min-width", "250px")
+                        .set("max-width", "90%");
                 
                 H4 title = new H4("Confirm Swap");
                 title.getStyle().set("margin-top", "0");
@@ -2031,6 +2034,25 @@ public class FormBuilderView extends VerticalLayout {
             }
             draggedField = null;
         });
+
+        if ("SUBFORM_GRID".equals(temp.componentType) && temp.lovCode != null && !temp.lovCode.trim().isEmpty()) {
+            com.vaadin.flow.component.contextmenu.ContextMenu ctxMenu = new com.vaadin.flow.component.contextmenu.ContextMenu();
+            ctxMenu.setTarget(card);
+            ctxMenu.addItem("Open Subform Builder in New Tab", e -> {
+                com.vaadin.flow.component.UI.getCurrent().getChildren()
+                    .filter(c -> c instanceof com.vaadinerp.views.PortalView)
+                    .findFirst()
+                    .ifPresent(portal -> {
+                        com.vaadinerp.views.PortalView pView = (com.vaadinerp.views.PortalView) portal;
+                        int copyNum = pView.getNextDuplicateNumber("FORM_BUILDER");
+                        String newTabId = "FORM_BUILDER_DUP_" + copyNum;
+                        com.vaadinerp.security.entity.AppMenu mockMenu = new com.vaadinerp.security.entity.AppMenu();
+                        mockMenu.setMenuCode("FORM_BUILDER");
+                        mockMenu.setMenuTitle("Form Metadata Builder (" + copyNum + ")");
+                        pView.openMenuTab(mockMenu, temp.lovCode, newTabId);
+                    });
+            });
+        }
 
         return card;
     }
@@ -2130,25 +2152,6 @@ public class FormBuilderView extends VerticalLayout {
                 mockGrid.addColumn(s -> s).setHeader("Sample Detail Column...");
                 mockGrid.setItems(java.util.Collections.singletonList("Data detail akan dimuat di sini..."));
                 subformContainer.add(sTitle, mockGrid);
-
-                if (temp.lovCode != null && !temp.lovCode.trim().isEmpty()) {
-                    com.vaadin.flow.component.contextmenu.ContextMenu ctxMenu = new com.vaadin.flow.component.contextmenu.ContextMenu();
-                    ctxMenu.setTarget(subformContainer);
-                    ctxMenu.addItem("Open Subform Builder in New Tab", e -> {
-                        com.vaadin.flow.component.UI.getCurrent().getChildren()
-                            .filter(c -> c instanceof com.vaadinerp.views.PortalView)
-                            .findFirst()
-                            .ifPresent(portal -> {
-                                com.vaadinerp.views.PortalView pView = (com.vaadinerp.views.PortalView) portal;
-                                int copyNum = pView.getNextDuplicateNumber("FORM_BUILDER");
-                                String newTabId = "FORM_BUILDER_DUP_" + copyNum;
-                                com.vaadinerp.security.entity.AppMenu mockMenu = new com.vaadinerp.security.entity.AppMenu();
-                                mockMenu.setMenuCode("FORM_BUILDER");
-                                mockMenu.setMenuTitle("Form Metadata Builder (" + copyNum + ")");
-                                pView.openMenuTab(mockMenu, temp.lovCode, newTabId);
-                            });
-                    });
-                }
 
                 return subformContainer;
             case "FILE_UPLOAD":
