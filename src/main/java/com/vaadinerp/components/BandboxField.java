@@ -22,10 +22,11 @@ public class BandboxField<T, V> extends CustomField<V> {
     private final TextField displayField = new TextField();
     private final Button dropdownBtn = new Button(new Icon(VaadinIcon.CHEVRON_DOWN_SMALL));
     private final Button clearBtn = new Button(new Icon(VaadinIcon.CLOSE_SMALL));
-    private final Dialog popup = new Dialog();
+    private Dialog popup;
+    private Grid<T> grid;
+    private TextField searchField;
 
-    private final Grid<T> grid = new Grid<>();
-    private final TextField searchField = new TextField();
+    private Consumer<Grid<T>> gridConfigurator;
 
     private V selectedValue;
     private T selectedItem;
@@ -76,11 +77,13 @@ public class BandboxField<T, V> extends CustomField<V> {
         this.itemFinder = itemFinder;
     }
 
+    public void setGridConfigurator(Consumer<Grid<T>> configurator) {
+        this.gridConfigurator = configurator;
+    }
+
     public BandboxField(String label) {
         setLabel(label);
-
         setupDisplayField();
-        setupPopup();
     }
 
     private void setupDisplayField() {
@@ -119,7 +122,13 @@ public class BandboxField<T, V> extends CustomField<V> {
                 .set("box-sizing", "border-box");
     }
 
-    private void setupPopup() {
+    private void buildPopupIfNeeded() {
+        if (popup != null) return;
+        
+        popup = new Dialog();
+        grid = new Grid<>();
+        searchField = new TextField();
+        
         popup.setWidth("700px");
         popup.setCloseOnOutsideClick(true);
         popup.setModal(false); // Modeless agar terasa seperti dropdown
@@ -143,6 +152,16 @@ public class BandboxField<T, V> extends CustomField<V> {
         grid.addItemDoubleClickListener(e -> doSelect(e.getItem()));
         
         com.vaadin.flow.component.Shortcuts.addShortcutListener(grid, this::selectFirstItemOrSelected, com.vaadin.flow.component.Key.ENTER);
+
+        if (gridConfigurator != null) {
+            gridConfigurator.accept(grid);
+        }
+
+        if (dataProvider != null) {
+            grid.setItems(dataProvider);
+        } else if (dataFetchCallback != null) {
+            grid.setItems(dataFetchCallback.fetch(""));
+        }
 
         // Layout
         VerticalLayout layout = new VerticalLayout(searchField, grid);
@@ -247,6 +266,7 @@ public class BandboxField<T, V> extends CustomField<V> {
         if (!isEnabled()) {
             return;
         }
+        buildPopupIfNeeded();
         if (!popup.isOpened()) {
             popup.open();
         }
@@ -294,10 +314,12 @@ public class BandboxField<T, V> extends CustomField<V> {
     }
 
     private void executeSearch(String keyword) {
-        if (dataProvider != null) {
-            dataProvider.setFilter(keyword);
-        } else if (dataFetchCallback != null) {
-            grid.setItems(dataFetchCallback.fetch(keyword));
+        if (grid != null) {
+            if (dataProvider != null) {
+                dataProvider.setFilter(keyword);
+            } else if (dataFetchCallback != null) {
+                grid.setItems(dataFetchCallback.fetch(keyword));
+            }
         }
     }
 
@@ -319,7 +341,9 @@ public class BandboxField<T, V> extends CustomField<V> {
             CallbackDataProvider.CountCallback<T, String> countCallback) {
         DataProvider<T, String> baseProvider = DataProvider.fromFilteringCallbacks(fetchCallback, countCallback);
         this.dataProvider = baseProvider.withConfigurableFilter();
-        this.grid.setItems(this.dataProvider);
+        if (grid != null) {
+            grid.setItems(this.dataProvider);
+        }
     }
 
     public void setItemLabelGenerator(ItemLabelGenerator<T> labelGenerator) {

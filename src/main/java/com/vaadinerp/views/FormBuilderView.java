@@ -85,11 +85,21 @@ public class FormBuilderView extends VerticalLayout {
     // Selected Field State
     private FieldMetaTemp selectedField = null;
     private boolean isSelectingField = false;
+    private String selectedFormCode = null;
     private FieldMetaTemp draggedField = null;
-    private final List<FieldMetaTemp> fieldsList = new ArrayList<>();
+    private String draggedPaletteType = null;
+    private String draggedSubformPaletteType = null;
+
+    private List<FieldMetaTemp> fieldsList = new ArrayList<>();
 
     // Main Layout Components
     private final VerticalLayout canvas = new VerticalLayout();
+    private final com.vaadin.flow.component.grid.Grid<FieldMetaTemp> listCanvas = new com.vaadin.flow.component.grid.Grid<>(FieldMetaTemp.class, false);
+    private final VerticalLayout canvasPanel = new VerticalLayout();
+    private final ComboBox<FieldMetaTemp> canvasSearchField = new ComboBox<>();
+    private final Button toggleViewBtn = new Button(VaadinIcon.TABLE.create());
+    private boolean isListView = false;
+
     private final VerticalLayout propertiesPanel = new VerticalLayout();
     private final FormLayout propertiesForm = new FormLayout();
     private final Span propPlaceholderLabel = new Span("Pilih komponen di kanvas untuk mengkonfigurasi propertinya.");
@@ -102,6 +112,7 @@ public class FormBuilderView extends VerticalLayout {
     private final Button propBtnEditLov = new Button("Edit LOV Config", VaadinIcon.EDIT.create());
     private final IntegerField propRowGroup = new IntegerField("Row Group");
     private final ComboBox<Integer> propColSpan = new ComboBox<>("Colspan (Lebar Kolom)");
+    private final TextField propFieldWidth = new TextField("Field Width (e.g. 50%, 100px)");
     private final ComboBox<String> propReadonlyMode = new ComboBox<>("Read-only Mode");
     private final Checkbox propIsRequired = new Checkbox("Required");
     private final Checkbox propIsReadonly = new Checkbox("Read-only");
@@ -128,7 +139,9 @@ public class FormBuilderView extends VerticalLayout {
         public String componentType;
         public String lovCode;
         public int rowGroup = 1;
+        public int colIndex = 1;
         public Integer colSpan;
+        public String fieldWidth = "100%";
         public boolean isRequired;
         public boolean isReadonly;
         public String readonlyMode = "NONE";
@@ -604,7 +617,7 @@ public class FormBuilderView extends VerticalLayout {
                 createPaletteButton("Image Upload", VaadinIcon.PICTURE, "IMAGE_UPLOAD"));
 
         // COLUMN B: CANVAS PREVIEW
-        VerticalLayout canvasPanel = new VerticalLayout();
+        canvasPanel.setHeightFull();
         canvasPanel.setHeightFull();
         canvasPanel.getStyle().set("flex-grow", "1")
                 .set("background-color", "#f8fafc")
@@ -639,8 +652,40 @@ public class FormBuilderView extends VerticalLayout {
                             "}");
         });
 
-        HorizontalLayout rightHeaderButtons = new HorizontalLayout(fullscreenBtn, togglePropsBtn);
+        canvasSearchField.setPlaceholder("Jump to field...");
+        canvasSearchField.setPrefixComponent(VaadinIcon.SEARCH.create());
+        canvasSearchField.setClearButtonVisible(true);
+        canvasSearchField.setItemLabelGenerator(f -> "[" + f.componentType + "] " + f.fieldName + " (" + f.fieldLabel + ")");
+        canvasSearchField.setWidth("300px");
+        canvasSearchField.addValueChangeListener(e -> {
+            if (!e.isFromClient()) return;
+            
+            FieldMetaTemp selected = e.getValue();
+            if (selected != null) {
+                selectField(selected);
+            }
+            if (isListView) {
+                // Not filtering list view using combobox anymore
+            } else {
+                rebuildCanvas(); // Rebuild to apply highlights
+            }
+        });
+
+        toggleViewBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        toggleViewBtn.setTooltipText("Toggle List/Visual View");
+        toggleViewBtn.addClickListener(e -> {
+            isListView = !isListView;
+            toggleViewBtn.setIcon(isListView ? VaadinIcon.PAINTBRUSH.create() : VaadinIcon.TABLE.create());
+            canvas.setVisible(!isListView);
+            listCanvas.setVisible(isListView);
+            if (isListView) {
+                refreshListCanvas();
+            }
+        });
+
+        HorizontalLayout rightHeaderButtons = new HorizontalLayout(canvasSearchField, toggleViewBtn, fullscreenBtn, togglePropsBtn);
         rightHeaderButtons.setSpacing(true);
+        rightHeaderButtons.setAlignItems(FlexComponent.Alignment.CENTER);
 
         HorizontalLayout canvasHeader = new HorizontalLayout(togglePaletteBtn, canvasTitle, rightHeaderButtons);
         canvasHeader.setWidthFull();
@@ -648,6 +693,10 @@ public class FormBuilderView extends VerticalLayout {
         canvasHeader.setAlignItems(FlexComponent.Alignment.CENTER);
         canvasHeader.getStyle().set("margin-bottom", "15px");
         canvasPanel.add(canvasHeader);
+
+        setupListCanvas();
+        listCanvas.setVisible(false);
+        canvasPanel.add(listCanvas);
 
         canvas.setWidthFull();
         canvas.setPadding(false);
@@ -709,10 +758,20 @@ public class FormBuilderView extends VerticalLayout {
         btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btn.getStyle().set("justify-content", "flex-start").set("color", "#334155").set("font-weight", "500");
         btn.addClickListener(e -> addPaletteComponent(type));
+
+        com.vaadin.flow.component.dnd.DragSource<Button> dragSource = com.vaadin.flow.component.dnd.DragSource.create(btn);
+        dragSource.setDraggable(true);
+        dragSource.addDragStartListener(e -> {
+            draggedPaletteType = type;
+        });
+        dragSource.addDragEndListener(e -> {
+            draggedPaletteType = null;
+        });
+
         return btn;
     }
 
-    private void addPaletteComponent(String type) {
+    private FieldMetaTemp createFieldMetaTemp(String type) {
         int count = 1;
         String defaultName = type.toLowerCase() + count;
         while (fieldExists(defaultName)) {
@@ -730,7 +789,11 @@ public class FormBuilderView extends VerticalLayout {
         temp.isReadonly = false;
         temp.showInGrid = !"SUBFORM_GRID".equalsIgnoreCase(type);
         temp.isSortable = true;
+        return temp;
+    }
 
+    private void addPaletteComponent(String type) {
+        FieldMetaTemp temp = createFieldMetaTemp(type);
         fieldsList.add(temp);
         rebuildCanvas();
         selectField(temp);
@@ -796,12 +859,14 @@ public class FormBuilderView extends VerticalLayout {
                 "IMAGE_UPLOAD");
 
         // Configure propLovCode BandboxField
-        propLovCode.getGrid().addColumn(row -> row.get("code") != null ? row.get("code").toString() : "")
-                .setHeader("Code").setWidth("150px");
-        propLovCode.getGrid().addColumn(row -> row.get("name") != null ? row.get("name").toString() : "")
-                .setHeader("Name").setWidth("250px");
-        propLovCode.getGrid().addColumn(row -> row.get("type") != null ? row.get("type").toString() : "")
-                .setHeader("Type").setWidth("150px");
+        propLovCode.setGridConfigurator(grid -> {
+            grid.addColumn(row -> row.get("code") != null ? row.get("code").toString() : "")
+                    .setHeader("Code").setWidth("150px");
+            grid.addColumn(row -> row.get("name") != null ? row.get("name").toString() : "")
+                    .setHeader("Name").setWidth("250px");
+            grid.addColumn(row -> row.get("type") != null ? row.get("type").toString() : "")
+                    .setHeader("Type").setWidth("150px");
+        });
 
         propLovCode.setItemLabelGenerator(row -> row.get("code") != null ? row.get("code").toString() : "");
         propLovCode.setItemValueGenerator(row -> row.get("code") != null ? row.get("code").toString() : "");
@@ -895,7 +960,7 @@ public class FormBuilderView extends VerticalLayout {
         });
 
         propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov,
-                propBtnFilters, propBtnLovTargets, propRowGroup, propColSpan, propReadonlyMode,
+                propBtnFilters, propBtnLovTargets, propRowGroup, propColSpan, propFieldWidth, propReadonlyMode,
                 propFormula, propDisplayFormat, propValidationRule, propSequenceCode, propBtnCustomValidation,
                 checkBoxLayout,
                 propBtnOnAddScript);
@@ -940,6 +1005,13 @@ public class FormBuilderView extends VerticalLayout {
         propColSpan.addValueChangeListener(e -> {
             if (selectedField != null && e.isFromClient()) {
                 selectedField.colSpan = e.getValue() != null && e.getValue() > 0 ? e.getValue() : null;
+                rebuildCanvas();
+            }
+        });
+        propFieldWidth.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.EAGER);
+        propFieldWidth.addValueChangeListener(e -> {
+            if (selectedField != null && e.isFromClient()) {
+                selectedField.fieldWidth = e.getValue();
                 rebuildCanvas();
             }
         });
@@ -1132,6 +1204,7 @@ public class FormBuilderView extends VerticalLayout {
                 propLovCode.setValue(temp.lovCode);
                 propRowGroup.setValue(temp.rowGroup);
                 propColSpan.setValue(temp.colSpan != null && temp.colSpan > 0 ? temp.colSpan : null);
+                propFieldWidth.setValue(temp.fieldWidth != null ? temp.fieldWidth : "100%");
                 propIsRequired.setValue(temp.isRequired);
                 propIsReadonly.setValue(temp.isReadonly);
                 String rm = temp.readonlyMode;
@@ -1163,6 +1236,13 @@ public class FormBuilderView extends VerticalLayout {
 
     private void rebuildCanvas() {
         canvas.removeAll();
+        
+        // Preserve current selection if any
+        FieldMetaTemp currentSearch = canvasSearchField.getValue();
+        canvasSearchField.setItems(fieldsList);
+        if (currentSearch != null && fieldsList.contains(currentSearch)) {
+            canvasSearchField.setValue(currentSearch);
+        }
 
         boolean isMD = "MASTER_DETAIL".equals(formTypeCombo.getValue());
 
@@ -1240,9 +1320,23 @@ public class FormBuilderView extends VerticalLayout {
             mapping.put(uniqueGroups.get(i), i + 1);
         }
 
+        Map<Integer, List<FieldMetaTemp>> groups = new HashMap<>();
         for (FieldMetaTemp f : fieldsList) {
             if (!f.isDetail) {
                 f.rowGroup = mapping.getOrDefault(f.rowGroup, 1);
+                groups.computeIfAbsent(f.rowGroup, k -> new ArrayList<>()).add(f);
+            }
+        }
+
+        // Fix colIndex
+        for (List<FieldMetaTemp> group : groups.values()) {
+            group.sort(java.util.Comparator.comparingInt(f -> f.colIndex)); // Preserve existing relative order
+            int nextAvail = 1;
+            for (FieldMetaTemp f : group) {
+                if (f.colIndex < nextAvail) {
+                    f.colIndex = nextAvail;
+                }
+                nextAvail = f.colIndex + 1;
             }
         }
     }
@@ -1266,6 +1360,14 @@ public class FormBuilderView extends VerticalLayout {
         });
 
         dropTarget.addDropListener(e -> {
+            boolean droppedFromPalette = false;
+            if (draggedPaletteType != null) {
+                draggedField = createFieldMetaTemp(draggedPaletteType);
+                draggedPaletteType = null;
+                droppedFromPalette = true;
+                fieldsList.add(draggedField); // Add temporarily so reorder logic finds it
+            }
+
             if (draggedField != null) {
                 if (draggedField.isDetail) {
                     draggedField = null;
@@ -1312,6 +1414,101 @@ public class FormBuilderView extends VerticalLayout {
         return zone;
     }
 
+    private void setupListCanvas() {
+        listCanvas.setWidthFull();
+        listCanvas.setHeightFull();
+        listCanvas.addThemeVariants(com.vaadin.flow.component.grid.GridVariant.LUMO_ROW_STRIPES, com.vaadin.flow.component.grid.GridVariant.LUMO_COMPACT);
+
+        com.vaadin.flow.component.grid.Grid.Column<FieldMetaTemp> colName = listCanvas.addColumn(f -> f.fieldName).setHeader("Field Name").setSortable(true).setAutoWidth(true).setFlexGrow(1);
+        com.vaadin.flow.component.grid.Grid.Column<FieldMetaTemp> colLabel = listCanvas.addColumn(f -> f.fieldLabel).setHeader("Label").setSortable(true).setAutoWidth(true).setFlexGrow(1);
+        com.vaadin.flow.component.grid.Grid.Column<FieldMetaTemp> colType = listCanvas.addColumn(f -> f.componentType).setHeader("Type").setSortable(true).setAutoWidth(true);
+        listCanvas.addComponentColumn(f -> {
+            com.vaadin.flow.component.textfield.IntegerField rowField = new com.vaadin.flow.component.textfield.IntegerField();
+            rowField.setValue(f.rowGroup);
+            rowField.setWidth("110px");
+            rowField.setStepButtonsVisible(true);
+            rowField.addValueChangeListener(e -> {
+                if (e.getValue() != null && e.isFromClient()) {
+                    f.rowGroup = e.getValue();
+                    rebuildCanvas();
+                }
+            });
+            return rowField;
+        }).setHeader("Row").setSortable(true).setComparator((a, b) -> Integer.compare(a.rowGroup, b.rowGroup)).setAutoWidth(true);
+        
+        listCanvas.addComponentColumn(f -> {
+            com.vaadin.flow.component.textfield.IntegerField colField = new com.vaadin.flow.component.textfield.IntegerField();
+            colField.setValue(f.colIndex);
+            colField.setWidth("110px");
+            colField.setStepButtonsVisible(true);
+            colField.addValueChangeListener(e -> {
+                if (e.getValue() != null && e.isFromClient()) {
+                    f.colIndex = e.getValue();
+                    rebuildCanvas();
+                }
+            });
+            return colField;
+        }).setHeader("Col").setSortable(true).setComparator((a, b) -> Integer.compare(a.colIndex, b.colIndex)).setAutoWidth(true);
+        listCanvas.addColumn(f -> f.fieldWidth).setHeader("Width").setSortable(true).setAutoWidth(true);
+
+        com.vaadin.flow.component.grid.HeaderRow filterRow = listCanvas.appendHeaderRow();
+        
+        TextField nameFilter = new TextField();
+        nameFilter.setPlaceholder("Filter...");
+        nameFilter.setClearButtonVisible(true);
+        nameFilter.setWidthFull();
+        nameFilter.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.LAZY);
+        nameFilter.addValueChangeListener(e -> refreshListCanvas(nameFilter.getValue(), null, null));
+        filterRow.getCell(colName).setComponent(nameFilter);
+
+        TextField labelFilter = new TextField();
+        labelFilter.setPlaceholder("Filter...");
+        labelFilter.setClearButtonVisible(true);
+        labelFilter.setWidthFull();
+        labelFilter.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.LAZY);
+        labelFilter.addValueChangeListener(e -> refreshListCanvas(null, labelFilter.getValue(), null));
+        filterRow.getCell(colLabel).setComponent(labelFilter);
+
+        TextField typeFilter = new TextField();
+        typeFilter.setPlaceholder("Filter...");
+        typeFilter.setClearButtonVisible(true);
+        typeFilter.setWidthFull();
+        typeFilter.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.LAZY);
+        typeFilter.addValueChangeListener(e -> refreshListCanvas(null, null, typeFilter.getValue()));
+        filterRow.getCell(colType).setComponent(typeFilter);
+
+        listCanvas.addItemDoubleClickListener(e -> {
+            selectField(e.getItem());
+        });
+    }
+
+    private String listFilterName = "";
+    private String listFilterLabel = "";
+    private String listFilterType = "";
+
+    private void refreshListCanvas(String nameF, String labelF, String typeF) {
+        if (nameF != null) listFilterName = nameF.trim().toLowerCase();
+        if (labelF != null) listFilterLabel = labelF.trim().toLowerCase();
+        if (typeF != null) listFilterType = typeF.trim().toLowerCase();
+
+        List<FieldMetaTemp> filteredFields = new ArrayList<>();
+        for (FieldMetaTemp f : fieldsList) {
+            if (f.isDetail) continue;
+            boolean matchName = listFilterName.isEmpty() || (f.fieldName != null && f.fieldName.toLowerCase().contains(listFilterName));
+            boolean matchLabel = listFilterLabel.isEmpty() || (f.fieldLabel != null && f.fieldLabel.toLowerCase().contains(listFilterLabel));
+            boolean matchType = listFilterType.isEmpty() || (f.componentType != null && f.componentType.toLowerCase().contains(listFilterType));
+            
+            if (matchName && matchLabel && matchType) {
+                filteredFields.add(f);
+            }
+        }
+        listCanvas.setItems(filteredFields);
+    }
+
+    private void refreshListCanvas() {
+        refreshListCanvas(null, null, null);
+    }
+
     private void renderGroupedFields(List<FieldMetaTemp> targetFields) {
         normalizeRowGroups();
 
@@ -1344,25 +1541,29 @@ public class FormBuilderView extends VerticalLayout {
             int cols = rowConfig.getCols();
             com.vaadinerp.components.FormLayoutUtils.applyResponsiveSteps(rowLayout, cols);
 
-            int explicitColsUsed = 0;
+            groupFields.sort(java.util.Comparator.comparingInt(f -> f.colIndex));
+
+            int currentVisCol = 1;
             for (FieldMetaTemp temp : groupFields) {
+                while (currentVisCol < temp.colIndex && currentVisCol <= cols) {
+                    Component emptyCard = buildEmptyColumnPlaceholder(rg, currentVisCol);
+                    rowLayout.add(emptyCard);
+                    currentVisCol++;
+                }
+                
                 Component card = buildFieldCard(temp, sequence++);
                 rowLayout.add(card);
                 int span = rowConfig.getSpan(temp);
                 if (span > 1) {
-                    rowLayout.setColspan(card, Math.min(span, cols));
+                    rowLayout.setColspan(card, Math.min(span, Math.max(1, cols - currentVisCol + 1)));
                 }
-                explicitColsUsed += Math.min(span, cols);
+                currentVisCol += span;
             }
 
-            // Add placeholder for remaining empty columns if any
-            if (explicitColsUsed < cols) {
-                int remainingSpan = cols - explicitColsUsed;
-                Component emptyCard = buildEmptyColumnPlaceholder(rg);
+            while (currentVisCol <= cols) {
+                Component emptyCard = buildEmptyColumnPlaceholder(rg, currentVisCol);
                 rowLayout.add(emptyCard);
-                if (remainingSpan > 1) {
-                    rowLayout.setColspan(emptyCard, Math.min(remainingSpan, cols));
-                }
+                currentVisCol++;
             }
 
             canvas.add(rowLayout);
@@ -1372,7 +1573,7 @@ public class FormBuilderView extends VerticalLayout {
         }
     }
 
-    private Component buildEmptyColumnPlaceholder(int targetRowGroup) {
+    private Component buildEmptyColumnPlaceholder(int targetRowGroup, int targetColIndex) {
         VerticalLayout placeholder = new VerticalLayout();
         Span text = new Span("+ Tarik Field ke Sini");
         placeholder.add(text);
@@ -1416,16 +1617,25 @@ public class FormBuilderView extends VerticalLayout {
             placeholder.getStyle().set("background-color", "rgba(255,255,255,0.5)");
             placeholder.getStyle().set("color", "#94a3b8");
 
+            boolean droppedFromPalette = false;
+            if (draggedPaletteType != null) {
+                draggedField = createFieldMetaTemp(draggedPaletteType);
+                draggedPaletteType = null;
+                droppedFromPalette = true;
+                fieldsList.add(draggedField); // Add temporarily
+            }
+
             if (draggedField != null && !draggedField.isDetail) {
                 fieldsList.remove(draggedField);
                 draggedField.rowGroup = targetRowGroup;
+                draggedField.colIndex = targetColIndex;
 
                 int insertIdx = 0;
                 for (int j = 0; j < fieldsList.size(); j++) {
                     FieldMetaTemp f = fieldsList.get(j);
                     if (f.isDetail)
                         continue;
-                    if (f.rowGroup <= targetRowGroup) {
+                    if (f.rowGroup < targetRowGroup || (f.rowGroup == targetRowGroup && f.colIndex < targetColIndex)) {
                         insertIdx = j + 1;
                     }
                 }
@@ -1437,7 +1647,7 @@ public class FormBuilderView extends VerticalLayout {
                 }
                 canvas.removeClassName("dragging-active");
                 rebuildCanvas();
-                Notification.show("Field dipindah ke kolom kosong pada Baris " + targetRowGroup, 2000,
+                Notification.show("Field dipindah ke kolom " + targetColIndex + " pada Baris " + targetRowGroup, 2000,
                         Notification.Position.BOTTOM_END);
             }
             draggedField = null;
@@ -1458,14 +1668,22 @@ public class FormBuilderView extends VerticalLayout {
         boolean isMultiLine = "TEXTAREA".equalsIgnoreCase(temp.componentType)
                 || "SUBFORM_GRID".equalsIgnoreCase(temp.componentType);
 
+        FieldMetaTemp searchSelected = canvasSearchField.getValue();
+        boolean isSearchActive = searchSelected != null;
+        boolean matchesSearch = isSearchActive && searchSelected == temp;
+            
+        String cardOpacity = "1.0";
+        if (temp.hideInForm) cardOpacity = "0.65";
+        if (isSearchActive && !matchesSearch) cardOpacity = "0.2";
+
         card.getStyle()
-                .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
+                .set("border", isSelected ? "2px solid #6366f1" : (isSearchActive && matchesSearch ? "2px solid #eab308" : "1px dashed #cbd5e1"))
                 .set("border-radius", "8px")
-                .set("background-color", isSelected ? "#f8fafc" : "#ffffff")
+                .set("background-color", isSelected ? "#f8fafc" : (isSearchActive && matchesSearch ? "#fefce8" : "#ffffff"))
                 .set("cursor", "grab")
                 .set("position", "relative")
                 .set("box-shadow", isSelected ? "0 4px 12px rgba(99, 102, 241, 0.1)" : "none")
-                .set("opacity", temp.hideInForm ? "0.65" : "1.0")
+                .set("opacity", cardOpacity)
                 .set("min-width", "110px")
                 .set("height", isMultiLine ? "100%" : "118px")
                 .set("min-height", "118px")
@@ -1601,7 +1819,9 @@ public class FormBuilderView extends VerticalLayout {
         actions.setSpacing(false);
         actions.getStyle()
                 .set("gap", "2px")
-                .set("flex-shrink", "0");
+                .set("flex-shrink", "0")
+                .set("position", "relative")
+                .set("z-index", "10");
         cardHeader.add(badgesBox, actions);
 
         Component previewComp = createPreviewComponent(temp);
@@ -1626,39 +1846,188 @@ public class FormBuilderView extends VerticalLayout {
             rebuildCanvas();
         });
 
-        DropTarget<Component> dropTarget = DropTarget.create(card);
-        dropTarget.setActive(true);
+        // Hitboxes for Drag and Drop Zones (Left: Insert Before, Center: Swap, Right: Insert After)
+        card.getStyle().set("position", "relative");
 
-        card.getElement().addEventListener("dragenter", e -> {
-            card.getStyle().set("border", "2px dashed #6366f1");
-            card.getStyle().set("background-color", "#e0e7ff");
-            card.addClassName("card-drag-over");
+        Div leftHitbox = new Div();
+        leftHitbox.getStyle()
+                .set("position", "absolute").set("top", "0").set("bottom", "0").set("left", "0").set("width", "30%")
+                .set("z-index", "1");
+
+        Div rightHitbox = new Div();
+        rightHitbox.getStyle()
+                .set("position", "absolute").set("top", "0").set("bottom", "0").set("right", "0").set("width", "30%")
+                .set("z-index", "1");
+
+        Div centerHitbox = new Div();
+        centerHitbox.getStyle()
+                .set("position", "absolute").set("top", "0").set("bottom", "0").set("left", "30%").set("width", "40%")
+                .set("z-index", "1");
+
+        // Forward clicks to card selection
+        leftHitbox.addClickListener(e -> selectField(temp));
+        rightHitbox.addClickListener(e -> selectField(temp));
+        centerHitbox.addClickListener(e -> selectField(temp));
+
+        card.add(leftHitbox, centerHitbox, rightHitbox);
+
+        // Make hitboxes DropTargets
+        DropTarget<Div> leftTarget = DropTarget.create(leftHitbox);
+        DropTarget<Div> rightTarget = DropTarget.create(rightHitbox);
+        DropTarget<Div> centerTarget = DropTarget.create(centerHitbox);
+
+        leftTarget.setActive(true);
+        rightTarget.setActive(true);
+        centerTarget.setActive(true);
+
+        // Visual Cues
+        leftHitbox.getElement().addEventListener("dragenter", e -> {
+            card.getStyle().set("border-left", "4px solid #10b981");
+            card.getStyle().set("background-color", "#d1fae5");
+        });
+        leftHitbox.getElement().addEventListener("dragleave", e -> {
+            card.getStyle()
+                    .set("border-left", "")
+                    .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
+                    .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
         });
 
-        card.getElement().addEventListener("dragleave", e -> {
+        rightHitbox.getElement().addEventListener("dragenter", e -> {
+            card.getStyle().set("border-right", "4px solid #10b981");
+            card.getStyle().set("background-color", "#d1fae5");
+        });
+        rightHitbox.getElement().addEventListener("dragleave", e -> {
+            card.getStyle()
+                    .set("border-right", "")
+                    .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
+                    .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
+        });
+
+        centerHitbox.getElement().addEventListener("dragenter", e -> {
+            card.getStyle().set("border", "2px dashed #6366f1");
+            card.getStyle().set("background-color", "#e0e7ff");
+        });
+        centerHitbox.getElement().addEventListener("dragleave", e -> {
             card.getStyle()
                     .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
                     .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
-            card.removeClassName("card-drag-over");
         });
 
-        dropTarget.addDropListener(e -> {
-            card.removeClassName("card-drag-over");
+        // Drop Logic Helper
+        com.vaadin.flow.function.SerializableConsumer<Boolean> handleInsert = (isBefore) -> {
+            card.getStyle()
+                    .set("border-left", "").set("border-right", "")
+                    .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
+                    .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
+
+            boolean droppedFromPalette = false;
+            if (draggedPaletteType != null) {
+                draggedField = createFieldMetaTemp(draggedPaletteType);
+                draggedPaletteType = null;
+                droppedFromPalette = true;
+                fieldsList.add(draggedField);
+            }
+
             if (draggedField != null && draggedField != temp) {
-                int srcIdx = fieldsList.indexOf(draggedField);
-                int destIdx = fieldsList.indexOf(temp);
-                if (srcIdx != -1 && destIdx != -1) {
+                draggedField.rowGroup = temp.rowGroup;
+                int targetCol = temp.colIndex;
+                if (!isBefore) {
+                    targetCol += 1;
+                }
+                draggedField.colIndex = targetCol;
+                
+                for (FieldMetaTemp f : fieldsList) {
+                    if (f != draggedField && f.rowGroup == temp.rowGroup && f.colIndex >= targetCol) {
+                        f.colIndex++;
+                    }
+                }
+                if (selectedField != null) {
+                    propRowGroup.setValue(selectedField.rowGroup);
+                }
+                rebuildCanvas();
+                Notification.show("Field inserted successfully.", 2000, Notification.Position.BOTTOM_END);
+            }
+            draggedField = null;
+        };
+
+        leftTarget.addDropListener(e -> handleInsert.accept(true));
+        rightTarget.addDropListener(e -> handleInsert.accept(false));
+
+        centerTarget.addDropListener(e -> {
+            card.getStyle()
+                    .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
+                    .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
+            
+            boolean droppedFromPalette = false;
+            if (draggedPaletteType != null) {
+                draggedField = createFieldMetaTemp(draggedPaletteType);
+                draggedPaletteType = null;
+                droppedFromPalette = true;
+                fieldsList.add(draggedField); // Add temporarily
+            }
+
+            if (draggedField != null && draggedField != temp) {
+                if (droppedFromPalette) {
+                    Notification.show("Please drop new components into empty slots (+ Tarik Field ke Sini)", 3000, Notification.Position.MIDDLE);
                     fieldsList.remove(draggedField);
-                    fieldsList.add(destIdx, draggedField);
-                    draggedField.rowGroup = temp.rowGroup;
+                    draggedField = null;
+                    return;
+                }
+
+                FieldMetaTemp sourceField = draggedField;
+                FieldMetaTemp targetField = temp;
+
+                Div overlay = new Div();
+                overlay.getStyle()
+                        .set("position", "fixed")
+                        .set("top", "0").set("left", "0").set("width", "100vw").set("height", "100vh")
+                        .set("background", "rgba(0,0,0,0.5)")
+                        .set("z-index", "9999")
+                        .set("display", "flex")
+                        .set("align-items", "center")
+                        .set("justify-content", "center");
+
+                Div dialogBox = new Div();
+                dialogBox.getStyle()
+                        .set("background", "white")
+                        .set("padding", "24px")
+                        .set("border-radius", "8px")
+                        .set("box-shadow", "0 4px 6px rgba(0,0,0,0.1)")
+                        .set("min-width", "300px");
+                
+                H4 title = new H4("Confirm Swap");
+                title.getStyle().set("margin-top", "0");
+                
+                com.vaadin.flow.component.html.Paragraph msg = new com.vaadin.flow.component.html.Paragraph("Are you sure you want to swap '" + sourceField.fieldName + "' with '" + targetField.fieldName + "'?");
+                
+                Button btnCancel = new Button("Cancel", ev -> canvasPanel.remove(overlay));
+                Button btnSwap = new Button("Swap", ev -> {
+                    int tempRow = sourceField.rowGroup;
+                    int tempCol = sourceField.colIndex;
+                    
+                    sourceField.rowGroup = targetField.rowGroup;
+                    sourceField.colIndex = targetField.colIndex;
+                    
+                    targetField.rowGroup = tempRow;
+                    targetField.colIndex = tempCol;
+                    
                     if (selectedField != null) {
                         propRowGroup.setValue(selectedField.rowGroup);
                     }
+                    canvasPanel.remove(overlay);
                     rebuildCanvas();
-                    Notification.show(
-                            "Field reordered: " + draggedField.fieldName + " moved to row group " + temp.rowGroup, 2000,
-                            Notification.Position.BOTTOM_END);
-                }
+                    Notification.show("Fields swapped successfully.", 2000, Notification.Position.BOTTOM_END);
+                });
+                btnSwap.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+                
+                HorizontalLayout btns = new HorizontalLayout(btnCancel, btnSwap);
+                btns.setJustifyContentMode(JustifyContentMode.END);
+                btns.getStyle().set("margin-top", "20px");
+                
+                dialogBox.add(title, msg, btns);
+                overlay.add(dialogBox);
+                
+                canvasPanel.add(overlay);
             }
             draggedField = null;
         });
@@ -1671,34 +2040,34 @@ public class FormBuilderView extends VerticalLayout {
         switch (temp.componentType.toUpperCase()) {
             case "TEXTBOX":
                 TextField tf = new TextField(label);
-                tf.setWidthFull();
+                tf.setWidth(temp.fieldWidth != null && !temp.fieldWidth.trim().isEmpty() ? temp.fieldWidth : "100%");
                 tf.setReadOnly(true);
                 return tf;
             case "INTBOX":
                 IntegerField iff = new IntegerField(label);
-                iff.setWidthFull();
+                iff.setWidth(temp.fieldWidth != null && !temp.fieldWidth.trim().isEmpty() ? temp.fieldWidth : "100%");
                 iff.setPlaceholder("");
                 iff.setReadOnly(true);
                 return iff;
             case "DECIMALBOX":
                 BigDecimalField bdf = new BigDecimalField(label);
-                bdf.setWidthFull();
+                bdf.setWidth(temp.fieldWidth != null && !temp.fieldWidth.trim().isEmpty() ? temp.fieldWidth : "100%");
                 bdf.setPlaceholder("");
                 bdf.setReadOnly(true);
                 return bdf;
             case "DATEBOX":
                 DatePicker dp = new DatePicker(label);
-                dp.setWidthFull();
+                dp.setWidth(temp.fieldWidth != null && !temp.fieldWidth.trim().isEmpty() ? temp.fieldWidth : "100%");
                 dp.setReadOnly(true);
                 return dp;
             case "DATETIMEBOX":
                 DateTimePicker dtp = new DateTimePicker(label);
-                dtp.setWidthFull();
+                dtp.setWidth(temp.fieldWidth != null && !temp.fieldWidth.trim().isEmpty() ? temp.fieldWidth : "100%");
                 dtp.setReadOnly(true);
                 return dtp;
             case "TIMEBOX":
                 TimePicker tp = new TimePicker(label);
-                tp.setWidthFull();
+                tp.setWidth(temp.fieldWidth != null && !temp.fieldWidth.trim().isEmpty() ? temp.fieldWidth : "100%");
                 tp.setReadOnly(true);
                 return tp;
             case "CHECKBOX":
@@ -1707,12 +2076,12 @@ public class FormBuilderView extends VerticalLayout {
                 return cb;
             case "TEXTAREA":
                 TextArea ta = new TextArea(label);
-                ta.setWidthFull();
+                ta.setWidth(temp.fieldWidth != null && !temp.fieldWidth.trim().isEmpty() ? temp.fieldWidth : "100%");
                 ta.setReadOnly(true);
                 return ta;
             case "COMBOBOX":
                 ComboBox<String> cob = new ComboBox<>(label);
-                cob.setWidthFull();
+                cob.setWidth(temp.fieldWidth != null && !temp.fieldWidth.trim().isEmpty() ? temp.fieldWidth : "100%");
                 cob.setReadOnly(true);
                 if (temp.lovCode != null) {
                     cob.setPlaceholder("LOV: " + temp.lovCode);
@@ -1723,7 +2092,7 @@ public class FormBuilderView extends VerticalLayout {
             case "LISTBOX":
                 Select<String> sel = new Select<>();
                 sel.setLabel(label);
-                sel.setWidthFull();
+                sel.setWidth(temp.fieldWidth != null && !temp.fieldWidth.trim().isEmpty() ? temp.fieldWidth : "100%");
                 sel.setEnabled(false);
                 if (temp.lovCode != null) {
                     sel.setPlaceholder("LOV: " + temp.lovCode);
@@ -1733,7 +2102,7 @@ public class FormBuilderView extends VerticalLayout {
                 return sel;
             case "BANDBOX":
                 TextField bf = new TextField(label);
-                bf.setWidthFull();
+                bf.setWidth(temp.fieldWidth != null && !temp.fieldWidth.trim().isEmpty() ? temp.fieldWidth : "100%");
                 bf.setReadOnly(true);
                 if (temp.lovCode != null) {
                     bf.setPlaceholder("LOV Search: " + temp.lovCode);
@@ -1744,7 +2113,7 @@ public class FormBuilderView extends VerticalLayout {
                 return bf;
             case "CHOSENBOX":
                 MultiSelectComboBox<String> msc = new MultiSelectComboBox<>(label);
-                msc.setWidthFull();
+                msc.setWidth(temp.fieldWidth != null && !temp.fieldWidth.trim().isEmpty() ? temp.fieldWidth : "100%");
                 msc.setReadOnly(true);
                 return msc;
             case "SUBFORM_GRID":
@@ -2557,8 +2926,8 @@ public class FormBuilderView extends VerticalLayout {
             field.setOnAddScript(temp.onAddScript);
             field.setRowGroup(temp.rowGroup);
             field.setColSpan(temp.colSpan);
-            field.setColOrder(order);
-            order += 10;
+            field.setFieldWidth(temp.fieldWidth);
+            field.setColOrder(temp.rowGroup * 1000 + temp.colIndex * 10);
 
             List<FieldFilterMeta> filters = new ArrayList<>();
             for (FieldFilterMetaTemp fTemp : temp.filters) {
@@ -3391,7 +3760,9 @@ public class FormBuilderView extends VerticalLayout {
                     temp.componentType = field.getComponentType();
                     temp.lovCode = field.getLovCode();
                     temp.rowGroup = field.getRowGroup() != null ? field.getRowGroup() : 1;
+                    temp.colIndex = field.getColOrder() != null && field.getColOrder() >= 1000 ? (field.getColOrder() % 1000) / 10 : 1;
                     temp.colSpan = field.getColSpan();
+                    temp.fieldWidth = field.getFieldWidth();
                     temp.isRequired = field.isRequired();
                     temp.isReadonly = field.isReadonly();
                     temp.readonlyMode = field.getReadonlyMode() != null ? field.getReadonlyMode()
@@ -3815,16 +4186,28 @@ public class FormBuilderView extends VerticalLayout {
         btnApply.addClickListener(e -> {
             int targetCols = colsSelect.getValue() != null ? colsSelect.getValue() : 2;
             int currentGroup = 1;
-            int colInGroup = 0;
+            int currentVisCol = 1;
+            
             for (FieldMetaTemp f : fieldsList) {
-                if (f.isDetail)
-                    continue;
-                if (colInGroup >= targetCols) {
+                if (f.isDetail) continue;
+
+                int span = f.colSpan != null ? f.colSpan : 1;
+                span = Math.min(span, targetCols);
+                
+                if (currentVisCol > 1 && (currentVisCol - 1 + span) > targetCols) {
                     currentGroup++;
-                    colInGroup = 0;
+                    currentVisCol = 1;
                 }
+                
                 f.rowGroup = currentGroup;
-                colInGroup++;
+                f.colIndex = currentVisCol;
+                
+                currentVisCol += span;
+                
+                if (currentVisCol > targetCols) {
+                    currentGroup++;
+                    currentVisCol = 1;
+                }
             }
             rebuildCanvas();
             Notification.show("Layout berhasil diatur menjadi " + targetCols + " kolom berjejer!", 3000,

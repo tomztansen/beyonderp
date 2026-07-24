@@ -1399,6 +1399,7 @@ public class DbExplorerView extends VerticalLayout {
                 }
             }
             pendingChanges.clear();
+            updatePendingUI();
             Notification.show("Semua perubahan berhasil disimpan ke database!", 3000, Notification.Position.TOP_CENTER);
             if (this.currentTable != null) {
                 loadTableData(this.currentTable);

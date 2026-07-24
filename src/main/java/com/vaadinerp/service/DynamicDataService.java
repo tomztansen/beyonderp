@@ -1990,6 +1990,15 @@ public class DynamicDataService {
                                                     "DELETE", fieldName, oldStr, null, currentUser, auditNowDt });
                                         }
                                     }
+                                    if (field.isDetail() && fileStorageService != null && 
+                                            ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType()) || 
+                                             "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType()))) {
+                                        String fieldName = field.getFieldName();
+                                        Object val = getCaseInsensitiveValue(dRow, fieldName);
+                                        if (val != null && !val.toString().trim().isEmpty()) {
+                                            fileStorageService.deleteFilesByDelimitedString(val.toString());
+                                        }
+                                    }
                                 }
                             }
                         }

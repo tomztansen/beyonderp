@@ -479,4 +479,20 @@ public class ReportViewerView extends VerticalLayout {
             getElement().setText(text);
         }
     }
+
+    /**
+     * Explicit memory cleanup called by PortalView when the tab is closed.
+     */
+    public void cleanup() {
+        if (printablePage != null) {
+            printablePage.removeAll();
+        }
+        if (selectReportCombo != null) {
+            selectReportCombo.clear();
+        }
+        if (globalSearchField != null) {
+            globalSearchField.clear();
+        }
+        this.removeAll();
+    }
 }

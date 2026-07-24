@@ -64,6 +64,18 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
     private String currentFormCode;
     private FormMeta currentFormDef;
+    private Button btnNew;
+    private Button btnEdit;
+    private Button btnView;
+    private Button btnDelete;
+    private Button btnSave;
+    private Button btnCancel;
+    private Button btnPrint;
+    private Button btnRefresh;
+    private Button btnDebug;
+    private Button btnAddRow;
+    private Button btnDeleteRow;
+    private com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority auth;
     private Runnable closeHandler;
     private com.vaadin.flow.router.QueryParameters queryParameters;
 
@@ -96,7 +108,6 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     private final Map<Grid.Column<Map<String, Object>>, java.util.function.Function<Map<String, Object>, String>> masterColGetterMap = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<Grid.Column<Map<String, Object>>, java.util.function.Function<Map<String, Object>, String>> detailColGetterMap = new java.util.concurrent.ConcurrentHashMap<>();
 
-    private final Map<String, Map<String, String>> lovLabelMapCache = new HashMap<>();
     private final Map<String, String> fieldNameToLovCodeMap = new HashMap<>();
 
     // Flag to prevent cascading filter listeners from clearing child LOV values
@@ -130,45 +141,11 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     private String getLovDisplayLabel(String lovCode, String val) {
         if (val == null || val.trim().isEmpty() || lovCode == null || lovCode.trim().isEmpty())
             return val != null ? val : "";
-        String strVal = val.trim();
-        Map<String, String> map = lovLabelMapCache.computeIfAbsent(lovCode, code -> {
-            Map<String, String> res = new HashMap<>();
-            dynamicDataService.getLovMeta(code).ifPresent(lovMeta -> {
-                java.util.List<Map<String, Object>> records = dynamicDataService.fetchAllLovRecords(lovMeta);
-                String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank()
-                        ? lovMeta.getValueColumn().trim()
-                        : "id";
-                String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank()
-                        ? lovMeta.getLabelColumn().trim()
-                        : valCol;
-                for (Map<String, Object> rec : records) {
-                    Object v = getMapValIgnoreCase(rec, valCol);
-                    if (v == null && rec.containsKey("id"))
-                        v = rec.get("id");
-                    if (v != null) {
-                        Object l = getMapValIgnoreCase(rec, lblCol);
-                        if (l == null || l.toString().trim().isEmpty()) {
-                            if (getMapValIgnoreCase(rec, "code") != null)
-                                l = getMapValIgnoreCase(rec, "code");
-                            else if (getMapValIgnoreCase(rec, "name") != null)
-                                l = getMapValIgnoreCase(rec, "name");
-                            else
-                                l = v;
-                        }
-                        res.put(v.toString().trim(), l.toString().trim());
-                    }
-                }
-            });
-            return res;
-        });
-
-        if (strVal.contains(",")) {
-            return java.util.Arrays.stream(strVal.split(","))
-                    .map(s -> s != null ? s.trim() : "")
-                    .map(item -> map.getOrDefault(item, item))
-                    .collect(java.util.stream.Collectors.joining(", "));
-        }
-        return map.getOrDefault(strVal, strVal);
+            
+        com.vaadinerp.meta.FieldMeta dummyMeta = new com.vaadinerp.meta.FieldMeta();
+        dummyMeta.setLovCode(lovCode);
+        
+        return com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(dummyMeta, val, dynamicDataService);
     }
 
     public void setCloseHandler(Runnable closeHandler) {
@@ -302,14 +279,14 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         H4 detailTitle = new H4("Details");
         detailTitle.getStyle().set("margin", "0");
 
-        Button btnAddRow = new Button("Tambah Baris", VaadinIcon.PLUS.create());
+        btnAddRow = new Button("Tambah Baris", VaadinIcon.PLUS.create());
         btnAddRow.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         btnAddRow.getStyle().set("font-weight", "500").set("color", "#374151");
         if (btnAddRow.getIcon() instanceof com.vaadin.flow.component.icon.Icon icAdd) {
             icAdd.getStyle().set("color", "#22c55e").set("font-size", "1.1rem");
         }
 
-        Button btnDeleteRow = new Button("Delete Row", VaadinIcon.TRASH.create());
+        btnDeleteRow = new Button("Delete Row", VaadinIcon.TRASH.create());
         btnDeleteRow.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         btnDeleteRow.getStyle().set("font-weight", "500").set("color", "#374151");
         if (btnDeleteRow.getIcon() instanceof com.vaadin.flow.component.icon.Icon icDel) {
@@ -353,6 +330,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             if (currentFormDef != null) {
                 if (event.getSelectedTab() == historisTab) {
                     refreshMasterGridData();
+                    resetToolbarButtonsToInitialState();
                 }
                 boolean isUpdate = false;
                 Map<String, Object> bean = formBinder != null ? formBinder.getBean() : null;
@@ -774,7 +752,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         toolbar.removeAll();
 
         // 1. TAMBAH BUTTON
-        Button btnNew = new Button("Add");
+        btnNew = new Button("Add");
         Icon iconNew = VaadinIcon.PLUS_CIRCLE.create();
         iconNew.getStyle().set("color", "#22c55e").set("font-size", "1.2rem");
         btnNew.setIcon(iconNew);
@@ -786,12 +764,20 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             detailsList.clear();
             deletedDetailsList.clear();
             applyDetailsFilters();
+            
+            updateFieldsReadonlyStatus(true);
+            setAllFieldsReadOnly(false); // Reset forced read-only
+            if (auth != null) {
+                btnSave.setVisible(auth.canAdd);
+                btnCancel.setVisible(auth.canAdd || auth.canEdit);
+                btnEdit.setVisible(auth.canEdit);
+            }
             tabSheet.setSelectedTab(transaksiTab);
             executeOnLoadActions("ON_LOAD_NEW");
         });
 
         // 1.5. EDIT BUTTON
-        Button btnEdit = new Button("Edit");
+        btnEdit = new Button("Edit");
         Icon iconEdit = VaadinIcon.EDIT.create();
         iconEdit.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnEdit.setIcon(iconEdit);
@@ -813,8 +799,31 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
         });
 
+        // 1.6. VIEW BUTTON
+        btnView = new Button("View");
+        Icon iconView = VaadinIcon.SEARCH.create();
+        iconView.getStyle().set("color", "#10b981").set("font-size", "1.2rem");
+        btnView.setIcon(iconView);
+        btnView.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btnView.getStyle().set("font-weight", "500").set("color", "#374151");
+        btnView.addClickListener(e -> {
+            if (tabSheet.getSelectedTab() == historisTab) {
+                java.util.Set<Map<String, Object>> selectedItems = masterGrid.getSelectedItems();
+                if (selectedItems == null || selectedItems.isEmpty()) {
+                    Notification.show("Please select data from the History tab to view!", 3000,
+                            Notification.Position.MIDDLE);
+                    return;
+                }
+                loadAndViewData(selectedItems.iterator().next());
+            } else {
+                Notification.show("Silakan pilih data di tab Historis terlebih dahulu.", 3000,
+                        Notification.Position.MIDDLE);
+                tabSheet.setSelectedTab(historisTab);
+            }
+        });
+
         // 2. HAPUS BUTTON
-        Button btnDelete = new Button("Delete");
+        btnDelete = new Button("Delete");
         Icon iconDelete = VaadinIcon.CLOSE_CIRCLE.create();
         iconDelete.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnDelete.setIcon(iconDelete);
@@ -880,7 +889,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         });
 
         // 3. SIMPAN BUTTON
-        Button btnSave = new Button("Save");
+        btnSave = new Button("Save");
         Icon iconSave = VaadinIcon.DOWNLOAD.create();
         iconSave.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnSave.setIcon(iconSave);
@@ -1001,7 +1010,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         });
 
         // 4. BATAL BUTTON
-        Button btnCancel = new Button("Cancel");
+        btnCancel = new Button("Cancel");
         Icon iconCancel = VaadinIcon.BAN.create();
         iconCancel.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnCancel.setIcon(iconCancel);
@@ -1020,8 +1029,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         });
 
 
-        // 6. CETAK BUTTON
-        Button btnPrint = new Button("Cetak");
+        // 5. CETAK BUTTON
+        btnPrint = new Button("Cetak");
         Icon iconPrint = VaadinIcon.PRINT.create();
         iconPrint.getStyle().set("color", "#374151").set("font-size", "1.2rem");
         btnPrint.setIcon(iconPrint);
@@ -1031,8 +1040,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             Notification.show("Fitur Cetak belum diimplementasikan.", 3000, Notification.Position.TOP_CENTER);
         });
 
-        // 7. REFRESH BUTTON
-        Button btnRefresh = new Button("Refresh");
+        // 6. REFRESH BUTTON
+        btnRefresh = new Button("Refresh");
         Icon iconRefresh = VaadinIcon.REFRESH.create();
         iconRefresh.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnRefresh.setIcon(iconRefresh);
@@ -1090,11 +1099,16 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
         });
 
-        com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority auth = securityService != null
+        // Retrieve Security Otoritas
+        auth = securityService != null
                 && currentFormCode != null
                         ? securityService.getAuthorityForMenu(currentFormCode)
                         : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
 
+        if (!auth.canView) {
+            btnView.setVisible(false);
+            btnView.setEnabled(false);
+        }
         if (!auth.canAdd) {
             btnNew.setVisible(false);
             btnNew.setEnabled(false);
@@ -1118,9 +1132,13 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             btnCancel.setVisible(false);
             btnCancel.setEnabled(false);
         }
+        
+        if (!auth.canView && !auth.canAdd && !auth.canEdit) {
+            transaksiTab.setVisible(false);
+        }
 
         // 8. DEBUG CONTEXT BUTTON
-        Button btnDebug = new Button("Debug Context");
+        btnDebug = new Button("Debug Context");
         Icon iconDebug = VaadinIcon.BUG.create();
         iconDebug.getStyle().set("color", "#8b5cf6").set("font-size", "1.2rem");
         btnDebug.setIcon(iconDebug);
@@ -1133,7 +1151,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         });
 
         extraActionsContainer.setSpacing(true);
-        toolbar.add(btnNew, btnEdit, btnDelete, btnSave, btnCancel, btnRefresh, btnPrint, btnDebug,
+        toolbar.add(btnView, btnNew, btnEdit, btnDelete, btnSave, btnCancel, btnRefresh, btnPrint, btnDebug,
                 extraActionsContainer);
         refreshExtraToolbarButtons();
     }
@@ -1179,9 +1197,93 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
 
             applyDetailsFilters();
+            setAllFieldsReadOnly(false);
+            if (auth != null) {
+                btnSave.setVisible(auth.canEdit);
+                btnCancel.setVisible(auth.canAdd || auth.canEdit);
+                btnEdit.setVisible(auth.canEdit);
+            }
+            if (btnAddRow != null) btnAddRow.setVisible(true);
+            if (btnDeleteRow != null) btnDeleteRow.setVisible(true);
             tabSheet.setSelectedTab(transaksiTab);
             executeOnLoadActions("ON_LOAD_EDIT");
         }
+    }
+
+    private void loadAndViewData(Map<String, Object> selectedMaster) {
+        if (selectedMaster != null && currentFormDef != null) {
+            String pk = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey() : "id";
+            Object masterId = getValueCaseInsensitive(selectedMaster, pk);
+            Map<String, Object> freshMaster = selectedMaster;
+            if (masterId != null && !masterId.toString().trim().isEmpty()) {
+                try {
+                    String srcTable = (currentFormDef.getViewTable() != null
+                            && !currentFormDef.getViewTable().trim().isEmpty()) ? currentFormDef.getViewTable().trim()
+                                    : currentFormDef.getTableName();
+                    Map<String, Object> dbRow = dynamicDataService.fetchLovRecord(srcTable, pk, masterId);
+                    if (dbRow != null && !dbRow.isEmpty()) {
+                        freshMaster = dbRow;
+                    }
+                } catch (Exception ex) {
+                    Notification.show("Error memuat data: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                }
+            }
+            Map<String, Object> formValues = new HashMap<>(freshMaster);
+
+            isLoadingExistingData = true;
+            try {
+                formBinder.setBean(formValues);
+            } finally {
+                isLoadingExistingData = false;
+            }
+            updateFieldsReadonlyStatus(false);
+            evaluateFormulas();
+
+            detailsList.clear();
+            deletedDetailsList.clear();
+            if (masterId != null) {
+                detailsList.addAll(dynamicDataService.fetchDetailTableData(
+                        currentFormDef.getDetailTableName(),
+                        currentFormDef.getDetailForeignKey(),
+                        masterId));
+            }
+
+            applyDetailsFilters();
+            setAllFieldsReadOnly(true);
+            if (btnSave != null) {
+                btnSave.setVisible(false);
+                btnCancel.setVisible(false);
+                btnEdit.setVisible(false);
+            }
+            if (btnNew != null) btnNew.setVisible(false);
+            if (btnDelete != null) btnDelete.setVisible(false);
+            if (btnAddRow != null) btnAddRow.setVisible(false);
+            if (btnDeleteRow != null) btnDeleteRow.setVisible(false);
+            tabSheet.setSelectedTab(transaksiTab);
+            executeOnLoadActions("ON_LOAD_VIEW");
+        }
+    }
+
+    private void setAllFieldsReadOnly(boolean readOnly) {
+        if (formComponents != null) {
+            for (Component comp : formComponents.values()) {
+                if (comp instanceof com.vaadin.flow.component.HasValue<?, ?>) {
+                    ((com.vaadin.flow.component.HasValue<?, ?>) comp).setReadOnly(readOnly);
+                }
+            }
+        }
+    }
+
+    private void resetToolbarButtonsToInitialState() {
+        if (auth == null) return;
+        if (btnView != null) btnView.setVisible(auth.canView);
+        if (btnNew != null) btnNew.setVisible(auth.canAdd);
+        if (btnEdit != null) btnEdit.setVisible(auth.canEdit);
+        if (btnDelete != null) btnDelete.setVisible(auth.canDelete);
+        if (btnPrint != null) btnPrint.setVisible(auth.canPrint);
+        
+        if (btnSave != null) btnSave.setVisible(auth.canEdit);
+        if (btnCancel != null) btnCancel.setVisible(auth.canAdd || auth.canEdit);
     }
 
     private void refreshExtraToolbarButtons() {
@@ -1414,9 +1516,14 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         rowLayout.setColspan(cbWrapper, Math.min(span, cols));
                     }
                 } else {
-                    rowLayout.add(input);
+                    com.vaadin.flow.component.html.Div wrapper = new com.vaadin.flow.component.html.Div(input);
+                    wrapper.getStyle()
+                            .set("width", "100%")
+                            .set("display", "flex")
+                            .set("align-items", "flex-start");
+                    rowLayout.add(wrapper);
                     if (span > 1) {
-                        rowLayout.setColspan(input, Math.min(span, cols));
+                        rowLayout.setColspan(wrapper, Math.min(span, cols));
                     }
                 }
 
@@ -2544,8 +2651,6 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
     private void refreshMasterGridData() {
         if (currentFormDef != null) {
-            lovLabelMapCache.clear();
-            com.vaadinerp.components.ComponentFactory.clearLovCache(null);
             if (currentSortField == null) {
                 currentSortField = currentFormDef.getDefaultSortField();
                 currentSortDir = currentFormDef.getDefaultSortDirection();
@@ -3033,5 +3138,33 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 }
             }
         }
+    }
+
+    /**
+     * Explicit memory cleanup called by PortalView when the tab is closed.
+     * Severs strong references to aid Garbage Collection and prevent memory leaks.
+     */
+    public void cleanup() {
+        if (formComponents != null) {
+            formComponents.clear();
+        }
+        if (detailEditorComponents != null) {
+            detailEditorComponents.clear();
+        }
+        if (formBinder != null) {
+            formBinder.setBean(null);
+        }
+        if (detailsList != null) {
+            detailsList.clear();
+        }
+        if (filteredDetailsList != null) {
+            filteredDetailsList.clear();
+        }
+        if (detailsGrid != null) {
+            detailsGrid.setItems(new ArrayList<>());
+        }
+        this.closeHandler = null;
+        this.currentFormDef = null;
+        this.removeAll();
     }
 }

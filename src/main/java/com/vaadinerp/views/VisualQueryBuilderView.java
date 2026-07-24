@@ -578,4 +578,17 @@ public class VisualQueryBuilderView extends VerticalLayout {
         List<String> allCols = getAllAvailableColumns();
         columnSelect.setItems(allCols);
     }
+
+    /**
+     * Explicit memory cleanup called by PortalView when the tab is closed.
+     */
+    public void cleanup() {
+        if (tableSelect != null) {
+            tableSelect.clear();
+        }
+        if (columnSelect != null) {
+            columnSelect.clear();
+        }
+        this.removeAll();
+    }
 }

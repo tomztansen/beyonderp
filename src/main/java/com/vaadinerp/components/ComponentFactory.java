@@ -215,6 +215,19 @@ public class ComponentFactory {
             valComp.addValueChangeListener(ev -> validateFieldRule(field, component));
         }
 
+        if (component instanceof com.vaadin.flow.component.HasSize hasSize) {
+            String w = field.getFieldWidth();
+            hasSize.setWidth(w);
+            component.getElement().setAttribute("title", "DEBUG DB WIDTH: [" + w + "]");
+            if (w != null && !w.trim().isEmpty() && !w.trim().equals("100%")) {
+                component.getElement().removeAttribute("data-width-full");
+                component.getElement().getStyle().set("width", w);
+                component.getElement().getStyle().set("min-width", w);
+                component.getElement().getStyle().set("max-width", w);
+                component.getElement().getStyle().set("flex-basis", w);
+            }
+        }
+
         if (hideLabel) {
             if (component instanceof com.vaadin.flow.component.HasSize hasSize) {
                 hasSize.setWidthFull();
@@ -413,13 +426,16 @@ public class ComponentFactory {
         return !isInvalid;
     }
 
-    private static final java.util.Map<String, java.util.Map<String, String>> lovLabelCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final com.github.benmanes.caffeine.cache.Cache<String, com.github.benmanes.caffeine.cache.Cache<String, String>> lovLabelCache = 
+        com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
+            .maximumSize(500)
+            .build();
 
     public static void clearLovCache(String lovCode) {
         if (lovCode != null && !lovCode.trim().isEmpty()) {
-            lovLabelCache.remove(lovCode.trim());
+            lovLabelCache.invalidate(lovCode.trim());
         } else {
-            lovLabelCache.clear();
+            lovLabelCache.invalidateAll();
         }
     }
 
@@ -433,20 +449,26 @@ public class ComponentFactory {
         if (field != null && field.getLovCode() != null && !field.getLovCode().trim().isEmpty()
                 && dataService != null) {
             String lovCode = field.getLovCode().trim();
-            java.util.Map<String, String> map = lovLabelCache.computeIfAbsent(lovCode,
-                    code -> new java.util.concurrent.ConcurrentHashMap<>());
+            com.github.benmanes.caffeine.cache.Cache<String, String> map = lovLabelCache.get(lovCode, 
+                    code -> com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
+                                .maximumSize(10000)
+                                .expireAfterAccess(java.time.Duration.ofMinutes(60))
+                                .build());
+            
             if (strVal.contains(",")) {
                 return java.util.Arrays.stream(strVal.split(","))
                         .map(String::trim)
                         .map(item -> {
-                            if (map.containsKey(item))
-                                return map.get(item);
+                            String cachedLabel = map.getIfPresent(item);
+                            if (cachedLabel != null) return cachedLabel;
                             return fetchSingleLovLabel(lovCode, item, dataService);
                         })
                         .collect(java.util.stream.Collectors.joining(", "));
             }
-            if (map.containsKey(strVal)) {
-                return map.get(strVal);
+            
+            String cachedLabel = map.getIfPresent(strVal);
+            if (cachedLabel != null) {
+                return cachedLabel;
             }
             return fetchSingleLovLabel(lovCode, strVal, dataService);
         }
@@ -474,14 +496,14 @@ public class ComponentFactory {
                     else
                         l = val;
                 }
-                java.util.Map<String, String> cache = lovLabelCache.get(lovCode);
+                com.github.benmanes.caffeine.cache.Cache<String, String> cache = lovLabelCache.getIfPresent(lovCode);
                 if (cache != null && l != null) {
                     cache.put(val, l.toString().trim());
                 }
                 return l != null ? l.toString().trim() : val;
             }
         }
-        java.util.Map<String, String> cache = lovLabelCache.get(lovCode);
+        com.github.benmanes.caffeine.cache.Cache<String, String> cache = lovLabelCache.getIfPresent(lovCode);
         if (cache != null && val != null) {
             cache.put(val, val);
         }
@@ -894,100 +916,107 @@ public class ComponentFactory {
 
                 com.vaadinerp.meta.LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
                 if (lovMeta != null) {
-                    com.vaadinerp.meta.FormMeta targetForm = dataService.getFormMetaRepository().findById(lovCode)
-                            .orElse(null);
-                    // 1. Dinamis menambahkan kolom ke Grid berdasarkan gridColumns (misal:
-                    // "dept_code:Kode:100px,dept_name:Nama:200px")
-                    String gridColsStr = lovMeta.getGridColumns();
-                    if (gridColsStr != null && !gridColsStr.isBlank()) {
-                        String[] colDefs = gridColsStr.split(",");
-                        for (String colDef : colDefs) {
-                            String[] parts = colDef.split(":");
-                            String colName = parts[0];
-                            String colHeader = parts.length > 1 ? parts[1] : colName;
-                            String colWidth = parts.length > 2 ? parts[2] : "150px";
+                    bandbox.setGridConfigurator(grid -> {
+                        com.vaadinerp.meta.FormMeta targetForm = dataService.getFormMetaRepository().findById(lovCode)
+                                .orElse(null);
+                        // 1. Dinamis menambahkan kolom ke Grid berdasarkan gridColumns (misal:
+                        // "dept_code:Kode:100px,dept_name:Nama:200px")
+                        String gridColsStr = lovMeta.getGridColumns();
+                        if (gridColsStr != null && !gridColsStr.isBlank()) {
+                            String[] colDefs = gridColsStr.split(",");
+                            for (String colDef : colDefs) {
+                                String[] parts = colDef.split(":");
+                                String colName = parts[0];
+                                String colHeader = parts.length > 1 ? parts[1] : colName;
+                                String colWidth = parts.length > 2 ? parts[2] : "150px";
 
-                            com.vaadinerp.meta.FieldMeta targetField = (targetForm != null
-                                    && targetForm.getFields() != null)
-                                            ? targetForm.getFields().stream()
-                                                    .filter(f -> f.getFieldName().equalsIgnoreCase(colName))
-                                                    .findFirst().orElse(null)
-                                            : null;
+                                com.vaadinerp.meta.FieldMeta targetField = (targetForm != null
+                                        && targetForm.getFields() != null)
+                                                ? targetForm.getFields().stream()
+                                                        .filter(f -> f.getFieldName().equalsIgnoreCase(colName))
+                                                        .findFirst().orElse(null)
+                                                : null;
 
-                            com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col = bandbox.getGrid()
-                                    .addColumn(row -> {
-                                        Object valObj = getCaseInsensitiveVal(row, colName);
-                                        return formatFieldValueWithLov(targetField, valObj, dataService);
-                                    })
-                                    .setHeader(colHeader)
-                                    .setAutoWidth(true)
-                                    .setFlexGrow(1)
-                                    .setResizable(true);
-
-                            if (targetField != null) {
-                                col.setSortable(targetField.isSortable());
-                                col.setComparator((map1, map2) -> {
-                                    Object val1 = getCaseInsensitiveVal(map1, colName);
-                                    Object val2 = getCaseInsensitiveVal(map2, colName);
-                                    if (val1 == null && val2 == null)
-                                        return 0;
-                                    if (val1 == null)
-                                        return -1;
-                                    if (val2 == null)
-                                        return 1;
-                                    String fLovCode = targetField.getLovCode();
-                                    if (fLovCode != null && !fLovCode.trim().isEmpty()) {
-                                        String s1 = formatFieldValueWithLov(targetField, val1, dataService);
-                                        String s2 = formatFieldValueWithLov(targetField, val2, dataService);
-                                        return s1.compareToIgnoreCase(s2);
-                                    }
-                                    if (val1 instanceof Comparable && val2 instanceof Comparable) {
-                                        @SuppressWarnings("unchecked")
-                                        Comparable<Object> comp1 = (Comparable<Object>) val1;
-                                        return comp1.compareTo(val2);
-                                    }
-                                    return val1.toString().compareTo(val2.toString());
-                                });
-                            } else {
-                                col.setWidth(colWidth);
-                            }
-                        }
-                    } else {
-                        List<String> allCols = dataService.getColumnsForQueryOrTable(lovMeta.getTableName());
-                        if (allCols.isEmpty()) {
-                            bandbox.getGrid()
-                                    .addColumn(row -> {
-                                        Object valObj = getCaseInsensitiveVal(row, lovMeta.getValueColumn());
-                                        return valObj != null ? valObj.toString() : "";
-                                    })
-                                    .setHeader("Code")
-                                    .setAutoWidth(true).setResizable(true);
-                            bandbox.getGrid()
-                                    .addColumn(row -> {
-                                        Object valObj = getCaseInsensitiveVal(row, lovMeta.getLabelColumn());
-                                        return valObj != null ? valObj.toString() : "";
-                                    })
-                                    .setHeader("Name")
-                                    .setAutoWidth(true).setResizable(true);
-                        } else {
-                            for (String colName : allCols) {
-                                String header = colName.substring(0, 1).toUpperCase()
-                                        + colName.substring(1).replace("_", " ");
-                                bandbox.getGrid()
+                                com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col = grid
                                         .addColumn(row -> {
                                             Object valObj = getCaseInsensitiveVal(row, colName);
+                                            return formatFieldValueWithLov(targetField, valObj, dataService);
+                                        })
+                                        .setHeader(colHeader)
+                                        .setAutoWidth(true)
+                                        .setFlexGrow(1)
+                                        .setResizable(true);
+
+                                if (targetField != null) {
+                                    col.setSortable(targetField.isSortable());
+                                    col.setComparator((map1, map2) -> {
+                                        Object val1 = getCaseInsensitiveVal(map1, colName);
+                                        Object val2 = getCaseInsensitiveVal(map2, colName);
+                                        if (val1 == null && val2 == null)
+                                            return 0;
+                                        if (val1 == null)
+                                            return -1;
+                                        if (val2 == null)
+                                            return 1;
+                                        String fLovCode = targetField.getLovCode();
+                                        if (fLovCode != null && !fLovCode.trim().isEmpty()) {
+                                            String s1 = formatFieldValueWithLov(targetField, val1, dataService);
+                                            String s2 = formatFieldValueWithLov(targetField, val2, dataService);
+                                            return s1.compareToIgnoreCase(s2);
+                                        }
+                                        if (val1 instanceof Comparable && val2 instanceof Comparable) {
+                                            @SuppressWarnings("unchecked")
+                                            Comparable<Object> comp1 = (Comparable<Object>) val1;
+                                            return comp1.compareTo(val2);
+                                        }
+                                        return val1.toString().compareTo(val2.toString());
+                                    });
+                                } else {
+                                    col.setWidth(colWidth);
+                                }
+                            }
+                        } else {
+                            List<String> allCols = dataService.getColumnsForQueryOrTable(lovMeta.getTableName());
+                            if (allCols.isEmpty()) {
+                                grid
+                                        .addColumn(row -> {
+                                            Object valObj = getCaseInsensitiveVal(row, lovMeta.getValueColumn());
                                             return valObj != null ? valObj.toString() : "";
                                         })
-                                        .setHeader(header)
+                                        .setHeader("Code")
                                         .setAutoWidth(true).setResizable(true);
+                                grid
+                                        .addColumn(row -> {
+                                            Object valObj = getCaseInsensitiveVal(row, lovMeta.getLabelColumn());
+                                            return valObj != null ? valObj.toString() : "";
+                                        })
+                                        .setHeader("Name")
+                                        .setAutoWidth(true).setResizable(true);
+                            } else {
+                                for (String colName : allCols) {
+                                    String header = colName.substring(0, 1).toUpperCase()
+                                            + colName.substring(1).replace("_", " ");
+                                    grid
+                                            .addColumn(row -> {
+                                                Object valObj = getCaseInsensitiveVal(row, colName);
+                                                return valObj != null ? valObj.toString() : "";
+                                            })
+                                            .setHeader(header)
+                                            .setAutoWidth(true).setResizable(true);
+                                }
                             }
                         }
-                    }
+                    });
 
-                    // 2. Konfigurasi Fetch Data (Filter) secara dinamis dari database
+                    // 2. Konfigurasi Fetch Data (Filter) secara dinamis dari database (Lazy Loading)
                     String searchCol = lovMeta.getSearchColumn();
-                    bandbox.setDataFetchCallback(keyword -> {
-                        return dataService.fetchLovDataWithFilters(lovMeta.getTableName(), searchCol, keyword,
+                    bandbox.setDataProvider(query -> {
+                        String keyword = query.getFilter().orElse("");
+                        return dataService.fetchLovDataPaged(lovMeta.getTableName(), searchCol, keyword,
+                                bandbox.getActiveFilters().values(), query.getOffset(), query.getLimit()).stream();
+                    }, query -> {
+                        String keyword = query.getFilter().orElse("");
+                        return dataService.countLovData(lovMeta.getTableName(), searchCol, keyword,
                                 bandbox.getActiveFilters().values());
                     });
 
@@ -1021,10 +1050,12 @@ public class ComponentFactory {
                     });
                 } else {
                     // Fallback static jika LovMeta tidak ditemukan di DB
-                    bandbox.getGrid().addColumn(row -> row.get("code") != null ? row.get("code").toString() : "")
-                            .setHeader("Code");
-                    bandbox.getGrid().addColumn(row -> row.get("name") != null ? row.get("name").toString() : "")
-                            .setHeader("Name");
+                    bandbox.setGridConfigurator(grid -> {
+                        grid.addColumn(row -> row.get("code") != null ? row.get("code").toString() : "")
+                                .setHeader("Code");
+                        grid.addColumn(row -> row.get("name") != null ? row.get("name").toString() : "")
+                                .setHeader("Name");
+                    });
                 }
 
                 return bandbox;

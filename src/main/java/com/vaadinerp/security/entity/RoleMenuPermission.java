@@ -32,4 +32,7 @@ public class RoleMenuPermission {
 
     @Column(name = "can_print")
     private Boolean canPrint = true;
+
+    @Column(name = "can_view")
+    private Boolean canView = true;
 }

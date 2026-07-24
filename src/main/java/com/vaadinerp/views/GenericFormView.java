@@ -133,6 +133,17 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     // Peta untuk menyimpan referensi komponen form untuk update lintas-field
     private Map<String, Component> formComponents = new HashMap<>();
 
+    private Button btnNew;
+    private Button btnEdit;
+    private Button btnView;
+    private Button btnDelete;
+    private Button btnSave;
+    private Button btnCancel;
+    private Button btnPrint;
+    private Button btnRefresh;
+    private Button btnDebug;
+    private com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority auth;
+
     // ====== TAMBAHAN UNTUK COLUMN REORDERING ======
     // Mapping dari Grid.Column -> nama field, dipakai saat event reorder terjadi
     // untuk menerjemahkan urutan Column kembali ke nama field metadata.
@@ -140,7 +151,6 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private String currentFormCode;
     private FormMeta currentFormDef;
 
-    private final Map<String, Map<String, String>> lovLabelMapCache = new HashMap<>();
     private final Map<String, String> fieldNameToLovCodeMap = new HashMap<>();
 
     // Flag to prevent cascading filter listeners from clearing child LOV values
@@ -169,45 +179,11 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private String getLovDisplayLabel(String lovCode, String val) {
         if (val == null || val.trim().isEmpty() || lovCode == null || lovCode.trim().isEmpty())
             return val != null ? val : "";
-        String strVal = val.trim();
-        Map<String, String> map = lovLabelMapCache.computeIfAbsent(lovCode, code -> {
-            Map<String, String> res = new HashMap<>();
-            dynamicDataService.getLovMeta(code).ifPresent(lovMeta -> {
-                java.util.List<Map<String, Object>> records = dynamicDataService.fetchAllLovRecords(lovMeta);
-                String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank()
-                        ? lovMeta.getValueColumn().trim()
-                        : "id";
-                String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank()
-                        ? lovMeta.getLabelColumn().trim()
-                        : valCol;
-                for (Map<String, Object> rec : records) {
-                    Object v = getMapValIgnoreCase(rec, valCol);
-                    if (v == null && rec.containsKey("id"))
-                        v = rec.get("id");
-                    if (v != null) {
-                        Object l = getMapValIgnoreCase(rec, lblCol);
-                        if (l == null || l.toString().trim().isEmpty()) {
-                            if (getMapValIgnoreCase(rec, "code") != null)
-                                l = getMapValIgnoreCase(rec, "code");
-                            else if (getMapValIgnoreCase(rec, "name") != null)
-                                l = getMapValIgnoreCase(rec, "name");
-                            else
-                                l = v;
-                        }
-                        res.put(v.toString().trim(), l.toString().trim());
-                    }
-                }
-            });
-            return res;
-        });
-
-        if (strVal.contains(",")) {
-            return java.util.Arrays.stream(strVal.split(","))
-                    .map(String::trim)
-                    .map(item -> map.getOrDefault(item, item))
-                    .collect(java.util.stream.Collectors.joining(", "));
-        }
-        return map.getOrDefault(strVal, strVal);
+            
+        com.vaadinerp.meta.FieldMeta dummyMeta = new com.vaadinerp.meta.FieldMeta();
+        dummyMeta.setLovCode(lovCode);
+        
+        return com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(dummyMeta, val, dynamicDataService);
     }
 
     private boolean isEvaluatingFormulas = false;
@@ -274,6 +250,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             if (currentFormDef != null) {
                 if (event.getSelectedTab() == historisTab) {
                     refreshGridData(currentFormDef);
+                    resetToolbarButtonsToInitialState();
                 }
                 boolean isUpdate = false;
                 Map<String, Object> bean = formBinder != null ? formBinder.getBean() : null;
@@ -324,7 +301,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 .set("gap", "15px");
 
         // 1. TAMBAH BUTTON
-        Button btnNew = new Button("Add");
+        btnNew = new Button("Add");
         Icon iconNew = VaadinIcon.PLUS_CIRCLE.create();
         iconNew.getStyle().set("color", "#22c55e").set("font-size", "1.2rem");
         btnNew.setIcon(iconNew);
@@ -333,12 +310,19 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnNew.addClickListener(e -> {
             formBinder.setBean(new HashMap<>());
             clearAllComponents();
+            updateFieldsReadonlyStatus(true);
+            setAllFieldsReadOnly(false); // Reset forced read-only
+            if (auth != null) {
+                btnSave.setVisible(auth.canAdd);
+                btnCancel.setVisible(auth.canAdd || auth.canEdit);
+                btnEdit.setVisible(auth.canEdit);
+            }
             tabSheet.setSelectedTab(transaksiTab);
             executeOnLoadActions("ON_LOAD_NEW");
         });
 
         // 1.5. EDIT BUTTON
-        Button btnEdit = new Button("Edit");
+        btnEdit = new Button("Edit");
         Icon iconEdit = VaadinIcon.EDIT.create();
         iconEdit.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnEdit.setIcon(iconEdit);
@@ -360,8 +344,31 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             }
         });
 
+        // 1.6. VIEW BUTTON
+        btnView = new Button("View");
+        Icon iconView = VaadinIcon.SEARCH.create();
+        iconView.getStyle().set("color", "#10b981").set("font-size", "1.2rem");
+        btnView.setIcon(iconView);
+        btnView.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
+        btnView.getStyle().set("font-weight", "500").set("color", "#374151");
+        btnView.addClickListener(e -> {
+            if (tabSheet.getSelectedTab() == historisTab) {
+                java.util.Set<Map<String, Object>> selectedItems = grid.getSelectedItems();
+                if (selectedItems == null || selectedItems.isEmpty()) {
+                    Notification.show("Please select data from the History tab to view!", 3000,
+                            Notification.Position.MIDDLE);
+                    return;
+                }
+                loadAndViewData(selectedItems.iterator().next());
+            } else {
+                Notification.show("Silakan pilih data di tab Historis terlebih dahulu.", 3000,
+                        Notification.Position.MIDDLE);
+                tabSheet.setSelectedTab(historisTab);
+            }
+        });
+
         // 2. HAPUS BUTTON
-        Button btnDelete = new Button("Delete");
+        btnDelete = new Button("Delete");
         Icon iconDelete = VaadinIcon.CLOSE_CIRCLE.create();
         iconDelete.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnDelete.setIcon(iconDelete);
@@ -423,7 +430,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         // 3. SIMPAN BUTTON
-        Button btnSave = new Button("Save");
+        btnSave = new Button("Save");
         Icon iconSave = VaadinIcon.DOWNLOAD.create(); // matches floppy disk design
         iconSave.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnSave.setIcon(iconSave);
@@ -539,7 +546,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         // 4. BATAL BUTTON
-        Button btnCancel = new Button("Cancel");
+        btnCancel = new Button("Cancel");
         Icon iconCancel = VaadinIcon.BAN.create();
         iconCancel.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnCancel.setIcon(iconCancel);
@@ -551,10 +558,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             tabSheet.setSelectedTab(historisTab);
         });
 
-        // 6. CETAK BUTTON
-        Button btnPrint = new Button("Cetak");
+        // 5. CETAK BUTTON
+        btnPrint = new Button("Cetak");
         Icon iconPrint = VaadinIcon.PRINT.create();
-        iconPrint.getStyle().set("color", "#374151").set("font-size", "1.2rem");
+        iconPrint.getStyle().set("color", "#6b7280").set("font-size", "1.2rem");
         btnPrint.setIcon(iconPrint);
         btnPrint.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
         btnPrint.getStyle().set("font-weight", "500").set("color", "#374151");
@@ -562,10 +569,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             Notification.show("Fitur Cetak belum diimplementasikan.", 3000, Notification.Position.TOP_CENTER);
         });
 
-        // 7. REFRESH BUTTON
-        Button btnRefresh = new Button("Refresh");
+        // 6. REFRESH BUTTON
+        btnRefresh = new Button("Refresh");
         Icon iconRefresh = VaadinIcon.REFRESH.create();
-        iconRefresh.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
+        iconRefresh.getStyle().set("color", "#6b7280").set("font-size", "1.2rem");
         btnRefresh.setIcon(iconRefresh);
         btnRefresh.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
         btnRefresh.getStyle().set("font-weight", "500").set("color", "#374151");
@@ -616,11 +623,16 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             }
         });
 
-        com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority auth = securityService != null
+        // Retrieve Security Otoritas
+        auth = securityService != null
                 && currentFormCode != null
                         ? securityService.getAuthorityForMenu(currentFormCode)
                         : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
 
+        if (!auth.canView) {
+            btnView.setVisible(false);
+            btnView.setEnabled(false);
+        }
         if (!auth.canAdd) {
             btnNew.setVisible(false);
             btnNew.setEnabled(false);
@@ -645,8 +657,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             btnCancel.setEnabled(false);
         }
 
+        if (!auth.canView && !auth.canAdd && !auth.canEdit) {
+            transaksiTab.setVisible(false);
+        }
+
         // 8. DEBUG CONTEXT BUTTON
-        Button btnDebug = new Button("Debug Context");
+        btnDebug = new Button("Debug Context");
         Icon iconDebug = VaadinIcon.BUG.create();
         iconDebug.getStyle().set("color", "#8b5cf6").set("font-size", "1.2rem");
         btnDebug.setIcon(iconDebug);
@@ -658,7 +674,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             com.vaadinerp.components.FormDebugUtils.showDebugDialog(bean);
         });
 
-        toolbar.add(btnNew, btnEdit, btnDelete, btnSave, btnCancel, btnRefresh, btnPrint, btnDebug,
+        toolbar.add(btnView, btnNew, btnEdit, btnDelete, btnSave, btnCancel, btnRefresh, btnPrint, btnDebug,
                 extraActionsContainer);
         refreshExtraToolbarButtons();
     }
@@ -689,11 +705,63 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             } finally {
                 isLoadingExistingData = false;
             }
+            setAllFieldsReadOnly(false);
             updateFieldsReadonlyStatus(false);
+            if (auth != null) {
+                btnSave.setVisible(auth.canEdit);
+                btnCancel.setVisible(auth.canAdd || auth.canEdit);
+                btnEdit.setVisible(auth.canEdit);
+            }
             loadSubformGridData(formValues);
             evaluateFormulas();
             tabSheet.setSelectedTab(transaksiTab);
             executeOnLoadActions("ON_LOAD_EDIT");
+        }
+    }
+
+    private void loadAndViewData(Map<String, Object> selectedRow) {
+        if (selectedRow != null && currentFormDef != null) {
+            String pk = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey() : "id";
+            Object pkVal = getValueCaseInsensitive(selectedRow, pk);
+            Map<String, Object> freshRow = selectedRow;
+            if (pkVal != null && !pkVal.toString().trim().isEmpty()) {
+                try {
+                    String srcTable = (currentFormDef.getViewTable() != null
+                            && !currentFormDef.getViewTable().trim().isEmpty()) ? currentFormDef.getViewTable().trim()
+                                    : currentFormDef.getTableName();
+                    Map<String, Object> dbRow = dynamicDataService.fetchLovRecord(srcTable, pk, pkVal);
+                    if (dbRow != null && !dbRow.isEmpty()) {
+                        freshRow = dbRow;
+                    }
+                } catch (Exception ex) {
+                    Notification.show("Error memuat data: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                }
+            }
+            Map<String, Object> formValues = new HashMap<>(freshRow);
+
+            isLoadingExistingData = true;
+            try {
+                formBinder.setBean(formValues);
+            } finally {
+                isLoadingExistingData = false;
+            }
+            updateFieldsReadonlyStatus(false);
+            setAllFieldsReadOnly(true);
+            if (btnSave != null) {
+                btnSave.setVisible(false);
+                btnCancel.setVisible(false);
+                btnEdit.setVisible(false);
+            }
+            if (btnNew != null) {
+                btnNew.setVisible(false);
+            }
+            if (btnDelete != null) {
+                btnDelete.setVisible(false);
+            }
+            loadSubformGridData(formValues);
+            evaluateFormulas();
+            tabSheet.setSelectedTab(transaksiTab);
+            executeOnLoadActions("ON_LOAD_VIEW");
         }
     }
 
@@ -1100,9 +1168,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         rowLayout.setColspan(cbWrapper, Math.min(span, cols));
                     }
                 } else {
-                    rowLayout.add(input);
+                    com.vaadin.flow.component.html.Div wrapper = new com.vaadin.flow.component.html.Div(input);
+                    wrapper.getStyle()
+                            .set("width", "100%")
+                            .set("display", "flex")
+                            .set("align-items", "flex-start");
+                    rowLayout.add(wrapper);
                     if (span > 1) {
-                        rowLayout.setColspan(input, Math.min(span, cols));
+                        rowLayout.setColspan(wrapper, Math.min(span, cols));
                     }
                 }
 
@@ -1364,15 +1437,21 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         gridToolbar.add(sectionTitle, boxHalIni, boxAll, btnExportExcel, btnResetGridToolbar);
 
         // Double Click Listener to load data into form and switch tab
-        com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority auth = securityService != null
+        auth = securityService != null
                 && currentFormCode != null
                         ? securityService.getAuthorityForMenu(currentFormCode)
                         : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
-        if (auth.canEdit) {
-            gridDoubleClickReg = grid.addItemDoubleClickListener(event -> {
+
+        grid.addItemDoubleClickListener(event -> {
+            if (auth.canEdit) {
                 loadAndEditData(event.getItem());
-            });
-        }
+            } else if (auth.canView) {
+                loadAndViewData(event.getItem());
+            } else {
+                Notification.show("Anda tidak memiliki akses untuk membuka data ini", 3000,
+                        Notification.Position.MIDDLE);
+            }
+        });
 
         // LinkedHashMap to hold columns for Header Filter Row
         java.util.Map<String, Grid.Column<Map<String, Object>>> columnsMap = new java.util.LinkedHashMap<>();
@@ -1622,8 +1701,6 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     }
 
     private void refreshGridData(FormMeta formDef) {
-        lovLabelMapCache.clear();
-        com.vaadinerp.components.ComponentFactory.clearLovCache(null);
         if (currentSortField == null && formDef != null) {
             currentSortField = formDef.getDefaultSortField();
             currentSortDir = formDef.getDefaultSortDirection();
@@ -2106,6 +2183,39 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         }
     }
 
+    private void setAllFieldsReadOnly(boolean readOnly) {
+        if (currentFormDef != null && formComponents != null) {
+            for (FieldMeta field : currentFormDef.getFields()) {
+                Component comp = formComponents.get(field.getFieldName());
+                if (comp instanceof com.vaadin.flow.component.HasValue<?, ?> hasValue) {
+                    hasValue.setReadOnly(readOnly);
+                } else if (comp instanceof com.vaadinerp.components.SubformGridField gridComp) {
+                    gridComp.setReadOnly(readOnly);
+                }
+            }
+        }
+    }
+
+    private void resetToolbarButtonsToInitialState() {
+        if (auth == null)
+            return;
+        if (btnView != null)
+            btnView.setVisible(auth.canView);
+        if (btnNew != null)
+            btnNew.setVisible(auth.canAdd);
+        if (btnEdit != null)
+            btnEdit.setVisible(auth.canEdit);
+        if (btnDelete != null)
+            btnDelete.setVisible(auth.canDelete);
+        if (btnPrint != null)
+            btnPrint.setVisible(auth.canPrint);
+
+        if (btnSave != null)
+            btnSave.setVisible(auth.canEdit);
+        if (btnCancel != null)
+            btnCancel.setVisible(auth.canAdd || auth.canEdit);
+    }
+
     private void clearSubformGrids() {
         if (currentFormDef == null)
             return;
@@ -2124,5 +2234,24 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 }
             }
         }
+    }
+
+    /**
+     * Explicit memory cleanup called by PortalView when the tab is closed.
+     * Severs strong references to aid Garbage Collection and prevent memory leaks.
+     */
+    public void cleanup() {
+        if (formComponents != null) {
+            formComponents.clear();
+        }
+        if (formBinder != null) {
+            formBinder.setBean(null);
+        }
+        if (grid != null) {
+            grid.setItems(new ArrayList<>());
+        }
+        this.closeHandler = null;
+        this.currentFormDef = null;
+        this.removeAll();
     }
 }

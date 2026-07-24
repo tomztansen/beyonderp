@@ -23,6 +23,8 @@ import java.io.File;
 import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 
+import com.vaadin.flow.shared.Registration;
+
 @Route("system-log-viewer")
 public class SystemLogView extends VerticalLayout {
 
@@ -32,6 +34,8 @@ public class SystemLogView extends VerticalLayout {
     private final Checkbox autoRefreshCheckbox = new Checkbox("Auto-Refresh Real-Time (3 detik)");
     private final Span statusBadge = new Span("Status: Standby");
     private final Pre logContainer = new Pre();
+
+    private Registration pollRegistration;
 
     public SystemLogView(SessionSecurityService securityService) {
         this.securityService = securityService;
@@ -143,7 +147,7 @@ public class SystemLogView extends VerticalLayout {
 
         // Polling Listener untuk Auto Refresh
         addAttachListener(e -> {
-            e.getUI().addPollListener(pollEvent -> {
+            pollRegistration = e.getUI().addPollListener(pollEvent -> {
                 if (autoRefreshCheckbox.getValue()) {
                     refreshLogContent();
                 }
@@ -154,6 +158,10 @@ public class SystemLogView extends VerticalLayout {
             UI ui = e.getUI();
             if (ui != null) {
                 ui.setPollInterval(-1);
+            }
+            if (pollRegistration != null) {
+                pollRegistration.remove();
+                pollRegistration = null;
             }
         });
 

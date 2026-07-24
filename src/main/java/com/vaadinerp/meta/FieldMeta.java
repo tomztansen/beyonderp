@@ -42,6 +42,12 @@ public class FieldMeta {
     @Column(name = "col_span")
     private Integer colSpan;
 
+    @Column(name = "field_width", length = 20)
+    private String fieldWidth;
+
+    public String getFieldWidth() {
+        return (fieldWidth == null || fieldWidth.trim().isEmpty()) ? "100%" : fieldWidth.trim();
+    }
     @Column(name = "is_required")
     private boolean isRequired;
 
