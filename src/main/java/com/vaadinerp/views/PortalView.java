@@ -232,7 +232,7 @@ public class PortalView extends AppLayout {
     }
 
     private void setupSidebar() {
-        sidebar.setWidth("280px");
+        sidebar.setWidth("220px");
         sidebar.setHeightFull();
         sidebar.addClassName("sidebar");
         sidebar.setPadding(false);
@@ -364,7 +364,8 @@ public class PortalView extends AppLayout {
         addToDrawer(sidebar);
     }
 
-    private boolean matchesSearchOrFav(AppMenu menu, Set<String> favMenuCodes, Map<String, List<AppMenu>> menuChildrenMap, Set<String> allowedMenus) {
+    private boolean matchesSearchOrFav(AppMenu menu, Set<String> favMenuCodes,
+            Map<String, List<AppMenu>> menuChildrenMap, Set<String> allowedMenus) {
         List<AppMenu> children = menuChildrenMap.getOrDefault(menu.getMenuCode(), java.util.Collections.emptyList());
         List<AppMenu> accessibleChildren = children.stream()
                 .filter(c -> "GROUP".equalsIgnoreCase(c.getMenuType())
@@ -405,7 +406,8 @@ public class PortalView extends AppLayout {
      * Menggantikan Vaadin Details agar bebas dari gangguan Shadow DOM browser.
      * Indentasi dihitung pasti dalam pixel: BaseIndent = 16 + (depth * 24).
      */
-    private void buildCustomMenuTree(String parentCode, VerticalLayout container, int depth, Map<String, List<AppMenu>> menuChildrenMap, Set<String> allowedMenus, Set<String> favMenuCodes) {
+    private void buildCustomMenuTree(String parentCode, VerticalLayout container, int depth,
+            Map<String, List<AppMenu>> menuChildrenMap, Set<String> allowedMenus, Set<String> favMenuCodes) {
         AppUser currentUser = securityService.getCurrentUser();
         List<AppMenu> menus = menuChildrenMap.getOrDefault(parentCode, java.util.Collections.emptyList());
 
@@ -414,7 +416,8 @@ public class PortalView extends AppLayout {
                 continue;
             }
 
-            List<AppMenu> children = menuChildrenMap.getOrDefault(menu.getMenuCode(), java.util.Collections.emptyList());
+            List<AppMenu> children = menuChildrenMap.getOrDefault(menu.getMenuCode(),
+                    java.util.Collections.emptyList());
             List<AppMenu> accessibleChildren = children.stream()
                     .filter(c -> "GROUP".equalsIgnoreCase(c.getMenuType())
                             || allowedMenus.contains(c.getMenuCode()))
@@ -444,7 +447,7 @@ public class PortalView extends AppLayout {
             }
             System.out.println("[MENU-TREE]   → SHOWN");
 
-            int baseIndent = 16 + (depth * 22);
+            int baseIndent = 12 + (depth * 20);
 
             if (isGroup) {
                 Div groupRow = new Div();
@@ -517,7 +520,8 @@ public class PortalView extends AppLayout {
                     chevron.getStyle().set("transform", nowVisible ? "rotate(90deg)" : "rotate(0deg)");
                 });
 
-                buildCustomMenuTree(menu.getMenuCode(), childBox, depth + 1, menuChildrenMap, allowedMenus, favMenuCodes);
+                buildCustomMenuTree(menu.getMenuCode(), childBox, depth + 1, menuChildrenMap, allowedMenus,
+                        favMenuCodes);
 
                 container.add(groupRow, childBox);
             } else {
@@ -527,7 +531,7 @@ public class PortalView extends AppLayout {
                 // Indentasi leaf sama persis (baseIndent + 21px) sehingga sejajar sempurna
                 // vertikal lurus
                 leafRow.getStyle()
-                        .set("padding", "10px 14px 10px " + (baseIndent + 21) + "px")
+                        .set("padding", "10px 14px 10px " + (baseIndent) + "px")
                         .set("display", "flex")
                         .set("align-items", "center")
                         .set("cursor", "pointer")
@@ -1075,12 +1079,13 @@ public class PortalView extends AppLayout {
     private void refreshFormMenu() {
         buildMenuTreeInMemory();
     }
+
     private void buildMenuTreeInMemory() {
         menuContainer.removeAll();
         leafRows.clear();
 
         List<AppMenu> allMenus = appMenuRepository.findAllByOrderByDisplayOrderAsc();
-        
+
         Map<String, List<AppMenu>> menuChildrenMap = new HashMap<>();
         for (AppMenu m : allMenus) {
             String parent = m.getParentMenuCode();
@@ -1099,7 +1104,7 @@ public class PortalView extends AppLayout {
                 }
             }
         }
-        
+
         Set<String> favMenuCodes = currentUser != null
                 ? appUserFavoriteMenuRepository.findByUsername(currentUser.getUsername()).stream()
                         .map(AppUserFavoriteMenu::getMenuCode)

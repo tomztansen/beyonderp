@@ -85,6 +85,7 @@
 
 html {
     /* --lumo-font-family: 'Outfit', sans-serif; */
+    font-size: 13px;
     --lumo-font-family: 'Noto Sans', sans-serif;
     --lumo-border-radius-m: 8px;
     --lumo-border-radius-l: 12px;
