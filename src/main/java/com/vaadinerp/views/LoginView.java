@@ -64,7 +64,7 @@ public class LoginView extends Div {
                 // MAIN CARD — centered login form
                 // ═══════════════════════════════════════
                 VerticalLayout card = new VerticalLayout();
-                card.setWidth("420px");
+                card.setWidth("370px");
                 card.setMaxWidth("100%");
                 card.setPadding(false);
                 card.setSpacing(false);

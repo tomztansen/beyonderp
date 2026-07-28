@@ -16,6 +16,10 @@ public class FormLayoutUtils {
         if (allFields == null || allFields.isEmpty()) {
             return 1;
         }
+
+        // Normalisasi col_order legacy (10,20,30 atau 1010,1020) → posisi aktual (1,2,3)
+        normalizeColOrder(allFields);
+
         Map<Integer, List<FieldMeta>> groups = new HashMap<>();
         for (FieldMeta field : allFields) {
             if (field.isHideInForm() || (field.getIsDetail() != null && field.getIsDetail())) {
@@ -36,12 +40,83 @@ public class FormLayoutUtils {
     }
 
     /**
+     * Mendeteksi dan menormalkan data legacy di mana col_order menggunakan
+     * kelipatan besar (10,20,30 atau 1010,1020,2010).
+     * Jika jarak antar col_order dalam satu rowGroup > 5, dianggap legacy
+     * dan dinormalisasi menjadi posisi sekuensial (1,2,3).
+     * Data dari Form Builder (col_order = 1,2,3 atau 1,3 dengan gap sengaja)
+     * tidak akan terpengaruh karena jaraknya <= 5.
+     * Normalisasi dilakukan di memori saja, tidak mengubah database.
+     */
+    public static void normalizeColOrder(List<FieldMeta> fields) {
+        if (fields == null) return;
+        Map<Integer, List<FieldMeta>> groups = new HashMap<>();
+        for (FieldMeta f : fields) {
+            int rg = f.getRowGroup() != null ? f.getRowGroup() : 1;
+            groups.computeIfAbsent(rg, k -> new ArrayList<>()).add(f);
+        }
+        for (List<FieldMeta> group : groups.values()) {
+            group.sort(Comparator.comparing(f -> f.getColOrder() != null ? f.getColOrder() : 1));
+
+            // Deteksi: apakah data ini legacy?
+            boolean isLegacy = false;
+            int prev = 0;
+            for (FieldMeta f : group) {
+                int col = f.getColOrder() != null ? f.getColOrder() : 1;
+                if (col - prev > 5) {
+                    isLegacy = true;
+                    break;
+                }
+                prev = col;
+            }
+
+            // Normalisasi hanya jika legacy
+            if (isLegacy) {
+                int minCol = group.get(0).getColOrder() != null ? group.get(0).getColOrder() : 1;
+                for (FieldMeta f : group) {
+                    int col = f.getColOrder() != null ? f.getColOrder() : 1;
+                    int normalized;
+                    if (col >= 1000) {
+                        normalized = (col % 1000) / 10;
+                    } else {
+                        normalized = ((col - minCol) / 10) + 1;
+                    }
+                    if (normalized < 1) normalized = 1;
+                    f.setColOrder(normalized);
+                }
+
+                // Hindari duplikat jika selisih aslinya < 10
+                int lastPos = -1;
+                for (FieldMeta f : group) {
+                    if (f.getColOrder() <= lastPos) {
+                        f.setColOrder(lastPos + 1);
+                    }
+                    lastPos = f.getColOrder();
+                }
+            }
+        }
+    }
+
+
+    /**
      * Menghitung minimum kolom yang dibutuhkan untuk satu baris (rowGroup).
+     * Memperhitungkan posisi colOrder tertinggi agar kolom kosong (gap) tetap dihitung.
      */
     private static int calculateRowMinCols(List<FieldMeta> rowFields) {
         if (rowFields == null || rowFields.isEmpty()) {
             return 1;
         }
+        // Hitung berdasarkan colOrder tertinggi + span
+        int maxByPosition = 1;
+        for (FieldMeta f : rowFields) {
+            int colIdx = (f.getColOrder() != null && f.getColOrder() > 0) ? f.getColOrder() : 1;
+            int span = (f.getColSpan() != null && f.getColSpan() > 0) ? f.getColSpan() : 1;
+            int needed = colIdx + span - 1;
+            if (needed > maxByPosition) {
+                maxByPosition = needed;
+            }
+        }
+        // Hitung berdasarkan jumlah field (fallback lama)
         int explicitSum = 0;
         int emptyCount = 0;
         for (FieldMeta f : rowFields) {
@@ -51,11 +126,13 @@ public class FormLayoutUtils {
                 emptyCount++;
             }
         }
+        int byCount;
         if (emptyCount == rowFields.size()) {
-            // Semua field colSpan-nya kosong (null/<=0) -> kolom sama dengan jumlah field
-            return Math.max(1, rowFields.size());
+            byCount = Math.max(1, rowFields.size());
+        } else {
+            byCount = Math.max(1, explicitSum + emptyCount);
         }
-        return Math.max(1, explicitSum + emptyCount);
+        return Math.max(maxByPosition, byCount);
     }
 
     /**
@@ -85,8 +162,10 @@ public class FormLayoutUtils {
     /**
      * Menghitung konfigurasi kolom (cols) dan span tiap field dalam 1 rowGroup.
      *
-     * @param rowFields     Daftar field dalam baris ini (sudah diurutkan berdasarkan colOrder)
-     * @param maxColsInForm Jumlah kolom acuan terbanyak di seluruh form (hasil calculateMaxColsInForm)
+     * @param rowFields     Daftar field dalam baris ini (sudah diurutkan
+     *                      berdasarkan colOrder)
+     * @param maxColsInForm Jumlah kolom acuan terbanyak di seluruh form (hasil
+     *                      calculateMaxColsInForm)
      * @return RowLayoutConfig berisi jumlah kolom rowLayout dan span tiap field
      */
     public static RowLayoutConfig calculateRowConfig(List<FieldMeta> rowFields, int maxColsInForm) {
@@ -110,10 +189,18 @@ public class FormLayoutUtils {
         int rowCols;
         RowLayoutConfig config;
 
-        // Skenario 1: Semua field di baris ini colSpan-nya kosong / null (emptyCount == rowFields.size())
-        // Maka dinamisasikan rata persis seperti perilaku sekarang ("dinamis seperti sekarang")
+        // Skenario 1: Semua field di baris ini colSpan-nya kosong / null (emptyCount ==
+        // rowFields.size())
+        // Maka dinamisasikan rata persis seperti perilaku sekarang ("dinamis seperti
+        // sekarang")
         if (emptyCount == rowFields.size()) {
-            rowCols = Math.max(1, rowFields.size());
+            // Hitung posisi colOrder tertinggi di baris ini
+            int maxByPos = 1;
+            for (FieldMeta f : rowFields) {
+                int colIdx = (f.getColOrder() != null && f.getColOrder() > 0) ? f.getColOrder() : 1;
+                if (colIdx > maxByPos) maxByPos = colIdx;
+            }
+            rowCols = Math.max(maxByPos, rowFields.size());
             config = new RowLayoutConfig(rowCols);
             for (FieldMeta f : rowFields) {
                 if ("TEXTAREA".equalsIgnoreCase(f.getComponentType()) && rowFields.size() == 1) {
@@ -125,7 +212,8 @@ public class FormLayoutUtils {
             return config;
         }
 
-        // Skenario 2 & 3: Ada field dengan colSpan eksplisit (>0) dan mungkin ada juga yang kosong
+        // Skenario 2 & 3: Ada field dengan colSpan eksplisit (>0) dan mungkin ada juga
+        // yang kosong
         rowCols = Math.max(maxColsInForm, explicitSum + emptyCount);
         config = new RowLayoutConfig(rowCols);
 
@@ -133,8 +221,10 @@ public class FormLayoutUtils {
         for (FieldMeta f : rowFields) {
             if (f.getColSpan() != null && f.getColSpan() > 0) {
                 int span = f.getColSpan();
-                // Jika TEXTAREA tunggal di baris dengan colspan=1, biarkan selebar baris kecuali diatur lain
-                if ("TEXTAREA".equalsIgnoreCase(f.getComponentType()) && span == 1 && rowFields.size() == 1 && rowCols > 1) {
+                // Jika TEXTAREA tunggal di baris dengan colspan=1, biarkan selebar baris
+                // kecuali diatur lain
+                if ("TEXTAREA".equalsIgnoreCase(f.getComponentType()) && span == 1 && rowFields.size() == 1
+                        && rowCols > 1) {
                     span = rowCols;
                 }
                 config.setSpan(f, span);
@@ -168,6 +258,10 @@ public class FormLayoutUtils {
         if (allFields == null || allFields.isEmpty()) {
             return 1;
         }
+
+        // Normalisasi col_order legacy
+        normalizeColOrderTemp(allFields);
+
         Map<Integer, List<FormBuilderView.FieldMetaTemp>> groups = new HashMap<>();
         for (FormBuilderView.FieldMetaTemp field : allFields) {
             if (field.hideInForm || field.isDetail) {
@@ -187,9 +281,62 @@ public class FormLayoutUtils {
         return maxCols;
     }
 
+    /**
+     * Normalisasi col_order legacy untuk FieldMetaTemp (Form Builder preview).
+     */
+    public static void normalizeColOrderTemp(List<FormBuilderView.FieldMetaTemp> fields) {
+        if (fields == null) return;
+        Map<Integer, List<FormBuilderView.FieldMetaTemp>> groups = new HashMap<>();
+        for (FormBuilderView.FieldMetaTemp f : fields) {
+            groups.computeIfAbsent(f.rowGroup, k -> new ArrayList<>()).add(f);
+        }
+        for (List<FormBuilderView.FieldMetaTemp> group : groups.values()) {
+            group.sort(Comparator.comparing(f -> f.colIndex));
+
+            boolean isLegacy = false;
+            int prev = 0;
+            for (FormBuilderView.FieldMetaTemp f : group) {
+                int col = f.colIndex > 0 ? f.colIndex : 1;
+                if (col - prev > 5) {
+                    isLegacy = true;
+                    break;
+                }
+                prev = col;
+            }
+
+            if (isLegacy) {
+                int minCol = group.get(0).colIndex > 0 ? group.get(0).colIndex : 1;
+                for (FormBuilderView.FieldMetaTemp f : group) {
+                    int col = f.colIndex > 0 ? f.colIndex : 1;
+                    int normalized = ((col - minCol) / 10) + 1;
+                    if (normalized < 1) normalized = 1;
+                    f.colIndex = normalized;
+                }
+
+                int lastPos = -1;
+                for (FormBuilderView.FieldMetaTemp f : group) {
+                    if (f.colIndex <= lastPos) {
+                        f.colIndex = lastPos + 1;
+                    }
+                    lastPos = f.colIndex;
+                }
+            }
+        }
+    }
+
+
     private static int calculateRowMinColsTemp(List<FormBuilderView.FieldMetaTemp> rowFields) {
         if (rowFields == null || rowFields.isEmpty()) {
             return 1;
+        }
+        int maxByPosition = 1;
+        for (FormBuilderView.FieldMetaTemp f : rowFields) {
+            int colIdx = f.colIndex > 0 ? f.colIndex : 1;
+            int span = (f.colSpan != null && f.colSpan > 0) ? f.colSpan : 1;
+            int needed = colIdx + span - 1;
+            if (needed > maxByPosition) {
+                maxByPosition = needed;
+            }
         }
         int explicitSum = 0;
         int emptyCount = 0;
@@ -200,10 +347,13 @@ public class FormLayoutUtils {
                 emptyCount++;
             }
         }
+        int byCount;
         if (emptyCount == rowFields.size()) {
-            return Math.max(1, rowFields.size());
+            byCount = Math.max(1, rowFields.size());
+        } else {
+            byCount = Math.max(1, explicitSum + emptyCount);
         }
-        return Math.max(1, explicitSum + emptyCount);
+        return Math.max(maxByPosition, byCount);
     }
 
     public static class RowLayoutConfigTemp {
@@ -227,7 +377,8 @@ public class FormLayoutUtils {
         }
     }
 
-    public static RowLayoutConfigTemp calculateRowConfigTemp(List<FormBuilderView.FieldMetaTemp> rowFields, int maxColsInForm) {
+    public static RowLayoutConfigTemp calculateRowConfigTemp(List<FormBuilderView.FieldMetaTemp> rowFields,
+            int maxColsInForm) {
         if (rowFields == null || rowFields.isEmpty()) {
             return new RowLayoutConfigTemp(1);
         }
@@ -249,7 +400,12 @@ public class FormLayoutUtils {
         RowLayoutConfigTemp config;
 
         if (emptyCount == rowFields.size()) {
-            rowCols = Math.max(1, rowFields.size());
+            int maxByPos = 1;
+            for (FormBuilderView.FieldMetaTemp f : rowFields) {
+                int colIdx = f.colIndex > 0 ? f.colIndex : 1;
+                if (colIdx > maxByPos) maxByPos = colIdx;
+            }
+            rowCols = Math.max(maxByPos, rowFields.size());
             config = new RowLayoutConfigTemp(rowCols);
             for (FormBuilderView.FieldMetaTemp f : rowFields) {
                 if ("TEXTAREA".equalsIgnoreCase(f.componentType) && rowFields.size() == 1) {
@@ -293,24 +449,24 @@ public class FormLayoutUtils {
     }
 
     /**
-     * Menerapkan pengaturan ResponsiveSteps pada FormLayout berdasarkan jumlah kolom.
+     * Menerapkan pengaturan ResponsiveSteps pada FormLayout berdasarkan jumlah
+     * kolom.
      */
     public static void applyResponsiveSteps(FormLayout formLayout, int cols) {
-        if (formLayout == null) return;
+        if (formLayout == null)
+            return;
         int c = Math.max(1, cols);
         if (c == 1) {
             formLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
         } else if (c <= 2) {
             formLayout.setResponsiveSteps(
                     new FormLayout.ResponsiveStep("0", 1),
-                    new FormLayout.ResponsiveStep("500px", c)
-            );
+                    new FormLayout.ResponsiveStep("500px", c));
         } else {
             formLayout.setResponsiveSteps(
                     new FormLayout.ResponsiveStep("0", 1),
                     new FormLayout.ResponsiveStep("500px", Math.max(1, c / 2)),
-                    new FormLayout.ResponsiveStep("800px", c)
-            );
+                    new FormLayout.ResponsiveStep("800px", c));
         }
     }
 }
