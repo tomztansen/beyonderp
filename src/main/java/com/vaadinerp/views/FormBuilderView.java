@@ -409,6 +409,7 @@ public class FormBuilderView extends VerticalLayout {
 
         historyGrid.setWidthFull();
         historyGrid.setSelectionMode(Grid.SelectionMode.MULTI);
+        com.vaadinerp.components.StandardGridUtils.enableRowClickSelection(historyGrid);
         historyGrid.setAllRowsVisible(true);
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(historyGrid);
         Grid.Column<FormMeta> codeCol = historyGrid.addColumn(FormMeta::getFormCode).setHeader("Form Code")
@@ -2887,6 +2888,17 @@ public class FormBuilderView extends VerticalLayout {
             return;
         }
 
+        java.util.Set<String> fieldNames = new java.util.HashSet<>();
+        for (FieldMetaTemp temp : fieldsList) {
+            String fName = temp.fieldName != null ? temp.fieldName.trim().toLowerCase() : "";
+            if (fName.isEmpty()) continue;
+            
+            if (!fieldNames.add(fName)) {
+                Notification.show("Gagal menyimpan: Terdapat nama field (Field Name) yang sama yaitu '" + temp.fieldName + "'!", 5000, Notification.Position.MIDDLE);
+                return;
+            }
+        }
+
         FormMeta formMeta = formMetaRepository.findById(formCode).orElseGet(FormMeta::new);
         formMeta.setFormCode(formCode);
         formMeta.setFormTitle(formTitle);
@@ -4200,7 +4212,7 @@ public class FormBuilderView extends VerticalLayout {
         }
 
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("🔀 Atur Ulang Layout Kolom Form (Berjejer)");
+        dialog.setHeaderTitle("🔀 Atur Ulang Layout Kolom Form");
         dialog.setWidth("450px");
 
         VerticalLayout layout = new VerticalLayout();
@@ -4208,56 +4220,99 @@ public class FormBuilderView extends VerticalLayout {
         layout.setSpacing(true);
 
         Select<Integer> colsSelect = new Select<>();
-        colsSelect.setLabel("Number of Columns per Row:");
+        colsSelect.setLabel("Jumlah Kolom per Baris:");
         colsSelect.setItems(1, 2, 3, 4, 5, 6, 8, 10, 12);
         colsSelect.setValue(3);
         colsSelect.setWidthFull();
 
+        com.vaadin.flow.component.radiobutton.RadioButtonGroup<String> arahUrutan = new com.vaadin.flow.component.radiobutton.RadioButtonGroup<>();
+        arahUrutan.setLabel("Arah Pengurutan:");
+        arahUrutan.setItems("Horizontal (Kiri-Kanan)", "Vertikal (Atas-Bawah)");
+        arahUrutan.setValue("Horizontal (Kiri-Kanan)");
+
         Span infoSpan = new Span("💡 Sistem akan mengurutkan ulang kolom form yang ada di kanvas ke dalam "
-                + colsSelect.getValue() + " kolom berjejer per baris. Kolom detail tabel (jika ada) tidak diubah.");
+                + colsSelect.getValue() + " kolom.");
         infoSpan.getStyle().set("color", "#64748b").set("font-size", "0.85rem");
 
         colsSelect.addValueChangeListener(e -> {
             if (e.getValue() != null) {
                 infoSpan.setText("💡 Sistem akan mengurutkan ulang kolom form yang ada di kanvas ke dalam "
-                        + e.getValue() + " kolom berjejer per baris. Kolom detail tabel (jika ada) tidak diubah.");
+                        + e.getValue() + " kolom.");
             }
         });
 
-        layout.add(colsSelect, infoSpan);
+        layout.add(colsSelect, arahUrutan, infoSpan);
         dialog.add(layout);
 
         Button btnApply = new Button("Terapkan Layout", VaadinIcon.CHECK.create());
         btnApply.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnApply.addClickListener(e -> {
             int targetCols = colsSelect.getValue() != null ? colsSelect.getValue() : 2;
-            int currentGroup = 1;
-            int currentVisCol = 1;
+            boolean isVertical = "Vertikal (Atas-Bawah)".equals(arahUrutan.getValue());
 
+            // 1. Ekstrak & Urutkan secara Visual
+            java.util.List<FieldMetaTemp> layoutFields = new java.util.ArrayList<>();
             for (FieldMetaTemp f : fieldsList) {
-                if (f.isDetail)
-                    continue;
-
-                int span = f.colSpan != null ? f.colSpan : 1;
-                span = Math.min(span, targetCols);
-
-                if (currentVisCol > 1 && (currentVisCol - 1 + span) > targetCols) {
-                    currentGroup++;
-                    currentVisCol = 1;
-                }
-
-                f.rowGroup = currentGroup;
-                f.colIndex = currentVisCol;
-
-                currentVisCol += span;
-
-                if (currentVisCol > targetCols) {
-                    currentGroup++;
-                    currentVisCol = 1;
+                if (!f.isDetail) {
+                    layoutFields.add(f);
                 }
             }
+            layoutFields.sort((f1, f2) -> {
+                int rowCmp = Integer.compare(f1.rowGroup, f2.rowGroup);
+                if (rowCmp != 0) return rowCmp;
+                return Integer.compare(f1.colIndex, f2.colIndex);
+            });
+
+            // 2. Alokasikan Koordinat Baru
+            if (isVertical) {
+                // VERTIKAL (Gaya Balanced / Seimbang)
+                int totalItems = layoutFields.size();
+                int baseItemsPerCol = totalItems / targetCols;
+                int remainder = totalItems % targetCols;
+                
+                int r = 1;
+                int c = 1;
+                int currentLimit = baseItemsPerCol + (c <= remainder ? 1 : 0);
+                
+                for (FieldMetaTemp f : layoutFields) {
+                    f.rowGroup = r;
+                    f.colIndex = c;
+                    
+                    r++;
+                    if (r > currentLimit) {
+                        r = 1;
+                        c++;
+                        currentLimit = baseItemsPerCol + (c <= remainder ? 1 : 0);
+                    }
+                }
+            } else {
+                // HORIZONTAL (Menyamping per Baris)
+                int currentGroup = 1;
+                int currentVisCol = 1;
+
+                for (FieldMetaTemp f : layoutFields) {
+                    int span = f.colSpan != null ? f.colSpan : 1;
+                    span = Math.min(span, targetCols);
+
+                    if (currentVisCol > 1 && (currentVisCol - 1 + span) > targetCols) {
+                        currentGroup++;
+                        currentVisCol = 1;
+                    }
+
+                    f.rowGroup = currentGroup;
+                    f.colIndex = currentVisCol;
+
+                    currentVisCol += span;
+
+                    if (currentVisCol > targetCols) {
+                        currentGroup++;
+                        currentVisCol = 1;
+                    }
+                }
+            }
+
             rebuildCanvas();
-            Notification.show("Layout berhasil diatur menjadi " + targetCols + " kolom berjejer!", 3000,
+            Notification.show("Layout berhasil diatur menjadi " + targetCols + " kolom!", 3000,
                     Notification.Position.TOP_CENTER);
             dialog.close();
         });

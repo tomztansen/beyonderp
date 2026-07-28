@@ -126,6 +126,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
     private java.util.Map<String, FilterCriteria> filterValues = new java.util.HashMap<>();
     private Map<String, Object> draggedItem;
+    private Map<String, Object> currentlyOpenDetailItem = null;
     private com.vaadinerp.components.PaginationBar paginationBar;
     private String currentSortField;
     private String currentSortDir;
@@ -179,10 +180,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private String getLovDisplayLabel(String lovCode, String val) {
         if (val == null || val.trim().isEmpty() || lovCode == null || lovCode.trim().isEmpty())
             return val != null ? val : "";
-            
+
         com.vaadinerp.meta.FieldMeta dummyMeta = new com.vaadinerp.meta.FieldMeta();
         dummyMeta.setLovCode(lovCode);
-        
+
         return com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(dummyMeta, val, dynamicDataService);
     }
 
@@ -221,6 +222,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         grid.setSizeFull();
         grid.setMinHeight("300px");
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
+        com.vaadinerp.components.StandardGridUtils.enableRowClickSelection(grid);
         grid.setPageSize(25);
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(grid);
 
@@ -1116,7 +1118,20 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 rowLayout.getElement().getStyle().set("--vaadin-form-layout-label-width", formDef.getLabelWidth());
             }
 
+            groupFields.sort(java.util.Comparator.comparingInt(f -> f.getColOrder() != null ? f.getColOrder() : 1));
+
+            int currentVisCol = 1;
             for (FieldMeta field : groupFields) {
+                int colIndex = field.getColOrder() != null ? field.getColOrder() : 1;
+                while (currentVisCol < colIndex && currentVisCol <= cols) {
+                    com.vaadin.flow.component.textfield.TextField emptySpace = new com.vaadin.flow.component.textfield.TextField();
+                    emptySpace.setLabel("\u00A0"); // Paksa Vaadin render cell utuh
+                    emptySpace.getStyle().set("visibility", "hidden");
+                    rowLayout.add(emptySpace);
+                    rowLayout.setColspan(emptySpace, 1);
+                    currentVisCol++;
+                }
+
                 Component input = ComponentFactory.create(field, dynamicDataService, updateFieldValue);
                 if (field.isHideInForm()) {
                     input.setVisible(false);
@@ -1165,7 +1180,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
                     rowLayout.add(cbWrapper);
                     if (span > 1) {
-                        rowLayout.setColspan(cbWrapper, Math.min(span, cols));
+                        rowLayout.setColspan(cbWrapper, Math.min(span, Math.max(1, cols - currentVisCol + 1)));
                     }
                 } else {
                     com.vaadin.flow.component.html.Div wrapper = new com.vaadin.flow.component.html.Div(input);
@@ -1175,18 +1190,28 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             .set("align-items", "flex-start");
                     rowLayout.add(wrapper);
                     if (span > 1) {
-                        rowLayout.setColspan(wrapper, Math.min(span, cols));
+                        rowLayout.setColspan(wrapper, Math.min(span, Math.max(1, cols - currentVisCol + 1)));
                     }
                 }
 
+                currentVisCol += span;
                 formComponents.put(field.getFieldName(), input);
                 bindComponent(formBinder, input, field);
-
                 if ("TEXTAREA".equalsIgnoreCase(field.getComponentType())
                         && input instanceof com.vaadin.flow.component.textfield.TextArea ta) {
                     ta.getStyle().set("resize", "vertical");
                 }
             }
+
+            while (currentVisCol <= cols) {
+                com.vaadin.flow.component.textfield.TextField emptySpace = new com.vaadin.flow.component.textfield.TextField();
+                emptySpace.setLabel("\u00A0"); // Paksa Vaadin render cell utuh
+                emptySpace.getStyle().set("visibility", "hidden");
+                rowLayout.add(emptySpace);
+                rowLayout.setColspan(emptySpace, 1);
+                currentVisCol++;
+            }
+
             formLayout.add(rowLayout);
         }
 
@@ -1698,6 +1723,135 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             return dynamicDataService.fetchGridDataPaged(currentFormDef, offset, limit, filterValues, currentSortField,
                     currentSortDir);
         });
+
+        // ====== 5. FITUR EXPANDABLE ROW (SUBFORM PREVIEW) ======
+        java.util.List<FieldMeta> subformFields = formDef.getFields().stream()
+                .filter(f -> "SUBFORM_GRID".equalsIgnoreCase(f.getComponentType()) && f.getLovCode() != null)
+                .toList();
+
+        if (!subformFields.isEmpty()) {
+            grid.setDetailsVisibleOnClick(false);
+            grid.setItemDetailsRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(item -> {
+                com.vaadin.flow.component.orderedlayout.VerticalLayout layout = new com.vaadin.flow.component.orderedlayout.VerticalLayout();
+                layout.setPadding(true);
+                layout.setSpacing(true);
+                layout.getStyle().set("background-color", "#f8fafc").set("border-bottom", "1px solid #e2e8f0")
+                        .set("border-radius", "0 0 8px 8px");
+
+                for (FieldMeta subformField : subformFields) {
+                    String detailFormId = subformField.getLovCode();
+                    FormMeta detailFormMeta = formMetaRepository.findById(detailFormId).orElse(null);
+
+                    if (detailFormMeta != null) {
+                        com.vaadin.flow.component.html.H5 title = new com.vaadin.flow.component.html.H5(
+                                subformField.getFieldLabel());
+                        title.getStyle().set("margin", "0").set("color", "#475569");
+                        layout.add(title);
+
+                        String pkColumn = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey()
+                                : "id";
+                        Object pkValue = item.get(pkColumn);
+
+                        java.util.List<Map<String, Object>> childData = new java.util.ArrayList<>();
+                        if (pkValue != null && subformField.getFormula() != null) {
+                            String childTable = (detailFormMeta.getViewTable() != null
+                                    && !detailFormMeta.getViewTable().trim().isEmpty())
+                                            ? detailFormMeta.getViewTable().trim()
+                                            : detailFormMeta.getTableName();
+                            String childFkColumn = subformField.getFormula();
+                            childData = dynamicDataService.fetchDetailTableData(childTable, childFkColumn, pkValue);
+                        }
+
+                        com.vaadin.flow.component.grid.Grid<Map<String, Object>> childGrid = new com.vaadin.flow.component.grid.Grid<>();
+                        childGrid.setHeight("250px");
+                        childGrid.addThemeVariants(com.vaadin.flow.component.grid.GridVariant.LUMO_COMPACT,
+                                com.vaadin.flow.component.grid.GridVariant.LUMO_ROW_STRIPES);
+
+                        java.util.List<FieldMeta> sortedChildFields = new java.util.ArrayList<>(
+                                detailFormMeta.getFields());
+                        sortedChildFields.sort((f1, f2) -> {
+                            Integer o1 = f1.getColOrder() != null ? f1.getColOrder() : Integer.MAX_VALUE;
+                            Integer o2 = f2.getColOrder() != null ? f2.getColOrder() : Integer.MAX_VALUE;
+                            return o1.compareTo(o2);
+                        });
+
+                        for (FieldMeta childF : sortedChildFields) {
+                            if (childF.isShowInGrid()) {
+                                com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col = childGrid.addColumn(row -> {
+                                    Object valObj = getValueCaseInsensitive(row, childF.getFieldName());
+                                    String formatted = com.vaadinerp.components.ComponentFactory
+                                            .formatFieldValueWithLov(childF, valObj, dynamicDataService);
+                                    return formatted != null ? formatted : "";
+                                }).setHeader(childF.getFieldLabel()).setAutoWidth(true).setResizable(true);
+                                
+                                String fType = childF.getComponentType() != null ? childF.getComponentType().toUpperCase() : "";
+                                if ("INTBOX".equals(fType) || "DECIMALBOX".equals(fType)) {
+                                    col.setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END);
+                                }
+                            }
+                        }
+
+                        childGrid.setItems(childData);
+                        layout.add(childGrid);
+                    }
+                }
+                return layout;
+            }));
+
+            com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> expandCol = grid
+                    .addComponentColumn(item -> {
+                        com.vaadin.flow.component.icon.Icon toggleIcon = com.vaadin.flow.component.icon.VaadinIcon.CHEVRON_RIGHT
+                                .create();
+                        toggleIcon.setSize("10px");
+                        toggleIcon.getStyle().set("cursor", "pointer").set("color", "var(--lumo-primary-color)");
+
+                        boolean isExpanded = grid.isDetailsVisible(item);
+                        if (isExpanded) {
+                            toggleIcon = com.vaadin.flow.component.icon.VaadinIcon.CHEVRON_DOWN.create();
+                            toggleIcon.setSize("10px");
+                            toggleIcon.getStyle().set("cursor", "pointer").set("color", "var(--lumo-primary-color)");
+                        }
+
+                        com.vaadin.flow.component.icon.Icon finalIcon = toggleIcon;
+                        finalIcon.addClickListener(e -> {
+                            String pkCol = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey() : "id";
+                            boolean isSameRow = false;
+                            if (currentlyOpenDetailItem != null && item != null) {
+                                Object currentPk = currentlyOpenDetailItem.get(pkCol);
+                                Object newPk = item.get(pkCol);
+                                if (currentPk != null && currentPk.equals(newPk)) {
+                                    isSameRow = true;
+                                }
+                            }
+
+                            if (currentlyOpenDetailItem != null && !isSameRow) {
+                                grid.setDetailsVisible(currentlyOpenDetailItem, false);
+                            }
+                            
+                            boolean visible = !grid.isDetailsVisible(item);
+                            // Override Vaadin's internal state if it lost track due to refreshAll
+                            if (isSameRow) {
+                                visible = false;
+                            }
+                            
+                            grid.setDetailsVisible(item, visible);
+
+                            if (visible) {
+                                currentlyOpenDetailItem = item;
+                            } else {
+                                currentlyOpenDetailItem = null;
+                            }
+                            // Refresh data provider to update other rows' buttons if needed
+                            grid.getDataProvider().refreshAll();
+                        });
+                        return finalIcon;
+                    }).setHeader("").setWidth("18px").setFlexGrow(0).setFrozen(true);
+
+            java.util.List<com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>>> cols = new java.util.ArrayList<>();
+            cols.add(expandCol);
+            grid.getColumns().stream().filter(c -> c != expandCol).forEach(cols::add);
+            grid.setColumnOrder(cols);
+        }
     }
 
     private void refreshGridData(FormMeta formDef) {
@@ -1749,6 +1903,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     allGridItems.addAll(chunk);
                     gridItems.clear();
                     gridItems.addAll(chunk);
+                    com.vaadin.flow.component.ComponentUtil.setData(grid, "currentItems", chunk);
 
                     return chunk.stream();
                 },

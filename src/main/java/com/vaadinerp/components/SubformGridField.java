@@ -173,6 +173,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             if (childFormDef != null) {
                 dataService.resetUserGridOrder(childFormDef.getFormCode(), "subformGrid");
                 grid.setSelectionMode(Grid.SelectionMode.MULTI);
+                com.vaadinerp.components.StandardGridUtils.enableRowClickSelection(grid);
                 columnToFieldNameMap.clear();
                 colGetterMap.clear();
                 editorComponents.clear();
@@ -202,6 +203,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         grid.setWidthFull();
         grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES, GridVariant.LUMO_COMPACT);
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
+        com.vaadinerp.components.StandardGridUtils.enableRowClickSelection(grid);
         grid.setMultiSort(true);
         grid.setAllRowsVisible(true);
         grid.setPageSize(500);
@@ -600,6 +602,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         com.vaadinerp.components.StandardGridUtils.cleanGridBeforeRebuild(grid);
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
+        com.vaadinerp.components.StandardGridUtils.enableRowClickSelection(grid);
         grid.setMultiSort(true);
 
         List<FieldMeta> childFields = childFormDef.getFields().stream()
@@ -663,6 +666,11 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     .setResizable(true)
                     .setKey(fieldName);
             colGetterMap.put(col, valueGetter);
+
+            String fType = field.getComponentType() != null ? field.getComponentType().toUpperCase() : "";
+            if ("INTBOX".equals(fType) || "DECIMALBOX".equals(fType)) {
+                col.setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END);
+            }
 
             if (field.isHideInForm() || "HIDDEN".equalsIgnoreCase(field.getComponentType())) {
                 col.setVisible(false);

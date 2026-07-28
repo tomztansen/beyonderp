@@ -33,7 +33,8 @@ public class StandardGridUtils {
     }
 
     /**
-     * Returns the global client-side JavaScript snippet that enables 1-click & Alt-click
+     * Returns the global client-side JavaScript snippet that enables 1-click &
+     * Alt-click
      * cell clipboard copy on every <vaadin-grid-cell-content> across all grids.
      */
     public static String getGlobalCellCopyJs() {
@@ -105,7 +106,7 @@ public class StandardGridUtils {
                 + "  cellContent.appendChild(btn);\n"
                 + "}, true);\n"
                 + "document.addEventListener('click', function(e) {\n"
-                + "  if (e.altKey || e.ctrlKey || e.shiftKey) {\n"
+                + "  if (e.altKey || e.ctrlKey) {\n"
                 + "    const path = e.composedPath ? e.composedPath() : [e.target];\n"
                 + "    const cellContent = path.find(el => el && el.tagName && el.tagName.toLowerCase() === 'vaadin-grid-cell-content');\n"
                 + "    if (!cellContent) return;\n"
@@ -128,13 +129,16 @@ public class StandardGridUtils {
 
     /**
      * Enables cell clipboard copy feature on any Grid.
-     * Attaches both client-side hover/click copy and right-click context menu support.
+     * Attaches both client-side hover/click copy and right-click context menu
+     * support.
      */
     public static void enableCellClipboardCopy(Grid<?> grid) {
-        if (grid == null) return;
+        if (grid == null)
+            return;
         try {
             grid.getElement().executeJs(getGlobalCellCopyJs());
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
     }
 
     /**
@@ -501,19 +505,22 @@ public class StandardGridUtils {
                     } catch (Exception ignored) {
                         if (grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
                             @SuppressWarnings("unchecked")
-                            com.vaadin.flow.data.provider.ListDataProvider<T> ldp = (com.vaadin.flow.data.provider.ListDataProvider<T>) grid.getDataProvider();
+                            com.vaadin.flow.data.provider.ListDataProvider<T> ldp = (com.vaadin.flow.data.provider.ListDataProvider<T>) grid
+                                    .getDataProvider();
                             items.addAll(ldp.getItems());
                         }
                     }
                 }
 
                 for (T item : items) {
-                    if (item == null) continue;
+                    if (item == null)
+                        continue;
                     for (int i = 0; i < columns.size(); i++) {
                         Grid.Column<T> col = columns.get(i);
                         String val = extractCellValue(item, col, colGetterMap);
                         sb.append(escapeCsv(val));
-                        if (i < columns.size() - 1) sb.append(",");
+                        if (i < columns.size() - 1)
+                            sb.append(",");
                     }
                     sb.append("\r\n");
                 }
@@ -529,25 +536,27 @@ public class StandardGridUtils {
                         new ByteArrayInputStream(finalBytes),
                         exportFileName,
                         "text/csv",
-                        finalBytes.length
-                );
+                        finalBytes.length);
             } catch (Exception e) {
                 byte[] errBytes = "Error exporting data".getBytes(StandardCharsets.UTF_8);
                 return new DownloadResponse(
                         new ByteArrayInputStream(errBytes),
                         "error.csv",
                         "text/csv",
-                        errBytes.length
-                );
+                        errBytes.length);
             }
         });
 
         btnExport.addClickListener(e -> {
             Set<T> sel = grid.getSelectedItems();
             if (sel != null && !sel.isEmpty()) {
-                com.vaadin.flow.component.notification.Notification.show("Mengekspor " + sel.size() + " baris terpilih ke Excel...", 2500, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
+                com.vaadin.flow.component.notification.Notification.show(
+                        "Mengekspor " + sel.size() + " baris terpilih ke Excel...", 2500,
+                        com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
             } else {
-                com.vaadin.flow.component.notification.Notification.show("Mengekspor seluruh data yang tampil ke Excel...", 2000, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
+                com.vaadin.flow.component.notification.Notification.show(
+                        "Mengekspor seluruh data yang tampil ke Excel...", 2000,
+                        com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
             }
         });
 
@@ -607,14 +616,18 @@ public class StandardGridUtils {
         return "\"" + s + "\"";
     }
 
-    public static <T> void attachSelectAllHeader(Grid<T> grid, java.util.function.Supplier<java.util.List<T>> pageItemsSupplier) {
-        if (grid == null || !(grid.getSelectionModel() instanceof com.vaadin.flow.component.grid.GridMultiSelectionModel<?> multiSel)) {
+    public static <T> void attachSelectAllHeader(Grid<T> grid,
+            java.util.function.Supplier<java.util.List<T>> pageItemsSupplier) {
+        if (grid == null || !(grid
+                .getSelectionModel() instanceof com.vaadin.flow.component.grid.GridMultiSelectionModel<?> multiSel)) {
             return;
         }
-        multiSel.setSelectAllCheckboxVisibility(com.vaadin.flow.component.grid.GridMultiSelectionModel.SelectAllCheckboxVisibility.HIDDEN);
+        multiSel.setSelectAllCheckboxVisibility(
+                com.vaadin.flow.component.grid.GridMultiSelectionModel.SelectAllCheckboxVisibility.HIDDEN);
         try {
             Grid.Column<T> selCol = grid.getColumns().stream()
-                    .filter(c -> "vaadin-grid-selection-column".equals(c.getKey()) || (c.getKey() != null && c.getKey().contains("selection")))
+                    .filter(c -> "vaadin-grid-selection-column".equals(c.getKey())
+                            || (c.getKey() != null && c.getKey().contains("selection")))
                     .findFirst()
                     .orElse(null);
             if (selCol != null) {
@@ -629,4 +642,92 @@ public class StandardGridUtils {
         } catch (Exception ignored) {
         }
     }
+
+    // private static <T> int findIndexById(Grid<T> grid, java.util.List<T> items, T
+    // target) {
+    // if (items == null || target == null)
+    // return -1;
+    // Object targetId = grid.getDataProvider().getId(target);
+    // for (int i = 0; i < items.size(); i++) {
+    // if (java.util.Objects.equals(grid.getDataProvider().getId(items.get(i)),
+    // targetId)) {
+    // return i;
+    // }
+    // }
+    // return -1;
+    // }
+
+    public static <T> void enableRowClickSelection(Grid<T> grid) {
+        if (grid == null
+                || !(grid.getSelectionModel() instanceof com.vaadin.flow.component.grid.GridMultiSelectionModel))
+            return;
+
+        // 1. Java Listener for Normal Clicks (Single Selection Toggle)
+        grid.addItemClickListener(event -> {
+            if (!event.isShiftKey()) {
+                if (grid.getSelectedItems().contains(event.getItem())) {
+                    grid.deselect(event.getItem());
+                } else {
+                    grid.select(event.getItem());
+                }
+            }
+        });
+
+        // 2. JS Listener for Shift-Clicks (Range Selection Bypass)
+        grid.getElement().executeJs(
+            "var grid = this;" +
+            "if (grid.$rowClickListenerAdded) return;" +
+            "grid.$rowClickListenerAdded = true;" +
+            "grid.addEventListener('click', function(e) {" +
+            "  var path = e.composedPath();" +
+            "  var isInteractive = false;" +
+            "  var isCheckbox = false;" +
+            "  var tr = null;" +
+            "  for (var i = 0; i < path.length; i++) {" +
+            "    var tag = path[i].tagName;" +
+            "    if (tag === 'VAADIN-CHECKBOX') { isCheckbox = true; }" +
+            "    else if (tag === 'VAADIN-BUTTON' || tag === 'BUTTON' || tag === 'A' || tag === 'INPUT') { isInteractive = true; }" +
+            "    if (tag === 'TR') { tr = path[i]; }" +
+            "    if (tag === 'VAADIN-GRID') break;" +
+            "  }" +
+            "  if ((isInteractive && !isCheckbox) || !tr) return;" +
+
+            "  if (e.shiftKey && grid.$lastClickedTr && grid.$lastClickedTr !== tr && grid.$lastClickedTr.isConnected) {" +
+            "    e.stopPropagation();" +
+            "    e.preventDefault();" +
+            "    var tbody = tr.parentElement;" +
+            "    var rows = Array.prototype.slice.call(tbody.children);" +
+            "    var idx1 = rows.indexOf(grid.$lastClickedTr);" +
+            "    var idx2 = rows.indexOf(tr);" +
+            "    if (idx1 >= 0 && idx2 >= 0) {" +
+            "      var min = Math.min(idx1, idx2);" +
+            "      var max = Math.max(idx1, idx2);" +
+            "      setTimeout(function() {" +
+            "        for (var i = min; i <= max; i++) {" +
+            "          var row = rows[i];" +
+            "          var cb = null;" +
+            "          var slots = row.querySelectorAll('slot');" +
+            "          for (var k = 0; k < slots.length; k++) {" +
+            "            var nodes = slots[k].assignedNodes({flatten: true});" +
+            "            for (var j = 0; j < nodes.length; j++) {" +
+            "              if (nodes[j] && nodes[j].tagName === 'VAADIN-GRID-CELL-CONTENT') {" +
+            "                var foundCb = nodes[j].querySelector('vaadin-checkbox');" +
+            "                if (foundCb) { cb = foundCb; break; }" +
+            "              }" +
+            "            }" +
+            "            if (cb) break;" +
+            "          }" +
+            "          if (cb && !cb.checked) {" +
+            "            cb.click();" +
+            "          }" +
+            "        }" +
+            "      }, 10);" +
+            "    }" +
+            "  } else {" +
+            "    grid.$lastClickedTr = tr;" +
+            "  }" +
+            "}, true);"
+        );
+    }
+
 }

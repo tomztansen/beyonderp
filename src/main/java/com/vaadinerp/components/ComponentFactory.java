@@ -218,7 +218,7 @@ public class ComponentFactory {
         if (component instanceof com.vaadin.flow.component.HasSize hasSize) {
             String w = field.getFieldWidth();
             hasSize.setWidth(w);
-            component.getElement().setAttribute("title", "DEBUG DB WIDTH: [" + w + "]");
+            // component.getElement().setAttribute("title", "DEBUG DB WIDTH: [" + w + "]");
             if (w != null && !w.trim().isEmpty() && !w.trim().equals("100%")) {
                 component.getElement().removeAttribute("data-width-full");
                 component.getElement().getStyle().set("width", w);
@@ -426,8 +426,8 @@ public class ComponentFactory {
         return !isInvalid;
     }
 
-    private static final com.github.benmanes.caffeine.cache.Cache<String, com.github.benmanes.caffeine.cache.Cache<String, String>> lovLabelCache = 
-        com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
+    private static final com.github.benmanes.caffeine.cache.Cache<String, com.github.benmanes.caffeine.cache.Cache<String, String>> lovLabelCache = com.github.benmanes.caffeine.cache.Caffeine
+            .newBuilder()
             .maximumSize(500)
             .build();
 
@@ -449,23 +449,24 @@ public class ComponentFactory {
         if (field != null && field.getLovCode() != null && !field.getLovCode().trim().isEmpty()
                 && dataService != null) {
             String lovCode = field.getLovCode().trim();
-            com.github.benmanes.caffeine.cache.Cache<String, String> map = lovLabelCache.get(lovCode, 
+            com.github.benmanes.caffeine.cache.Cache<String, String> map = lovLabelCache.get(lovCode,
                     code -> com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
-                                .maximumSize(10000)
-                                .expireAfterAccess(java.time.Duration.ofMinutes(60))
-                                .build());
-            
+                            .maximumSize(10000)
+                            .expireAfterAccess(java.time.Duration.ofMinutes(60))
+                            .build());
+
             if (strVal.contains(",")) {
                 return java.util.Arrays.stream(strVal.split(","))
                         .map(String::trim)
                         .map(item -> {
                             String cachedLabel = map.getIfPresent(item);
-                            if (cachedLabel != null) return cachedLabel;
+                            if (cachedLabel != null)
+                                return cachedLabel;
                             return fetchSingleLovLabel(lovCode, item, dataService);
                         })
                         .collect(java.util.stream.Collectors.joining(", "));
             }
-            
+
             String cachedLabel = map.getIfPresent(strVal);
             if (cachedLabel != null) {
                 return cachedLabel;
@@ -1008,7 +1009,8 @@ public class ComponentFactory {
                         }
                     });
 
-                    // 2. Konfigurasi Fetch Data (Filter) secara dinamis dari database (Lazy Loading)
+                    // 2. Konfigurasi Fetch Data (Filter) secara dinamis dari database (Lazy
+                    // Loading)
                     String searchCol = lovMeta.getSearchColumn();
                     bandbox.setDataProvider(query -> {
                         String keyword = query.getFilter().orElse("");
@@ -1082,7 +1084,8 @@ public class ComponentFactory {
     }
 
     public static void setComponentReadOnly(Component component, boolean ro) {
-        if (component == null) return;
+        if (component == null)
+            return;
         if (component instanceof com.vaadin.flow.component.HasValueAndElement hve) {
             hve.setReadOnly(ro);
         } else if (component instanceof com.vaadin.flow.component.select.Select<?> sel) {
@@ -1099,7 +1102,8 @@ public class ComponentFactory {
     }
 
     public static void applyReadonlyMode(Component component, FieldMeta field, boolean isNewRecord) {
-        if (component == null || field == null) return;
+        if (component == null || field == null)
+            return;
         boolean ro = field.isReadonlyFor(isNewRecord);
 
         // Jika auto-sequence aktif, jangan ubah read-only dari true ke false

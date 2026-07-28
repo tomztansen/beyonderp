@@ -248,6 +248,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         masterGrid.setSizeFull();
         masterGrid.setMinHeight("300px");
         masterGrid.setSelectionMode(Grid.SelectionMode.MULTI);
+        com.vaadinerp.components.StandardGridUtils.enableRowClickSelection(masterGrid);
         masterGrid.setPageSize(25);
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(masterGrid);
 
@@ -317,6 +318,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         detailsGrid.setWidthFull();
         detailsGrid.setMinHeight("300px");
         detailsGrid.setSelectionMode(Grid.SelectionMode.MULTI);
+        com.vaadinerp.components.StandardGridUtils.enableRowClickSelection(detailsGrid);
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(detailsGrid);
 
         transaksiLayout.add(formLayout, detailsToolbar, detailsGrid);
@@ -2700,6 +2702,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     allMasterGridItems.addAll(chunk);
                     masterGridItems.clear();
                     masterGridItems.addAll(chunk);
+                    com.vaadin.flow.component.ComponentUtil.setData(masterGrid, "currentItems", chunk);
 
                     return chunk.stream();
                 },
