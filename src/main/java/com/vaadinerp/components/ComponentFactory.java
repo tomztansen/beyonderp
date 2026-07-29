@@ -1063,6 +1063,7 @@ public class ComponentFactory {
                 return bandbox;
             case "SUBFORM_GRID":
                 SubformGridField subformGrid = new SubformGridField(label, field, dataService);
+                subformGrid.setUpdateParentFieldValueCallback(updateFieldValue);
                 subformGrid.setReadOnly(field.isReadonly());
                 return subformGrid;
             case "FILE_UPLOAD":

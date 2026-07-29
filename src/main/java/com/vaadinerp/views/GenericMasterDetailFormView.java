@@ -767,8 +767,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             deletedDetailsList.clear();
             applyDetailsFilters();
             
-            updateFieldsReadonlyStatus(true);
             setAllFieldsReadOnly(false); // Reset forced read-only
+            updateFieldsReadonlyStatus(true);
             if (auth != null) {
                 btnSave.setVisible(auth.canAdd);
                 btnCancel.setVisible(auth.canAdd || auth.canEdit);
@@ -1185,6 +1185,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             } finally {
                 isLoadingExistingData = false;
             }
+            setAllFieldsReadOnly(false);
             updateFieldsReadonlyStatus(false);
             evaluateFormulas();
 
@@ -1199,7 +1200,6 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
 
             applyDetailsFilters();
-            setAllFieldsReadOnly(false);
             if (auth != null) {
                 btnSave.setVisible(auth.canEdit);
                 btnCancel.setVisible(auth.canAdd || auth.canEdit);

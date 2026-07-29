@@ -312,8 +312,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnNew.addClickListener(e -> {
             formBinder.setBean(new HashMap<>());
             clearAllComponents();
-            updateFieldsReadonlyStatus(true);
             setAllFieldsReadOnly(false); // Reset forced read-only
+            updateFieldsReadonlyStatus(true);
             if (auth != null) {
                 btnSave.setVisible(auth.canAdd);
                 btnCancel.setVisible(auth.canAdd || auth.canEdit);
@@ -1777,14 +1777,17 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
                         for (FieldMeta childF : sortedChildFields) {
                             if (childF.isShowInGrid()) {
-                                com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col = childGrid.addColumn(row -> {
-                                    Object valObj = getValueCaseInsensitive(row, childF.getFieldName());
-                                    String formatted = com.vaadinerp.components.ComponentFactory
-                                            .formatFieldValueWithLov(childF, valObj, dynamicDataService);
-                                    return formatted != null ? formatted : "";
-                                }).setHeader(childF.getFieldLabel()).setAutoWidth(true).setResizable(true);
-                                
-                                String fType = childF.getComponentType() != null ? childF.getComponentType().toUpperCase() : "";
+                                com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col = childGrid
+                                        .addColumn(row -> {
+                                            Object valObj = getValueCaseInsensitive(row, childF.getFieldName());
+                                            String formatted = com.vaadinerp.components.ComponentFactory
+                                                    .formatFieldValueWithLov(childF, valObj, dynamicDataService);
+                                            return formatted != null ? formatted : "";
+                                        }).setHeader(childF.getFieldLabel()).setAutoWidth(true).setResizable(true);
+
+                                String fType = childF.getComponentType() != null
+                                        ? childF.getComponentType().toUpperCase()
+                                        : "";
                                 if ("INTBOX".equals(fType) || "DECIMALBOX".equals(fType)) {
                                     col.setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END);
                                 }
@@ -1814,7 +1817,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
                         com.vaadin.flow.component.icon.Icon finalIcon = toggleIcon;
                         finalIcon.addClickListener(e -> {
-                            String pkCol = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey() : "id";
+                            String pkCol = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey()
+                                    : "id";
                             boolean isSameRow = false;
                             if (currentlyOpenDetailItem != null && item != null) {
                                 Object currentPk = currentlyOpenDetailItem.get(pkCol);
@@ -1827,13 +1831,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             if (currentlyOpenDetailItem != null && !isSameRow) {
                                 grid.setDetailsVisible(currentlyOpenDetailItem, false);
                             }
-                            
+
                             boolean visible = !grid.isDetailsVisible(item);
                             // Override Vaadin's internal state if it lost track due to refreshAll
                             if (isSameRow) {
                                 visible = false;
                             }
-                            
+
                             grid.setDetailsVisible(item, visible);
 
                             if (visible) {
@@ -1845,7 +1849,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             grid.getDataProvider().refreshAll();
                         });
                         return finalIcon;
-                    }).setHeader("").setWidth("18px").setFlexGrow(0).setFrozen(true);
+                    }).setHeader("").setWidth("18px").setFlexGrow(0).setFrozen(false);
 
             java.util.List<com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>>> cols = new java.util.ArrayList<>();
             cols.add(expandCol);

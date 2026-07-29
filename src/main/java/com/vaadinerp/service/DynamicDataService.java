@@ -4487,7 +4487,7 @@ public class DynamicDataService {
             return jdbcTemplate.queryForList(sql.toString(), params.toArray());
         } catch (Exception e) {
             e.printStackTrace();
-            return new ArrayList<>();
+            throw new RuntimeException("Query Gagal: " + sql.toString() + "\nError: " + e.getMessage(), e);
         }
     }
 
