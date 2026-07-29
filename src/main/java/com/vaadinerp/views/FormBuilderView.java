@@ -83,10 +83,10 @@ public class FormBuilderView extends VerticalLayout {
             "Pilih & Pasangkan Extra Toolbar dari Katalog (Chosenbox)");
 
     // Selected Field State
-    private FieldMetaTemp selectedField = null;
+    private java.util.Set<FieldMetaTemp> selectedFields = new java.util.LinkedHashSet<>();
     private boolean isSelectingField = false;
     private String selectedFormCode = null;
-    private FieldMetaTemp draggedField = null;
+    private java.util.List<FieldMetaTemp> draggedFields = new java.util.ArrayList<>();
     private String draggedPaletteType = null;
     private String draggedSubformPaletteType = null;
 
@@ -667,7 +667,7 @@ public class FormBuilderView extends VerticalLayout {
 
             FieldMetaTemp selected = e.getValue();
             if (selected != null) {
-                selectField(selected);
+                selectField(selected, false);
             }
             if (isListView) {
                 // Not filtering list view using combobox anymore
@@ -685,6 +685,8 @@ public class FormBuilderView extends VerticalLayout {
             listCanvas.setVisible(isListView);
             if (isListView) {
                 refreshListCanvas();
+                listCanvas.deselectAll();
+                selectedFields.forEach(listCanvas::select);
             }
         });
 
@@ -721,6 +723,35 @@ public class FormBuilderView extends VerticalLayout {
         propertiesTitle.getStyle().set("margin-top", "0").set("margin-bottom", "15px");
         propertiesPanel.add(propertiesTitle);
 
+        Button btnBulkDelete = new Button("🗑️ Delete Selected");
+        btnBulkDelete.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
+        btnBulkDelete.addClickListener(e -> {
+            if (selectedFields.isEmpty()) return;
+            fieldsList.removeAll(selectedFields);
+            selectedFields.clear();
+            selectField(null, false);
+            rebuildCanvas();
+            if (isListView) refreshListCanvas();
+            Notification.show("Selected fields deleted", 2000, Notification.Position.BOTTOM_END);
+        });
+        
+        Button btnBulkGroupRow = new Button("🔀 Group into same Row");
+        btnBulkGroupRow.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+        btnBulkGroupRow.addClickListener(e -> {
+            if (selectedFields.isEmpty()) return;
+            int targetRow = selectedFields.iterator().next().rowGroup;
+            for(FieldMetaTemp f : selectedFields) {
+                f.rowGroup = targetRow;
+            }
+            rebuildCanvas();
+            if (isListView) refreshListCanvas();
+            Notification.show("Grouped into row " + targetRow, 2000, Notification.Position.BOTTOM_END);
+        });
+        
+        HorizontalLayout bulkActionsLayout = new HorizontalLayout(btnBulkDelete, btnBulkGroupRow);
+        bulkActionsLayout.setVisible(false);
+        propertiesPanel.add(bulkActionsLayout);
+
         propPlaceholderLabel.getStyle().set("color", "#64748b").set("font-size", "0.9rem").set("text-align", "center");
         propertiesPanel.add(propPlaceholderLabel);
 
@@ -755,7 +786,7 @@ public class FormBuilderView extends VerticalLayout {
         // Initial rebuild
         refreshHistoryGrid();
         rebuildCanvas();
-        selectField(null);
+        selectField(null, false);
     }
 
     private Button createPaletteButton(String label, VaadinIcon icon, String type) {
@@ -803,7 +834,7 @@ public class FormBuilderView extends VerticalLayout {
         FieldMetaTemp temp = createFieldMetaTemp(type);
         fieldsList.add(temp);
         rebuildCanvas();
-        selectField(temp);
+        selectField(temp, false);
         Notification.show(type + " ditambahkan ke kanvas!", 2000, Notification.Position.BOTTOM_END);
     }
 
@@ -879,12 +910,12 @@ public class FormBuilderView extends VerticalLayout {
         propLovCode.setItemValueGenerator(row -> row.get("code") != null ? row.get("code").toString() : "");
 
         propLovCode.setDataFetchCallback(keyword -> {
-            boolean isSubform = selectedField != null && "SUBFORM_GRID".equalsIgnoreCase(selectedField.componentType);
+            boolean isSubform = !selectedFields.isEmpty() && "SUBFORM_GRID".equalsIgnoreCase(selectedFields.iterator().next().componentType);
             return fetchLovItems(keyword, isSubform);
         });
 
         propLovCode.setItemFinder(val -> {
-            boolean isSubform = selectedField != null && "SUBFORM_GRID".equalsIgnoreCase(selectedField.componentType);
+            boolean isSubform = !selectedFields.isEmpty() && "SUBFORM_GRID".equalsIgnoreCase(selectedFields.iterator().next().componentType);
             List<Map<String, Object>> items = fetchLovItems(val != null ? val : "", isSubform);
             return items.stream()
                     .filter(item -> val != null && val.equalsIgnoreCase(item.get("code").toString()))
@@ -897,8 +928,8 @@ public class FormBuilderView extends VerticalLayout {
         propBtnEditLov.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_CONTRAST);
         propBtnEditLov.setWidthFull();
         propBtnEditLov.addClickListener(e -> {
-            if (selectedField != null && selectedField.lovCode != null && !selectedField.lovCode.trim().isEmpty()) {
-                openLovConfigDialog(selectedField.lovCode);
+            if (!selectedFields.isEmpty() && selectedFields.iterator().next().lovCode != null && !selectedFields.iterator().next().lovCode.trim().isEmpty()) {
+                openLovConfigDialog(selectedFields.iterator().next().lovCode);
             } else {
                 openLovConfigDialog(null);
             }
@@ -927,16 +958,16 @@ public class FormBuilderView extends VerticalLayout {
         propBtnFilters.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_CONTRAST);
         propBtnFilters.setWidthFull();
         propBtnFilters.addClickListener(e -> {
-            if (selectedField != null) {
-                openFilterConfigDialog(selectedField);
+            if (!selectedFields.isEmpty()) {
+                openFilterConfigDialog((!selectedFields.isEmpty() ? selectedFields.iterator().next() : null));
             }
         });
 
         propBtnLovTargets.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_CONTRAST);
         propBtnLovTargets.setWidthFull();
         propBtnLovTargets.addClickListener(e -> {
-            if (selectedField != null) {
-                openLovTargetsConfigDialog(selectedField);
+            if (!selectedFields.isEmpty()) {
+                openLovTargetsConfigDialog((!selectedFields.isEmpty() ? selectedFields.iterator().next() : null));
             }
         });
 
@@ -953,16 +984,16 @@ public class FormBuilderView extends VerticalLayout {
         propBtnCustomValidation.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_SUCCESS);
         propBtnCustomValidation.setWidthFull();
         propBtnCustomValidation.addClickListener(e -> {
-            if (selectedField != null) {
-                openDynamicValidationDialog(selectedField);
+            if (!selectedFields.isEmpty()) {
+                openDynamicValidationDialog((!selectedFields.isEmpty() ? selectedFields.iterator().next() : null));
             }
         });
 
         propBtnOnAddScript.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
         propBtnOnAddScript.setWidthFull();
         propBtnOnAddScript.addClickListener(e -> {
-            if (selectedField != null) {
-                openOnAddScriptDialog(selectedField);
+            if (!selectedFields.isEmpty()) {
+                openOnAddScriptDialog((!selectedFields.isEmpty() ? selectedFields.iterator().next() : null));
             }
         });
 
@@ -978,131 +1009,131 @@ public class FormBuilderView extends VerticalLayout {
 
     private void setupPropertiesListeners() {
         propFieldName.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.fieldName = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().fieldName = e.getValue();
                 rebuildCanvas();
             }
         });
         propFieldLabel.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.fieldLabel = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().fieldLabel = e.getValue();
                 rebuildCanvas();
             }
         });
         propComponentType.addValueChangeListener(e -> {
-            if (selectedField != null && (!isSelectingField || e.isFromClient())) {
-                selectedField.componentType = e.getValue();
+            if (!selectedFields.isEmpty() && (!isSelectingField || e.isFromClient())) {
+                selectedFields.iterator().next().componentType = e.getValue();
                 updatePropertyFieldsState(e.getValue());
                 rebuildCanvas();
             }
         });
         propLovCode.addValueChangeListener(e -> {
-            if (selectedField != null && (!isSelectingField || e.isFromClient())) {
-                selectedField.lovCode = e.getValue();
-                updatePropertyFieldsState(selectedField.componentType);
+            if (!selectedFields.isEmpty() && (!isSelectingField || e.isFromClient())) {
+                selectedFields.iterator().next().lovCode = e.getValue();
+                updatePropertyFieldsState(selectedFields.iterator().next().componentType);
                 rebuildCanvas();
             }
         });
         propRowGroup.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.rowGroup = e.getValue() != null ? e.getValue() : 1;
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().rowGroup = e.getValue() != null ? e.getValue() : 1;
                 rebuildCanvas();
             }
         });
         propColSpan.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.colSpan = e.getValue() != null && e.getValue() > 0 ? e.getValue() : null;
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().colSpan = e.getValue() != null && e.getValue() > 0 ? e.getValue() : null;
                 rebuildCanvas();
             }
         });
         propFieldWidth.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.EAGER);
         propFieldWidth.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.fieldWidth = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().fieldWidth = e.getValue();
                 rebuildCanvas();
             }
         });
         propReadonlyMode.addValueChangeListener(e -> {
-            if (selectedField != null && (!isSelectingField || e.isFromClient())) {
+            if (!selectedFields.isEmpty() && (!isSelectingField || e.isFromClient())) {
                 String val = e.getValue();
-                selectedField.readonlyMode = (val == null || val.trim().isEmpty()) ? "NONE" : val;
-                selectedField.isReadonly = "EDIT_AND_ADD".equalsIgnoreCase(selectedField.readonlyMode);
+                selectedFields.iterator().next().readonlyMode = (val == null || val.trim().isEmpty()) ? "NONE" : val;
+                selectedFields.iterator().next().isReadonly = "EDIT_AND_ADD".equalsIgnoreCase(selectedFields.iterator().next().readonlyMode);
                 if (e.isFromClient()) {
-                    propIsReadonly.setValue(selectedField.isReadonly);
+                    propIsReadonly.setValue(selectedFields.iterator().next().isReadonly);
                 }
                 rebuildCanvas();
             }
         });
         propIsRequired.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.isRequired = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().isRequired = e.getValue();
                 rebuildCanvas();
             }
         });
         propIsReadonly.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.isReadonly = e.getValue();
-                selectedField.readonlyMode = e.getValue() ? "EDIT_AND_ADD" : "NONE";
-                propReadonlyMode.setValue(selectedField.readonlyMode);
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().isReadonly = e.getValue();
+                selectedFields.iterator().next().readonlyMode = e.getValue() ? "EDIT_AND_ADD" : "NONE";
+                propReadonlyMode.setValue(selectedFields.iterator().next().readonlyMode);
                 rebuildCanvas();
             }
         });
         propShowInGrid.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.showInGrid = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().showInGrid = e.getValue();
                 rebuildCanvas();
             }
         });
         propHideInForm.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.hideInForm = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().hideInForm = e.getValue();
                 rebuildCanvas();
             }
         });
         propIsDetail.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.isDetail = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().isDetail = e.getValue();
                 rebuildCanvas();
             }
         });
         propIsSortable.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.isSortable = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().isSortable = e.getValue();
             }
         });
         propFormula.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.formula = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().formula = e.getValue();
             }
         });
         propDisplayFormat.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.displayFormat = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().displayFormat = e.getValue();
             }
         });
         propValidationRule.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.validationRule = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().validationRule = e.getValue();
             }
         });
         propSequenceCode.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.sequenceCode = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().sequenceCode = e.getValue();
             }
         });
         propSaveOnInsert.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.saveOnInsert = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().saveOnInsert = e.getValue();
             }
         });
         propSaveOnUpdate.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.saveOnUpdate = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().saveOnUpdate = e.getValue();
             }
         });
         propIsAuditLog.addValueChangeListener(e -> {
-            if (selectedField != null && e.isFromClient()) {
-                selectedField.isAuditLog = e.getValue();
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().isAuditLog = e.getValue();
             }
         });
     }
@@ -1130,8 +1161,8 @@ public class FormBuilderView extends VerticalLayout {
             propBtnOnAddScript.setEnabled(true);
             propBtnOnAddScript.setVisible(true);
 
-            if (selectedField != null) {
-                selectedField.showInGrid = false;
+            if (!selectedFields.isEmpty()) {
+                selectedFields.iterator().next().showInGrid = false;
             }
             propShowInGrid.setValue(false);
             propShowInGrid.setEnabled(false);
@@ -1150,8 +1181,8 @@ public class FormBuilderView extends VerticalLayout {
             propFormula.setPlaceholder("");
             propFormula.setEnabled(true);
 
-            propBtnFilters.setEnabled(isSelection && selectedField != null && selectedField.lovCode != null
-                    && !selectedField.lovCode.trim().isEmpty());
+            propBtnFilters.setEnabled(isSelection && !selectedFields.isEmpty() && selectedFields.iterator().next().lovCode != null
+                    && !selectedFields.iterator().next().lovCode.trim().isEmpty());
             propBtnLovTargets.setEnabled(true);
             propBtnOnAddScript.setEnabled(false);
             propBtnOnAddScript.setVisible(false);
@@ -1192,48 +1223,127 @@ public class FormBuilderView extends VerticalLayout {
         }
     }
 
-    private void selectField(FieldMetaTemp temp) {
-        selectedField = temp;
+    private void selectField(FieldMetaTemp temp, boolean multi) {
         if (temp == null) {
+            selectedFields.clear();
+        } else {
+            if (multi) {
+                if (selectedFields.contains(temp)) {
+                    selectedFields.remove(temp);
+                } else {
+                    selectedFields.add(temp);
+                }
+            } else {
+                selectedFields.clear();
+                selectedFields.add(temp);
+            }
+        }
+        
+        Component parent = propertiesPanel;
+        HorizontalLayout bulkLayout = (HorizontalLayout) parent.getChildren().filter(c -> c instanceof HorizontalLayout).findFirst().orElse(null);
+        if(bulkLayout != null) {
+            bulkLayout.setVisible(selectedFields.size() > 1);
+        }
+        
+        if (selectedFields.isEmpty()) {
             propPlaceholderLabel.setVisible(true);
             propertiesForm.setVisible(false);
         } else {
             propPlaceholderLabel.setVisible(false);
             propertiesForm.setVisible(true);
-
             isSelectingField = true;
             try {
-                updatePropertyFieldsState(temp.componentType);
-
-                propFieldName.setValue(temp.fieldName != null ? temp.fieldName : "");
-                propFieldLabel.setValue(temp.fieldLabel != null ? temp.fieldLabel : "");
-                propComponentType.setValue(temp.componentType);
-                propLovCode.setValue(temp.lovCode);
-                propRowGroup.setValue(temp.rowGroup);
-                propColSpan.setValue(temp.colSpan != null && temp.colSpan > 0 ? temp.colSpan : null);
-                propFieldWidth.setValue(temp.fieldWidth != null ? temp.fieldWidth : "100%");
-                propIsRequired.setValue(temp.isRequired);
-                propIsReadonly.setValue(temp.isReadonly);
-                String rm = temp.readonlyMode;
-                if (rm == null || rm.trim().isEmpty() || "DEFAULT".equalsIgnoreCase(rm)) {
-                    rm = temp.isReadonly ? "EDIT_AND_ADD" : "NONE";
+                if (selectedFields.size() == 1) {
+                    FieldMetaTemp first = selectedFields.iterator().next();
+                    updatePropertyFieldsState(first.componentType);
+                    
+                    propFieldName.setVisible(true);
+                    propFieldLabel.setVisible(true);
+                    propComponentType.setVisible(true);
+                    propSequenceCode.setVisible(true);
+                    propFormula.setVisible(true);
+                    propDisplayFormat.setVisible(true);
+                    propValidationRule.setVisible(true);
+                    propLovCode.setVisible(true);
+                    propBtnEditLov.setVisible(true);
+                    propBtnFilters.setVisible(true);
+                    propBtnLovTargets.setVisible(true);
+                    propBtnCustomValidation.setVisible(true);
+                    propBtnOnAddScript.setVisible(true);
+                    
+                    propFieldName.setValue(first.fieldName != null ? first.fieldName : "");
+                    propFieldLabel.setValue(first.fieldLabel != null ? first.fieldLabel : "");
+                    propComponentType.setValue(first.componentType);
+                    propLovCode.setValue(first.lovCode);
+                    propRowGroup.setValue(first.rowGroup);
+                    propColSpan.setValue(first.colSpan != null && first.colSpan > 0 ? first.colSpan : null);
+                    propFieldWidth.setValue(first.fieldWidth != null ? first.fieldWidth : "100%");
+                    propIsRequired.setValue(first.isRequired);
+                    propIsReadonly.setValue(first.isReadonly);
+                    
+                    String rm = first.readonlyMode;
+                    if (rm == null || rm.trim().isEmpty() || "DEFAULT".equalsIgnoreCase(rm)) {
+                        rm = first.isReadonly ? "EDIT_AND_ADD" : "NONE";
+                    }
+                    propReadonlyMode.setValue(rm);
+                    if ("SUBFORM_GRID".equalsIgnoreCase(first.componentType)) {
+                        first.showInGrid = false;
+                    }
+                    propShowInGrid.setValue(first.showInGrid);
+                    propHideInForm.setValue(first.hideInForm);
+                    propIsDetail.setValue(first.isDetail);
+                    propIsDetail.setVisible("MASTER_DETAIL".equals(formTypeCombo.getValue()));
+                    propIsSortable.setValue(first.isSortable);
+                    propFormula.setValue(first.formula != null ? first.formula : "");
+                    propDisplayFormat.setValue(first.displayFormat != null ? first.displayFormat : "");
+                    propValidationRule.setValue(first.validationRule != null ? first.validationRule : "NONE");
+                    propSequenceCode.setValue(first.sequenceCode != null ? first.sequenceCode : "");
+                    propSaveOnInsert.setValue(first.saveOnInsert);
+                    propSaveOnUpdate.setValue(first.saveOnUpdate);
+                    propIsAuditLog.setValue(first.isAuditLog);
+                } else {
+                    propFieldName.setVisible(false);
+                    propFieldLabel.setVisible(false);
+                    propComponentType.setVisible(false);
+                    propSequenceCode.setVisible(false);
+                    propFormula.setVisible(false);
+                    propDisplayFormat.setVisible(false);
+                    propValidationRule.setVisible(false);
+                    propLovCode.setVisible(false);
+                    propBtnEditLov.setVisible(false);
+                    propBtnFilters.setVisible(false);
+                    propBtnLovTargets.setVisible(false);
+                    propBtnCustomValidation.setVisible(false);
+                    propBtnOnAddScript.setVisible(false);
+                    
+                    boolean sameRow = true;
+                    int firstRow = -1;
+                    boolean sameColSpan = true;
+                    Integer firstColSpan = -1;
+                    boolean sameWidth = true;
+                    String firstWidth = null;
+                    
+                    boolean firstField = true;
+                    for(FieldMetaTemp f : selectedFields) {
+                        if(firstField) {
+                            firstRow = f.rowGroup;
+                            firstColSpan = f.colSpan;
+                            firstWidth = f.fieldWidth;
+                            firstField = false;
+                        } else {
+                            if(f.rowGroup != firstRow) sameRow = false;
+                            if(!java.util.Objects.equals(f.colSpan, firstColSpan)) sameColSpan = false;
+                            if(!java.util.Objects.equals(f.fieldWidth, firstWidth)) sameWidth = false;
+                        }
+                    }
+                    if (sameRow) propRowGroup.setValue(firstRow); else propRowGroup.clear();
+                    if (sameColSpan) propColSpan.setValue(firstColSpan); else propColSpan.clear();
+                    if (sameWidth) propFieldWidth.setValue(firstWidth); else propFieldWidth.clear();
+                    propIsRequired.clear();
+                    propIsReadonly.clear();
+                    propShowInGrid.clear();
+                    propHideInForm.clear();
                 }
-                propReadonlyMode.setValue(rm);
-                if ("SUBFORM_GRID".equalsIgnoreCase(temp.componentType)) {
-                    temp.showInGrid = false;
-                }
-                propShowInGrid.setValue(temp.showInGrid);
-                propHideInForm.setValue(temp.hideInForm);
-                propIsDetail.setValue(temp.isDetail);
-                propIsDetail.setVisible("MASTER_DETAIL".equals(formTypeCombo.getValue()));
-                propIsSortable.setValue(temp.isSortable);
-                propFormula.setValue(temp.formula != null ? temp.formula : "");
-                propDisplayFormat.setValue(temp.displayFormat != null ? temp.displayFormat : "");
-                propValidationRule.setValue(temp.validationRule != null ? temp.validationRule : "NONE");
-                propSequenceCode.setValue(temp.sequenceCode != null ? temp.sequenceCode : "");
-                propSaveOnInsert.setValue(temp.saveOnInsert);
-                propSaveOnUpdate.setValue(temp.saveOnUpdate);
-                propIsAuditLog.setValue(temp.isAuditLog);
             } finally {
                 isSelectingField = false;
             }
@@ -1369,15 +1479,15 @@ public class FormBuilderView extends VerticalLayout {
         dropTarget.addDropListener(e -> {
             boolean droppedFromPalette = false;
             if (draggedPaletteType != null) {
-                draggedField = createFieldMetaTemp(draggedPaletteType);
+                draggedFields.clear(); draggedFields.add(createFieldMetaTemp(draggedPaletteType));
                 draggedPaletteType = null;
                 droppedFromPalette = true;
-                fieldsList.add(draggedField); // Add temporarily so reorder logic finds it
+                fieldsList.add(draggedFields.get(0)); // Add temporarily so reorder logic finds it
             }
 
-            if (draggedField != null) {
-                if (draggedField.isDetail) {
-                    draggedField = null;
+            if (!draggedFields.isEmpty()) {
+                if (draggedFields.get(0).isDetail) {
+                    draggedFields.clear();
                     canvas.removeClassName("dragging-active");
                     rebuildCanvas();
                     return;
@@ -1390,10 +1500,10 @@ public class FormBuilderView extends VerticalLayout {
                     }
                 }
 
-                draggedField.rowGroup = targetRowGroup;
+                draggedFields.get(0).rowGroup = targetRowGroup;
 
                 // Reorder in list
-                fieldsList.remove(draggedField);
+                fieldsList.remove(draggedFields.get(0));
 
                 int insertIdx = 0;
                 for (int i = 0; i < fieldsList.size(); i++) {
@@ -1404,18 +1514,18 @@ public class FormBuilderView extends VerticalLayout {
                         insertIdx = i + 1;
                     }
                 }
-                fieldsList.add(insertIdx, draggedField);
+                fieldsList.add(insertIdx, draggedFields.get(0));
 
                 normalizeRowGroups();
-                if (selectedField != null) {
-                    propRowGroup.setValue(selectedField.rowGroup);
+                if (!selectedFields.isEmpty()) {
+                    propRowGroup.setValue(selectedFields.iterator().next().rowGroup);
                 }
                 canvas.removeClassName("dragging-active");
                 rebuildCanvas();
-                Notification.show("Moved " + draggedField.fieldName + " to new row", 2000,
+                Notification.show("Moved " + draggedFields.get(0).fieldName + " to new row", 2000,
                         Notification.Position.BOTTOM_END);
             }
-            draggedField = null;
+            draggedFields.clear();
         });
 
         return zone;
@@ -1424,6 +1534,15 @@ public class FormBuilderView extends VerticalLayout {
     private void setupListCanvas() {
         listCanvas.setWidthFull();
         listCanvas.setHeightFull();
+        listCanvas.setSelectionMode(com.vaadin.flow.component.grid.Grid.SelectionMode.MULTI);
+        com.vaadinerp.components.StandardGridUtils.enableRowClickSelection(listCanvas);
+        listCanvas.addSelectionListener(e -> {
+            if (e.isFromClient()) {
+                selectedFields.clear();
+                selectedFields.addAll(e.getAllSelectedItems());
+                selectField(selectedFields.isEmpty() ? null : selectedFields.iterator().next(), false);
+            }
+        });
         listCanvas.addThemeVariants(com.vaadin.flow.component.grid.GridVariant.LUMO_ROW_STRIPES,
                 com.vaadin.flow.component.grid.GridVariant.LUMO_COMPACT);
 
@@ -1491,7 +1610,7 @@ public class FormBuilderView extends VerticalLayout {
         filterRow.getCell(colType).setComponent(typeFilter);
 
         listCanvas.addItemDoubleClickListener(e -> {
-            selectField(e.getItem());
+            selectField(e.getItem(), false);
         });
     }
 
@@ -1639,16 +1758,16 @@ public class FormBuilderView extends VerticalLayout {
 
             boolean droppedFromPalette = false;
             if (draggedPaletteType != null) {
-                draggedField = createFieldMetaTemp(draggedPaletteType);
+                draggedFields.clear(); draggedFields.add(createFieldMetaTemp(draggedPaletteType));
                 draggedPaletteType = null;
                 droppedFromPalette = true;
-                fieldsList.add(draggedField); // Add temporarily
+                fieldsList.add(draggedFields.get(0)); // Add temporarily
             }
 
-            if (draggedField != null && !draggedField.isDetail) {
-                fieldsList.remove(draggedField);
-                draggedField.rowGroup = targetRowGroup;
-                draggedField.colIndex = targetColIndex;
+            if (!draggedFields.isEmpty() && !draggedFields.get(0).isDetail) {
+                fieldsList.remove(draggedFields.get(0));
+                draggedFields.get(0).rowGroup = targetRowGroup;
+                draggedFields.get(0).colIndex = targetColIndex;
 
                 int insertIdx = 0;
                 for (int j = 0; j < fieldsList.size(); j++) {
@@ -1659,18 +1778,18 @@ public class FormBuilderView extends VerticalLayout {
                         insertIdx = j + 1;
                     }
                 }
-                fieldsList.add(insertIdx, draggedField);
+                fieldsList.add(insertIdx, draggedFields.get(0));
 
                 normalizeRowGroups();
-                if (selectedField != null) {
-                    propRowGroup.setValue(selectedField.rowGroup);
+                if (!selectedFields.isEmpty()) {
+                    propRowGroup.setValue(selectedFields.iterator().next().rowGroup);
                 }
                 canvas.removeClassName("dragging-active");
                 rebuildCanvas();
                 Notification.show("Field dipindah ke kolom " + targetColIndex + " pada Baris " + targetRowGroup, 2000,
                         Notification.Position.BOTTOM_END);
             }
-            draggedField = null;
+            draggedFields.clear();
         });
 
         return placeholder;
@@ -1684,7 +1803,7 @@ public class FormBuilderView extends VerticalLayout {
         card.setPadding(true);
         card.setSpacing(false);
 
-        boolean isSelected = (selectedField == temp);
+        boolean isSelected = (selectedFields.contains(temp));
         boolean isMultiLine = "TEXTAREA".equalsIgnoreCase(temp.componentType)
                 || "SUBFORM_GRID".equalsIgnoreCase(temp.componentType);
 
@@ -1822,7 +1941,7 @@ public class FormBuilderView extends VerticalLayout {
                 .set("min-width", "26px")
                 .set("width", "26px")
                 .set("height", "26px");
-        btnEdit.addClickListener(e -> selectField(temp));
+        btnEdit.addClickListener(e -> selectField(temp, false));
 
         Button btnDel = new Button(VaadinIcon.TRASH.create());
         btnDel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
@@ -1834,8 +1953,8 @@ public class FormBuilderView extends VerticalLayout {
                 .set("height", "26px");
         btnDel.addClickListener(e -> {
             fieldsList.remove(temp);
-            if (selectedField == temp) {
-                selectField(null);
+            if (selectedFields.contains(temp)) {
+                selectField(null, false);
             }
             rebuildCanvas();
         });
@@ -1855,18 +1974,22 @@ public class FormBuilderView extends VerticalLayout {
         }
         card.add(cardHeader, previewComp);
 
-        card.getElement().addEventListener("click", e -> selectField(temp));
+        card.getElement().addEventListener("click", e -> {
+            boolean isMulti = e.getEventData().getBoolean("event.shiftKey") || e.getEventData().getBoolean("event.ctrlKey");
+            selectField(temp, isMulti);
+            rebuildCanvas();
+        }).addEventData("event.shiftKey").addEventData("event.ctrlKey");
 
         // Enable Drag & Drop
         DragSource<Component> dragSource = DragSource.create(card);
         dragSource.setDraggable(true);
         dragSource.addDragStartListener(e -> {
-            draggedField = temp;
+            draggedFields.clear(); draggedFields.add(temp);
             card.getStyle().set("opacity", "0.5");
             canvas.addClassName("dragging-active");
         });
         dragSource.addDragEndListener(e -> {
-            draggedField = null;
+            draggedFields.clear();
             canvas.removeClassName("dragging-active");
             rebuildCanvas();
         });
@@ -1891,9 +2014,9 @@ public class FormBuilderView extends VerticalLayout {
                 .set("z-index", "1");
 
         // Forward clicks to card selection
-        leftHitbox.addClickListener(e -> selectField(temp));
-        rightHitbox.addClickListener(e -> selectField(temp));
-        centerHitbox.addClickListener(e -> selectField(temp));
+        leftHitbox.addClickListener(e -> selectField(temp, false));
+        rightHitbox.addClickListener(e -> selectField(temp, false));
+        centerHitbox.addClickListener(e -> selectField(temp, false));
 
         card.add(leftHitbox, centerHitbox, rightHitbox);
 
@@ -1948,32 +2071,32 @@ public class FormBuilderView extends VerticalLayout {
 
             boolean droppedFromPalette = false;
             if (draggedPaletteType != null) {
-                draggedField = createFieldMetaTemp(draggedPaletteType);
+                draggedFields.clear(); draggedFields.add(createFieldMetaTemp(draggedPaletteType));
                 draggedPaletteType = null;
                 droppedFromPalette = true;
-                fieldsList.add(draggedField);
+                fieldsList.add(draggedFields.get(0));
             }
 
-            if (draggedField != null && draggedField != temp) {
-                draggedField.rowGroup = temp.rowGroup;
+            if (!draggedFields.isEmpty() && (!draggedFields.contains(temp))) {
+                draggedFields.get(0).rowGroup = temp.rowGroup;
                 int targetCol = temp.colIndex;
                 if (!isBefore) {
                     targetCol += 1;
                 }
-                draggedField.colIndex = targetCol;
+                draggedFields.get(0).colIndex = targetCol;
 
                 for (FieldMetaTemp f : fieldsList) {
-                    if (f != draggedField && f.rowGroup == temp.rowGroup && f.colIndex >= targetCol) {
+                    if (f != draggedFields.get(0) && f.rowGroup == temp.rowGroup && f.colIndex >= targetCol) {
                         f.colIndex++;
                     }
                 }
-                if (selectedField != null) {
-                    propRowGroup.setValue(selectedField.rowGroup);
+                if (!selectedFields.isEmpty()) {
+                    propRowGroup.setValue(selectedFields.iterator().next().rowGroup);
                 }
                 rebuildCanvas();
                 Notification.show("Field inserted successfully.", 2000, Notification.Position.BOTTOM_END);
             }
-            draggedField = null;
+            draggedFields.clear();
         };
 
         leftTarget.addDropListener(e -> handleInsert.accept(true));
@@ -1986,22 +2109,22 @@ public class FormBuilderView extends VerticalLayout {
 
             boolean droppedFromPalette = false;
             if (draggedPaletteType != null) {
-                draggedField = createFieldMetaTemp(draggedPaletteType);
+                draggedFields.clear(); draggedFields.add(createFieldMetaTemp(draggedPaletteType));
                 draggedPaletteType = null;
                 droppedFromPalette = true;
-                fieldsList.add(draggedField); // Add temporarily
+                fieldsList.add(draggedFields.get(0)); // Add temporarily
             }
 
-            if (draggedField != null && draggedField != temp) {
+            if (!draggedFields.isEmpty() && (!draggedFields.contains(temp))) {
                 if (droppedFromPalette) {
                     Notification.show("Please drop new components into empty slots (+ Tarik Field ke Sini)", 3000,
                             Notification.Position.MIDDLE);
-                    fieldsList.remove(draggedField);
-                    draggedField = null;
+                    fieldsList.remove(draggedFields.get(0));
+                    draggedFields.clear();
                     return;
                 }
 
-                FieldMetaTemp sourceField = draggedField;
+                FieldMetaTemp sourceField = draggedFields.get(0);
                 FieldMetaTemp targetField = temp;
 
                 Div overlay = new Div();
@@ -2042,8 +2165,8 @@ public class FormBuilderView extends VerticalLayout {
                     targetField.rowGroup = tempRow;
                     targetField.colIndex = tempCol;
 
-                    if (selectedField != null) {
-                        propRowGroup.setValue(selectedField.rowGroup);
+                    if (!selectedFields.isEmpty()) {
+                        propRowGroup.setValue(selectedFields.iterator().next().rowGroup);
                     }
                     canvasPanel.remove(overlay);
                     rebuildCanvas();
@@ -2060,7 +2183,7 @@ public class FormBuilderView extends VerticalLayout {
 
                 canvasPanel.add(overlay);
             }
-            draggedField = null;
+            draggedFields.clear();
         });
 
         if ("SUBFORM_GRID".equals(temp.componentType) && temp.lovCode != null && !temp.lovCode.trim().isEmpty()) {
@@ -3070,7 +3193,7 @@ public class FormBuilderView extends VerticalLayout {
             detailPkField.setValue("id");
             detailFkField.clear();
             fieldsList.clear();
-            selectField(null);
+            selectField(null, false);
             rebuildCanvas();
 
             // Refresh history grid and switch to historis tab
@@ -3457,7 +3580,7 @@ public class FormBuilderView extends VerticalLayout {
             detailPkField.setValue("id");
             detailFkField.clear();
             fieldsList.clear();
-            selectField(null);
+            selectField(null, false);
             rebuildCanvas();
             tabSheet.setSelectedTab(transaksiTab);
         });
@@ -3541,7 +3664,7 @@ public class FormBuilderView extends VerticalLayout {
                                     detailPkField.setValue("id");
                                     detailFkField.clear();
                                     fieldsList.clear();
-                                    selectField(null);
+                                    selectField(null, false);
                                     rebuildCanvas();
 
                                     refreshHistoryGrid();
@@ -3633,7 +3756,7 @@ public class FormBuilderView extends VerticalLayout {
             detailPkField.setValue("id");
             detailFkField.clear();
             fieldsList.clear();
-            selectField(null);
+            selectField(null, false);
             rebuildCanvas();
             tabSheet.setSelectedTab(historisTab);
         });
@@ -3662,7 +3785,7 @@ public class FormBuilderView extends VerticalLayout {
                     Notification.show("Form belum tersimpan. Kanvas dibersihkan!", 1500,
                             Notification.Position.BOTTOM_END);
                     fieldsList.clear();
-                    selectField(null);
+                    selectField(null, false);
                     rebuildCanvas();
                 }
             }
@@ -3870,7 +3993,7 @@ public class FormBuilderView extends VerticalLayout {
                     fieldsList.add(temp);
                 }
             }
-            selectField(null);
+            selectField(null, false);
             rebuildCanvas();
         }
     }
@@ -3978,8 +4101,8 @@ public class FormBuilderView extends VerticalLayout {
                 lovMetaRepository.save(meta);
                 Notification.show("LOV " + newCode + " berhasil disimpan!", 3000, Notification.Position.TOP_CENTER);
                 propLovCode.setValue(newCode);
-                if (selectedField != null) {
-                    selectedField.lovCode = newCode;
+                if (!selectedFields.isEmpty()) {
+                    selectedFields.iterator().next().lovCode = newCode;
                 }
                 dialog.close();
             } catch (Exception ex) {
@@ -4384,6 +4507,14 @@ public class FormBuilderView extends VerticalLayout {
             criteria.value = formCode;
             field.setValue(formCode);
             applyHistoryFilters();
+        }
+    }
+
+    private void shiftColsRight(int rowGroup, int startCol, int shiftAmount) {
+        for (FieldMetaTemp f : fieldsList) {
+            if (f.rowGroup == rowGroup && f.colIndex >= startCol) {
+                f.colIndex += shiftAmount;
+            }
         }
     }
 }

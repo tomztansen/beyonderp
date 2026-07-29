@@ -168,13 +168,20 @@ public class DynamicPickerPopupDialog extends Dialog {
     }
 
     private void loadData(String searchTerm) {
-        List<Map<String, Object>> records = dataService.fetchLovDataWithActionFilters(
-                actionMeta.getSourceLovCode(),
-                actionMeta.getFilterMapping(),
-                headerRecord,
-                searchTerm
-        );
-        grid.setItems(records);
+        try {
+            List<Map<String, Object>> records = dataService.fetchLovDataWithActionFilters(
+                    actionMeta.getSourceLovCode(),
+                    actionMeta.getFilterMapping(),
+                    headerRecord,
+                    searchTerm
+            );
+            grid.setItems(records);
+        } catch (Exception e) {
+            com.vaadin.flow.component.notification.Notification notif = com.vaadin.flow.component.notification.Notification.show(
+                    e.getMessage(), 10000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE);
+            notif.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+            grid.setItems(new java.util.ArrayList<>());
+        }
     }
 
     private Object getCaseInsensitiveVal(Map<String, Object> map, String key) {

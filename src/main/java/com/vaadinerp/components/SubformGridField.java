@@ -56,9 +56,14 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private com.vaadin.flow.shared.Registration gridDragEndReg;
     private com.vaadin.flow.shared.Registration gridColReorderReg;
     private java.util.function.Supplier<Map<String, Object>> headerRecordSupplier;
+    private java.util.function.BiConsumer<String, Object> updateParentFieldValueCallback;
 
     public void setHeaderRecordSupplier(java.util.function.Supplier<Map<String, Object>> supplier) {
         this.headerRecordSupplier = supplier;
+    }
+
+    public void setUpdateParentFieldValueCallback(java.util.function.BiConsumer<String, Object> callback) {
+        this.updateParentFieldValueCallback = callback;
     }
 
     public com.vaadin.flow.component.Component findParentView() {
@@ -1215,6 +1220,13 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 if (destCol.toLowerCase().startsWith("detail.")) {
                     destCol = destCol.substring(7);
                 }
+                
+                boolean isHeaderTarget = false;
+                if (destCol.toLowerCase().startsWith("header.")) {
+                    destCol = destCol.substring(7);
+                    isHeaderTarget = true;
+                }
+                
                 Object val = null;
                 if (srcRecord != null && !srcCol.toLowerCase().contains("coalesce(") && !srcCol.toLowerCase().contains("ifnull(") && !srcCol.contains("+") && !srcCol.contains("*") && !srcCol.contains("/")) {
                     val = getCaseInsensitiveVal(srcRecord, srcCol);
@@ -1246,7 +1258,17 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                         }
                     }
                 }
-                putCaseInsensitiveVal(destRow, destCol, val);
+                
+                if (isHeaderTarget) {
+                    if (updateParentFieldValueCallback != null) {
+                        updateParentFieldValueCallback.accept(destCol, val);
+                    }
+                    if (headerRecordSupplier != null && headerRecordSupplier.get() != null) {
+                        putCaseInsensitiveVal(headerRecordSupplier.get(), destCol, val);
+                    }
+                } else {
+                    putCaseInsensitiveVal(destRow, destCol, val);
+                }
             }
         }
     }

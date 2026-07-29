@@ -345,7 +345,17 @@ public class ActionContext {
                         cleanRest[i] = arg;
                     }
 
-                    if (cleanRest.length >= 4) {
+                    if (cleanRest.length >= 6) {
+                        System.out.println("Executing Procedure [" + procName + "] with 6 arguments: " + cleanRest[0]
+                                + ", " + cleanRest[1] + ", " + cleanRest[2] + ", " + cleanRest[3] + ", " + cleanRest[4] + ", " + cleanRest[5]);
+                        dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?, ?, ?, ?, ?)", cleanRest[0],
+                                cleanRest[1], cleanRest[2], cleanRest[3], cleanRest[4], cleanRest[5]);
+                    } else if (cleanRest.length == 5) {
+                        System.out.println("Executing Procedure [" + procName + "] with 5 arguments: " + cleanRest[0]
+                                + ", " + cleanRest[1] + ", " + cleanRest[2] + ", " + cleanRest[3] + ", " + cleanRest[4]);
+                        dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?, ?, ?, ?)", cleanRest[0],
+                                cleanRest[1], cleanRest[2], cleanRest[3], cleanRest[4]);
+                    } else if (cleanRest.length == 4) {
                         System.out.println("Executing Procedure [" + procName + "] with 4 arguments: " + cleanRest[0]
                                 + ", " + cleanRest[1] + ", " + cleanRest[2] + ", " + cleanRest[3]);
                         dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?, ?, ?)", cleanRest[0],
