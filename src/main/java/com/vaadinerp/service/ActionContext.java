@@ -545,7 +545,14 @@ public class ActionContext {
                     }
                 }
                 if (portal != null) {
-                    portal.openTabByCode(tabIdOrCode != null ? tabIdOrCode : tabTitle, tabTitle, effectiveExtra);
+                    String forceTabId = null;
+                    if (effectiveExtra instanceof Map<?, ?> map) {
+                        if (map.containsKey("_TAB_ID") && map.get("_TAB_ID") != null) {
+                            forceTabId = map.get("_TAB_ID").toString();
+                        }
+                    }
+                    String targetCode = tabIdOrCode != null ? tabIdOrCode : tabTitle;
+                    portal.openTabByCode(targetCode, forceTabId, tabTitle, effectiveExtra);
                 } else {
                     Notification.show("Opening Tab [" + tabTitle + " (ID: " + tabIdOrCode + ")]...", 3000,
                             Notification.Position.MIDDLE);

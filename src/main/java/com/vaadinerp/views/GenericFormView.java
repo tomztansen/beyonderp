@@ -1589,8 +1589,96 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             dynamicDataService);
                     return formatted != null ? formatted : "";
                 };
-                Grid.Column<Map<String, Object>> col = grid.addColumn(valueGetter::apply)
-                        .setHeader(field.getFieldLabel())
+                Grid.Column<Map<String, Object>> col;
+                if (field.getHyperlinkTargetForm() != null && !field.getHyperlinkTargetForm().isBlank()) {
+                    col = grid.addColumn(new com.vaadin.flow.data.renderer.ComponentRenderer<>(map -> {
+                        String text = valueGetter.apply(map);
+                        if (text == null || text.isBlank()) return new com.vaadin.flow.component.html.Span();
+                        
+                        com.vaadin.flow.component.html.Span link = new com.vaadin.flow.component.html.Span(text);
+                        link.getStyle().set("color", "var(--lumo-primary-color)");
+                        link.getStyle().set("cursor", "pointer");
+                        link.getStyle().set("text-decoration", "underline");
+                        
+                        link.addClickListener(e -> {
+                            java.util.Map<String, Object> extra = new java.util.HashMap<>();
+                            String targetForm = field.getHyperlinkTargetForm();
+                            
+                            // parse JSON mapping
+                            String mappingJson = field.getHyperlinkFilterMapping();
+                            if (mappingJson != null && !mappingJson.isBlank()) {
+                                try {
+                                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                                    java.util.Map<String, String> mapConfig = mapper.readValue(mappingJson, new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, String>>(){});
+                                    for (java.util.Map.Entry<String, String> entry : mapConfig.entrySet()) {
+                                        String k = entry.getKey();
+                                        String v = entry.getValue();
+                                        if (v != null) {
+                                            if (v.startsWith("row.")) {
+                                                String rowCol = v.substring(4);
+                                                Object rowVal = getValueCaseInsensitive(map, rowCol);
+                                                extra.put(k, rowVal);
+                                            } else {
+                                                if ("_TAB_TITLE".equals(k)) {
+                                                    String titleStr = v;
+                                                    java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\{row\\.([a-zA-Z0-9_\\.]+)\\}").matcher(titleStr);
+                                                    while (m.find()) {
+                                                        String colName = m.group(1);
+                                                        Object rowVal = getValueCaseInsensitive(map, colName);
+                                                        String replacement = rowVal != null ? rowVal.toString() : "";
+                                                        titleStr = titleStr.replace(m.group(0), replacement);
+                                                    }
+                                                    extra.put(k, titleStr);
+                                                } else {
+                                                    extra.put(k, v); // static
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch(Exception ex) {
+                                    ex.printStackTrace();
+                                }
+                            }
+                            
+                            com.vaadin.flow.component.Component comp = GenericFormView.this;
+                            com.vaadinerp.views.PortalView portal = null;
+                            while (comp != null) {
+                                if (comp instanceof com.vaadinerp.views.PortalView pv) {
+                                    portal = pv;
+                                    break;
+                                }
+                                comp = comp.getParent().orElse(null);
+                            }
+                            if (portal == null) {
+                                com.vaadin.flow.component.UI ui = com.vaadin.flow.component.UI.getCurrent();
+                                if (ui != null) {
+                                    for (com.vaadin.flow.component.Component c : ui.getChildren().toList()) {
+                                        if (c instanceof com.vaadinerp.views.PortalView pv) {
+                                            portal = pv;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            if (portal != null) {
+                                String finalTabTitle = targetForm;
+                                if (extra.containsKey("_TAB_TITLE")) {
+                                    finalTabTitle = extra.get("_TAB_TITLE").toString();
+                                }
+                                String uniqueTabId = targetForm + "_" + map.get("id");
+                                extra.put("_TAB_ID", uniqueTabId);
+                                portal.openTabByCode(targetForm, uniqueTabId, finalTabTitle, extra);
+                            } else {
+                                com.vaadin.flow.component.notification.Notification.show("Cannot find PortalView to open Tab", 3000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE);
+                            }
+                        });
+                        return link;
+                    }));
+                } else {
+                    col = grid.addColumn(valueGetter::apply);
+                }
+                
+                col.setHeader(field.getFieldLabel())
                         .setAutoWidth(true)
                         .setFlexGrow(1)
                         .setResizable(true)
