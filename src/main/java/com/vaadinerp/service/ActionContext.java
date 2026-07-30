@@ -213,7 +213,25 @@ public class ActionContext {
                 headerBean.put(fieldName, val);
             }
         }
-        refreshForm();
+        
+        UI ui = UI.getCurrent();
+        if (ui == null && currentView != null && currentView.getUI().isPresent()) {
+            ui = currentView.getUI().get();
+        }
+        final String finalFieldName = fieldName;
+        Command update = () -> {
+            if (currentView instanceof com.vaadinerp.views.GenericFormView view) {
+                view.setFieldValue(finalFieldName, val);
+            } else if (currentView instanceof com.vaadinerp.views.GenericMasterDetailFormView view) {
+                view.setFieldValue(finalFieldName, val);
+            } else {
+                refreshForm();
+            }
+        };
+        if (ui != null)
+            ui.access(update);
+        else
+            update.execute();
     }
 
     public void setElementEnabled(Object ref, boolean enabled) {

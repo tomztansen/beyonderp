@@ -155,6 +155,18 @@ public class ScriptExecutorService {
                         }
                     }
                 });
+                binding.setVariable("setElementValue", new groovy.lang.Closure<Void>(null) {
+                    @SuppressWarnings("unused")
+                    public void doCall(Object ref, Object val) {
+                        ctx.setElementValue(ref, val);
+                    }
+                });
+                binding.setVariable("getElementValue", new groovy.lang.Closure<List<Map<String, Object>>>(null) {
+                    @SuppressWarnings("unused")
+                    public List<Map<String, Object>> doCall(String ref, boolean selected) {
+                        return ctx.getElementValue(ref, selected);
+                    }
+                });
                 binding.setVariable("msgBox", new groovy.lang.Closure<Void>(null) {
                     @SuppressWarnings("unused")
                     public void doCall(Object... args) {

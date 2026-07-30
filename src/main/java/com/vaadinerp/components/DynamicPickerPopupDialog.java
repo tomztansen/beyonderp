@@ -30,9 +30,9 @@ public class DynamicPickerPopupDialog extends Dialog {
     private final TextField searchField;
 
     public DynamicPickerPopupDialog(FormActionMeta actionMeta,
-                                    DynamicDataService dataService,
-                                    Map<String, Object> headerRecord,
-                                    Consumer<List<Map<String, Object>>> onSelectCallback) {
+            DynamicDataService dataService,
+            Map<String, Object> headerRecord,
+            Consumer<List<Map<String, Object>>> onSelectCallback) {
         this.actionMeta = actionMeta;
         this.dataService = dataService;
         this.headerRecord = headerRecord;
@@ -43,30 +43,56 @@ public class DynamicPickerPopupDialog extends Dialog {
         setHeight("80vh");
 
         searchField = new TextField();
-        searchField.setPlaceholder("Cari data...");
+        searchField.setPlaceholder("Find data locally...");
         searchField.setPrefixComponent(VaadinIcon.SEARCH.create());
         searchField.setClearButtonVisible(true);
-        searchField.setValueChangeMode(ValueChangeMode.LAZY);
-        searchField.addValueChangeListener(e -> loadData(e.getValue()));
+        searchField.setValueChangeMode(ValueChangeMode.EAGER);
 
-        Button refreshBtn = new Button("Refresh", VaadinIcon.REFRESH.create(), e -> loadData(searchField.getValue()));
+        grid = new Grid<>();
+        grid.setSelectionMode(Grid.SelectionMode.MULTI);
+        grid.setSizeFull();
+        grid.addItemClickListener(event -> {
+            if (grid.getSelectedItems().contains(event.getItem())) {
+                grid.deselect(event.getItem());
+            } else {
+                grid.select(event.getItem());
+            }
+        });
+
+        searchField.addValueChangeListener(e -> {
+            String term = e.getValue() != null ? e.getValue().toLowerCase() : "";
+            if (grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
+                com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) grid.getDataProvider();
+                dp.setFilter(row -> {
+                    if (term.isEmpty()) return true;
+                    for (Object val : row.values()) {
+                        if (val != null && val.toString().toLowerCase().contains(term)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+            }
+        });
+
+        Button refreshBtn = new Button("Refresh", VaadinIcon.REFRESH.create(), e -> loadData());
 
         HorizontalLayout searchToolbar = new HorizontalLayout(searchField, refreshBtn);
         searchToolbar.setWidthFull();
         searchToolbar.setFlexGrow(1, searchField);
 
-        grid = new Grid<>();
-        grid.setSelectionMode(Grid.SelectionMode.MULTI);
-        grid.setSizeFull();
-
         setupColumns();
 
         VerticalLayout content = new VerticalLayout();
-        if (actionMeta.getFilterMapping() != null && !actionMeta.getFilterMapping().isBlank() && dataService != null && dataService.isCurrentUserSuperAdmin()) {
+        if (actionMeta.getFilterMapping() != null && !actionMeta.getFilterMapping().isBlank() && dataService != null
+                && dataService.isCurrentUserSuperAdmin()) {
             com.vaadin.flow.component.details.Details diagDetails = new com.vaadin.flow.component.details.Details();
             diagDetails.setSummaryText("🔍 Diagnostik Filter Aktif: " + actionMeta.getFilterMapping());
-            com.vaadin.flow.component.html.Pre diagText = new com.vaadin.flow.component.html.Pre(dataService.evaluateFilterMappingDiagnostic(actionMeta.getFilterMapping(), headerRecord));
-            diagText.getStyle().set("font-size", "12px").set("color", "#4b5563").set("background", "#f3f4f6").set("padding", "8px").set("border-radius", "4px").set("white-space", "pre-wrap").set("margin", "0");
+            com.vaadin.flow.component.html.Pre diagText = new com.vaadin.flow.component.html.Pre(
+                    dataService.evaluateFilterMappingDiagnostic(actionMeta.getFilterMapping(), headerRecord));
+            diagText.getStyle().set("font-size", "12px").set("color", "#4b5563").set("background", "#f3f4f6")
+                    .set("padding", "8px").set("border-radius", "4px").set("white-space", "pre-wrap")
+                    .set("margin", "0");
             diagDetails.add(diagText);
             diagDetails.setOpened(true);
             diagDetails.setWidthFull();
@@ -78,10 +104,10 @@ public class DynamicPickerPopupDialog extends Dialog {
         content.setSpacing(true);
         add(content);
 
-        Button btnOk = new Button("Pilih & Tambahkan", VaadinIcon.CHECK.create(), e -> {
+        Button btnOk = new Button("Select & Add", VaadinIcon.CHECK.create(), e -> {
             Set<Map<String, Object>> selected = grid.getSelectedItems();
             if (selected == null || selected.isEmpty()) {
-                Notification.show("Pilih minimal 1 data terlebih dahulu!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Please select at least 1 data first!", 3000, Notification.Position.MIDDLE);
                 return;
             }
             if (this.onSelectCallback != null) {
@@ -94,8 +120,7 @@ public class DynamicPickerPopupDialog extends Dialog {
                                     actionMeta.getCopyFilterMapping(),
                                     headerRecord,
                                     pickedRow,
-                                    ""
-                            );
+                                    "");
                             if (children != null) {
                                 aggregatedData.addAll(children);
                             }
@@ -114,12 +139,13 @@ public class DynamicPickerPopupDialog extends Dialog {
 
         getFooter().add(btnCancel, btnOk);
 
-        loadData("");
+        loadData();
     }
 
     private void setupColumns() {
         String lovCode = actionMeta.getSourceLovCode();
-        if (lovCode == null) return;
+        if (lovCode == null)
+            return;
 
         LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
         FormMeta targetForm = dataService.getFormMetaRepository().findById(lovCode).orElse(null);
@@ -167,28 +193,45 @@ public class DynamicPickerPopupDialog extends Dialog {
         }
     }
 
-    private void loadData(String searchTerm) {
+    private void loadData() {
         try {
             List<Map<String, Object>> records = dataService.fetchLovDataWithActionFilters(
                     actionMeta.getSourceLovCode(),
                     actionMeta.getFilterMapping(),
                     headerRecord,
-                    searchTerm
-            );
+                    "");
             grid.setItems(records);
+            
+            // Terapkan ulang filter lokal jika teks pencarian tidak kosong
+            String term = searchField.getValue() != null ? searchField.getValue().toLowerCase() : "";
+            if (!term.isEmpty() && grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
+                com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) grid.getDataProvider();
+                dp.setFilter(row -> {
+                    for (Object val : row.values()) {
+                        if (val != null && val.toString().toLowerCase().contains(term)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+            }
         } catch (Exception e) {
-            com.vaadin.flow.component.notification.Notification notif = com.vaadin.flow.component.notification.Notification.show(
-                    e.getMessage(), 10000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE);
+            com.vaadin.flow.component.notification.Notification notif = com.vaadin.flow.component.notification.Notification
+                    .show(
+                            e.getMessage(), 10000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE);
             notif.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
             grid.setItems(new java.util.ArrayList<>());
         }
     }
 
     private Object getCaseInsensitiveVal(Map<String, Object> map, String key) {
-        if (map == null || key == null) return null;
-        if (map.containsKey(key)) return map.get(key);
+        if (map == null || key == null)
+            return null;
+        if (map.containsKey(key))
+            return map.get(key);
         for (Map.Entry<String, Object> e : map.entrySet()) {
-            if (e.getKey().equalsIgnoreCase(key)) return e.getValue();
+            if (e.getKey().equalsIgnoreCase(key))
+                return e.getValue();
         }
         return null;
     }

@@ -650,6 +650,10 @@ public class ComponentFactory {
             }
         }
 
+        if (val instanceof Boolean b) {
+            return b ? "Y" : "N";
+        }
+
         return val.toString();
     }
 

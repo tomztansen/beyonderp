@@ -116,12 +116,32 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         }
     }
 
+    public void setFieldValue(String fieldName, Object value) {
+        String name = fieldName;
+        if (name != null && name.startsWith("header.")) {
+            name = name.substring(7);
+        }
+        Component comp = formComponents != null ? formComponents.get(name) : null;
+        if (comp != null && comp instanceof com.vaadin.flow.component.HasValue) {
+            @SuppressWarnings("unchecked")
+            com.vaadin.flow.component.HasValue<?, Object> hasValue = (com.vaadin.flow.component.HasValue<?, Object>) comp;
+            Object converted = convertToFieldValue(value, comp);
+            try {
+                if (converted != null && !converted.equals(hasValue.getValue())
+                        || (converted == null && hasValue.getValue() != null)) {
+                    hasValue.setValue(converted);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
     private java.util.List<Map<String, Object>> gridItems = new java.util.ArrayList<>();
     private java.util.List<Map<String, Object>> allGridItems = new java.util.ArrayList<>();
 
-    private static class FilterCriteria {
-        String operator = "Contains";
-        String value = "";
+    public static class FilterCriteria {
+        public String operator = "Contains";
+        public String value = "";
     }
 
     private java.util.Map<String, FilterCriteria> filterValues = new java.util.HashMap<>();
@@ -388,7 +408,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                                     for (Map<String, Object> selected : selectedItems) {
                                         dynamicDataService.deleteData(formDef, selected);
                                     }
-                                    Notification.show("Data berhasil dihapus!", 3000, Notification.Position.TOP_CENTER);
+                                    Notification.show("Data successfully deleted!", 3000,
+                                            Notification.Position.TOP_CENTER);
                                     refreshGridData(formDef);
                                     grid.deselectAll();
                                 } catch (Exception ex) {
@@ -407,12 +428,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 String pk = formDef.getPrimaryKey() != null ? formDef.getPrimaryKey() : "id";
                 if (bean != null && bean.containsKey(pk) && bean.get(pk) != null
                         && !bean.get(pk).toString().trim().isEmpty()) {
-                    showConfirmDialog("Confirm Delete", "Apakah Anda yakin ingin menghapus data transaksi ini?",
+                    showConfirmDialog("Confirm Delete", "Are you sure you want to delete this transaction data?",
                             () -> {
                                 toolbar.setEnabled(false);
                                 try {
                                     dynamicDataService.deleteData(formDef, bean);
-                                    Notification.show("Data berhasil dihapus!", 3000, Notification.Position.TOP_CENTER);
+                                    Notification.show("Data successfully deleted!", 3000,
+                                            Notification.Position.TOP_CENTER);
                                     formBinder.setBean(new HashMap<>());
                                     clearAllComponents();
                                     refreshGridData(formDef);
@@ -425,7 +447,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                                 }
                             });
                 } else {
-                    Notification.show("Tidak ada data tersimpan yang terpilih untuk dihapus.", 3000,
+                    Notification.show("No stored data has been selected for deletion.", 3000,
                             Notification.Position.MIDDLE);
                 }
             }
@@ -497,7 +519,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     }
 
                     dynamicDataService.saveData(formDef, parentData);
-                    Notification.show("Data berhasil disimpan!", 3000, Notification.Position.TOP_CENTER);
+                    Notification.show("Data successfully saved!", 3000, Notification.Position.TOP_CENTER);
 
                     formBinder.setBean(new HashMap<>());
                     clearAllComponents();
@@ -509,17 +531,17 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         formBinder.validate().getValidationErrors().forEach(err -> errMsgs.add(err.getErrorMessage()));
                     }
                     if (!requiredOk) {
-                        errMsgs.add("Kolom is required belum lengkap");
+                        errMsgs.add("The required field is incomplete");
                     }
                     if (!rulesOk) {
-                        errMsgs.add("Terdapat inputan yang tidak memenuhi aturan validasi");
+                        errMsgs.add("There are entries that do not meet the validation rules.");
                     }
                     if (!subformsOk) {
-                        errMsgs.add("Data rincian wajib belum lengkap");
+                        errMsgs.add("Detail data is incomplete");
                     }
-                    String finalMsg = errMsgs.isEmpty() ? "Silakan periksa kembali inputan form Anda."
+                    String finalMsg = errMsgs.isEmpty() ? "Please check your form entries again."
                             : String.join(" | ", errMsgs);
-                    Notification n = Notification.show("⚠️ Gagal Menyimpan: " + finalMsg, 6000,
+                    Notification n = Notification.show("⚠️ Failed to Save: " + finalMsg, 6000,
                             Notification.Position.MIDDLE);
                     n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
                 }
@@ -537,7 +559,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         cleanMsg = cleanMsg.substring(0, cleanMsg.indexOf("Where: PL/pgSQL"));
                     cleanMsg = cleanMsg.trim();
                 } else {
-                    cleanMsg = "Terjadi kesalahan internal pada sistem.";
+                    cleanMsg = "An error occurred in the internal system.";
                 }
                 Notification n = Notification.show("⚠️ " + cleanMsg, 8000, Notification.Position.MIDDLE);
                 n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
@@ -568,7 +590,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnPrint.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
         btnPrint.getStyle().set("font-weight", "500").set("color", "#374151");
         btnPrint.addClickListener(e -> {
-            Notification.show("Fitur Cetak belum diimplementasikan.", 3000, Notification.Position.TOP_CENTER);
+            Notification.show("The Print feature has not been implemented yet.", 3000,
+                    Notification.Position.TOP_CENTER);
         });
 
         // 6. REFRESH BUTTON
@@ -591,7 +614,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 }
                 if (tabSheet.getSelectedTab() == historisTab) {
                     refreshGridData(formDef);
-                    Notification.show("Data berhasil diperbarui!", 1500, Notification.Position.BOTTOM_END);
+                    Notification.show("Data successfully updated!", 1500, Notification.Position.BOTTOM_END);
                 } else {
                     Map<String, Object> bean = formBinder.getBean();
                     String pk = formDef.getPrimaryKey() != null ? formDef.getPrimaryKey() : "id";
@@ -607,15 +630,15 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             formBinder.setBean(new HashMap<>(freshRecord));
                             loadSubformGridData(freshRecord);
                             evaluateFormulas();
-                            Notification.show("Data berhasil direfresh!", 1500, Notification.Position.BOTTOM_END);
+                            Notification.show("Data successfully refreshed!", 1500, Notification.Position.BOTTOM_END);
                         } else {
-                            Notification.show("Gagal merefresh: Data tidak ditemukan di database.", 3000,
+                            Notification.show("Failed to refresh: Data not found in database.", 3000,
                                     Notification.Position.MIDDLE);
                         }
                     } else {
                         formBinder.setBean(new HashMap<>());
                         clearAllComponents();
-                        Notification.show("Form dibersihkan!", 1500, Notification.Position.BOTTOM_END);
+                        Notification.show("Form cleared!", 1500, Notification.Position.BOTTOM_END);
                     }
                 }
             } catch (Exception ex) {
@@ -736,7 +759,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         freshRow = dbRow;
                     }
                 } catch (Exception ex) {
-                    Notification.show("Error memuat data: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                    Notification.show("Error loading data: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
                 }
             }
             Map<String, Object> formValues = new HashMap<>(freshRow);
@@ -877,24 +900,30 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : new HashMap<>();
         for (com.vaadinerp.meta.FormActionMeta act : actions) {
             try {
-                List<Map<String, Object>> fetchedRecords = dynamicDataService.fetchLovDataWithActionFilters(
-                        act.getSourceLovCode(),
-                        act.getFilterMapping(),
-                        headerBean,
-                        "");
-                if (fetchedRecords != null && !fetchedRecords.isEmpty()) {
-                    Map<String, Object> srcRec = fetchedRecords.get(0);
-                    if (headerBean != null) {
-                        applyTargetMapping(headerBean, srcRec, act.getTargetMapping());
-                        if (formBinder != null) {
-                            isLoadingExistingData = true;
-                            try {
-                                formBinder.readBean(headerBean);
-                            } finally {
-                                isLoadingExistingData = false;
+                if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType())) {
+                    if (dynamicDataService.getScriptExecutorService() != null) {
+                        dynamicDataService.getScriptExecutorService().executeActionScript(act, headerBean, null, this);
+                    }
+                } else {
+                    List<Map<String, Object>> fetchedRecords = dynamicDataService.fetchLovDataWithActionFilters(
+                            act.getSourceLovCode(),
+                            act.getFilterMapping(),
+                            headerBean,
+                            "");
+                    if (fetchedRecords != null && !fetchedRecords.isEmpty()) {
+                        Map<String, Object> srcRec = fetchedRecords.get(0);
+                        if (headerBean != null) {
+                            applyTargetMapping(headerBean, srcRec, act.getTargetMapping());
+                            if (formBinder != null) {
+                                isLoadingExistingData = true;
+                                try {
+                                    formBinder.readBean(headerBean);
+                                } finally {
+                                    isLoadingExistingData = false;
+                                }
                             }
+                            evaluateFormulas();
                         }
-                        evaluateFormulas();
                     }
                 }
             } catch (Exception ex) {
@@ -1007,6 +1036,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 }
             }
         } else if (extra instanceof Map<?, ?> mapExtra) {
+            boolean needsFilterApply = false;
             for (Map.Entry<?, ?> entry : mapExtra.entrySet()) {
                 String key = entry.getKey() != null ? entry.getKey().toString().trim() : "";
                 Object val = entry.getValue();
@@ -1019,8 +1049,62 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             || "HIDE_HISTORIS".equalsIgnoreCase(val.toString()) || "1".equals(val.toString())) {
                         hideHistorisTab();
                     }
+                } else if (key.toUpperCase().startsWith("FILTER_OP_")) {
+                    String fieldName = key.substring(10);
+                    FilterCriteria criteria = filterValues.get(fieldName);
+                    if (criteria == null) {
+                        for (Map.Entry<String, FilterCriteria> fEntry : filterValues.entrySet()) {
+                            if (fEntry.getKey().equalsIgnoreCase(fieldName)) {
+                                fieldName = fEntry.getKey();
+                                criteria = fEntry.getValue();
+                                break;
+                            }
+                        }
+                    }
+                    if (criteria == null) {
+                        criteria = new FilterCriteria();
+                        filterValues.put(fieldName, criteria);
+                    }
+                    criteria.operator = val != null ? val.toString() : "Contains";
+                    needsFilterApply = true;
+                } else if (key.toUpperCase().startsWith("FILTER_")) {
+                    String fieldName = key.substring(7);
+                    FilterCriteria criteria = filterValues.get(fieldName);
+                    if (criteria == null) {
+                        for (Map.Entry<String, FilterCriteria> fEntry : filterValues.entrySet()) {
+                            if (fEntry.getKey().equalsIgnoreCase(fieldName)) {
+                                fieldName = fEntry.getKey();
+                                criteria = fEntry.getValue();
+                                break;
+                            }
+                        }
+                    }
+                    if (criteria == null) {
+                        criteria = new FilterCriteria();
+                        filterValues.put(fieldName, criteria);
+                    }
+                    criteria.value = val != null ? val.toString() : "";
+                    needsFilterApply = true;
+                    com.vaadin.flow.component.notification.Notification.show("Filter applied: " + fieldName + " " + criteria.operator + " " + criteria.value, 3000, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
                 } else {
                     applySingleParameter(key, val);
+                }
+            }
+            if (needsFilterApply) {
+                if (paginationBar != null) paginationBar.resetPage();
+                applyFilters();
+                
+                // Jika Historis disembunyikan dan ada filter, otomatis load record pertama (jika ada)
+                if (historisTab != null && !historisTab.isVisible() && grid != null) {
+                    try {
+                        com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = 
+                            (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) grid.getDataProvider();
+                        if (dp != null && dp.getItems() != null && !dp.getItems().isEmpty()) {
+                            loadAndEditData(dp.getItems().iterator().next());
+                        }
+                    } catch (Exception ignored) {
+                        // ignore cast exception if not ListDataProvider
+                    }
                 }
             }
         }
@@ -1617,10 +1701,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             });
 
             filterField.addValueChangeListener(e -> {
-                criteria.value = e.getValue();
-                if (paginationBar != null)
-                    paginationBar.resetPage();
-                applyFilters();
+                if (e.isFromClient()) {
+                    criteria.value = e.getValue();
+                    if (paginationBar != null)
+                        paginationBar.resetPage();
+                    applyFilters();
+                }
             });
 
             filterRow.getCell(col).setComponent(filterField);

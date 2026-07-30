@@ -368,7 +368,12 @@ public class DbExplorerView extends VerticalLayout {
         Map<Grid.Column<Map<String, Object>>, String> colKeyMap = new HashMap<>();
         for (String col : columns) {
             Grid.Column<Map<String, Object>> gc = dataGrid
-                    .addColumn(row -> row.get(col) != null ? row.get(col).toString() : "")
+                    .addColumn(row -> {
+                        Object val = row.get(col);
+                        if (val == null) return "";
+                        if (val instanceof Boolean) return ((Boolean) val) ? "Y" : "N";
+                        return val.toString();
+                    })
                     .setHeader(col)
                     .setKey(col)
                     .setAutoWidth(true)
@@ -1407,8 +1412,12 @@ public class DbExplorerView extends VerticalLayout {
             }
         } catch (Exception ex) {
             Throwable cause = ex;
-            while (cause.getCause() != null && cause.getCause() != cause)
+            java.util.Set<Throwable> seen = new java.util.HashSet<>();
+            seen.add(cause);
+            while (cause.getCause() != null && !seen.contains(cause.getCause())) {
                 cause = cause.getCause();
+                seen.add(cause);
+            }
             Notification.show("Gagal menyimpan ke database: " + cause.getMessage(), 5000, Notification.Position.MIDDLE);
         }
     }
