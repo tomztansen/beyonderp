@@ -2775,6 +2775,11 @@ public class DynamicDataService {
 
     public List<Map<String, Object>> fetchLovDataPaged(String tableName, String searchBy, String searchTerm,
             java.util.Collection<com.vaadinerp.components.FilterCondition> filters, int offset, int limit) {
+        return fetchLovDataPaged(tableName, searchBy, searchTerm, filters, offset, limit, null, null);
+    }
+
+    public List<Map<String, Object>> fetchLovDataPaged(String tableName, String searchBy, String searchTerm,
+            java.util.Collection<com.vaadinerp.components.FilterCondition> filters, int offset, int limit, String sortField, String sortDir) {
         if (tableName == null || tableName.trim().isEmpty()) {
             return new ArrayList<>();
         }
@@ -2876,7 +2881,24 @@ public class DynamicDataService {
             sql.append(orJoiner.toString()).append(")");
         }
 
-        sql.append(getLovDefaultOrderByClause(tableName));
+        if (sortField != null && !sortField.trim().isEmpty()) {
+            sql.append(" ORDER BY ");
+            String[] fields = sortField.split(",");
+            for (int i = 0; i < fields.length; i++) {
+                if (i > 0) sql.append(", ");
+                String field = fields[i].trim();
+                validateSqlIdentifier(field, "sort field");
+                sql.append(field);
+                if (sortDir != null && sortDir.toLowerCase().contains("desc")) {
+                    sql.append(" DESC NULLS LAST");
+                } else {
+                    sql.append(" ASC NULLS LAST");
+                }
+            }
+        } else {
+            sql.append(getLovDefaultOrderByClause(tableName));
+        }
+        
         sql.append(" LIMIT ? OFFSET ?");
         params.add(limit > 0 ? limit : 50);
         params.add(Math.max(0, offset));
