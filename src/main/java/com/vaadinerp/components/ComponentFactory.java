@@ -950,7 +950,9 @@ public class ComponentFactory {
                                         .setHeader(colHeader)
                                         .setAutoWidth(true)
                                         .setFlexGrow(1)
-                                        .setResizable(true);
+                                        .setResizable(true)
+                                        .setKey(colName)
+                                        .setSortProperty(colName);
 
                                 if (targetField != null) {
                                     col.setSortable(targetField.isSortable());
@@ -983,31 +985,71 @@ public class ComponentFactory {
                         } else {
                             List<String> allCols = dataService.getColumnsForQueryOrTable(lovMeta.getTableName());
                             if (allCols.isEmpty()) {
-                                grid
+                                String valCol = lovMeta.getValueColumn() != null ? lovMeta.getValueColumn() : "code";
+                                String lblCol = lovMeta.getLabelColumn() != null ? lovMeta.getLabelColumn() : "name";
+                                
+                                com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col1 = grid
                                         .addColumn(row -> {
-                                            Object valObj = getCaseInsensitiveVal(row, lovMeta.getValueColumn());
+                                            Object valObj = getCaseInsensitiveVal(row, valCol);
                                             return valObj != null ? valObj.toString() : "";
                                         })
                                         .setHeader("Code")
-                                        .setAutoWidth(true).setResizable(true);
-                                grid
+                                        .setAutoWidth(true).setResizable(true)
+                                        .setKey(valCol)
+                                        .setSortProperty(valCol)
+                                        .setSortable(true);
+                                        
+                                col1.setComparator((map1, map2) -> {
+                                    Object val1 = getCaseInsensitiveVal(map1, valCol);
+                                    Object val2 = getCaseInsensitiveVal(map2, valCol);
+                                    if (val1 == null && val2 == null) return 0;
+                                    if (val1 == null) return -1;
+                                    if (val2 == null) return 1;
+                                    return val1.toString().compareToIgnoreCase(val2.toString());
+                                });
+
+                                com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col2 = grid
                                         .addColumn(row -> {
-                                            Object valObj = getCaseInsensitiveVal(row, lovMeta.getLabelColumn());
+                                            Object valObj = getCaseInsensitiveVal(row, lblCol);
                                             return valObj != null ? valObj.toString() : "";
                                         })
                                         .setHeader("Name")
-                                        .setAutoWidth(true).setResizable(true);
+                                        .setAutoWidth(true).setResizable(true)
+                                        .setKey(lblCol)
+                                        .setSortProperty(lblCol)
+                                        .setSortable(true);
+                                        
+                                col2.setComparator((map1, map2) -> {
+                                    Object val1 = getCaseInsensitiveVal(map1, lblCol);
+                                    Object val2 = getCaseInsensitiveVal(map2, lblCol);
+                                    if (val1 == null && val2 == null) return 0;
+                                    if (val1 == null) return -1;
+                                    if (val2 == null) return 1;
+                                    return val1.toString().compareToIgnoreCase(val2.toString());
+                                });
                             } else {
                                 for (String colName : allCols) {
                                     String header = colName.substring(0, 1).toUpperCase()
                                             + colName.substring(1).replace("_", " ");
-                                    grid
+                                    com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col = grid
                                             .addColumn(row -> {
                                                 Object valObj = getCaseInsensitiveVal(row, colName);
                                                 return valObj != null ? valObj.toString() : "";
                                             })
                                             .setHeader(header)
-                                            .setAutoWidth(true).setResizable(true);
+                                            .setAutoWidth(true).setResizable(true)
+                                            .setKey(colName)
+                                            .setSortProperty(colName)
+                                            .setSortable(true);
+                                            
+                                    col.setComparator((map1, map2) -> {
+                                        Object val1 = getCaseInsensitiveVal(map1, colName);
+                                        Object val2 = getCaseInsensitiveVal(map2, colName);
+                                        if (val1 == null && val2 == null) return 0;
+                                        if (val1 == null) return -1;
+                                        if (val2 == null) return 1;
+                                        return val1.toString().compareToIgnoreCase(val2.toString());
+                                    });
                                 }
                             }
                         }
@@ -1018,8 +1060,15 @@ public class ComponentFactory {
                     String searchCol = lovMeta.getSearchColumn();
                     bandbox.setDataProvider(query -> {
                         String keyword = query.getFilter().orElse("");
+                        String sortField = null;
+                        String sortDir = "asc";
+                        if (!query.getSortOrders().isEmpty()) {
+                            com.vaadin.flow.data.provider.QuerySortOrder sortOrder = query.getSortOrders().get(0);
+                            sortField = sortOrder.getSorted();
+                            sortDir = sortOrder.getDirection() == com.vaadin.flow.data.provider.SortDirection.DESCENDING ? "desc" : "asc";
+                        }
                         return dataService.fetchLovDataPaged(lovMeta.getTableName(), searchCol, keyword,
-                                bandbox.getActiveFilters().values(), query.getOffset(), query.getLimit()).stream();
+                                bandbox.getActiveFilters().values(), query.getOffset(), query.getLimit(), sortField, sortDir).stream();
                     }, query -> {
                         String keyword = query.getFilter().orElse("");
                         return dataService.countLovData(lovMeta.getTableName(), searchCol, keyword,
