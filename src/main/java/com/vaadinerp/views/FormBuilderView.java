@@ -529,12 +529,24 @@ public class FormBuilderView extends VerticalLayout {
         defaultSortDirection.setItems("ASC", "DESC");
         defaultSortDirection.setValue("ASC");
 
-        assignedActionsCombo.setWidthFull();
+        assignedActionsCombo.setWidth("100%");
         assignedActionsCombo.setItemLabelGenerator(act -> act.getActionLabel() + " (" + act.getActionCode() + ") "
                 + (act.getFormMeta() != null ? "[" + act.getFormMeta().getFormCode() + "]" : "[Katalog Global]"));
         if (dynamicDataService != null && dynamicDataService.getFormActionMetaRepository() != null) {
             assignedActionsCombo.setItems(dynamicDataService.getFormActionMetaRepository().findAll());
         }
+
+        Button btnOpenActionBuilder = new Button(VaadinIcon.EXTERNAL_LINK.create());
+        btnOpenActionBuilder.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
+        btnOpenActionBuilder.setTooltipText("Buka Form Action Builder");
+        btnOpenActionBuilder.addClickListener(e -> {
+            com.vaadinerp.service.ActionContext ctx = new com.vaadinerp.service.ActionContext(null, null, null, this);
+            ctx.showMainTab("FORM_ACTION_BUILDER", "Form Action Builder", null, null);
+        });
+        HorizontalLayout actionComboLayout = new HorizontalLayout(assignedActionsCombo, btnOpenActionBuilder);
+        actionComboLayout.setAlignItems(Alignment.END);
+        actionComboLayout.setWidthFull();
+        actionComboLayout.setFlexGrow(1, assignedActionsCombo);
 
         autoCreateDbCheckbox.getStyle().set("margin-top", "10px");
         autoCreateDbCheckbox.addValueChangeListener(e -> {
@@ -566,9 +578,9 @@ public class FormBuilderView extends VerticalLayout {
 
         formMetaLayout.add(formCodeField, formTitleField, formTypeCombo, tableNameField, viewTableField, pkField,
                 labelWidthField,
-                defaultSortField, defaultSortDirection, assignedActionsCombo, detailTableNameField, detailPkField,
+                defaultSortField, defaultSortDirection, actionComboLayout, detailTableNameField, detailPkField,
                 detailFkField, autoCreateDbCheckbox, actionButtonsLayout);
-        formMetaLayout.setColspan(assignedActionsCombo, 2);
+        formMetaLayout.setColspan(actionComboLayout, 2);
         formMetaLayout.setColspan(autoCreateDbCheckbox, 2);
         formMetaLayout.setColspan(actionButtonsLayout, 2);
 

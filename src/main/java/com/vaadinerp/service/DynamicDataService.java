@@ -3165,6 +3165,8 @@ public class DynamicDataService {
                     op = (String) opField.get(criteriaObj);
                     val = (String) valField.get(criteriaObj);
                 } catch (Exception ex) {
+                    System.err.println("Reflection failed for criteriaObj: " + ex.getMessage());
+                    ex.printStackTrace();
                     continue;
                 }
             }
@@ -3336,9 +3338,11 @@ public class DynamicDataService {
 
         String sql = "SELECT COUNT(*) " + baseFrom + where.toString();
         try {
+            System.out.println("DEBUG SQL countGridData (" + formMeta.getFormCode() + "): " + sql + " | Args: " + args);
             Long count = jdbcTemplate.queryForObject(sql, Long.class, args.toArray());
             return count != null ? count : 0L;
         } catch (Exception e) {
+            System.err.println("ERROR in countGridData: " + e.getMessage());
             e.printStackTrace();
             return 0L;
         }
@@ -3370,8 +3374,10 @@ public class DynamicDataService {
         args.add(offset);
 
         try {
+            System.out.println("DEBUG SQL fetchGridDataPaged (" + formMeta.getFormCode() + "): " + sql.toString() + " | Args: " + args);
             return jdbcTemplate.queryForList(sql.toString(), args.toArray());
         } catch (Exception e) {
+            System.err.println("ERROR in fetchGridDataPaged: " + e.getMessage());
             e.printStackTrace();
             return new ArrayList<>();
         }

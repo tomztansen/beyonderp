@@ -311,8 +311,6 @@ public class FormActionBuilderView extends VerticalLayout {
         dlg.open();
     }
 
-
-
     private void insertSnippetToText(com.vaadin.flow.component.textfield.TextArea editor, String snippetType) {
         if (editor == null)
             return;
@@ -780,7 +778,7 @@ public class FormActionBuilderView extends VerticalLayout {
         VerticalLayout rowsLayout = new VerticalLayout();
         rowsLayout.setPadding(false);
 
-        Button btnAddRow = new Button("Tambah Baris", VaadinIcon.PLUS.create());
+        Button btnAddRow = new Button("Add Row", VaadinIcon.PLUS.create());
         btnAddRow.addClickListener(e -> addMappingRow(rowsLayout, isTargetMapping));
 
         Button btnSave = new Button("Save", e -> {
