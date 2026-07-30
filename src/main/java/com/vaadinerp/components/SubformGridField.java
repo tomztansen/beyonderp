@@ -40,7 +40,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private final List<Map<String, Object>> items = new ArrayList<>();
     private final List<Map<String, Object>> deletedItems = new ArrayList<>();
     private final Grid<Map<String, Object>> grid = new Grid<>();
-    private final Button btnAdd = new Button("Tambah Baris", VaadinIcon.PLUS.create());
+    private final Button btnAdd = new Button("Add Row", VaadinIcon.PLUS.create());
     private final Button btnDelete = new Button("Delete Row", VaadinIcon.TRASH.create());
     private final HorizontalLayout extraActionsContainer = new HorizontalLayout();
     private final Map<String, Component> editorComponents = new HashMap<>();
@@ -69,7 +69,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     public com.vaadin.flow.component.Component findParentView() {
         com.vaadin.flow.component.Component c = this;
         while (c != null) {
-            if (c instanceof com.vaadinerp.views.GenericFormView || c instanceof com.vaadinerp.views.GenericMasterDetailFormView) {
+            if (c instanceof com.vaadinerp.views.GenericFormView
+                    || c instanceof com.vaadinerp.views.GenericMasterDetailFormView) {
                 return c;
             }
             c = c.getParent().orElse(null);
@@ -78,7 +79,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     public void setComponentEnabled(String fieldName, boolean enabled) {
-        if (fieldName == null) return;
+        if (fieldName == null)
+            return;
         String name = fieldName;
         if (name.startsWith("detail.") || name.startsWith("row.")) {
             name = name.substring(name.indexOf('.') + 1);
@@ -90,7 +92,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     public void setComponentReadOnly(String fieldName, boolean readOnly) {
-        if (fieldName == null) return;
+        if (fieldName == null)
+            return;
         String name = fieldName;
         if (name.startsWith("detail.") || name.startsWith("row.")) {
             name = name.substring(name.indexOf('.') + 1);
@@ -220,7 +223,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         }
 
         // Add Context Menu to open in new tab
-        com.vaadin.flow.component.grid.contextmenu.GridContextMenu<Map<String, Object>> gridMenu = grid.addContextMenu();
+        com.vaadin.flow.component.grid.contextmenu.GridContextMenu<Map<String, Object>> gridMenu = grid
+                .addContextMenu();
         gridMenu.addItem("Open in New Tab", e -> {
             if (e.getItem().isPresent()) {
                 Map<String, Object> selectedRow = e.getItem().get();
@@ -231,7 +235,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 if (pkValue == null) {
                     pkValue = selectedRow.get("id"); // fallback
                 }
-                
+
                 if (pkValue != null && childFormDef != null) {
                     com.vaadin.flow.component.Component parent = this.getParent().orElse(null);
                     com.vaadinerp.views.PortalView portalView = null;
@@ -252,7 +256,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                         Notification.show("Cannot find main PortalView.", 3000, Notification.Position.MIDDLE);
                     }
                 } else {
-                     Notification.show("Data is not saved yet (no ID). Cannot open in a new tab.", 4000, Notification.Position.MIDDLE);
+                    Notification.show("Data is not saved yet (no ID). Cannot open in a new tab.", 4000,
+                            Notification.Position.MIDDLE);
                 }
             }
         });
@@ -694,18 +699,24 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
                         Object staticVal = filter.getSourceName();
                         String lookupKey = staticVal != null ? staticVal.toString() : "";
-                        if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.") || lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail.")) {
+                        if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")
+                                || lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail.")) {
                             if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")) {
-                                lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                                lookupKey = lookupKey.replaceAll("[\"']", "")
+                                        .substring(lookupKey.indexOf("header.") + "header.".length()).trim();
                             } else {
-                                lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
+                                lookupKey = lookupKey.replaceAll("[\"']", "")
+                                        .substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
                             }
                             if (headerRecordSupplier != null && headerRecordSupplier.get() != null) {
                                 Object hv = getCaseInsensitiveVal(headerRecordSupplier.get(), lookupKey);
-                                if (hv == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
-                                    hv = getCaseInsensitiveVal(headerRecordSupplier.get(), "unique".equalsIgnoreCase(lookupKey) ? "isunique" : "unique");
+                                if (hv == null && ("unique".equalsIgnoreCase(lookupKey)
+                                        || "isunique".equalsIgnoreCase(lookupKey))) {
+                                    hv = getCaseInsensitiveVal(headerRecordSupplier.get(),
+                                            "unique".equalsIgnoreCase(lookupKey) ? "isunique" : "unique");
                                 }
-                                if (hv != null) staticVal = hv;
+                                if (hv != null)
+                                    staticVal = hv;
                             }
                         }
                         FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
@@ -715,16 +726,23 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     } else if ("FIELD".equalsIgnoreCase(filter.getSourceType())) {
                         String sourceFieldName = filter.getSourceName();
                         String lookupKey = sourceFieldName;
-                        if (lookupKey != null && (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header."))) {
-                            lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
-                        } else if (lookupKey != null && (lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail."))) {
-                            lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
+                        if (lookupKey != null
+                                && (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header."))) {
+                            lookupKey = lookupKey.replaceAll("[\"']", "")
+                                    .substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                        } else if (lookupKey != null
+                                && (lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail."))) {
+                            lookupKey = lookupKey.replaceAll("[\"']", "")
+                                    .substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
                         }
                         Component sourceComp = lookupKey != null ? editorComponents.get(lookupKey) : null;
-                        if (sourceComp == null && sourceFieldName != null) sourceComp = editorComponents.get(sourceFieldName);
-                        if (sourceComp == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
+                        if (sourceComp == null && sourceFieldName != null)
+                            sourceComp = editorComponents.get(sourceFieldName);
+                        if (sourceComp == null
+                                && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
                             sourceComp = editorComponents.get("unique");
-                            if (sourceComp == null) sourceComp = editorComponents.get("isunique");
+                            if (sourceComp == null)
+                                sourceComp = editorComponents.get("isunique");
                         }
                         if (sourceComp instanceof HasValue) {
                             Object val = ((HasValue<?, ?>) sourceComp).getValue();
@@ -736,12 +754,16 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                             }
                         } else {
                             Object fallbackVal = filter.getSourceName();
-                            if (headerRecordSupplier != null && headerRecordSupplier.get() != null && lookupKey != null) {
+                            if (headerRecordSupplier != null && headerRecordSupplier.get() != null
+                                    && lookupKey != null) {
                                 Object hv = getCaseInsensitiveVal(headerRecordSupplier.get(), lookupKey);
-                                if (hv == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
-                                    hv = getCaseInsensitiveVal(headerRecordSupplier.get(), "unique".equalsIgnoreCase(lookupKey) ? "isunique" : "unique");
+                                if (hv == null && ("unique".equalsIgnoreCase(lookupKey)
+                                        || "isunique".equalsIgnoreCase(lookupKey))) {
+                                    hv = getCaseInsensitiveVal(headerRecordSupplier.get(),
+                                            "unique".equalsIgnoreCase(lookupKey) ? "isunique" : "unique");
                                 }
-                                if (hv != null) fallbackVal = hv;
+                                if (hv != null)
+                                    fallbackVal = hv;
                             }
                             FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
                                     filter.getFilterColumn(), fallbackVal, filter.getLogicalOperator(),
@@ -1023,28 +1045,37 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                         if (editorComp != null) {
                             String srcName = filter.getSourceName();
                             String lookupKey = srcName;
-                            if (lookupKey != null && (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header."))) {
-                                lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
-                            } else if (lookupKey != null && (lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail."))) {
-                                lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
+                            if (lookupKey != null
+                                    && (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header."))) {
+                                lookupKey = lookupKey.replaceAll("[\"']", "")
+                                        .substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                            } else if (lookupKey != null
+                                    && (lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail."))) {
+                                lookupKey = lookupKey.replaceAll("[\"']", "")
+                                        .substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
                             }
                             boolean isMatch = parentFieldName.equalsIgnoreCase(srcName)
                                     || (lookupKey != null && parentFieldName.equalsIgnoreCase(lookupKey))
-                                    || ("unique".equalsIgnoreCase(parentFieldName) && "isunique".equalsIgnoreCase(lookupKey))
-                                    || ("isunique".equalsIgnoreCase(parentFieldName) && "unique".equalsIgnoreCase(lookupKey));
+                                    || ("unique".equalsIgnoreCase(parentFieldName)
+                                            && "isunique".equalsIgnoreCase(lookupKey))
+                                    || ("isunique".equalsIgnoreCase(parentFieldName)
+                                            && "unique".equalsIgnoreCase(lookupKey));
 
                             if (isMatch) {
                                 FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
                                         filter.getFilterColumn(), value, filter.getLogicalOperator(),
                                         filter.getComparisonOperator());
                                 applyFilterToSubformEditor(editorComp, condition);
-                            } else if (lookupKey != null && editorComponents.get(lookupKey) == null && (srcName == null || editorComponents.get(srcName) == null)) {
+                            } else if (lookupKey != null && editorComponents.get(lookupKey) == null
+                                    && (srcName == null || editorComponents.get(srcName) == null)) {
                                 Object fallbackVal = srcName;
                                 boolean foundInSupplier = false;
                                 if (headerRecordSupplier != null && headerRecordSupplier.get() != null) {
                                     Object hv = getCaseInsensitiveVal(headerRecordSupplier.get(), lookupKey);
-                                    if (hv == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
-                                        hv = getCaseInsensitiveVal(headerRecordSupplier.get(), "unique".equalsIgnoreCase(lookupKey) ? "isunique" : "unique");
+                                    if (hv == null && ("unique".equalsIgnoreCase(lookupKey)
+                                            || "isunique".equalsIgnoreCase(lookupKey))) {
+                                        hv = getCaseInsensitiveVal(headerRecordSupplier.get(),
+                                                "unique".equalsIgnoreCase(lookupKey) ? "isunique" : "unique");
                                     }
                                     if (hv != null) {
                                         fallbackVal = hv;
@@ -1064,18 +1095,24 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                         if (editorComp != null) {
                             Object staticVal = filter.getSourceName();
                             String lookupKey = staticVal != null ? staticVal.toString() : "";
-                            if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.") || lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail.")) {
+                            if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")
+                                    || lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail.")) {
                                 if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")) {
-                                    lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("header.") + "header.".length()).trim();
+                                    lookupKey = lookupKey.replaceAll("[\"']", "")
+                                            .substring(lookupKey.indexOf("header.") + "header.".length()).trim();
                                 } else {
-                                    lookupKey = lookupKey.replaceAll("[\"']", "").substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
+                                    lookupKey = lookupKey.replaceAll("[\"']", "")
+                                            .substring(lookupKey.indexOf("detail.") + "detail.".length()).trim();
                                 }
                                 if (headerRecordSupplier != null && headerRecordSupplier.get() != null) {
                                     Object hv = getCaseInsensitiveVal(headerRecordSupplier.get(), lookupKey);
-                                    if (hv == null && ("unique".equalsIgnoreCase(lookupKey) || "isunique".equalsIgnoreCase(lookupKey))) {
-                                        hv = getCaseInsensitiveVal(headerRecordSupplier.get(), "unique".equalsIgnoreCase(lookupKey) ? "isunique" : "unique");
+                                    if (hv == null && ("unique".equalsIgnoreCase(lookupKey)
+                                            || "isunique".equalsIgnoreCase(lookupKey))) {
+                                        hv = getCaseInsensitiveVal(headerRecordSupplier.get(),
+                                                "unique".equalsIgnoreCase(lookupKey) ? "isunique" : "unique");
                                     }
-                                    if (hv != null) staticVal = hv;
+                                    if (hv != null)
+                                        staticVal = hv;
                                 }
                             }
                             FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
@@ -1220,24 +1257,29 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 if (destCol.toLowerCase().startsWith("detail.")) {
                     destCol = destCol.substring(7);
                 }
-                
+
                 boolean isHeaderTarget = false;
                 if (destCol.toLowerCase().startsWith("header.")) {
                     destCol = destCol.substring(7);
                     isHeaderTarget = true;
                 }
-                
+
                 Object val = null;
-                if (srcRecord != null && !srcCol.toLowerCase().contains("coalesce(") && !srcCol.toLowerCase().contains("ifnull(") && !srcCol.contains("+") && !srcCol.contains("*") && !srcCol.contains("/")) {
+                if (srcRecord != null && !srcCol.toLowerCase().contains("coalesce(")
+                        && !srcCol.toLowerCase().contains("ifnull(") && !srcCol.contains("+") && !srcCol.contains("*")
+                        && !srcCol.contains("/")) {
                     val = getCaseInsensitiveVal(srcRecord, srcCol);
                 }
                 if (val == null && srcCol != null && !srcCol.isBlank()) {
                     if (srcCol.toLowerCase().contains("coalesce(") || srcCol.toLowerCase().contains("ifnull(")
-                            || ((srcCol.contains("+") || srcCol.contains("*") || srcCol.contains("/") || (srcCol.contains("-") && !srcCol.startsWith("-")))
-                                && srcCol.matches(".*[a-zA-Z\\(\\)].*"))) {
+                            || ((srcCol.contains("+") || srcCol.contains("*") || srcCol.contains("/")
+                                    || (srcCol.contains("-") && !srcCol.startsWith("-")))
+                                    && srcCol.matches(".*[a-zA-Z\\(\\)].*"))) {
                         val = FormulaEvaluator.evaluateTargetExpression(srcCol, srcRecord, destRow);
-                    } else if ((srcCol.startsWith("'") && srcCol.endsWith("'")) || (srcCol.startsWith("\"") && srcCol.endsWith("\""))) {
-                        if (srcCol.length() >= 2) val = srcCol.substring(1, srcCol.length() - 1);
+                    } else if ((srcCol.startsWith("'") && srcCol.endsWith("'"))
+                            || (srcCol.startsWith("\"") && srcCol.endsWith("\""))) {
+                        if (srcCol.length() >= 2)
+                            val = srcCol.substring(1, srcCol.length() - 1);
                     } else if ("true".equalsIgnoreCase(srcCol) || "false".equalsIgnoreCase(srcCol)) {
                         val = Boolean.parseBoolean(srcCol);
                     } else if ("null".equalsIgnoreCase(srcCol)) {
@@ -1258,7 +1300,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                         }
                     }
                 }
-                
+
                 if (isHeaderTarget) {
                     if (updateParentFieldValueCallback != null) {
                         updateParentFieldValueCallback.accept(destCol, val);
@@ -1274,20 +1316,26 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     private int getMaxLineNoFromItems(List<Map<String, Object>> list) {
-        if (list == null || list.isEmpty()) return 0;
+        if (list == null || list.isEmpty())
+            return 0;
         int max = 0;
         for (Map<String, Object> row : list) {
             if (row != null) {
                 Object val = getCaseInsensitiveVal(row, "lineno");
-                if (val == null) val = getCaseInsensitiveVal(row, "seq");
-                if (val == null) val = getCaseInsensitiveVal(row, "no");
+                if (val == null)
+                    val = getCaseInsensitiveVal(row, "seq");
+                if (val == null)
+                    val = getCaseInsensitiveVal(row, "no");
                 if (val instanceof Number) {
-                    if (((Number) val).intValue() > max) max = ((Number) val).intValue();
+                    if (((Number) val).intValue() > max)
+                        max = ((Number) val).intValue();
                 } else if (val != null) {
                     try {
                         int v = Integer.parseInt(val.toString());
-                        if (v > max) max = v;
-                    } catch (Exception ignored) {}
+                        if (v > max)
+                            max = v;
+                    } catch (Exception ignored) {
+                    }
                 }
             }
         }

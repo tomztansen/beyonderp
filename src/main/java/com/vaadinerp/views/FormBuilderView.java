@@ -128,6 +128,8 @@ public class FormBuilderView extends VerticalLayout {
     private final Checkbox propSaveOnInsert = new Checkbox("Save on Insert");
     private final Checkbox propSaveOnUpdate = new Checkbox("Save on Edit/Update");
     private final Checkbox propIsAuditLog = new Checkbox("Audit Log");
+    private final TextField propHyperlinkTargetForm = new TextField("Hyperlink Target Form");
+    private final TextArea propHyperlinkFilterMapping = new TextArea("Hyperlink Filter Mapping (JSON)");
     private final Button propBtnFilters = new Button("Configure Filters", VaadinIcon.FILTER.create());
     private final Button propBtnLovTargets = new Button("Configure LOV Targets", VaadinIcon.LINK.create());
     private final Button propBtnCustomValidation = new Button("🛡️ Atur Validasi Dinamis", VaadinIcon.SHIELD.create());
@@ -158,6 +160,9 @@ public class FormBuilderView extends VerticalLayout {
         public boolean saveOnUpdate = true;
         public boolean isAuditLog;
         public String onAddScript;
+        public String onAddAiPrompt;
+        public String hyperlinkTargetForm;
+        public String hyperlinkFilterMapping;
         public List<FieldFilterMetaTemp> filters = new ArrayList<>();
         public List<FieldLovTargetMetaTemp> lovTargets = new ArrayList<>();
 
@@ -1012,6 +1017,7 @@ public class FormBuilderView extends VerticalLayout {
         propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov,
                 propBtnFilters, propBtnLovTargets, propRowGroup, propColSpan, propFieldWidth, propReadonlyMode,
                 propFormula, propDisplayFormat, propValidationRule, propSequenceCode, propBtnCustomValidation,
+                propHyperlinkTargetForm, propHyperlinkFilterMapping,
                 checkBoxLayout,
                 propBtnOnAddScript);
 
@@ -1029,6 +1035,18 @@ public class FormBuilderView extends VerticalLayout {
         propFieldLabel.addValueChangeListener(e -> {
             if (!selectedFields.isEmpty() && e.isFromClient()) {
                 selectedFields.iterator().next().fieldLabel = e.getValue();
+                rebuildCanvas();
+            }
+        });
+        propHyperlinkTargetForm.addValueChangeListener(e -> {
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().hyperlinkTargetForm = e.getValue();
+                rebuildCanvas();
+            }
+        });
+        propHyperlinkFilterMapping.addValueChangeListener(e -> {
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().hyperlinkFilterMapping = e.getValue();
                 rebuildCanvas();
             }
         });
@@ -1282,6 +1300,8 @@ public class FormBuilderView extends VerticalLayout {
                     propBtnLovTargets.setVisible(true);
                     propBtnCustomValidation.setVisible(true);
                     propBtnOnAddScript.setVisible(true);
+                    propHyperlinkTargetForm.setVisible(true);
+                    propHyperlinkFilterMapping.setVisible(true);
                     
                     propFieldName.setValue(first.fieldName != null ? first.fieldName : "");
                     propFieldLabel.setValue(first.fieldLabel != null ? first.fieldLabel : "");
@@ -1310,6 +1330,8 @@ public class FormBuilderView extends VerticalLayout {
                     propDisplayFormat.setValue(first.displayFormat != null ? first.displayFormat : "");
                     propValidationRule.setValue(first.validationRule != null ? first.validationRule : "NONE");
                     propSequenceCode.setValue(first.sequenceCode != null ? first.sequenceCode : "");
+                    propHyperlinkTargetForm.setValue(first.hyperlinkTargetForm != null ? first.hyperlinkTargetForm : "");
+                    propHyperlinkFilterMapping.setValue(first.hyperlinkFilterMapping != null ? first.hyperlinkFilterMapping : "");
                     propSaveOnInsert.setValue(first.saveOnInsert);
                     propSaveOnUpdate.setValue(first.saveOnUpdate);
                     propIsAuditLog.setValue(first.isAuditLog);
@@ -1327,6 +1349,8 @@ public class FormBuilderView extends VerticalLayout {
                     propBtnLovTargets.setVisible(false);
                     propBtnCustomValidation.setVisible(false);
                     propBtnOnAddScript.setVisible(false);
+                    propHyperlinkTargetForm.setVisible(false);
+                    propHyperlinkFilterMapping.setVisible(false);
                     
                     boolean sameRow = true;
                     int firstRow = -1;
@@ -3115,6 +3139,8 @@ public class FormBuilderView extends VerticalLayout {
             field.setSaveOnUpdate(temp.saveOnUpdate);
             field.setAuditLog(temp.isAuditLog);
             field.setOnAddScript(temp.onAddScript);
+            field.setHyperlinkTargetForm(temp.hyperlinkTargetForm);
+            field.setHyperlinkFilterMapping(temp.hyperlinkFilterMapping);
             field.setRowGroup(temp.rowGroup);
             field.setColSpan(temp.colSpan);
             field.setFieldWidth(temp.fieldWidth);
@@ -3972,6 +3998,8 @@ public class FormBuilderView extends VerticalLayout {
                     temp.saveOnUpdate = field.isSaveOnUpdate();
                     temp.isAuditLog = field.isAuditLog();
                     temp.onAddScript = field.getOnAddScript();
+                    temp.hyperlinkTargetForm = field.getHyperlinkTargetForm();
+                    temp.hyperlinkFilterMapping = field.getHyperlinkFilterMapping();
 
                     // Load filters
                     temp.filters = new ArrayList<>();

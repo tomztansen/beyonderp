@@ -741,10 +741,16 @@ public class PortalView extends AppLayout {
     }
 
     public void openTabByCode(String code, String title, Object extra) {
+        openTabByCode(code, null, title, extra);
+    }
+
+    public void openTabByCode(String code, String forceTabId, String title, Object extra) {
         if (code == null || code.isBlank())
             return;
-        if (openTabs.containsKey(code)) {
-            Tab tab = openTabs.get(code);
+        
+        String activeTabId = forceTabId != null ? forceTabId : code;
+        if (openTabs.containsKey(activeTabId)) {
+            Tab tab = openTabs.get(activeTabId);
             tabSheet.setSelectedTab(tab);
             Component content = tabSheet.getComponent(tab);
             if (content instanceof GenericMasterDetailFormView mdView) {
@@ -796,7 +802,7 @@ public class PortalView extends AppLayout {
         AppMenu menu = new AppMenu();
         menu.setMenuCode(targetCode);
         menu.setMenuTitle(targetTitle);
-        openMenuTab(menu, extra);
+        openMenuTab(menu, extra, forceTabId);
     }
 
     private void openChangePasswordDialog() {

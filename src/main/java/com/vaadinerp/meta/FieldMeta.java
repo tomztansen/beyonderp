@@ -183,6 +183,12 @@ public class FieldMeta {
         this.isAuditLog = auditLog;
     }
 
+    @Column(name = "hyperlink_target_form", length = 50)
+    private String hyperlinkTargetForm;
+
+    @Column(name = "hyperlink_filter_mapping", columnDefinition = "TEXT")
+    private String hyperlinkFilterMapping;
+
     @OneToMany(mappedBy = "fieldMeta", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     private java.util.List<FieldLovTargetMeta> lovTargets;
 
