@@ -18,6 +18,9 @@ Thumbs.db
 # Local config
 .mimocode/
 
+# Sql
+sql/
+
 # Vaadin Generated
 frontend/generated/
 .vaadin/
