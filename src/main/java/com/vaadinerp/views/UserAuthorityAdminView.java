@@ -49,6 +49,7 @@ import java.util.function.Function;
  * - Menggunakan StandardGridUtils.attachGridFilters untuk pencarian/filter di
  * header row
  */
+@SuppressWarnings({ "null", "unused" })
 public class UserAuthorityAdminView extends VerticalLayout {
 
     private final AppUserRepository userRepository;
@@ -410,11 +411,11 @@ public class UserAuthorityAdminView extends VerticalLayout {
             return "📄 Item (Click)";
         }).setHeader("Type").setAutoWidth(true);
 
-        var colIcon = menuTreeGrid.addColumn(AppMenu::getIconName)
+        menuTreeGrid.addColumn(AppMenu::getIconName)
                 .setHeader("Icon")
                 .setAutoWidth(true);
 
-        var colOrder = menuTreeGrid.addColumn(m -> m.getDisplayOrder() != null ? m.getDisplayOrder() : 10)
+        menuTreeGrid.addColumn(m -> m.getDisplayOrder() != null ? m.getDisplayOrder() : 10)
                 .setHeader("Order")
                 .setAutoWidth(true);
 
@@ -663,7 +664,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
             if (codeChanged) {
                 // Migrate children to new parent code
-                if ("GROUP".equalsIgnoreCase(existing.getMenuType())) {
+                if (existing != null && "GROUP".equalsIgnoreCase(existing.getMenuType())) {
                     List<AppMenu> children = menuRepository.findByParentMenuCodeOrderByDisplayOrderAsc(oldCode);
                     for (AppMenu child : children) {
                         child.setParentMenuCode(newCode);

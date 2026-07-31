@@ -782,7 +782,8 @@ public class DbExplorerView extends VerticalLayout {
 
             bodyField.setValue(dynamicDataService.fetchTriggerBody(this.currentTable, existingName));
         } else {
-            nameField.setValue("trg_" + this.currentTable + "_custom");
+            String suffix = String.valueOf(System.currentTimeMillis()).substring(8);
+            nameField.setValue("trg_" + this.currentTable + "_" + suffix);
             bodyField.setValue(
                     "-- Contoh: Validasi atau isi audit log sebelum simpan\nBEGIN\n    -- NEW.kolom = nilai;\n    RETURN NEW;\nEND;");
         }
