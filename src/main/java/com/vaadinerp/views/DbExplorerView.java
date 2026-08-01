@@ -296,11 +296,13 @@ public class DbExplorerView extends VerticalLayout {
         ProcedureDesignerView procedureView = new ProcedureDesignerView(dynamicDataService);
         VisualQueryBuilderView queryBuilderView = new VisualQueryBuilderView(dynamicDataService);
         ViewDesignerView viewDesignerView = new ViewDesignerView(dynamicDataService);
+        PgCronDesignerView pgCronView = new PgCronDesignerView(dynamicDataService);
 
         explorerTabs.add("Data Tabel", dataLayout);
         explorerTabs.add("Struktur Skema, Constraints & Trigger", schemaLayout);
         explorerTabs.add("Create New Table & Trigger", new TableDesignerView(dynamicDataService, this::refreshTables));
         explorerTabs.add("Manajemen Stored Procedure", procedureView);
+        explorerTabs.add("Manajemen Scheduler (pg_cron)", pgCronView);
         explorerTabs.add("Query Builder", queryBuilderView);
         explorerTabs.add("Manajemen View", viewDesignerView);
 

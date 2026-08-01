@@ -4539,4 +4539,33 @@ public class DynamicDataService {
         // 3. Eksekusi query (sudah diproteksi @Transactional(readOnly = true))
         return jdbcTemplate.queryForList(wrappedSql);
     }
+
+    // --- PG_CRON Management ---
+    public List<Map<String, Object>> fetchPgCronJobs() {
+        try {
+            return jdbcTemplate.queryForList("SELECT * FROM cron.job ORDER BY jobid");
+        } catch (Exception e) {
+            log.warn("pg_cron extension might not be installed or accessible: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    @Transactional
+    public void schedulePgCronJob(String jobName, String schedule, String command) {
+        jdbcTemplate.queryForObject("SELECT cron.schedule(?, ?, ?)", Long.class, jobName, schedule, command);
+    }
+
+    @Transactional
+    public void unschedulePgCronJob(Long jobId) {
+        jdbcTemplate.queryForObject("SELECT cron.unschedule(?)", Boolean.class, jobId);
+    }
+
+    public List<Map<String, Object>> fetchPgCronLogs(Long jobId) {
+        try {
+            return jdbcTemplate.queryForList("SELECT * FROM cron.job_run_details WHERE jobid = ? ORDER BY start_time DESC LIMIT 100", jobId);
+        } catch (Exception e) {
+            log.warn("Gagal membaca log pg_cron: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
 }
