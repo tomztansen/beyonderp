@@ -21,6 +21,9 @@ Thumbs.db
 # Sql
 sql/
 
+# Uploads
+uploads/
+
 # Vaadin Generated
 frontend/generated/
 .vaadin/
