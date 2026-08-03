@@ -984,6 +984,22 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 }
 
                 if (binderOk && masterRequiredOk && rulesOk && detailsOk) {
+                    boolean groovyOk = true;
+                    java.util.List<com.vaadinerp.meta.FormActionMeta> saveActions = dynamicDataService.getFormActions(formDef.getFormCode(), null);
+                    if (saveActions != null) {
+                        for (com.vaadinerp.meta.FormActionMeta act : saveActions) {
+                            if ("BEFORE_SAVE".equalsIgnoreCase(act.getTargetScope()) || "ON_SAVE".equalsIgnoreCase(act.getTargetScope())) {
+                                if (dynamicDataService.getScriptExecutorService() != null) {
+                                    groovyOk = dynamicDataService.getScriptExecutorService().executeActionScript(act, formBinder.getBean(), detailsList, GenericMasterDetailFormView.this);
+                                    if (!groovyOk) break;
+                                }
+                            }
+                        }
+                    }
+                    if (!groovyOk) {
+                        return;
+                    }
+
                     dynamicDataService.saveMasterDetailData(formDef, formBinder.getBean(), detailsList,
                             deletedDetailsList);
                     Notification.show("Data berhasil disimpan secara transactional!", 3000,

@@ -138,7 +138,7 @@ public class FormActionBuilderView extends VerticalLayout {
         formCodeCombo.setItems(formCodes);
         formCodeCombo.setClearButtonVisible(true);
 
-        targetScopeCombo.setItems("MASTER_TOOLBAR", "DETAIL_TOOLBAR", "ON_LOAD_NEW", "ON_DETAIL_ADD", "ON_LOAD_EDIT");
+        targetScopeCombo.setItems("MASTER_TOOLBAR", "DETAIL_TOOLBAR", "ON_LOAD_NEW", "ON_DETAIL_ADD", "ON_LOAD_EDIT", "BEFORE_SAVE", "ON_SAVE");
         targetScopeCombo.setValue("MASTER_TOOLBAR");
 
         actionTypeCombo.setItems("POPUP_PICKER", "GROOVY_SCRIPT");
