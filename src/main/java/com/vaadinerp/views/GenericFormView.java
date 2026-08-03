@@ -518,6 +518,22 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         }
                     }
 
+                    boolean groovyOk = true;
+                    java.util.List<com.vaadinerp.meta.FormActionMeta> saveActions = dynamicDataService.getFormActions(formDef.getFormCode(), null);
+                    if (saveActions != null) {
+                        for (com.vaadinerp.meta.FormActionMeta act : saveActions) {
+                            if ("BEFORE_SAVE".equalsIgnoreCase(act.getTargetScope()) || "ON_SAVE".equalsIgnoreCase(act.getTargetScope())) {
+                                if (dynamicDataService.getScriptExecutorService() != null) {
+                                    groovyOk = dynamicDataService.getScriptExecutorService().executeActionScript(act, parentData, null, GenericFormView.this);
+                                    if (!groovyOk) break;
+                                }
+                            }
+                        }
+                    }
+                    if (!groovyOk) {
+                        return;
+                    }
+
                     dynamicDataService.saveData(formDef, parentData);
                     Notification.show("Data successfully saved!", 3000, Notification.Position.TOP_CENTER);
 

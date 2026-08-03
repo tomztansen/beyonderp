@@ -203,12 +203,12 @@ public class ScriptExecutorService {
     }
 
     @SuppressWarnings("unused")
-    public void executeActionScript(com.vaadinerp.meta.FormActionMeta act,
-                                    Map<String, Object> headerBean,
-                                    List<Map<String, Object>> selectedGridRows,
-                                    com.vaadin.flow.component.Component currentView) {
+    public boolean executeActionScript(com.vaadinerp.meta.FormActionMeta act,
+                                     Map<String, Object> headerBean,
+                                     List<Map<String, Object>> selectedGridRows,
+                                     com.vaadin.flow.component.Component currentView) {
         if (act == null || act.getScriptContent() == null || act.getScriptContent().isBlank()) {
-            return;
+            return true;
         }
         String scriptText = act.getScriptContent().trim();
 
@@ -365,11 +365,13 @@ public class ScriptExecutorService {
             });
 
             scriptInstance.setBinding(binding);
-            scriptInstance.run();
+            Object result = scriptInstance.run();
+            return (result instanceof Boolean) ? (Boolean) result : true;
         } catch (Exception e) {
             String cleanMsg = ctx.extractCleanErrorMessage(e);
             System.err.println("Error executing action script [" + act.getActionCode() + "]: " + cleanMsg);
             ctx.showError("Gagal Eksekusi Script (" + act.getActionCode() + ")", "<b>Pesan Error:</b><br/>" + cleanMsg);
+            return false;
         }
     }
 

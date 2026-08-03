@@ -37,9 +37,16 @@ public class ActionContext {
         this.currentView = currentView;
     }
 
+    @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getElementValue(String gridReference, boolean selectedOnly) {
-        if (selectedOnly || selectedGridRows != null && !selectedGridRows.isEmpty()) {
+        if (selectedGridRows != null && !selectedGridRows.isEmpty()) {
             return selectedGridRows;
+        }
+        if (headerBean != null && gridReference != null && headerBean.containsKey(gridReference)) {
+            Object val = headerBean.get(gridReference);
+            if (val instanceof List) {
+                return (List<Map<String, Object>>) val;
+            }
         }
         return new ArrayList<>();
     }
