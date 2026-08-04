@@ -395,6 +395,10 @@ public class ActionContext {
                         System.out.println("Executing Procedure [" + procName + "] with 2 non-json arguments: "
                                 + cleanRest[0] + ", " + cleanRest[1]);
                         dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?)", cleanRest[0], cleanRest[1]);
+                    } else if (cleanRest.length == 1 && jsonParams != null && !jsonParams.trim().startsWith("{")
+                            && !jsonParams.trim().startsWith("[")) {
+                        System.out.println("Executing Procedure [" + procName + "] with 1 argument: " + cleanRest[0]);
+                        dataService.getJdbcTemplate().update("CALL " + procName + "(?)", cleanRest[0]);
                     } else {
                         System.out.println("Executing Procedure [" + procName + "] with params: " + jsonParams
                                 + " by user: " + userId);

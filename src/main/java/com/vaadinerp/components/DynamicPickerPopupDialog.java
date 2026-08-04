@@ -62,9 +62,11 @@ public class DynamicPickerPopupDialog extends Dialog {
         searchField.addValueChangeListener(e -> {
             String term = e.getValue() != null ? e.getValue().toLowerCase() : "";
             if (grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
-                com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) grid.getDataProvider();
+                com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) grid
+                        .getDataProvider();
                 dp.setFilter(row -> {
-                    if (term.isEmpty()) return true;
+                    if (term.isEmpty())
+                        return true;
                     for (Object val : row.values()) {
                         if (val != null && val.toString().toLowerCase().contains(term)) {
                             return true;
@@ -135,7 +137,7 @@ public class DynamicPickerPopupDialog extends Dialog {
         });
         btnOk.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnCancel = new Button("Batal", e -> close());
+        Button btnCancel = new Button("Cancel", e -> close());
 
         getFooter().add(btnCancel, btnOk);
 
@@ -201,11 +203,12 @@ public class DynamicPickerPopupDialog extends Dialog {
                     headerRecord,
                     "");
             grid.setItems(records);
-            
+
             // Terapkan ulang filter lokal jika teks pencarian tidak kosong
             String term = searchField.getValue() != null ? searchField.getValue().toLowerCase() : "";
             if (!term.isEmpty() && grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
-                com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) grid.getDataProvider();
+                com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) grid
+                        .getDataProvider();
                 dp.setFilter(row -> {
                     for (Object val : row.values()) {
                         if (val != null && val.toString().toLowerCase().contains(term)) {

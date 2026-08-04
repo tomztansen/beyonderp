@@ -988,7 +988,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     java.util.List<com.vaadinerp.meta.FormActionMeta> saveActions = dynamicDataService.getFormActions(formDef.getFormCode(), null);
                     if (saveActions != null) {
                         for (com.vaadinerp.meta.FormActionMeta act : saveActions) {
-                            if ("BEFORE_SAVE".equalsIgnoreCase(act.getTargetScope()) || "ON_SAVE".equalsIgnoreCase(act.getTargetScope())) {
+                            if ("BEFORE_SAVE".equalsIgnoreCase(act.getTargetScope())) {
                                 if (dynamicDataService.getScriptExecutorService() != null) {
                                     groovyOk = dynamicDataService.getScriptExecutorService().executeActionScript(act, formBinder.getBean(), detailsList, GenericMasterDetailFormView.this);
                                     if (!groovyOk) break;
@@ -1002,6 +1002,18 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
                     dynamicDataService.saveMasterDetailData(formDef, formBinder.getBean(), detailsList,
                             deletedDetailsList);
+
+                    // === AFTER_SAVE scripts ===
+                    if (saveActions != null) {
+                        for (com.vaadinerp.meta.FormActionMeta act : saveActions) {
+                            if ("AFTER_SAVE".equalsIgnoreCase(act.getTargetScope())) {
+                                if (dynamicDataService.getScriptExecutorService() != null) {
+                                    dynamicDataService.getScriptExecutorService().executeActionScript(act, formBinder.getBean(), detailsList, GenericMasterDetailFormView.this);
+                                }
+                            }
+                        }
+                    }
+
                     Notification.show("Data berhasil disimpan secara transactional!", 3000,
                             Notification.Position.TOP_CENTER);
                     formBinder.setBean(new HashMap<>());
