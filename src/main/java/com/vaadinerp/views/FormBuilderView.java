@@ -128,6 +128,8 @@ public class FormBuilderView extends VerticalLayout {
     private final Checkbox propSaveOnInsert = new Checkbox("Save on Insert");
     private final Checkbox propSaveOnUpdate = new Checkbox("Save on Edit/Update");
     private final Checkbox propIsAuditLog = new Checkbox("Audit Log");
+    private final Checkbox propShowLineNo = new Checkbox("Show Line No");
+    private final Checkbox propSaveLineNoToDb = new Checkbox("Save Line No to DB");
     private final TextField propHyperlinkTargetForm = new TextField("Hyperlink Target Form");
     private final TextArea propHyperlinkFilterMapping = new TextArea("Hyperlink Filter Mapping (JSON)");
     private final Button propBtnFilters = new Button("Configure Filters", VaadinIcon.FILTER.create());
@@ -159,6 +161,8 @@ public class FormBuilderView extends VerticalLayout {
         public boolean saveOnInsert = true;
         public boolean saveOnUpdate = true;
         public boolean isAuditLog;
+        public boolean showLineNo = true;
+        public boolean saveLineNoToDb = false;
         public String onAddScript;
         public String onAddAiPrompt;
         public String hyperlinkTargetForm;
@@ -970,7 +974,7 @@ public class FormBuilderView extends VerticalLayout {
         checkBoxLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 2));
         propIsSortable.setValue(true);
         checkBoxLayout.add(propIsRequired, propIsReadonly, propShowInGrid, propHideInForm, propIsDetail, propIsSortable,
-                propSaveOnInsert, propSaveOnUpdate, propIsAuditLog);
+                propSaveOnInsert, propSaveOnUpdate, propIsAuditLog, propShowLineNo, propSaveLineNoToDb);
 
         propBtnFilters.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_CONTRAST);
         propBtnFilters.setWidthFull();
@@ -1166,6 +1170,16 @@ public class FormBuilderView extends VerticalLayout {
                 selectedFields.iterator().next().isAuditLog = e.getValue();
             }
         });
+        propShowLineNo.addValueChangeListener(e -> {
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().showLineNo = e.getValue();
+            }
+        });
+        propSaveLineNoToDb.addValueChangeListener(e -> {
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().saveLineNoToDb = e.getValue();
+            }
+        });
     }
 
     private void updatePropertyFieldsState(String componentType) {
@@ -1200,6 +1214,8 @@ public class FormBuilderView extends VerticalLayout {
             propIsSortable.setEnabled(false);
             propIsRequired.setEnabled(false);
             propIsReadonly.setEnabled(false);
+            propShowLineNo.setVisible(true);
+            propSaveLineNoToDb.setVisible(true);
         } else {
             propLovCode.setLabel("LOV Code (Optional)");
             propLovCode.setPlaceholder("Pilih LOV jika ada...");
@@ -1222,6 +1238,8 @@ public class FormBuilderView extends VerticalLayout {
             propIsSortable.setEnabled(true);
             propIsRequired.setEnabled(true);
             propIsReadonly.setEnabled(true);
+            propShowLineNo.setVisible(false);
+            propSaveLineNoToDb.setVisible(false);
         }
 
         if (componentType != null) {
@@ -1335,6 +1353,8 @@ public class FormBuilderView extends VerticalLayout {
                     propSaveOnInsert.setValue(first.saveOnInsert);
                     propSaveOnUpdate.setValue(first.saveOnUpdate);
                     propIsAuditLog.setValue(first.isAuditLog);
+                    propShowLineNo.setValue(first.showLineNo);
+                    propSaveLineNoToDb.setValue(first.saveLineNoToDb);
                 } else {
                     propFieldName.setVisible(false);
                     propFieldLabel.setVisible(false);
@@ -3138,6 +3158,8 @@ public class FormBuilderView extends VerticalLayout {
             field.setSaveOnInsert(temp.saveOnInsert);
             field.setSaveOnUpdate(temp.saveOnUpdate);
             field.setAuditLog(temp.isAuditLog);
+            field.setShowLineNo(temp.showLineNo);
+            field.setSaveLineNoToDb(temp.saveLineNoToDb);
             field.setOnAddScript(temp.onAddScript);
             field.setHyperlinkTargetForm(temp.hyperlinkTargetForm);
             field.setHyperlinkFilterMapping(temp.hyperlinkFilterMapping);
@@ -3997,6 +4019,8 @@ public class FormBuilderView extends VerticalLayout {
                     temp.saveOnInsert = field.isSaveOnInsert();
                     temp.saveOnUpdate = field.isSaveOnUpdate();
                     temp.isAuditLog = field.isAuditLog();
+                    temp.showLineNo = field.isShowLineNo();
+                    temp.saveLineNoToDb = field.isSaveLineNoToDb();
                     temp.onAddScript = field.getOnAddScript();
                     temp.hyperlinkTargetForm = field.getHyperlinkTargetForm();
                     temp.hyperlinkFilterMapping = field.getHyperlinkFilterMapping();

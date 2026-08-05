@@ -50,6 +50,9 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private final Map<Grid.Column<Map<String, Object>>, java.util.function.Function<Map<String, Object>, String>> colGetterMap = new java.util.concurrent.ConcurrentHashMap<>();
     private Map<String, Object> draggedItem;
 
+    // Line Number feature
+    private Grid.Column<Map<String, Object>> lineNoCol;
+
     // Registrations for listener deduplication
     private com.vaadin.flow.shared.Registration gridDragStartReg;
     private com.vaadin.flow.shared.Registration gridDropReg;
@@ -192,8 +195,6 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
         });
 
-        extraActionsContainer.setSpacing(true);
-
         toolbar.add(btnAdd, btnDelete, extraActionsContainer);
 
         refreshExtraActions();
@@ -220,6 +221,10 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         if (childFormDef != null) {
             buildGridColumns();
+        }
+
+        if (this.fieldMeta != null && this.fieldMeta.isShowLineNo()) {
+            addLineNoColumn();
         }
 
         // Add Context Menu to open in new tab
@@ -1165,7 +1170,42 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
     @Override
     protected List<Map<String, Object>> generateModelValue() {
+        // On-save sync: jika Save to DB aktif dari metadata, sync lineno
+        if (this.fieldMeta != null && this.fieldMeta.isSaveLineNoToDb()) {
+            for (int i = 0; i < items.size(); i++) {
+                putCaseInsensitiveVal(items.get(i), "lineno", i + 1);
+            }
+        }
         return new ArrayList<>(items);
+    }
+
+    /** Adds a frozen line number column at the first position */
+    private void addLineNoColumn() {
+        if (lineNoCol != null) return;
+        lineNoCol = grid.addColumn(item -> {
+            int idx = items.indexOf(item);
+            return idx >= 0 ? String.valueOf(idx + 1) : "";
+        }).setHeader("#")
+          .setWidth("60px")
+          .setFlexGrow(0)
+          .setFrozen(true)
+          .setSortable(false)
+          .setResizable(false)
+          .setKey("_lineNo");
+        // Move to first position
+        List<Grid.Column<Map<String, Object>>> allCols = new ArrayList<>(grid.getColumns());
+        allCols.remove(lineNoCol);
+        allCols.add(0, lineNoCol);
+        grid.setColumnOrder(allCols);
+        grid.getDataProvider().refreshAll();
+    }
+
+    /** Removes the line number column */
+    private void removeLineNoColumn() {
+        if (lineNoCol == null) return;
+        grid.removeColumn(lineNoCol);
+        lineNoCol = null;
+        grid.getDataProvider().refreshAll();
     }
 
     private void evaluateRowFormulas(Map<String, Object> row) {

@@ -132,6 +132,12 @@ public class FieldMeta {
     @Column(name = "is_audit_log")
     private Boolean isAuditLog = false;
 
+    @Column(name = "show_line_no")
+    private Boolean showLineNo = true;
+
+    @Column(name = "save_line_no_to_db")
+    private Boolean saveLineNoToDb = false;
+
     @Column(name = "on_add_script", columnDefinition = "TEXT")
     private String onAddScript;
 
@@ -181,6 +187,22 @@ public class FieldMeta {
 
     public void setAuditLog(Boolean auditLog) {
         this.isAuditLog = auditLog;
+    }
+
+    public boolean isShowLineNo() {
+        return showLineNo == null || showLineNo;
+    }
+
+    public void setShowLineNo(Boolean showLineNo) {
+        this.showLineNo = showLineNo;
+    }
+
+    public boolean isSaveLineNoToDb() {
+        return saveLineNoToDb != null && saveLineNoToDb;
+    }
+
+    public void setSaveLineNoToDb(Boolean saveLineNoToDb) {
+        this.saveLineNoToDb = saveLineNoToDb;
     }
 
     @Column(name = "hyperlink_target_form", length = 50)
