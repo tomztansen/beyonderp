@@ -37,6 +37,7 @@ import com.vaadinerp.security.repository.RoleMenuPermissionRepository;
 import com.vaadinerp.security.repository.AppUserFavoriteMenuRepository;
 import com.vaadinerp.security.entity.AppUserFavoriteMenu;
 import com.vaadinerp.security.service.SessionSecurityService;
+import com.vaadinerp.meta.SchedulerConfigRepository;
 import com.vaadinerp.service.DynamicDataService;
 import com.vaadinerp.service.StandardFormatService;
 import com.vaadin.flow.component.textfield.TextField;
@@ -64,6 +65,7 @@ public class PortalView extends AppLayout {
     private final RoleMenuPermissionRepository roleMenuPermissionRepository;
     private final AppUserFavoriteMenuRepository appUserFavoriteMenuRepository;
     private final StandardFormatService standardFormatService;
+    private final SchedulerConfigRepository schedulerConfigRepository;
 
     private String menuSearchText = "";
     private boolean showFavoritesOnly = false;
@@ -83,7 +85,8 @@ public class PortalView extends AppLayout {
             AppUserRepository appUserRepository, AppRoleRepository appRoleRepository,
             AppMenuRepository appMenuRepository, RoleMenuPermissionRepository roleMenuPermissionRepository,
             AppUserFavoriteMenuRepository appUserFavoriteMenuRepository,
-            StandardFormatService standardFormatService) {
+            StandardFormatService standardFormatService,
+            SchedulerConfigRepository schedulerConfigRepository) {
         this.formMetaRepository = formMetaRepository;
         this.lovMetaRepository = lovMetaRepository;
         this.reportMetaRepository = reportMetaRepository;
@@ -95,6 +98,7 @@ public class PortalView extends AppLayout {
         this.roleMenuPermissionRepository = roleMenuPermissionRepository;
         this.appUserFavoriteMenuRepository = appUserFavoriteMenuRepository;
         this.standardFormatService = standardFormatService;
+        this.schedulerConfigRepository = schedulerConfigRepository;
 
         setPrimarySection(Section.DRAWER);
 
@@ -694,6 +698,27 @@ public class PortalView extends AppLayout {
                             }
                         });
                         yield mdView;
+                    } else if ("SCHEDULER_SPLIT".equalsIgnoreCase(form.getFormType())) {
+                        DynamicSchedulerView schView = new DynamicSchedulerView(formMetaRepository,
+                                schedulerConfigRepository, dynamicDataService, securityService,
+                                dynamicDataService.getJdbcTemplate());
+                        schView.setParameter(null, code);
+                        schView.hideTitle();
+                        schView.getStyle().set("padding", "4px");
+                        schView.applyInitialParameters(extra);
+                        schView.setCloseHandler(() -> {
+                            String activeTabId = forceTabId != null ? forceTabId : code;
+                            Tab tab = openTabs.get(activeTabId);
+                            if (tab != null) {
+                                tabSheet.remove(tab);
+                                openTabs.remove(activeTabId);
+                                if (openTabs.isEmpty()) {
+                                    tabSheet.setSelectedIndex(0);
+                                    clearActiveLeaves();
+                                }
+                            }
+                        });
+                        yield schView;
                     } else {
                         GenericFormView gView = new GenericFormView(formMetaRepository, dynamicDataService,
                                 securityService);

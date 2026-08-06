@@ -807,6 +807,10 @@ public class ProductionSchedulerView extends VerticalLayout {
                 jdbcTemplate.execute("ALTER TABLE trx_production_schedule ADD COLUMN IF NOT EXISTS alloy_grade VARCHAR(100)");
                 jdbcTemplate.execute("ALTER TABLE trx_production_schedule ADD COLUMN IF NOT EXISTS pour_weight_kg DECIMAL(10,2) DEFAULT 0");
                 jdbcTemplate.execute("ALTER TABLE trx_production_schedule ADD COLUMN IF NOT EXISTS cooling_hours INT DEFAULT 48");
+                jdbcTemplate.execute("ALTER TABLE trx_production_schedule ADD COLUMN IF NOT EXISTS split_group VARCHAR(100)");
+                
+                // Add split group to meta config as well
+                jdbcTemplate.execute("ALTER TABLE meta_scheduler_config ADD COLUMN IF NOT EXISTS col_split_group VARCHAR(100)");
             } catch (Exception ignored) {}
 
             Integer wcCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM mst_work_center", Integer.class);
