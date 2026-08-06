@@ -12,8 +12,8 @@ import lombok.EqualsAndHashCode;
 @EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Getter
 @Setter
-@EqualsAndHashCode(of = {"id", "fieldName"})
-@ToString(exclude = {"formMeta", "lovTargets"})
+@EqualsAndHashCode(of = { "id", "fieldName" })
+@ToString(exclude = { "formMeta", "lovTargets" })
 public class FieldMeta {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,6 +48,7 @@ public class FieldMeta {
     public String getFieldWidth() {
         return (fieldWidth == null || fieldWidth.trim().isEmpty()) ? "100%" : fieldWidth.trim();
     }
+
     @Column(name = "is_required")
     private boolean isRequired;
 
@@ -71,7 +72,8 @@ public class FieldMeta {
 
     public void setReadonly(boolean isReadonly) {
         this.isReadonly = isReadonly;
-        if (this.readonlyMode == null || this.readonlyMode.trim().isEmpty() || "DEFAULT".equalsIgnoreCase(this.readonlyMode)) {
+        if (this.readonlyMode == null || this.readonlyMode.trim().isEmpty()
+                || "DEFAULT".equalsIgnoreCase(this.readonlyMode)) {
             this.readonlyMode = isReadonly ? "EDIT_AND_ADD" : "NONE";
         }
     }
@@ -141,6 +143,9 @@ public class FieldMeta {
     @Column(name = "on_add_script", columnDefinition = "TEXT")
     private String onAddScript;
 
+    @Column(name = "scheduler_role", length = 30)
+    private String schedulerRole;
+
     public boolean isDetail() {
         return isDetail != null && isDetail;
     }
@@ -203,6 +208,14 @@ public class FieldMeta {
 
     public void setSaveLineNoToDb(Boolean saveLineNoToDb) {
         this.saveLineNoToDb = saveLineNoToDb;
+    }
+
+    public String getSchedulerRole() {
+        return schedulerRole;
+    }
+
+    public void setSchedulerRole(String schedulerRole) {
+        this.schedulerRole = schedulerRole;
     }
 
     @Column(name = "hyperlink_target_form", length = 50)

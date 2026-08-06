@@ -581,7 +581,17 @@ public class FormBuilderView extends VerticalLayout {
         btnRelayoutCanvas.getStyle().set("font-weight", "500").set("color", "#3b82f6");
         btnRelayoutCanvas.addClickListener(e -> openRelayoutDialog());
 
-        HorizontalLayout actionButtonsLayout = new HorizontalLayout(btnAutoGenerateFields, btnRelayoutCanvas);
+        Button btnConfigScheduler = new Button("Config Scheduler", com.vaadin.flow.component.icon.VaadinIcon.CALENDAR_CLOCK.create(), e -> {
+            if (formCodeField.getValue() == null || formCodeField.getValue().trim().isEmpty()) {
+                Notification.show("Silakan isi Form Code (Unique) terlebih dahulu!", 3000, Notification.Position.MIDDLE);
+                return;
+            }
+            openSchedulerConfigDialog();
+        });
+        btnConfigScheduler.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        btnConfigScheduler.setVisible(false);
+
+        HorizontalLayout actionButtonsLayout = new HorizontalLayout(btnAutoGenerateFields, btnRelayoutCanvas, btnConfigScheduler);
         actionButtonsLayout.setSpacing(true);
         actionButtonsLayout.getStyle().set("margin-top", "10px");
 
@@ -593,7 +603,7 @@ public class FormBuilderView extends VerticalLayout {
         formMetaLayout.setColspan(autoCreateDbCheckbox, 2);
         formMetaLayout.setColspan(actionButtonsLayout, 2);
 
-        formTypeCombo.setItems("SINGLE", "MASTER_DETAIL");
+        formTypeCombo.setItems("SINGLE", "MASTER_DETAIL", "SCHEDULER_SPLIT");
         formTypeCombo.setValue("SINGLE");
         detailTableNameField.setVisible(false);
         detailPkField.setVisible(false);
@@ -601,9 +611,11 @@ public class FormBuilderView extends VerticalLayout {
 
         formTypeCombo.addValueChangeListener(event -> {
             boolean isMD = "MASTER_DETAIL".equals(event.getValue());
+            boolean isScheduler = "SCHEDULER_SPLIT".equals(event.getValue());
             detailTableNameField.setVisible(isMD);
             detailPkField.setVisible(isMD);
             detailFkField.setVisible(isMD);
+            btnConfigScheduler.setVisible(isScheduler);
             rebuildCanvas();
         });
 
@@ -4580,5 +4592,209 @@ public class FormBuilderView extends VerticalLayout {
                 f.colIndex += shiftAmount;
             }
         }
+    }
+
+    private void rebuildListView() {
+        if (!isListView)
+            return;
+        listCanvas.deselectAll();
+        refreshListCanvas();
+        selectedFields.forEach(listCanvas::select);
+    }
+    
+    // =========================================================================
+    // SCHEDULER CONFIGURATION DIALOG
+    // =========================================================================
+    private void openSchedulerConfigDialog() {
+        String currentFormCode = formCodeField.getValue();
+        if (currentFormCode == null || currentFormCode.trim().isEmpty()) {
+            showError("Peringatan", "Form Code harus diisi terlebih dahulu!");
+            return;
+        }
+
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("🗓️ Scheduler Configuration");
+        dialog.setWidth("800px");
+
+        TextArea queryArea = new TextArea("Query SQL Data Scheduler");
+        queryArea.setWidthFull();
+        queryArea.setHeight("150px");
+        queryArea.setPlaceholder("SELECT * FROM vw_production_schedule WHERE ...");
+        
+        Button testBtn = new Button("🔍 Test Query & Load Columns", VaadinIcon.SEARCH.create());
+        testBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        
+        // Comboboxes for mapping
+        ComboBox<String> cbResource = new ComboBox<>("Resource (Mesin/Y-Axis) *");
+        ComboBox<String> cbResourceGroup = new ComboBox<>("Resource Group (e.g. Departemen)");
+        ComboBox<String> cbTaskName = new ComboBox<>("Task Name (Label Bar) *");
+        ComboBox<String> cbStartDate = new ComboBox<>("Start Date (Proposed Time) *");
+        ComboBox<String> cbEndDate = new ComboBox<>("End Date (Optional)");
+        ComboBox<String> cbQty = new ComboBox<>("Qty (e.g. qtybox)");
+        ComboBox<String> cbMaxCap = new ComboBox<>("Max Capacity (e.g. capacitybox)");
+        ComboBox<String> cbWeight = new ComboBox<>("Weight (kg)");
+        ComboBox<String> cbMaxCapWeight = new ComboBox<>("Max Capacity Weight");
+        ComboBox<String> cbGroupId = new ComboBox<>("Group ID (Y-Axis/Machine)");
+        ComboBox<String> cbDependencyId = new ComboBox<>("Dependency ID (Cascade Shift / SPK No)");
+        ComboBox<String> cbSequence = new ComboBox<>("Sequence");
+        ComboBox<String> cbLeadDay = new ComboBox<>("Lead Day");
+        ComboBox<String> cbPrimaryKey = new ComboBox<>("Primary Key *");
+        ComboBox<String> cbSplitGroup = new ComboBox<>("Split Group (UUID Column)");
+        
+        List<ComboBox<String>> allCbs = List.of(cbResource, cbResourceGroup, cbTaskName, cbStartDate, cbEndDate, cbQty, cbMaxCap, 
+            cbWeight, cbMaxCapWeight, cbGroupId, cbDependencyId, cbSequence, cbLeadDay, cbPrimaryKey, cbSplitGroup);
+        allCbs.forEach(cb -> {
+            cb.setWidthFull();
+            cb.setClearButtonVisible(true);
+        });
+        
+        com.vaadin.flow.component.formlayout.FormLayout mappingLayout = new com.vaadin.flow.component.formlayout.FormLayout();
+        mappingLayout.setResponsiveSteps(new com.vaadin.flow.component.formlayout.FormLayout.ResponsiveStep("0", 2));
+        mappingLayout.add(cbResourceGroup, cbResource, cbTaskName, cbStartDate, cbEndDate, cbPrimaryKey, cbGroupId, cbDependencyId, cbSequence, cbLeadDay, 
+                cbQty, cbMaxCap, cbWeight, cbMaxCapWeight, cbSplitGroup);
+                
+        TextField txtUpdateTable = new TextField("Update Table (target drag-drop)");
+        txtUpdateTable.setWidthFull();
+        TextField txtUpdateDateCol = new TextField("Update Date Column");
+        txtUpdateDateCol.setWidthFull();
+        ComboBox<String> cbDefaultMode = new ComboBox<>("Default Capacity Mode");
+        cbDefaultMode.setItems("QTYBOX", "WEIGHT");
+        cbDefaultMode.setWidthFull();
+        
+        TextArea onDragScriptArea = new TextArea("On-Drag Validation Script (Groovy)");
+        onDragScriptArea.setWidthFull();
+        onDragScriptArea.setHeight("100px");
+        onDragScriptArea.setPlaceholder("def totalQty = ctx.sqlValue(...) \nif (totalQty > task.maxCapacity) return ctx.confirm(...) \nreturn true");
+
+        com.vaadin.flow.component.formlayout.FormLayout settingsLayout = new com.vaadin.flow.component.formlayout.FormLayout();
+        settingsLayout.setResponsiveSteps(new com.vaadin.flow.component.formlayout.FormLayout.ResponsiveStep("0", 2));
+        settingsLayout.add(txtUpdateTable, txtUpdateDateCol, cbDefaultMode);
+
+        // Load existing config if available
+        try {
+            List<Map<String, Object>> existingList = dynamicDataService.getJdbcTemplate().queryForList(
+                "SELECT * FROM meta_scheduler_config WHERE form_code = ?", currentFormCode);
+            if (!existingList.isEmpty()) {
+                Map<String, Object> existing = existingList.get(0);
+                queryArea.setValue(existing.get("scheduler_query") != null ? existing.get("scheduler_query").toString() : "");
+                txtUpdateTable.setValue(existing.get("update_table") != null ? existing.get("update_table").toString() : "");
+                txtUpdateDateCol.setValue(existing.get("update_date_column") != null ? existing.get("update_date_column").toString() : "");
+                cbDefaultMode.setValue(existing.get("default_capacity_mode") != null ? existing.get("default_capacity_mode").toString() : "QTYBOX");
+                onDragScriptArea.setValue(existing.get("on_drag_script") != null ? existing.get("on_drag_script").toString() : "");
+                
+                // load columns list to populate combo items
+                if (!queryArea.getValue().isEmpty()) {
+                    try {
+                        String testSql = "SELECT * FROM (" + queryArea.getValue() + ") t LIMIT 1";
+                        dynamicDataService.getJdbcTemplate().query(testSql, rs -> {
+                            java.sql.ResultSetMetaData rsmd = rs.getMetaData();
+                            int colCount = rsmd.getColumnCount();
+                            List<String> cols = new ArrayList<>();
+                            for (int i = 1; i <= colCount; i++) cols.add(rsmd.getColumnName(i));
+                            allCbs.forEach(cb -> cb.setItems(cols));
+                            return null;
+                        });
+                        
+                        // set values
+                        cbResource.setValue((String) existing.get("col_resource"));
+                        cbResourceGroup.setValue((String) existing.get("col_resource_group"));
+                        cbTaskName.setValue((String) existing.get("col_task_name"));
+                        cbStartDate.setValue((String) existing.get("col_start_date"));
+                        cbEndDate.setValue((String) existing.get("col_end_date"));
+                        cbQty.setValue((String) existing.get("col_qty"));
+                        cbMaxCap.setValue((String) existing.get("col_max_capacity"));
+                        cbWeight.setValue((String) existing.get("col_weight"));
+                        cbMaxCapWeight.setValue((String) existing.get("col_max_capacity_weight"));
+                        cbGroupId.setValue((String) existing.get("col_group_id"));
+                        cbDependencyId.setValue((String) existing.get("col_dependency_id"));
+                        cbSequence.setValue((String) existing.get("col_sequence"));
+                        cbLeadDay.setValue((String) existing.get("col_lead_day"));
+                        cbPrimaryKey.setValue((String) existing.get("col_primary_key"));
+                        cbSplitGroup.setValue((String) existing.get("col_split_group"));
+                    } catch (Exception ex) {
+                        // ignore if invalid
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        testBtn.addClickListener(e -> {
+            String sql = queryArea.getValue();
+            if (sql == null || sql.trim().isEmpty()) {
+                showError("Peringatan", "Query tidak boleh kosong!");
+                return;
+            }
+            try {
+                String testSql = "SELECT * FROM (" + sql + ") t LIMIT 1";
+                dynamicDataService.getJdbcTemplate().query(testSql, rs -> {
+                    java.sql.ResultSetMetaData rsmd = rs.getMetaData();
+                    int colCount = rsmd.getColumnCount();
+                    List<String> cols = new ArrayList<>();
+                    for (int i = 1; i <= colCount; i++) {
+                        cols.add(rsmd.getColumnLabel(i));
+                    }
+                    allCbs.forEach(cb -> cb.setItems(cols));
+                    showSuccess("Sukses", "Query valid. Ditemukan " + colCount + " kolom.");
+                    return null;
+                });
+            } catch (Exception ex) {
+                showError("Kesalahan Query", ex.getMessage());
+            }
+        });
+
+        Button btnSave = new Button("Simpan Konfigurasi", VaadinIcon.CHECK.create(), e -> {
+            try {
+                String checkSql = "SELECT COUNT(*) FROM meta_scheduler_config WHERE form_code = ?";
+                Integer count = dynamicDataService.getJdbcTemplate().queryForObject(checkSql, Integer.class, currentFormCode);
+                
+                if (count != null && count > 0) {
+                    String updateSql = "UPDATE meta_scheduler_config SET scheduler_query=?, col_resource=?, col_resource_group=?, col_task_name=?, "
+                        + "col_start_date=?, col_end_date=?, col_qty=?, col_max_capacity=?, col_group_id=?, col_dependency_id=?, col_sequence=?, "
+                        + "col_lead_day=?, col_weight=?, col_max_capacity_weight=?, col_primary_key=?, update_table=?, "
+                        + "update_date_column=?, default_capacity_mode=?, on_drag_script=?, col_split_group=? WHERE form_code=?";
+                    dynamicDataService.getJdbcTemplate().update(updateSql,
+                        queryArea.getValue(), cbResource.getValue(), cbResourceGroup.getValue(), cbTaskName.getValue(), cbStartDate.getValue(),
+                        cbEndDate.getValue(), cbQty.getValue(), cbMaxCap.getValue(), cbGroupId.getValue(), cbDependencyId.getValue(),
+                        cbSequence.getValue(), cbLeadDay.getValue(), cbWeight.getValue(), cbMaxCapWeight.getValue(),
+                        cbPrimaryKey.getValue(), txtUpdateTable.getValue(), txtUpdateDateCol.getValue(),
+                        cbDefaultMode.getValue(), onDragScriptArea.getValue(), cbSplitGroup.getValue(), currentFormCode);
+                } else {
+                    String insertSql = "INSERT INTO meta_scheduler_config (form_code, scheduler_query, col_resource, col_resource_group, col_task_name, "
+                        + "col_start_date, col_end_date, col_qty, col_max_capacity, col_group_id, col_dependency_id, col_sequence, "
+                        + "col_lead_day, col_weight, col_max_capacity_weight, col_primary_key, update_table, update_date_column, "
+                        + "default_capacity_mode, on_drag_script, col_split_group) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    dynamicDataService.getJdbcTemplate().update(insertSql,
+                        currentFormCode, queryArea.getValue(), cbResource.getValue(), cbResourceGroup.getValue(), cbTaskName.getValue(),
+                        cbStartDate.getValue(), cbEndDate.getValue(), cbQty.getValue(), cbMaxCap.getValue(),
+                        cbGroupId.getValue(), cbDependencyId.getValue(), cbSequence.getValue(), cbLeadDay.getValue(),
+                        cbWeight.getValue(), cbMaxCapWeight.getValue(), cbPrimaryKey.getValue(),
+                        txtUpdateTable.getValue(), txtUpdateDateCol.getValue(), cbDefaultMode.getValue(), onDragScriptArea.getValue(), cbSplitGroup.getValue());
+                }
+                showSuccess("Berhasil", "Konfigurasi scheduler berhasil disimpan!");
+                dialog.close();
+            } catch (Exception ex) {
+                showError("Gagal Menyimpan", ex.getMessage());
+            }
+        });
+        btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
+
+        VerticalLayout layout = new VerticalLayout(queryArea, testBtn, new H4("Column Mapping"), mappingLayout, 
+            new H4("Update Settings"), settingsLayout, onDragScriptArea, btnSave);
+        layout.setPadding(false);
+        layout.setSpacing(true);
+        dialog.add(layout);
+        dialog.open();
+    }
+    
+    private void showError(String title, String desc) {
+        com.vaadin.flow.component.notification.Notification n = com.vaadin.flow.component.notification.Notification.show(title + ": " + desc, 5000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE);
+        n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+    }
+
+    private void showSuccess(String title, String desc) {
+        com.vaadin.flow.component.notification.Notification n = com.vaadin.flow.component.notification.Notification.show(title + ": " + desc, 3000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE);
+        n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
     }
 }
