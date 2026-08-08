@@ -59,6 +59,12 @@ public class SchedulerConfig {
     @Column(name = "col_weight", length = 100)
     private String colWeight;
 
+    @Column(name = "col_qty_prod", length = 100)
+    private String colQtyProd;
+
+    @Column(name = "col_pcs_per_box", length = 100)
+    private String colPcsPerBox;
+
     @Column(name = "col_max_capacity_weight", length = 100)
     private String colMaxCapacityWeight;
 
@@ -71,9 +77,15 @@ public class SchedulerConfig {
     @Column(name = "update_date_column", length = 100)
     private String updateDateColumn;
 
+    @Column(name = "update_resource_column", length = 100)
+    private String updateResourceColumn;
+
     @Column(name = "default_capacity_mode", length = 20)
     private String defaultCapacityMode = "QTYBOX";
 
     @Column(name = "on_drag_script", columnDefinition = "TEXT")
     private String onDragScript;
+
+    @Column(name = "col_shipping_date", length = 100)
+    private String colShippingDate;
 }

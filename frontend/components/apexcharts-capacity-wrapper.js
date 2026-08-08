@@ -57,10 +57,10 @@ class ApexCapacityWrapper extends LitElement {
    *   { date: "2026-08-29", categories: [...seriesNames], values: [...stackedValues], maxCapacity: 80 }
    * ]
    */
-  setChartData(dataArray, maxCapacity, capacityLabel) {
+  setChartData(dataArray, maxCapacity, capacityLabel, startDateStr, endDateStr) {
     if (!this._ApexCharts) {
       // Retry after ApexCharts loads
-      setTimeout(() => this.setChartData(dataArray, maxCapacity, capacityLabel), 200);
+      setTimeout(() => this.setChartData(dataArray, maxCapacity, capacityLabel, startDateStr, endDateStr), 200);
       return;
     }
 
@@ -87,30 +87,36 @@ class ApexCapacityWrapper extends LitElement {
       seriesMap[taskName][date] = (seriesMap[taskName][date] || 0) + value;
     }
 
-    if (this.weeklyView && dates.length > 0) {
-      // Find min and max dates
+    let minDt, maxDt;
+    if (startDateStr && endDateStr) {
+      minDt = new Date(startDateStr);
+      maxDt = new Date(endDateStr);
+    } else if (dates.length > 0) {
       dates.sort();
-      let minDt = new Date(dates[0]);
-      let maxDt = new Date(dates[dates.length - 1]);
+      minDt = new Date(dates[0]);
+      maxDt = new Date(dates[dates.length - 1]);
+    }
+
+    if (minDt && maxDt) {
+      if (this.weeklyView) {
+        // Adjust min to Monday
+        let day = minDt.getDay();
+        let diff = minDt.getDate() - day + (day === 0 ? -6 : 1);
+        minDt.setDate(diff);
+        
+        // Adjust max to Sunday
+        day = maxDt.getDay();
+        diff = maxDt.getDate() + (day === 0 ? 0 : 7 - day);
+        maxDt.setDate(diff);
+      }
       
-      // Adjust min to Monday
-      let day = minDt.getDay();
-      let diff = minDt.getDate() - day + (day === 0 ? -6 : 1);
-      minDt.setDate(diff);
-      
-      // Adjust max to Sunday
-      day = maxDt.getDay();
-      diff = maxDt.getDate() + (day === 0 ? 0 : 7 - day);
-      maxDt.setDate(diff);
-      
-      // Generate all dates from Monday to Sunday
+      // Generate all dates between min and max
       const fullDates = [];
       let curr = new Date(minDt);
       while (curr <= maxDt) {
         fullDates.push(curr.toISOString().split('T')[0]);
         curr.setDate(curr.getDate() + 1);
       }
-      // Replace dates array with fullDates so the chart has all 7 days
       dates.length = 0;
       dates.push(...fullDates);
     }
@@ -144,9 +150,11 @@ class ApexCapacityWrapper extends LitElement {
         animations: { enabled: true, easing: 'easeinout', speed: 400 },
         events: {
           dataPointSelection: (event, chartContext, config) => {
-            if (config.seriesIndex !== undefined && config.seriesIndex !== null) {
+            if (config.seriesIndex !== undefined && config.seriesIndex !== null && config.dataPointIndex !== undefined) {
               const seriesName = config.w.config.series[config.seriesIndex].name;
-              this.dispatchEvent(new CustomEvent('chart-item-click', { detail: { taskName: seriesName } }));
+              const timestamp = config.w.config.xaxis.categories[config.dataPointIndex];
+              const dateStr = timestamp ? new Date(timestamp).toISOString().split('T')[0] : '';
+              this.dispatchEvent(new CustomEvent('chart-item-click', { detail: { taskName: seriesName, date: dateStr } }));
             }
           }
         }
@@ -164,9 +172,11 @@ class ApexCapacityWrapper extends LitElement {
       },
       xaxis: {
         type: 'datetime',
+        tickAmount: this.weeklyView ? 7 : (dates.length > 0 ? dates.length : undefined),
         range: this.weeklyView ? 7 * 24 * 60 * 60 * 1000 : undefined, // 7 days in milliseconds
         categories: dates.map(d => new Date(d).getTime()),
         labels: { 
+          hideOverlappingLabels: false,
           style: { fontSize: '11px' },
           formatter: function(value, timestamp) {
             if (!timestamp) return '';
@@ -200,7 +210,7 @@ class ApexCapacityWrapper extends LitElement {
           }
         }]
       },
-      colors: this._generateColors(Object.keys(seriesMap).length),
+      colors: this._generateColors(Object.keys(seriesMap)),
       legend: {
         position: 'top',
         fontSize: '11px',
@@ -223,6 +233,18 @@ class ApexCapacityWrapper extends LitElement {
     if (!container) return;
 
     if (this.chart) {
+      // Coba pertahankan posisi zoom/pan saat ini (jika ada)
+      try {
+        const currentMin = this.chart.w.globals.minX;
+        const currentMax = this.chart.w.globals.maxX;
+        if (currentMin !== undefined && currentMax !== undefined) {
+          options.xaxis.min = currentMin;
+          options.xaxis.max = currentMax;
+          delete options.xaxis.range; // Matikan range default agar min/max yang dipakai
+        }
+      } catch (e) {
+        // Abaikan jika tidak bisa membaca globals
+      }
       this.chart.updateOptions(options);
     } else {
       this.chart = new this._ApexCharts(container, options);
@@ -238,15 +260,21 @@ class ApexCapacityWrapper extends LitElement {
     this.weeklyView = weekly;
   }
 
-  _generateColors(count) {
+  _generateColors(seriesNames) {
     const palette = [
       '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899',
       '#06b6d4', '#84cc16', '#f97316', '#6366f1', '#14b8a6',
-      '#e11d48', '#0ea5e9', '#a855f7', '#22c55e', '#eab308'
-    ];
+      '#0ea5e9', '#a855f7', '#22c55e', '#eab308'
+    ]; // removed red from palette to reserve for LATE
     const colors = [];
-    for (let i = 0; i < count; i++) {
-      colors.push(palette[i % palette.length]);
+    let paletteIdx = 0;
+    for (let i = 0; i < seriesNames.length; i++) {
+      if (seriesNames[i].includes('(LATE)')) {
+        colors.push('#ef4444'); // Red for late jobs
+      } else {
+        colors.push(palette[paletteIdx % palette.length]);
+        paletteIdx++;
+      }
     }
     return colors;
   }

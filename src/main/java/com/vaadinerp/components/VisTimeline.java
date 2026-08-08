@@ -3,7 +3,6 @@ package com.vaadinerp.components;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Tag;
 import com.vaadin.flow.component.HasSize;
-import com.vaadin.flow.component.HasStyle;
 import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.dependency.NpmPackage;
 import com.vaadin.flow.component.ClientCallable;
@@ -14,18 +13,18 @@ import elemental.json.JsonArray;
 @NpmPackage(value = "vis-data", version = "^7.1.9")
 @NpmPackage(value = "moment", version = "^2.29.4")
 @JsModule("./components/vis-timeline-wrapper.js")
-public class VisTimeline extends Component implements HasSize, HasStyle {
+public class VisTimeline extends Component implements HasSize {
 
     private boolean stackMode = true;
 
     public interface ItemMoveListener {
         void onItemMoved(String itemId, String newStart, String newEnd, String newGroup);
     }
-    
+
     public interface ItemClickListener {
         void onItemClicked(String itemId);
     }
-    
+
     public interface ItemContextMenuListener {
         void onItemContextMenu(String clickedItemId, String[] allSelectedItems);
     }
@@ -47,9 +46,14 @@ public class VisTimeline extends Component implements HasSize, HasStyle {
         getElement().callJsFunction("setItems", items);
     }
 
+    public void setCustomTimes(JsonArray times) {
+        getElement().callJsFunction("setCustomTimes", times);
+    }
+
     /**
      * Set capacity status for items — changes bar color based on overcapacity.
-     * Each element in the array should have: itemId, overcapacity (boolean), warningCapacity (boolean)
+     * Each element in the array should have: itemId, overcapacity (boolean),
+     * warningCapacity (boolean)
      */
     public void setItemCapacityStatus(JsonArray statusArray) {
         getElement().callJsFunction("setItemCapacityStatus", statusArray);
@@ -64,8 +68,8 @@ public class VisTimeline extends Component implements HasSize, HasStyle {
         return this.stackMode;
     }
 
-    public void setSelection(String itemId) {
-        getElement().callJsFunction("setSelection", itemId);
+    public void setSelection(JsonArray itemIds) {
+        getElement().callJsFunction("setSelection", itemIds);
     }
 
     public void zoomIn() {
@@ -83,7 +87,7 @@ public class VisTimeline extends Component implements HasSize, HasStyle {
     public void setItemMoveListener(ItemMoveListener listener) {
         this.itemMoveListener = listener;
     }
-    
+
     public void setItemClickListener(ItemClickListener listener) {
         this.itemClickListener = listener;
     }
@@ -94,18 +98,18 @@ public class VisTimeline extends Component implements HasSize, HasStyle {
             itemMoveListener.onItemMoved(itemId, newStart, newEnd, newGroup);
         }
     }
-    
+
     @ClientCallable
     public void onItemClicked(String itemId) {
         if (itemClickListener != null) {
             itemClickListener.onItemClicked(itemId);
         }
     }
-    
+
     public void setItemContextMenuListener(ItemContextMenuListener listener) {
         this.itemContextMenuListener = listener;
     }
-    
+
     @ClientCallable
     public void onItemContextMenu(String clickedItemId, String[] allSelectedItems) {
         if (itemContextMenuListener != null) {

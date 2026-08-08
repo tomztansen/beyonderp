@@ -71,7 +71,7 @@ public class FormBuilderView extends VerticalLayout {
     private final ComboBox<String> formTypeCombo = new ComboBox<>("Form Type");
     private final TextField tableNameField = new TextField("Target Table Name");
     private final Checkbox autoCreateDbCheckbox = new Checkbox("Auto-Generate / Sync Physical Table (DDL)", false);
-    private final TextField viewTableField = new TextField("View Table / Query (Optional)");
+    private final TextArea viewTableField = new TextArea("View Table / Query (Optional)");
     private final TextField pkField = new TextField("Primary Key Column");
     private final TextField labelWidthField = new TextField("Label Width (e.g. 150px)");
     private final TextField detailTableNameField = new TextField("Detail Table Name");
@@ -581,21 +581,26 @@ public class FormBuilderView extends VerticalLayout {
         btnRelayoutCanvas.getStyle().set("font-weight", "500").set("color", "#3b82f6");
         btnRelayoutCanvas.addClickListener(e -> openRelayoutDialog());
 
-        Button btnConfigScheduler = new Button("Config Scheduler", com.vaadin.flow.component.icon.VaadinIcon.CALENDAR_CLOCK.create(), e -> {
-            if (formCodeField.getValue() == null || formCodeField.getValue().trim().isEmpty()) {
-                Notification.show("Silakan isi Form Code (Unique) terlebih dahulu!", 3000, Notification.Position.MIDDLE);
-                return;
-            }
-            openSchedulerConfigDialog();
-        });
+        Button btnConfigScheduler = new Button("Config Scheduler",
+                com.vaadin.flow.component.icon.VaadinIcon.CALENDAR_CLOCK.create(), e -> {
+                    if (formCodeField.getValue() == null || formCodeField.getValue().trim().isEmpty()) {
+                        Notification.show("Silakan isi Form Code (Unique) terlebih dahulu!", 3000,
+                                Notification.Position.MIDDLE);
+                        return;
+                    }
+                    openSchedulerConfigDialog();
+                });
         btnConfigScheduler.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnConfigScheduler.setVisible(false);
 
-        HorizontalLayout actionButtonsLayout = new HorizontalLayout(btnAutoGenerateFields, btnRelayoutCanvas, btnConfigScheduler);
+        HorizontalLayout actionButtonsLayout = new HorizontalLayout(btnAutoGenerateFields, btnRelayoutCanvas,
+                btnConfigScheduler);
         actionButtonsLayout.setSpacing(true);
         actionButtonsLayout.getStyle().set("margin-top", "10px");
 
-        formMetaLayout.add(formCodeField, formTitleField, formTypeCombo, tableNameField, viewTableField, pkField,
+        viewTableField.setMaxHeight("120px");
+
+        formMetaLayout.add(formCodeField, formTitleField, formTypeCombo, pkField, tableNameField, viewTableField,
                 labelWidthField,
                 defaultSortField, defaultSortDirection, actionComboLayout, detailTableNameField, detailPkField,
                 detailFkField, autoCreateDbCheckbox, actionButtonsLayout);
@@ -759,28 +764,32 @@ public class FormBuilderView extends VerticalLayout {
         Button btnBulkDelete = new Button("🗑️ Delete Selected");
         btnBulkDelete.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
         btnBulkDelete.addClickListener(e -> {
-            if (selectedFields.isEmpty()) return;
+            if (selectedFields.isEmpty())
+                return;
             fieldsList.removeAll(selectedFields);
             selectedFields.clear();
             selectField(null, false);
             rebuildCanvas();
-            if (isListView) refreshListCanvas();
+            if (isListView)
+                refreshListCanvas();
             Notification.show("Selected fields deleted", 2000, Notification.Position.BOTTOM_END);
         });
-        
+
         Button btnBulkGroupRow = new Button("🔀 Group into same Row");
         btnBulkGroupRow.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
         btnBulkGroupRow.addClickListener(e -> {
-            if (selectedFields.isEmpty()) return;
+            if (selectedFields.isEmpty())
+                return;
             int targetRow = selectedFields.iterator().next().rowGroup;
-            for(FieldMetaTemp f : selectedFields) {
+            for (FieldMetaTemp f : selectedFields) {
                 f.rowGroup = targetRow;
             }
             rebuildCanvas();
-            if (isListView) refreshListCanvas();
+            if (isListView)
+                refreshListCanvas();
             Notification.show("Grouped into row " + targetRow, 2000, Notification.Position.BOTTOM_END);
         });
-        
+
         HorizontalLayout bulkActionsLayout = new HorizontalLayout(btnBulkDelete, btnBulkGroupRow);
         bulkActionsLayout.setVisible(false);
         propertiesPanel.add(bulkActionsLayout);
@@ -943,12 +952,14 @@ public class FormBuilderView extends VerticalLayout {
         propLovCode.setItemValueGenerator(row -> row.get("code") != null ? row.get("code").toString() : "");
 
         propLovCode.setDataFetchCallback(keyword -> {
-            boolean isSubform = !selectedFields.isEmpty() && "SUBFORM_GRID".equalsIgnoreCase(selectedFields.iterator().next().componentType);
+            boolean isSubform = !selectedFields.isEmpty()
+                    && "SUBFORM_GRID".equalsIgnoreCase(selectedFields.iterator().next().componentType);
             return fetchLovItems(keyword, isSubform);
         });
 
         propLovCode.setItemFinder(val -> {
-            boolean isSubform = !selectedFields.isEmpty() && "SUBFORM_GRID".equalsIgnoreCase(selectedFields.iterator().next().componentType);
+            boolean isSubform = !selectedFields.isEmpty()
+                    && "SUBFORM_GRID".equalsIgnoreCase(selectedFields.iterator().next().componentType);
             List<Map<String, Object>> items = fetchLovItems(val != null ? val : "", isSubform);
             return items.stream()
                     .filter(item -> val != null && val.equalsIgnoreCase(item.get("code").toString()))
@@ -961,7 +972,8 @@ public class FormBuilderView extends VerticalLayout {
         propBtnEditLov.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_CONTRAST);
         propBtnEditLov.setWidthFull();
         propBtnEditLov.addClickListener(e -> {
-            if (!selectedFields.isEmpty() && selectedFields.iterator().next().lovCode != null && !selectedFields.iterator().next().lovCode.trim().isEmpty()) {
+            if (!selectedFields.isEmpty() && selectedFields.iterator().next().lovCode != null
+                    && !selectedFields.iterator().next().lovCode.trim().isEmpty()) {
                 openLovConfigDialog(selectedFields.iterator().next().lovCode);
             } else {
                 openLovConfigDialog(null);
@@ -1088,7 +1100,8 @@ public class FormBuilderView extends VerticalLayout {
         });
         propColSpan.addValueChangeListener(e -> {
             if (!selectedFields.isEmpty() && e.isFromClient()) {
-                selectedFields.iterator().next().colSpan = e.getValue() != null && e.getValue() > 0 ? e.getValue() : null;
+                selectedFields.iterator().next().colSpan = e.getValue() != null && e.getValue() > 0 ? e.getValue()
+                        : null;
                 rebuildCanvas();
             }
         });
@@ -1103,7 +1116,8 @@ public class FormBuilderView extends VerticalLayout {
             if (!selectedFields.isEmpty() && (!isSelectingField || e.isFromClient())) {
                 String val = e.getValue();
                 selectedFields.iterator().next().readonlyMode = (val == null || val.trim().isEmpty()) ? "NONE" : val;
-                selectedFields.iterator().next().isReadonly = "EDIT_AND_ADD".equalsIgnoreCase(selectedFields.iterator().next().readonlyMode);
+                selectedFields.iterator().next().isReadonly = "EDIT_AND_ADD"
+                        .equalsIgnoreCase(selectedFields.iterator().next().readonlyMode);
                 if (e.isFromClient()) {
                     propIsReadonly.setValue(selectedFields.iterator().next().isReadonly);
                 }
@@ -1239,8 +1253,9 @@ public class FormBuilderView extends VerticalLayout {
             propFormula.setPlaceholder("");
             propFormula.setEnabled(true);
 
-            propBtnFilters.setEnabled(isSelection && !selectedFields.isEmpty() && selectedFields.iterator().next().lovCode != null
-                    && !selectedFields.iterator().next().lovCode.trim().isEmpty());
+            propBtnFilters.setEnabled(
+                    isSelection && !selectedFields.isEmpty() && selectedFields.iterator().next().lovCode != null
+                            && !selectedFields.iterator().next().lovCode.trim().isEmpty());
             propBtnLovTargets.setEnabled(true);
             propBtnOnAddScript.setEnabled(false);
             propBtnOnAddScript.setVisible(false);
@@ -1298,13 +1313,14 @@ public class FormBuilderView extends VerticalLayout {
                 selectedFields.add(temp);
             }
         }
-        
+
         Component parent = propertiesPanel;
-        HorizontalLayout bulkLayout = (HorizontalLayout) parent.getChildren().filter(c -> c instanceof HorizontalLayout).findFirst().orElse(null);
-        if(bulkLayout != null) {
+        HorizontalLayout bulkLayout = (HorizontalLayout) parent.getChildren().filter(c -> c instanceof HorizontalLayout)
+                .findFirst().orElse(null);
+        if (bulkLayout != null) {
             bulkLayout.setVisible(selectedFields.size() > 1);
         }
-        
+
         if (selectedFields.isEmpty()) {
             propPlaceholderLabel.setVisible(true);
             propertiesForm.setVisible(false);
@@ -1316,7 +1332,7 @@ public class FormBuilderView extends VerticalLayout {
                 if (selectedFields.size() == 1) {
                     FieldMetaTemp first = selectedFields.iterator().next();
                     updatePropertyFieldsState(first.componentType);
-                    
+
                     propFieldName.setVisible(true);
                     propFieldLabel.setVisible(true);
                     propComponentType.setVisible(true);
@@ -1332,7 +1348,7 @@ public class FormBuilderView extends VerticalLayout {
                     propBtnOnAddScript.setVisible(true);
                     propHyperlinkTargetForm.setVisible(true);
                     propHyperlinkFilterMapping.setVisible(true);
-                    
+
                     propFieldName.setValue(first.fieldName != null ? first.fieldName : "");
                     propFieldLabel.setValue(first.fieldLabel != null ? first.fieldLabel : "");
                     propComponentType.setValue(first.componentType);
@@ -1342,7 +1358,7 @@ public class FormBuilderView extends VerticalLayout {
                     propFieldWidth.setValue(first.fieldWidth != null ? first.fieldWidth : "100%");
                     propIsRequired.setValue(first.isRequired);
                     propIsReadonly.setValue(first.isReadonly);
-                    
+
                     String rm = first.readonlyMode;
                     if (rm == null || rm.trim().isEmpty() || "DEFAULT".equalsIgnoreCase(rm)) {
                         rm = first.isReadonly ? "EDIT_AND_ADD" : "NONE";
@@ -1360,8 +1376,10 @@ public class FormBuilderView extends VerticalLayout {
                     propDisplayFormat.setValue(first.displayFormat != null ? first.displayFormat : "");
                     propValidationRule.setValue(first.validationRule != null ? first.validationRule : "NONE");
                     propSequenceCode.setValue(first.sequenceCode != null ? first.sequenceCode : "");
-                    propHyperlinkTargetForm.setValue(first.hyperlinkTargetForm != null ? first.hyperlinkTargetForm : "");
-                    propHyperlinkFilterMapping.setValue(first.hyperlinkFilterMapping != null ? first.hyperlinkFilterMapping : "");
+                    propHyperlinkTargetForm
+                            .setValue(first.hyperlinkTargetForm != null ? first.hyperlinkTargetForm : "");
+                    propHyperlinkFilterMapping
+                            .setValue(first.hyperlinkFilterMapping != null ? first.hyperlinkFilterMapping : "");
                     propSaveOnInsert.setValue(first.saveOnInsert);
                     propSaveOnUpdate.setValue(first.saveOnUpdate);
                     propIsAuditLog.setValue(first.isAuditLog);
@@ -1383,30 +1401,42 @@ public class FormBuilderView extends VerticalLayout {
                     propBtnOnAddScript.setVisible(false);
                     propHyperlinkTargetForm.setVisible(false);
                     propHyperlinkFilterMapping.setVisible(false);
-                    
+
                     boolean sameRow = true;
                     int firstRow = -1;
                     boolean sameColSpan = true;
                     Integer firstColSpan = -1;
                     boolean sameWidth = true;
                     String firstWidth = null;
-                    
+
                     boolean firstField = true;
-                    for(FieldMetaTemp f : selectedFields) {
-                        if(firstField) {
+                    for (FieldMetaTemp f : selectedFields) {
+                        if (firstField) {
                             firstRow = f.rowGroup;
                             firstColSpan = f.colSpan;
                             firstWidth = f.fieldWidth;
                             firstField = false;
                         } else {
-                            if(f.rowGroup != firstRow) sameRow = false;
-                            if(!java.util.Objects.equals(f.colSpan, firstColSpan)) sameColSpan = false;
-                            if(!java.util.Objects.equals(f.fieldWidth, firstWidth)) sameWidth = false;
+                            if (f.rowGroup != firstRow)
+                                sameRow = false;
+                            if (!java.util.Objects.equals(f.colSpan, firstColSpan))
+                                sameColSpan = false;
+                            if (!java.util.Objects.equals(f.fieldWidth, firstWidth))
+                                sameWidth = false;
                         }
                     }
-                    if (sameRow) propRowGroup.setValue(firstRow); else propRowGroup.clear();
-                    if (sameColSpan) propColSpan.setValue(firstColSpan); else propColSpan.clear();
-                    if (sameWidth) propFieldWidth.setValue(firstWidth); else propFieldWidth.clear();
+                    if (sameRow)
+                        propRowGroup.setValue(firstRow);
+                    else
+                        propRowGroup.clear();
+                    if (sameColSpan)
+                        propColSpan.setValue(firstColSpan);
+                    else
+                        propColSpan.clear();
+                    if (sameWidth)
+                        propFieldWidth.setValue(firstWidth);
+                    else
+                        propFieldWidth.clear();
                     propIsRequired.clear();
                     propIsReadonly.clear();
                     propShowInGrid.clear();
@@ -1547,7 +1577,8 @@ public class FormBuilderView extends VerticalLayout {
         dropTarget.addDropListener(e -> {
             boolean droppedFromPalette = false;
             if (draggedPaletteType != null) {
-                draggedFields.clear(); draggedFields.add(createFieldMetaTemp(draggedPaletteType));
+                draggedFields.clear();
+                draggedFields.add(createFieldMetaTemp(draggedPaletteType));
                 draggedPaletteType = null;
                 droppedFromPalette = true;
                 fieldsList.add(draggedFields.get(0)); // Add temporarily so reorder logic finds it
@@ -1826,7 +1857,8 @@ public class FormBuilderView extends VerticalLayout {
 
             boolean droppedFromPalette = false;
             if (draggedPaletteType != null) {
-                draggedFields.clear(); draggedFields.add(createFieldMetaTemp(draggedPaletteType));
+                draggedFields.clear();
+                draggedFields.add(createFieldMetaTemp(draggedPaletteType));
                 draggedPaletteType = null;
                 droppedFromPalette = true;
                 fieldsList.add(draggedFields.get(0)); // Add temporarily
@@ -2043,7 +2075,8 @@ public class FormBuilderView extends VerticalLayout {
         card.add(cardHeader, previewComp);
 
         card.getElement().addEventListener("click", e -> {
-            boolean isMulti = e.getEventData().getBoolean("event.shiftKey") || e.getEventData().getBoolean("event.ctrlKey");
+            boolean isMulti = e.getEventData().getBoolean("event.shiftKey")
+                    || e.getEventData().getBoolean("event.ctrlKey");
             selectField(temp, isMulti);
             rebuildCanvas();
         }).addEventData("event.shiftKey").addEventData("event.ctrlKey");
@@ -2052,7 +2085,8 @@ public class FormBuilderView extends VerticalLayout {
         DragSource<Component> dragSource = DragSource.create(card);
         dragSource.setDraggable(true);
         dragSource.addDragStartListener(e -> {
-            draggedFields.clear(); draggedFields.add(temp);
+            draggedFields.clear();
+            draggedFields.add(temp);
             card.getStyle().set("opacity", "0.5");
             canvas.addClassName("dragging-active");
         });
@@ -2139,7 +2173,8 @@ public class FormBuilderView extends VerticalLayout {
 
             boolean droppedFromPalette = false;
             if (draggedPaletteType != null) {
-                draggedFields.clear(); draggedFields.add(createFieldMetaTemp(draggedPaletteType));
+                draggedFields.clear();
+                draggedFields.add(createFieldMetaTemp(draggedPaletteType));
                 draggedPaletteType = null;
                 droppedFromPalette = true;
                 fieldsList.add(draggedFields.get(0));
@@ -2177,7 +2212,8 @@ public class FormBuilderView extends VerticalLayout {
 
             boolean droppedFromPalette = false;
             if (draggedPaletteType != null) {
-                draggedFields.clear(); draggedFields.add(createFieldMetaTemp(draggedPaletteType));
+                draggedFields.clear();
+                draggedFields.add(createFieldMetaTemp(draggedPaletteType));
                 draggedPaletteType = null;
                 droppedFromPalette = true;
                 fieldsList.add(draggedFields.get(0)); // Add temporarily
@@ -3082,10 +3118,13 @@ public class FormBuilderView extends VerticalLayout {
         java.util.Set<String> fieldNames = new java.util.HashSet<>();
         for (FieldMetaTemp temp : fieldsList) {
             String fName = temp.fieldName != null ? temp.fieldName.trim().toLowerCase() : "";
-            if (fName.isEmpty()) continue;
-            
+            if (fName.isEmpty())
+                continue;
+
             if (!fieldNames.add(fName)) {
-                Notification.show("Gagal menyimpan: Terdapat nama field (Field Name) yang sama yaitu '" + temp.fieldName + "'!", 5000, Notification.Position.MIDDLE);
+                Notification.show(
+                        "Gagal menyimpan: Terdapat nama field (Field Name) yang sama yaitu '" + temp.fieldName + "'!",
+                        5000, Notification.Position.MIDDLE);
                 return;
             }
         }
@@ -4458,7 +4497,8 @@ public class FormBuilderView extends VerticalLayout {
             }
             layoutFields.sort((f1, f2) -> {
                 int rowCmp = Integer.compare(f1.rowGroup, f2.rowGroup);
-                if (rowCmp != 0) return rowCmp;
+                if (rowCmp != 0)
+                    return rowCmp;
                 return Integer.compare(f1.colIndex, f2.colIndex);
             });
 
@@ -4468,15 +4508,15 @@ public class FormBuilderView extends VerticalLayout {
                 int totalItems = layoutFields.size();
                 int baseItemsPerCol = totalItems / targetCols;
                 int remainder = totalItems % targetCols;
-                
+
                 int r = 1;
                 int c = 1;
                 int currentLimit = baseItemsPerCol + (c <= remainder ? 1 : 0);
-                
+
                 for (FieldMetaTemp f : layoutFields) {
                     f.rowGroup = r;
                     f.colIndex = c;
-                    
+
                     r++;
                     if (r > currentLimit) {
                         r = 1;
@@ -4601,7 +4641,7 @@ public class FormBuilderView extends VerticalLayout {
         refreshListCanvas();
         selectedFields.forEach(listCanvas::select);
     }
-    
+
     // =========================================================================
     // SCHEDULER CONFIGURATION DIALOG
     // =========================================================================
@@ -4620,10 +4660,10 @@ public class FormBuilderView extends VerticalLayout {
         queryArea.setWidthFull();
         queryArea.setHeight("150px");
         queryArea.setPlaceholder("SELECT * FROM vw_production_schedule WHERE ...");
-        
+
         Button testBtn = new Button("🔍 Test Query & Load Columns", VaadinIcon.SEARCH.create());
         testBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        
+
         // Comboboxes for mapping
         ComboBox<String> cbResource = new ComboBox<>("Resource (Mesin/Y-Axis) *");
         ComboBox<String> cbResourceGroup = new ComboBox<>("Resource Group (e.g. Departemen)");
@@ -4640,48 +4680,67 @@ public class FormBuilderView extends VerticalLayout {
         ComboBox<String> cbLeadDay = new ComboBox<>("Lead Day");
         ComboBox<String> cbPrimaryKey = new ComboBox<>("Primary Key *");
         ComboBox<String> cbSplitGroup = new ComboBox<>("Split Group (UUID Column)");
-        
-        List<ComboBox<String>> allCbs = List.of(cbResource, cbResourceGroup, cbTaskName, cbStartDate, cbEndDate, cbQty, cbMaxCap, 
-            cbWeight, cbMaxCapWeight, cbGroupId, cbDependencyId, cbSequence, cbLeadDay, cbPrimaryKey, cbSplitGroup);
+        ComboBox<String> cbQtyProd = new ComboBox<>("Qty Prod (Total Pcs)");
+        ComboBox<String> cbPcsPerBox = new ComboBox<>("Pcs Per Box");
+        ComboBox<String> cbShippingDate = new ComboBox<>("Shipping Date (Deadline)");
+
+        List<ComboBox<String>> allCbs = List.of(cbResource, cbResourceGroup, cbTaskName, cbStartDate, cbEndDate, cbQty,
+                cbMaxCap,
+                cbWeight, cbMaxCapWeight, cbGroupId, cbDependencyId, cbSequence, cbLeadDay, cbPrimaryKey, cbSplitGroup,
+                cbQtyProd, cbPcsPerBox, cbShippingDate);
         allCbs.forEach(cb -> {
             cb.setWidthFull();
             cb.setClearButtonVisible(true);
         });
-        
+
         com.vaadin.flow.component.formlayout.FormLayout mappingLayout = new com.vaadin.flow.component.formlayout.FormLayout();
         mappingLayout.setResponsiveSteps(new com.vaadin.flow.component.formlayout.FormLayout.ResponsiveStep("0", 2));
-        mappingLayout.add(cbResourceGroup, cbResource, cbTaskName, cbStartDate, cbEndDate, cbPrimaryKey, cbGroupId, cbDependencyId, cbSequence, cbLeadDay, 
-                cbQty, cbMaxCap, cbWeight, cbMaxCapWeight, cbSplitGroup);
-                
+        mappingLayout.add(cbResourceGroup, cbResource, cbTaskName, cbStartDate, cbEndDate, cbPrimaryKey, cbGroupId,
+                cbDependencyId, cbSequence, cbLeadDay,
+                cbQty, cbMaxCap, cbWeight, cbMaxCapWeight, cbSplitGroup, cbQtyProd, cbPcsPerBox, cbShippingDate);
+
         TextField txtUpdateTable = new TextField("Update Table (target drag-drop)");
         txtUpdateTable.setWidthFull();
         TextField txtUpdateDateCol = new TextField("Update Date Column");
         txtUpdateDateCol.setWidthFull();
+        TextField txtUpdateResourceCol = new TextField("Update Resource Column (e.g. idfacility)");
+        txtUpdateResourceCol.setWidthFull();
         ComboBox<String> cbDefaultMode = new ComboBox<>("Default Capacity Mode");
         cbDefaultMode.setItems("QTYBOX", "WEIGHT");
         cbDefaultMode.setWidthFull();
-        
+
         TextArea onDragScriptArea = new TextArea("On-Drag Validation Script (Groovy)");
         onDragScriptArea.setWidthFull();
         onDragScriptArea.setHeight("100px");
-        onDragScriptArea.setPlaceholder("def totalQty = ctx.sqlValue(...) \nif (totalQty > task.maxCapacity) return ctx.confirm(...) \nreturn true");
+        onDragScriptArea.setPlaceholder(
+                "def totalQty = ctx.sqlValue(...) \nif (totalQty > task.maxCapacity) return ctx.confirm(...) \nreturn true");
 
         com.vaadin.flow.component.formlayout.FormLayout settingsLayout = new com.vaadin.flow.component.formlayout.FormLayout();
         settingsLayout.setResponsiveSteps(new com.vaadin.flow.component.formlayout.FormLayout.ResponsiveStep("0", 2));
-        settingsLayout.add(txtUpdateTable, txtUpdateDateCol, cbDefaultMode);
+        settingsLayout.add(txtUpdateTable, txtUpdateDateCol, txtUpdateResourceCol, cbDefaultMode);
 
         // Load existing config if available
         try {
             List<Map<String, Object>> existingList = dynamicDataService.getJdbcTemplate().queryForList(
-                "SELECT * FROM meta_scheduler_config WHERE form_code = ?", currentFormCode);
+                    "SELECT * FROM meta_scheduler_config WHERE form_code = ?", currentFormCode);
             if (!existingList.isEmpty()) {
                 Map<String, Object> existing = existingList.get(0);
-                queryArea.setValue(existing.get("scheduler_query") != null ? existing.get("scheduler_query").toString() : "");
-                txtUpdateTable.setValue(existing.get("update_table") != null ? existing.get("update_table").toString() : "");
-                txtUpdateDateCol.setValue(existing.get("update_date_column") != null ? existing.get("update_date_column").toString() : "");
-                cbDefaultMode.setValue(existing.get("default_capacity_mode") != null ? existing.get("default_capacity_mode").toString() : "QTYBOX");
-                onDragScriptArea.setValue(existing.get("on_drag_script") != null ? existing.get("on_drag_script").toString() : "");
-                
+                queryArea.setValue(
+                        existing.get("scheduler_query") != null ? existing.get("scheduler_query").toString() : "");
+                txtUpdateTable
+                        .setValue(existing.get("update_table") != null ? existing.get("update_table").toString() : "");
+                txtUpdateDateCol.setValue(
+                        existing.get("update_date_column") != null ? existing.get("update_date_column").toString()
+                                : "");
+                txtUpdateResourceCol.setValue(existing.get("update_resource_column") != null
+                        ? existing.get("update_resource_column").toString()
+                        : "");
+                cbDefaultMode.setValue(
+                        existing.get("default_capacity_mode") != null ? existing.get("default_capacity_mode").toString()
+                                : "QTYBOX");
+                onDragScriptArea.setValue(
+                        existing.get("on_drag_script") != null ? existing.get("on_drag_script").toString() : "");
+
                 // load columns list to populate combo items
                 if (!queryArea.getValue().isEmpty()) {
                     try {
@@ -4690,11 +4749,12 @@ public class FormBuilderView extends VerticalLayout {
                             java.sql.ResultSetMetaData rsmd = rs.getMetaData();
                             int colCount = rsmd.getColumnCount();
                             List<String> cols = new ArrayList<>();
-                            for (int i = 1; i <= colCount; i++) cols.add(rsmd.getColumnName(i));
+                            for (int i = 1; i <= colCount; i++)
+                                cols.add(rsmd.getColumnName(i));
                             allCbs.forEach(cb -> cb.setItems(cols));
                             return null;
                         });
-                        
+
                         // set values
                         cbResource.setValue((String) existing.get("col_resource"));
                         cbResourceGroup.setValue((String) existing.get("col_resource_group"));
@@ -4711,6 +4771,9 @@ public class FormBuilderView extends VerticalLayout {
                         cbLeadDay.setValue((String) existing.get("col_lead_day"));
                         cbPrimaryKey.setValue((String) existing.get("col_primary_key"));
                         cbSplitGroup.setValue((String) existing.get("col_split_group"));
+                        cbQtyProd.setValue((String) existing.get("col_qty_prod"));
+                        cbPcsPerBox.setValue((String) existing.get("col_pcs_per_box"));
+                        cbShippingDate.setValue((String) existing.get("col_shipping_date"));
                     } catch (Exception ex) {
                         // ignore if invalid
                     }
@@ -4747,30 +4810,39 @@ public class FormBuilderView extends VerticalLayout {
         Button btnSave = new Button("Simpan Konfigurasi", VaadinIcon.CHECK.create(), e -> {
             try {
                 String checkSql = "SELECT COUNT(*) FROM meta_scheduler_config WHERE form_code = ?";
-                Integer count = dynamicDataService.getJdbcTemplate().queryForObject(checkSql, Integer.class, currentFormCode);
-                
+                Integer count = dynamicDataService.getJdbcTemplate().queryForObject(checkSql, Integer.class,
+                        currentFormCode);
+
                 if (count != null && count > 0) {
                     String updateSql = "UPDATE meta_scheduler_config SET scheduler_query=?, col_resource=?, col_resource_group=?, col_task_name=?, "
-                        + "col_start_date=?, col_end_date=?, col_qty=?, col_max_capacity=?, col_group_id=?, col_dependency_id=?, col_sequence=?, "
-                        + "col_lead_day=?, col_weight=?, col_max_capacity_weight=?, col_primary_key=?, update_table=?, "
-                        + "update_date_column=?, default_capacity_mode=?, on_drag_script=?, col_split_group=? WHERE form_code=?";
+                            + "col_start_date=?, col_end_date=?, col_qty=?, col_max_capacity=?, col_group_id=?, col_dependency_id=?, col_sequence=?, "
+                            + "col_lead_day=?, col_weight=?, col_max_capacity_weight=?, col_primary_key=?, update_table=?, "
+                            + "update_date_column=?, update_resource_column=?, default_capacity_mode=?, on_drag_script=?, col_split_group=?, col_qty_prod=?, col_pcs_per_box=?, col_shipping_date=? WHERE form_code=?";
                     dynamicDataService.getJdbcTemplate().update(updateSql,
-                        queryArea.getValue(), cbResource.getValue(), cbResourceGroup.getValue(), cbTaskName.getValue(), cbStartDate.getValue(),
-                        cbEndDate.getValue(), cbQty.getValue(), cbMaxCap.getValue(), cbGroupId.getValue(), cbDependencyId.getValue(),
-                        cbSequence.getValue(), cbLeadDay.getValue(), cbWeight.getValue(), cbMaxCapWeight.getValue(),
-                        cbPrimaryKey.getValue(), txtUpdateTable.getValue(), txtUpdateDateCol.getValue(),
-                        cbDefaultMode.getValue(), onDragScriptArea.getValue(), cbSplitGroup.getValue(), currentFormCode);
+                            queryArea.getValue(), cbResource.getValue(), cbResourceGroup.getValue(),
+                            cbTaskName.getValue(), cbStartDate.getValue(),
+                            cbEndDate.getValue(), cbQty.getValue(), cbMaxCap.getValue(), cbGroupId.getValue(),
+                            cbDependencyId.getValue(),
+                            cbSequence.getValue(), cbLeadDay.getValue(), cbWeight.getValue(), cbMaxCapWeight.getValue(),
+                            cbPrimaryKey.getValue(), txtUpdateTable.getValue(), txtUpdateDateCol.getValue(),
+                            txtUpdateResourceCol.getValue(),
+                            cbDefaultMode.getValue(), onDragScriptArea.getValue(), cbSplitGroup.getValue(),
+                            cbQtyProd.getValue(), cbPcsPerBox.getValue(), cbShippingDate.getValue(), currentFormCode);
                 } else {
                     String insertSql = "INSERT INTO meta_scheduler_config (form_code, scheduler_query, col_resource, col_resource_group, col_task_name, "
-                        + "col_start_date, col_end_date, col_qty, col_max_capacity, col_group_id, col_dependency_id, col_sequence, "
-                        + "col_lead_day, col_weight, col_max_capacity_weight, col_primary_key, update_table, update_date_column, "
-                        + "default_capacity_mode, on_drag_script, col_split_group) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                            + "col_start_date, col_end_date, col_qty, col_max_capacity, col_group_id, col_dependency_id, col_sequence, "
+                            + "col_lead_day, col_weight, col_max_capacity_weight, col_primary_key, update_table, update_date_column, update_resource_column, "
+                            + "default_capacity_mode, on_drag_script, col_split_group, col_qty_prod, col_pcs_per_box, col_shipping_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                     dynamicDataService.getJdbcTemplate().update(insertSql,
-                        currentFormCode, queryArea.getValue(), cbResource.getValue(), cbResourceGroup.getValue(), cbTaskName.getValue(),
-                        cbStartDate.getValue(), cbEndDate.getValue(), cbQty.getValue(), cbMaxCap.getValue(),
-                        cbGroupId.getValue(), cbDependencyId.getValue(), cbSequence.getValue(), cbLeadDay.getValue(),
-                        cbWeight.getValue(), cbMaxCapWeight.getValue(), cbPrimaryKey.getValue(),
-                        txtUpdateTable.getValue(), txtUpdateDateCol.getValue(), cbDefaultMode.getValue(), onDragScriptArea.getValue(), cbSplitGroup.getValue());
+                            currentFormCode, queryArea.getValue(), cbResource.getValue(), cbResourceGroup.getValue(),
+                            cbTaskName.getValue(),
+                            cbStartDate.getValue(), cbEndDate.getValue(), cbQty.getValue(), cbMaxCap.getValue(),
+                            cbGroupId.getValue(), cbDependencyId.getValue(), cbSequence.getValue(),
+                            cbLeadDay.getValue(),
+                            cbWeight.getValue(), cbMaxCapWeight.getValue(), cbPrimaryKey.getValue(),
+                            txtUpdateTable.getValue(), txtUpdateDateCol.getValue(), txtUpdateResourceCol.getValue(),
+                            cbDefaultMode.getValue(), onDragScriptArea.getValue(), cbSplitGroup.getValue(),
+                            cbQtyProd.getValue(), cbPcsPerBox.getValue(), cbShippingDate.getValue());
                 }
                 showSuccess("Berhasil", "Konfigurasi scheduler berhasil disimpan!");
                 dialog.close();
@@ -4780,21 +4852,23 @@ public class FormBuilderView extends VerticalLayout {
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
 
-        VerticalLayout layout = new VerticalLayout(queryArea, testBtn, new H4("Column Mapping"), mappingLayout, 
-            new H4("Update Settings"), settingsLayout, onDragScriptArea, btnSave);
+        VerticalLayout layout = new VerticalLayout(queryArea, testBtn, new H4("Column Mapping"), mappingLayout,
+                new H4("Update Settings"), settingsLayout, onDragScriptArea, btnSave);
         layout.setPadding(false);
         layout.setSpacing(true);
         dialog.add(layout);
         dialog.open();
     }
-    
+
     private void showError(String title, String desc) {
-        com.vaadin.flow.component.notification.Notification n = com.vaadin.flow.component.notification.Notification.show(title + ": " + desc, 5000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE);
+        com.vaadin.flow.component.notification.Notification n = com.vaadin.flow.component.notification.Notification
+                .show(title + ": " + desc, 5000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE);
         n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
     }
 
     private void showSuccess(String title, String desc) {
-        com.vaadin.flow.component.notification.Notification n = com.vaadin.flow.component.notification.Notification.show(title + ": " + desc, 3000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE);
+        com.vaadin.flow.component.notification.Notification n = com.vaadin.flow.component.notification.Notification
+                .show(title + ": " + desc, 3000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE);
         n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
     }
 }
