@@ -153,7 +153,7 @@ public class ViewDesignerView extends VerticalLayout {
 
             // Generate initial default template
             btnGenerateTemplate.click();
-        } else {
+        } else if (existingRow != null) {
             Long oid = existingRow.get("oid") instanceof Number n ? n.longValue() : null;
             String schemaName = existingRow.get("schema_name") != null ? existingRow.get("schema_name").toString() : "";
             String viewName = existingRow.get("view_name") != null ? existingRow.get("view_name").toString() : "";

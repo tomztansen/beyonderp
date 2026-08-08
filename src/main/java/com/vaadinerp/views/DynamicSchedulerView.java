@@ -25,6 +25,7 @@ import com.vaadinerp.meta.FormMetaRepository;
 import com.vaadinerp.meta.SchedulerConfig;
 import com.vaadinerp.meta.SchedulerConfigRepository;
 import com.vaadinerp.service.DynamicDataService;
+import com.vaadinerp.security.entity.AppUser;
 import com.vaadinerp.security.service.SessionSecurityService;
 import elemental.json.Json;
 import elemental.json.JsonArray;
@@ -58,27 +59,38 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
     private ComboBox<String> viewModeCombo;
     private ComboBox<String> groupFilterCombo1;
     private ComboBox<String> groupFilterCombo2;
+    private ComboBox<String> timelineGroupFilter;
+    private ComboBox<String> timelineResourceFilter;
     private boolean isWeeklyView = true;
     private ComboBox<String> resourceFilterCombo1;
     private ComboBox<String> resourceFilterCombo2;
     private ComboBox<String> capacityModeCombo1;
     private ComboBox<String> capacityModeCombo2;
-    private String currentResourceFilter1 = null; 
-    private String currentResourceFilter2 = null; 
+    private String currentResourceFilter1 = null;
+    private String currentResourceFilter2 = null;
+    private String currentTimelineGroupFilter = null;
+    private String currentTimelineResourceFilter = null;
     private String currentCapacityMode1 = "QTYBOX";
     private String currentCapacityMode2 = "QTYBOX";
     private com.vaadin.flow.component.datepicker.DatePicker startDateFilter;
     private com.vaadin.flow.component.datepicker.DatePicker endDateFilter;
 
     private List<Map<String, Object>> currentData = new ArrayList<>();
+    private java.util.Set<Map<String, Object>> modifiedRows = new java.util.HashSet<>();
+    private java.util.Set<String> currentLateSpks = new java.util.HashSet<>();
+    private Button btnSaveEdits;
+    private com.vaadin.flow.component.checkbox.Checkbox chkHideUnassigned;
 
     private Runnable closeHandler;
+    
+    private final Map<Grid.Column<Map<String, Object>>, java.util.function.Function<Map<String, Object>, String>> colGetterMap = new java.util.concurrent.ConcurrentHashMap<>();
+    private Runnable reapplyGridFilters;
 
     public DynamicSchedulerView(FormMetaRepository formMetaRepository,
-                                 SchedulerConfigRepository schedulerConfigRepository,
-                                 DynamicDataService dataService,
-                                 SessionSecurityService securityService,
-                                 JdbcTemplate jdbcTemplate) {
+            SchedulerConfigRepository schedulerConfigRepository,
+            DynamicDataService dataService,
+            SessionSecurityService securityService,
+            JdbcTemplate jdbcTemplate) {
         this.formMetaRepository = formMetaRepository;
         this.schedulerConfigRepository = schedulerConfigRepository;
         this.dataService = dataService;
@@ -116,6 +128,15 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
     private void initView() {
         removeAll();
 
+        com.vaadin.flow.component.UI.getCurrent().getPage().executeJs(
+            "if (!document.getElementById('late-timeline-styles')) {" +
+            "  const style = document.createElement('style');" +
+            "  style.id = 'late-timeline-styles';" +
+            "  style.innerHTML = '.vis-item.is-late { background-color: #ef4444 !important; border-color: #b91c1c !important; color: white !important; font-weight: bold !important; } .vis-item.is-late.vis-selected { border-width: 2px !important; border-color: #7f1d1d !important; background-color: #b91c1c !important; }';" +
+            "  document.head.appendChild(style);" +
+            "}"
+        );
+
         Optional<FormMeta> optForm = formMetaRepository.findById(formCode);
         if (optForm.isEmpty()) {
             add(new Span("Form " + formCode + " not found."));
@@ -132,23 +153,69 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         }
         schedulerConfig = optConfig.get();
         currentCapacityMode1 = schedulerConfig.getDefaultCapacityMode() != null
-                ? schedulerConfig.getDefaultCapacityMode() : "QTYBOX";
+                ? schedulerConfig.getDefaultCapacityMode()
+                : "QTYBOX";
         currentCapacityMode2 = currentCapacityMode1;
 
         // === TOOLBAR ===
         HorizontalLayout toolbar = buildToolbar();
 
-        // === MAIN CONTENT: SplitLayout vertical (Timeline atas, Capacity chart bawah) ===
+        // === MAIN CONTENT: SplitLayout vertical (Timeline atas, Capacity chart bawah)
+        // ===
         SplitLayout mainSplit = new SplitLayout(SplitLayout.Orientation.VERTICAL);
         mainSplit.setSizeFull();
         mainSplit.setSplitterPosition(60);
 
         // Timeline
+        VerticalLayout timelineLayout = new VerticalLayout();
+        timelineLayout.setSizeFull();
+        timelineLayout.setPadding(false);
+        timelineLayout.setSpacing(false);
+
+        HorizontalLayout timelineHeader = new HorizontalLayout();
+        timelineHeader.setWidthFull();
+        timelineHeader.setAlignItems(FlexComponent.Alignment.CENTER);
+        timelineHeader.getStyle().set("background-color", "#ffffff").set("border-bottom", "1px solid #e2e8f0")
+                .set("padding", "8px 16px");
+
+        Span timelineTitle = new Span("🕒 Timeline");
+        timelineTitle.getStyle().set("font-weight", "600").set("font-size", "14px").set("color", "#334155")
+                .set("margin-right", "auto");
+
+        timelineGroupFilter = new ComboBox<>();
+        timelineGroupFilter.setPlaceholder("Group (Semua)");
+        timelineGroupFilter.setClearButtonVisible(true);
+        timelineGroupFilter.setWidth("160px");
+        timelineGroupFilter.addThemeVariants(com.vaadin.flow.component.combobox.ComboBoxVariant.LUMO_SMALL);
+        timelineGroupFilter.addValueChangeListener(e -> {
+            if (e.isFromClient()) {
+                currentTimelineGroupFilter = e.getValue();
+                populateTimelineResourceFilter();
+                updateTimelineData();
+            }
+        });
+
+        timelineResourceFilter = new ComboBox<>();
+        timelineResourceFilter.setPlaceholder("Mesin (Semua)");
+        timelineResourceFilter.setClearButtonVisible(true);
+        timelineResourceFilter.setWidth("160px");
+        timelineResourceFilter.addThemeVariants(com.vaadin.flow.component.combobox.ComboBoxVariant.LUMO_SMALL);
+        timelineResourceFilter.addValueChangeListener(e -> {
+            if (e.isFromClient()) {
+                currentTimelineResourceFilter = e.getValue();
+                updateTimelineData();
+            }
+        });
+
+        timelineHeader.add(timelineTitle, timelineGroupFilter, timelineResourceFilter);
+
         timeline = new VisTimeline();
         timeline.setSizeFull();
         timeline.setItemMoveListener(this::handleItemMove);
         timeline.setItemClickListener(this::handleItemClick);
         timeline.setItemContextMenuListener(this::handleItemContextMenu);
+
+        timelineLayout.add(timelineHeader, timeline);
 
         // Capacity Chart
         HorizontalLayout capacityPanel = new HorizontalLayout();
@@ -160,12 +227,13 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         col1.setSizeFull();
         col1.setPadding(false);
         col1.setSpacing(false);
-        
+
         HorizontalLayout header1 = new HorizontalLayout();
         header1.setWidthFull();
         header1.setAlignItems(FlexComponent.Alignment.CENTER);
         Span title1 = new Span("📊 Chart 1");
-        title1.getStyle().set("font-weight", "600").set("font-size", "14px").set("padding", "8px").set("color", "#334155");
+        title1.getStyle().set("font-weight", "600").set("font-size", "14px").set("padding", "8px").set("color",
+                "#334155");
         groupFilterCombo1 = new ComboBox<>();
         groupFilterCombo1.setPlaceholder("Group 1 (Semua)");
         groupFilterCombo1.setClearButtonVisible(true);
@@ -174,10 +242,11 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         groupFilterCombo1.addValueChangeListener(e -> {
             if (e.isFromClient()) {
                 populateResourceFilters1();
-                updateSingleChart(currentResourceFilter1, currentCapacityMode1, capacityChart1, groupFilterCombo1.getValue());
+                updateSingleChart(currentResourceFilter1, currentCapacityMode1, capacityChart1,
+                        groupFilterCombo1.getValue());
             }
         });
-        
+
         resourceFilterCombo1 = new ComboBox<>();
         resourceFilterCombo1.setPlaceholder("Mesin 1 (Semua)");
         resourceFilterCombo1.setClearButtonVisible(true);
@@ -186,10 +255,11 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         resourceFilterCombo1.addValueChangeListener(e -> {
             if (e.isFromClient()) {
                 currentResourceFilter1 = e.getValue();
-                updateSingleChart(currentResourceFilter1, currentCapacityMode1, capacityChart1, groupFilterCombo1.getValue());
+                updateSingleChart(currentResourceFilter1, currentCapacityMode1, capacityChart1,
+                        groupFilterCombo1.getValue());
             }
         });
-        
+
         capacityModeCombo1 = new ComboBox<>();
         capacityModeCombo1.setItems("Per Qty Box", "Per Weight");
         capacityModeCombo1.setValue("QTYBOX".equals(currentCapacityMode1) ? "Per Qty Box" : "Per Weight");
@@ -198,28 +268,30 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         capacityModeCombo1.addValueChangeListener(e -> {
             if (e.isFromClient()) {
                 currentCapacityMode1 = "Per Weight".equals(e.getValue()) ? "WEIGHT" : "QTYBOX";
-                updateSingleChart(currentResourceFilter1, currentCapacityMode1, capacityChart1, groupFilterCombo1.getValue());
+                updateSingleChart(currentResourceFilter1, currentCapacityMode1, capacityChart1,
+                        groupFilterCombo1.getValue());
                 updateTimelineCapacityColors();
             }
         });
-        
+
         header1.add(title1, groupFilterCombo1, resourceFilterCombo1, capacityModeCombo1);
         capacityChart1 = new ApexCapacityChart();
         capacityChart1.setSizeFull();
         capacityChart1.setWeeklyView(true);
-        capacityChart1.addChartItemClickListener(e -> handleChartItemClick(e.getTaskName()));
+        capacityChart1.addChartItemClickListener(e -> handleChartItemClick(e.getTaskName(), e.getDate()));
         col1.add(header1, capacityChart1);
 
         VerticalLayout col2 = new VerticalLayout();
         col2.setSizeFull();
         col2.setPadding(false);
         col2.setSpacing(false);
-        
+
         HorizontalLayout header2 = new HorizontalLayout();
         header2.setWidthFull();
         header2.setAlignItems(FlexComponent.Alignment.CENTER);
         Span title2 = new Span("📊 Chart 2");
-        title2.getStyle().set("font-weight", "600").set("font-size", "14px").set("padding", "8px").set("color", "#334155");
+        title2.getStyle().set("font-weight", "600").set("font-size", "14px").set("padding", "8px").set("color",
+                "#334155");
         groupFilterCombo2 = new ComboBox<>();
         groupFilterCombo2.setPlaceholder("Group 2 (Semua)");
         groupFilterCombo2.setClearButtonVisible(true);
@@ -228,7 +300,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         groupFilterCombo2.addValueChangeListener(e -> {
             if (e.isFromClient()) {
                 populateResourceFilters2();
-                updateSingleChart(currentResourceFilter2, currentCapacityMode2, capacityChart2, groupFilterCombo2.getValue());
+                updateSingleChart(currentResourceFilter2, currentCapacityMode2, capacityChart2,
+                        groupFilterCombo2.getValue());
             }
         });
 
@@ -240,10 +313,11 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         resourceFilterCombo2.addValueChangeListener(e -> {
             if (e.isFromClient()) {
                 currentResourceFilter2 = e.getValue();
-                updateSingleChart(currentResourceFilter2, currentCapacityMode2, capacityChart2, groupFilterCombo2.getValue());
+                updateSingleChart(currentResourceFilter2, currentCapacityMode2, capacityChart2,
+                        groupFilterCombo2.getValue());
             }
         });
-        
+
         capacityModeCombo2 = new ComboBox<>();
         capacityModeCombo2.setItems("Per Qty Box", "Per Weight");
         capacityModeCombo2.setValue("QTYBOX".equals(currentCapacityMode2) ? "Per Qty Box" : "Per Weight");
@@ -252,20 +326,21 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         capacityModeCombo2.addValueChangeListener(e -> {
             if (e.isFromClient()) {
                 currentCapacityMode2 = "Per Weight".equals(e.getValue()) ? "WEIGHT" : "QTYBOX";
-                updateSingleChart(currentResourceFilter2, currentCapacityMode2, capacityChart2, groupFilterCombo2.getValue());
+                updateSingleChart(currentResourceFilter2, currentCapacityMode2, capacityChart2,
+                        groupFilterCombo2.getValue());
             }
         });
-        
+
         header2.add(title2, groupFilterCombo2, resourceFilterCombo2, capacityModeCombo2);
         capacityChart2 = new ApexCapacityChart();
         capacityChart2.setSizeFull();
         capacityChart2.setWeeklyView(true);
-        capacityChart2.addChartItemClickListener(e -> handleChartItemClick(e.getTaskName()));
+        capacityChart2.addChartItemClickListener(e -> handleChartItemClick(e.getTaskName(), e.getDate()));
         col2.add(header2, capacityChart2);
 
         capacityPanel.add(col1, col2);
 
-        mainSplit.addToPrimary(timeline);
+        mainSplit.addToPrimary(timelineLayout);
         mainSplit.addToSecondary(capacityPanel);
 
         // === OUTER SPLIT: Grid (kiri 25%) | Main content (kanan 75%) ===
@@ -279,12 +354,25 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         gridPanel.setPadding(false);
         gridPanel.setSpacing(false);
 
+        HorizontalLayout gridToolbar = new HorizontalLayout();
+        gridToolbar.setWidthFull();
+        gridToolbar.setPadding(true);
+        gridToolbar.setAlignItems(FlexComponent.Alignment.CENTER);
+        Span gridTitle = new Span(formMeta != null ? formMeta.getFormTitle() : "Daftar Jadwal");
+        gridTitle.getStyle().set("font-weight", "bold").set("flex-grow", "1");
+        
+        btnSaveEdits = new Button("Save Edits", VaadinIcon.CHECK.create(), e -> saveInlineEdits());
+        btnSaveEdits.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
+        btnSaveEdits.setEnabled(false);
+        
+        gridToolbar.add(gridTitle, btnSaveEdits);
+
         grid = new Grid<>();
         grid.setSizeFull();
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
         buildGridColumns();
 
-        gridPanel.add(grid);
+        gridPanel.add(gridToolbar, grid);
 
         outerSplit.addToPrimary(gridPanel);
         outerSplit.addToSecondary(mainSplit);
@@ -329,6 +417,15 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         Button btnFitAll = new Button("Fit All", VaadinIcon.EXPAND_SQUARE.create(), e -> timeline.fitAll());
         btnFitAll.addThemeVariants(ButtonVariant.LUMO_SMALL);
 
+        chkHideUnassigned = new com.vaadin.flow.component.checkbox.Checkbox("Sembunyikan Unassigned");
+        chkHideUnassigned.setValue(true);
+        chkHideUnassigned.getStyle().set("margin-left", "8px");
+        chkHideUnassigned.addValueChangeListener(e -> {
+            if (e.isFromClient()) {
+                refreshData();
+            }
+        });
+
         // View Mode Toggle
         viewModeCombo = new ComboBox<>();
         viewModeCombo.setItems("Harian (Daily)", "Mingguan (Weekly)");
@@ -344,7 +441,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             }
         });
 
-        toolbar.add(startDateFilter, endDateFilter, btnRefresh, btnZoomIn, btnZoomOut, btnFitAll, viewModeCombo);
+        toolbar.add(startDateFilter, endDateFilter, btnRefresh, btnZoomIn, btnZoomOut, btnFitAll, viewModeCombo, chkHideUnassigned);
         return toolbar;
     }
 
@@ -352,36 +449,210 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
     // GRID COLUMNS
     // ================================================================
     private void buildGridColumns() {
-        grid.addColumn(row -> row.get(schedulerConfig.getColPrimaryKey()))
-                .setHeader("ID").setAutoWidth(true).setFlexGrow(0);
+        com.vaadinerp.components.StandardGridUtils.cleanGridBeforeRebuild(grid);
+        colGetterMap.clear();
 
-        if (schedulerConfig.getColResource() != null) {
-            grid.addColumn(row -> row.get(schedulerConfig.getColResource()))
-                    .setHeader("Mesin").setAutoWidth(true);
+        com.vaadin.flow.data.binder.Binder<Map<String, Object>> binder = new com.vaadin.flow.data.binder.Binder<>();
+        grid.getEditor().setBinder(binder);
+        grid.getEditor().setBuffered(false);
+
+        grid.addItemDoubleClickListener(e -> {
+            grid.getEditor().editItem(e.getItem());
+        });
+
+        List<FieldMeta> sortedFields = new ArrayList<>(formMeta.getFields());
+        sortedFields.sort((f1, f2) -> {
+            Integer o1 = f1.getColOrder() != null ? f1.getColOrder() : Integer.MAX_VALUE;
+            Integer o2 = f2.getColOrder() != null ? f2.getColOrder() : Integer.MAX_VALUE;
+            return o1.compareTo(o2);
+        });
+
+        for (FieldMeta field : sortedFields) {
+            if (field.isShowInGrid()) {
+                String fieldName = field.getFieldName();
+                
+                java.util.function.Function<Map<String, Object>, String> valueGetter = map -> {
+                    Object valObj = map.get(fieldName);
+                    if (valObj == null) {
+                        for(Map.Entry<String, Object> entry : map.entrySet()) {
+                            if(entry.getKey().equalsIgnoreCase(fieldName)) {
+                                valObj = entry.getValue();
+                                break;
+                            }
+                        }
+                    }
+                    String formatted = com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(field, valObj, dataService);
+                    return formatted != null ? formatted : "";
+                };
+                
+                Grid.Column<Map<String, Object>> col = grid.addColumn(valueGetter::apply)
+                        .setHeader(field.getFieldLabel())
+                        .setAutoWidth(true)
+                        .setResizable(true)
+                        .setSortable(field.isSortable());
+                
+                if (field.isSortable()) {
+                    col.setComparator((map1, map2) -> {
+                        Object val1 = map1.get(fieldName);
+                        if (val1 == null) {
+                            for (Map.Entry<String, Object> entry : map1.entrySet()) {
+                                if (entry.getKey().equalsIgnoreCase(fieldName)) {
+                                    val1 = entry.getValue();
+                                    break;
+                                }
+                            }
+                        }
+                        Object val2 = map2.get(fieldName);
+                        if (val2 == null) {
+                            for (Map.Entry<String, Object> entry : map2.entrySet()) {
+                                if (entry.getKey().equalsIgnoreCase(fieldName)) {
+                                    val2 = entry.getValue();
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (val1 == null && val2 == null) return 0;
+                        if (val1 == null) return -1;
+                        if (val2 == null) return 1;
+                        
+                        if (val1 instanceof Comparable && val2 instanceof Comparable && val1.getClass().equals(val2.getClass())) {
+                            return ((Comparable<Object>) val1).compareTo(val2);
+                        }
+                        
+                        // Fallback to string comparison for numbers that might be different types (e.g., Integer vs BigDecimal)
+                        if (val1 instanceof Number && val2 instanceof Number) {
+                            return Double.compare(((Number) val1).doubleValue(), ((Number) val2).doubleValue());
+                        }
+                        
+                        return val1.toString().compareTo(val2.toString());
+                    });
+                }
+                        
+                colGetterMap.put(col, valueGetter);
+
+                String fType = field.getComponentType() != null ? field.getComponentType().toUpperCase() : "";
+                if ("INTBOX".equals(fType) || "DECIMALBOX".equals(fType)) {
+                    col.setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END);
+                }
+
+                if (!field.isReadonly()) {
+                    // Prevent editing core scheduler identifiers via grid inline edit to avoid sync issues with VisTimeline
+                    boolean isCoreField = fieldName.equalsIgnoreCase(schedulerConfig.getColPrimaryKey()) ||
+                                          fieldName.equalsIgnoreCase(schedulerConfig.getColStartDate()) ||
+                                          fieldName.equalsIgnoreCase(schedulerConfig.getColEndDate()) ||
+                                          fieldName.equalsIgnoreCase(schedulerConfig.getColResource());
+                    
+                    if (!isCoreField) {
+                        com.vaadin.flow.component.Component editorComp = com.vaadinerp.components.ComponentFactory.create(field, dataService, null);
+                        if (editorComp instanceof com.vaadin.flow.component.HasValue) {
+                            @SuppressWarnings("unchecked")
+                            com.vaadin.flow.component.HasValue<?, Object> hasValueComp = (com.vaadin.flow.component.HasValue<?, Object>) editorComp;
+                            com.vaadin.flow.data.binder.Binder.BindingBuilder<Map<String, Object>, Object> binding = binder.forField(hasValueComp);
+                            binding.bind(
+                                map -> {
+                                    Object val = map.get(fieldName);
+                                    if (val == null) {
+                                        for(Map.Entry<String, Object> entry : map.entrySet()) {
+                                            if(entry.getKey().equalsIgnoreCase(fieldName)) {
+                                                return entry.getValue();
+                                            }
+                                        }
+                                    }
+                                    return val;
+                                },
+                                (map, val) -> {
+                                    Object oldVal = map.get(fieldName);
+                                    if (oldVal == null) {
+                                        for(String key : map.keySet()) {
+                                            if(key.equalsIgnoreCase(fieldName)) {
+                                                oldVal = map.get(key);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (!java.util.Objects.equals(oldVal, val)) {
+                                        map.put(fieldName, val);
+                                        modifiedRows.add(map);
+                                        btnSaveEdits.setEnabled(true);
+                                    }
+                                }
+                            );
+                            col.setEditorComponent(editorComp);
+                        }
+                    }
+                }
+            }
         }
-        if (schedulerConfig.getColTaskName() != null) {
-            grid.addColumn(row -> row.get(schedulerConfig.getColTaskName()))
-                    .setHeader("ID Produksi").setAutoWidth(true);
+        
+        reapplyGridFilters = com.vaadinerp.components.StandardGridUtils.attachGridFilters(
+                grid,
+                colGetterMap,
+                () -> currentData
+        );
+    }
+
+    private void saveInlineEdits() {
+        if (modifiedRows.isEmpty()) {
+            Notification.show("Tidak ada perubahan untuk disimpan.", 3000, Notification.Position.BOTTOM_END);
+            return;
         }
-        if (schedulerConfig.getColQty() != null) {
-            grid.addColumn(row -> row.get(schedulerConfig.getColQty()))
-                    .setHeader("Qty Box").setAutoWidth(true).setFlexGrow(0);
+
+        String tableName = schedulerConfig.getUpdateTable();
+        if (tableName == null || tableName.trim().isEmpty()) {
+            tableName = formMeta.getTableName();
         }
-        if (schedulerConfig.getColMaxCapacity() != null) {
-            grid.addColumn(row -> row.get(schedulerConfig.getColMaxCapacity()))
-                    .setHeader("Max Cap").setAutoWidth(true).setFlexGrow(0);
+        if (tableName == null || tableName.trim().isEmpty()) {
+            Notification.show("Update table belum dikonfigurasi!", 4000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
         }
-        if (schedulerConfig.getColStartDate() != null) {
-            grid.addColumn(row -> row.get(schedulerConfig.getColStartDate()))
-                    .setHeader("Tanggal").setAutoWidth(true);
+
+        String pkCol = schedulerConfig.getColPrimaryKey();
+        if (pkCol == null || pkCol.isEmpty()) {
+            pkCol = formMeta.getPrimaryKey();
         }
-        if (schedulerConfig.getColSequence() != null) {
-            grid.addColumn(row -> row.get(schedulerConfig.getColSequence()))
-                    .setHeader("Seq").setAutoWidth(true).setFlexGrow(0);
-        }
-        if (schedulerConfig.getColLeadDay() != null) {
-            grid.addColumn(row -> row.get(schedulerConfig.getColLeadDay()))
-                    .setHeader("Lead").setAutoWidth(true).setFlexGrow(0);
+        if (pkCol == null || pkCol.isEmpty()) pkCol = "id";
+
+        int successCount = 0;
+        try {
+            for (Map<String, Object> row : modifiedRows) {
+                Object pkVal = row.get(pkCol);
+                if (pkVal == null) continue;
+
+                StringBuilder sql = new StringBuilder("UPDATE ").append(tableName).append(" SET ");
+                List<Object> args = new ArrayList<>();
+                boolean first = true;
+                
+                for (FieldMeta field : formMeta.getFields()) {
+                    if (!field.isReadonly() && field.isShowInGrid()) {
+                        String fName = field.getFieldName();
+                        if (fName.equalsIgnoreCase(pkCol)) continue;
+                        if (!first) sql.append(", ");
+                        sql.append(fName).append(" = ?");
+                        args.add(row.get(fName));
+                        first = false;
+                    }
+                }
+                
+                if (!first) {
+                    sql.append(" WHERE ").append(pkCol).append(" = ?");
+                    args.add(pkVal);
+                    jdbcTemplate.update(sql.toString(), args.toArray());
+                    successCount++;
+                }
+            }
+            
+            modifiedRows.clear();
+            btnSaveEdits.setEnabled(false);
+            Notification.show(successCount + " baris berhasil disimpan.", 3000, Notification.Position.BOTTOM_END).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            
+            // Refresh visuals to reflect new capacity if qty was changed
+            updateAllCharts();
+            updateTimelineCapacityColors();
+            
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            Notification.show("Gagal menyimpan: " + ex.getMessage(), 5000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
 
@@ -392,14 +663,27 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         try {
             String query = schedulerConfig.getSchedulerQuery();
             String dateCol = schedulerConfig.getColStartDate();
-            
+
             if (query == null || query.trim().isEmpty()) {
                 currentData = new ArrayList<>();
-            } else if (dateCol != null && !dateCol.trim().isEmpty() && startDateFilter.getValue() != null && endDateFilter.getValue() != null) {
-                String wrappedQuery = "SELECT * FROM (" + query + ") AS sq WHERE " + dateCol + " >= ? AND " + dateCol + " <= ?";
-                currentData = jdbcTemplate.queryForList(wrappedQuery, startDateFilter.getValue(), endDateFilter.getValue());
+            } else if (dateCol != null && !dateCol.trim().isEmpty() && startDateFilter.getValue() != null
+                    && endDateFilter.getValue() != null) {
+                String wrappedQuery = "SELECT * FROM (" + query + ") AS sq WHERE " + dateCol + " >= ? AND " + dateCol
+                        + " <= ?";
+                currentData = jdbcTemplate.queryForList(wrappedQuery, startDateFilter.getValue(),
+                        endDateFilter.getValue());
             } else {
                 currentData = jdbcTemplate.queryForList(query);
+            }
+            
+            // Apply unassigned filter
+            if (chkHideUnassigned != null && chkHideUnassigned.getValue()) {
+                String resCol = schedulerConfig.getColResource();
+                if (resCol != null) {
+                    currentData = currentData.stream()
+                            .filter(row -> row.get(resCol) != null && !row.get(resCol).toString().trim().isEmpty())
+                            .collect(java.util.stream.Collectors.toList());
+                }
             }
         } catch (Exception e) {
             Notification.show("Error loading scheduler data: " + e.getMessage(), 5000,
@@ -408,11 +692,23 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         }
 
         populateGroupFilter();
-        grid.setItems(currentData);
-        updateTimelineData();
+        populateTimelineResourceFilter();
         populateResourceFilters1();
         populateResourceFilters2();
+
+        updateTimelineData();
         updateAllCharts();
+
+        // Terapkan filter grid (secara otomatis akan memanggil grid.setItems(...))
+        if (reapplyGridFilters != null) {
+            reapplyGridFilters.run();
+        } else {
+            grid.setItems(currentData);
+        }
+        
+        if (grid.getDataProvider() != null) {
+            grid.getDataProvider().refreshAll();
+        }
     }
 
     // ================================================================
@@ -423,8 +719,14 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         if (groupCol == null || groupCol.trim().isEmpty()) {
             groupFilterCombo1.setItems();
             groupFilterCombo2.setItems();
+            timelineGroupFilter.setItems();
             return;
         }
+        
+        String curr1 = groupFilterCombo1.getValue();
+        String curr2 = groupFilterCombo2.getValue();
+        String currTimeline = timelineGroupFilter.getValue();
+
         Set<String> groups = new LinkedHashSet<>();
         for (Map<String, Object> row : currentData) {
             Object val = row.get(groupCol);
@@ -434,18 +736,28 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         }
         groupFilterCombo1.setItems(groups);
         groupFilterCombo2.setItems(groups);
+        timelineGroupFilter.setItems(groups);
+        
+        if (curr1 != null && groups.contains(curr1)) groupFilterCombo1.setValue(curr1);
+        if (curr2 != null && groups.contains(curr2)) groupFilterCombo2.setValue(curr2);
+        if (currTimeline != null && groups.contains(currTimeline)) timelineGroupFilter.setValue(currTimeline);
     }
+
     // ================================================================
     // POPULATE RESOURCE FILTER
     // ================================================================
-    private void populateResourceFilters1() {
-        if (schedulerConfig.getColResource() == null) return;
+    private void populateTimelineResourceFilter() {
+        if (schedulerConfig.getColResource() == null)
+            return;
         String groupCol = schedulerConfig.getColResourceGroup();
-        String selectedGroup = groupFilterCombo1.getValue();
+        String selectedGroup = currentTimelineGroupFilter;
+        String currResource = timelineResourceFilter.getValue();
+
         Set<String> resources = new LinkedHashSet<>();
         for (Map<String, Object> row : currentData) {
             boolean matchesGroup = true;
-            if (groupCol != null && !groupCol.trim().isEmpty() && selectedGroup != null && !selectedGroup.trim().isEmpty()) {
+            if (groupCol != null && !groupCol.trim().isEmpty() && selectedGroup != null
+                    && !selectedGroup.trim().isEmpty()) {
                 Object gVal = row.get(groupCol);
                 if (gVal == null || !selectedGroup.equals(gVal.toString())) {
                     matchesGroup = false;
@@ -453,20 +765,53 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             }
             if (matchesGroup) {
                 Object val = row.get(schedulerConfig.getColResource());
-                if (val != null) resources.add(val.toString());
+                if (val != null)
+                    resources.add(val.toString());
+            }
+        }
+        timelineResourceFilter.setItems(resources);
+        if (currResource != null && resources.contains(currResource)) timelineResourceFilter.setValue(currResource);
+    }
+
+    private void populateResourceFilters1() {
+        if (schedulerConfig.getColResource() == null)
+            return;
+        String groupCol = schedulerConfig.getColResourceGroup();
+        String selectedGroup = groupFilterCombo1.getValue();
+        String currResource = resourceFilterCombo1.getValue();
+
+        Set<String> resources = new LinkedHashSet<>();
+        for (Map<String, Object> row : currentData) {
+            boolean matchesGroup = true;
+            if (groupCol != null && !groupCol.trim().isEmpty() && selectedGroup != null
+                    && !selectedGroup.trim().isEmpty()) {
+                Object gVal = row.get(groupCol);
+                if (gVal == null || !selectedGroup.equals(gVal.toString())) {
+                    matchesGroup = false;
+                }
+            }
+            if (matchesGroup) {
+                Object val = row.get(schedulerConfig.getColResource());
+                if (val != null)
+                    resources.add(val.toString());
             }
         }
         resourceFilterCombo1.setItems(resources);
+        if (currResource != null && resources.contains(currResource)) resourceFilterCombo1.setValue(currResource);
     }
 
     private void populateResourceFilters2() {
-        if (schedulerConfig.getColResource() == null) return;
+        if (schedulerConfig.getColResource() == null)
+            return;
         String groupCol = schedulerConfig.getColResourceGroup();
         String selectedGroup = groupFilterCombo2.getValue();
+        String currResource = resourceFilterCombo2.getValue();
+
         Set<String> resources = new LinkedHashSet<>();
         for (Map<String, Object> row : currentData) {
             boolean matchesGroup = true;
-            if (groupCol != null && !groupCol.trim().isEmpty() && selectedGroup != null && !selectedGroup.trim().isEmpty()) {
+            if (groupCol != null && !groupCol.trim().isEmpty() && selectedGroup != null
+                    && !selectedGroup.trim().isEmpty()) {
                 Object gVal = row.get(groupCol);
                 if (gVal == null || !selectedGroup.equals(gVal.toString())) {
                     matchesGroup = false;
@@ -474,21 +819,25 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             }
             if (matchesGroup) {
                 Object val = row.get(schedulerConfig.getColResource());
-                if (val != null) resources.add(val.toString());
+                if (val != null)
+                    resources.add(val.toString());
             }
         }
         resourceFilterCombo2.setItems(resources);
+        if (currResource != null && resources.contains(currResource)) resourceFilterCombo2.setValue(currResource);
     }
 
     // ================================================================
     // UPDATE TIMELINE (VisTimeline)
-    // ================================================================
     private void updateTimelineData() {
         String resourceCol = schedulerConfig.getColResource();
         String taskNameCol = schedulerConfig.getColTaskName();
         String startDateCol = schedulerConfig.getColStartDate();
+        String endDateCol = schedulerConfig.getColEndDate();
         String pkCol = schedulerConfig.getColPrimaryKey();
         String qtyCol = schedulerConfig.getColQty();
+        String groupCol = schedulerConfig.getColResourceGroup();
+        String shippingDateCol = schedulerConfig.getColShippingDate();
 
         if (resourceCol == null || startDateCol == null || pkCol == null) {
             Notification.show("Scheduler config incomplete: resource, start_date, and primary_key are required",
@@ -504,8 +853,83 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         int itemIndex = 0;
 
         for (Map<String, Object> row : currentData) {
-            Object idVal = row.get(pkCol);
-            if (idVal == null) continue;
+            // Apply timeline filters
+            if (currentTimelineGroupFilter != null && !currentTimelineGroupFilter.isEmpty() && groupCol != null
+                    && !groupCol.trim().isEmpty()) {
+                Object gVal = row.get(groupCol);
+                if (gVal == null || !currentTimelineGroupFilter.equals(gVal.toString())) {
+                    continue;
+                }
+            }
+            if (currentTimelineResourceFilter != null && !currentTimelineResourceFilter.isEmpty()) {
+                Object rVal = row.get(resourceCol);
+                if (rVal == null || !currentTimelineResourceFilter.equals(rVal.toString())) {
+                    continue;
+                }
+            }
+        }
+
+        // Lateness Tracking Logic
+        Map<String, LocalDate> spkMaxEndDate = new HashMap<>();
+        Map<String, LocalDate> spkShippingDate = new HashMap<>();
+        Set<String> lateSpks = new HashSet<>();
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+        if (taskNameCol != null) {
+            for (Map<String, Object> row : currentData) {
+                Object taskNameVal = row.get(taskNameCol);
+                if (taskNameVal == null) continue;
+                String spk = taskNameVal.toString();
+
+                Object dateVal = endDateCol != null && row.get(endDateCol) != null ? row.get(endDateCol) : row.get(startDateCol);
+                if (dateVal != null) {
+                    try {
+                        String ds = dateVal.toString();
+                        if (ds.length() > 10) ds = ds.substring(0, 10);
+                        LocalDate d = LocalDate.parse(ds, dtf);
+                        LocalDate max = spkMaxEndDate.get(spk);
+                        if (max == null || d.isAfter(max)) {
+                            spkMaxEndDate.put(spk, d);
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                if (shippingDateCol != null && row.get(shippingDateCol) != null) {
+                    try {
+                        String ds = row.get(shippingDateCol).toString();
+                        if (ds.length() > 10) ds = ds.substring(0, 10);
+                        spkShippingDate.put(spk, LocalDate.parse(ds, dtf));
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            for (String spk : spkMaxEndDate.keySet()) {
+                LocalDate maxDate = spkMaxEndDate.get(spk);
+                LocalDate shipDate = spkShippingDate.get(spk);
+                if (shipDate != null && maxDate != null && maxDate.isAfter(shipDate)) {
+                    lateSpks.add(spk);
+                }
+            }
+        }
+        
+        currentLateSpks.clear();
+        currentLateSpks.addAll(lateSpks);
+
+        for (Map<String, Object> row : currentData) {
+            // Apply timeline filters again for building items
+            if (currentTimelineGroupFilter != null && !currentTimelineGroupFilter.isEmpty() && groupCol != null
+                    && !groupCol.trim().isEmpty()) {
+                Object gVal = row.get(groupCol);
+                if (gVal == null || !currentTimelineGroupFilter.equals(gVal.toString())) {
+                    continue;
+                }
+            }
+            if (currentTimelineResourceFilter != null && !currentTimelineResourceFilter.isEmpty()) {
+                Object rVal = row.get(resourceCol);
+                if (rVal == null || !currentTimelineResourceFilter.equals(rVal.toString())) {
+                    continue;
+                }
+            }
 
             Object resourceVal = row.get(resourceCol);
             String groupId = resourceVal != null ? resourceVal.toString() : "unassigned";
@@ -518,8 +942,13 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 addedGroups.add(groupId);
             }
 
+            Object idVal = row.get(pkCol);
+            if (idVal == null)
+                continue;
+
             Object startVal = row.get(startDateCol);
-            if (startVal == null) continue;
+            if (startVal == null)
+                continue;
 
             // Build item
             JsonObject itemObj = Json.createObject();
@@ -539,19 +968,23 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             // Start date
             String startStr = startVal.toString();
             String dateOnly = startStr.length() >= 10 ? startStr.substring(0, 10) : startStr;
-            
-            // Align start to midnight so it perfectly aligns with the day grid
-            itemObj.put("start", dateOnly + "T00:00:00");
 
-            // End date: if not configured, use same day 23:59:59
-            String endDateCol = schedulerConfig.getColEndDate();
+            // End date: if not configured, treat as a shorter range (06:00 to 18:00) so it
+            // doesn't fill the whole day width
             if (endDateCol != null && row.get(endDateCol) != null) {
+                // It has an end date, render as a range starting from 00:00 to 23:59
+                itemObj.put("start", dateOnly + "T00:00:00");
                 String endStr = row.get(endDateCol).toString();
-                if (endStr.length() == 10) endStr += "T23:59:59";
+                if (endStr.length() == 10)
+                    endStr += "T23:59:59";
                 itemObj.put("end", endStr);
             } else {
-                // Default: same day end
+                // Default: range from 06:00 to 18:00 (so it doesn't touch the borders of the
+                // day column)
+                itemObj.put("start", dateOnly + "T00:00:00");
                 itemObj.put("end", dateOnly + "T23:59:59");
+                // Don't set type to 'box', let it default to 'range' since we provide start and
+                // end
             }
 
             // Tooltip
@@ -560,15 +993,52 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             tooltip.append("Mesin: ").append(groupId).append("<br>");
             tooltip.append("Tanggal: ").append(startVal).append("<br>");
             if (qtyCol != null && row.get(qtyCol) != null) {
-                tooltip.append("Qty: ").append(row.get(qtyCol));
+                tooltip.append("Qty: ").append(row.get(qtyCol)).append("<br>");
             }
+            
+            boolean isLate = false;
+            if (taskNameCol != null && row.get(taskNameCol) != null) {
+                String spk = row.get(taskNameCol).toString();
+                LocalDate maxDate = spkMaxEndDate.get(spk);
+                if (maxDate != null) {
+                    tooltip.append("Last Process: ").append(maxDate.format(dtf)).append("<br>");
+                }
+                
+                if (lateSpks.contains(spk)) {
+                    isLate = true;
+                    tooltip.append("<span style='color:red; font-weight:bold;'>⚠️ STATUS: LATE</span>");
+                }
+            }
+            
+            if (isLate) {
+                itemObj.put("className", "is-late");
+            } else {
+                // use default coloring mechanism for timeline
+            }
+
             itemObj.put("title", tooltip.toString());
 
             items.set(itemIndex++, itemObj);
         }
 
+        // Add custom time markers for Shipping Dates
+        JsonArray customTimes = Json.createArray();
+        int ctIndex = 0;
+        for (String spk : spkShippingDate.keySet()) {
+            LocalDate sDate = spkShippingDate.get(spk);
+            if (sDate == null) continue;
+            
+            JsonObject ctObj = Json.createObject();
+            ctObj.put("id", "SHIP_" + spk);
+            ctObj.put("date", sDate.toString() + "T23:59:59");
+            ctObj.put("title", spk + " Due");
+            ctObj.put("isLate", lateSpks.contains(spk));
+            customTimes.set(ctIndex++, ctObj);
+        }
+
         timeline.setGroups(groups);
         timeline.setItems(items);
+        timeline.setCustomTimes(customTimes);
 
         // Set capacity colors
         updateTimelineCapacityColors();
@@ -582,11 +1052,14 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         String startDateCol = schedulerConfig.getColStartDate();
         String pkCol = schedulerConfig.getColPrimaryKey();
         String qtyCol = "QTYBOX".equals(currentCapacityMode1)
-                ? schedulerConfig.getColQty() : schedulerConfig.getColWeight();
+                ? schedulerConfig.getColQty()
+                : schedulerConfig.getColWeight();
         String capCol = "QTYBOX".equals(currentCapacityMode1)
-                ? schedulerConfig.getColMaxCapacity() : schedulerConfig.getColMaxCapacityWeight();
+                ? schedulerConfig.getColMaxCapacity()
+                : schedulerConfig.getColMaxCapacityWeight();
 
-        if (qtyCol == null || capCol == null || resourceCol == null || startDateCol == null) return;
+        if (qtyCol == null || capCol == null || resourceCol == null || startDateCol == null)
+            return;
 
         // Calculate totals per resource + date
         Map<String, Double> totalsMap = new HashMap<>(); // key: "resource|date"
@@ -595,17 +1068,24 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         for (Map<String, Object> row : currentData) {
             Object idVal = row.get(pkCol);
-            if (idVal == null) continue;
+            if (idVal == null)
+                continue;
 
             String resource = row.get(resourceCol) != null ? row.get(resourceCol).toString() : "";
             String date = row.get(startDateCol) != null ? row.get(startDateCol).toString().substring(0, 10) : "";
             String key = resource + "|" + date;
 
             double qty = 0;
-            try { qty = Double.parseDouble(row.get(qtyCol).toString()); } catch (Exception ignored) {}
+            try {
+                qty = Double.parseDouble(row.get(qtyCol).toString());
+            } catch (Exception ignored) {
+            }
 
             double cap = 0;
-            try { cap = Double.parseDouble(row.get(capCol).toString()); } catch (Exception ignored) {}
+            try {
+                cap = Double.parseDouble(row.get(capCol).toString());
+            } catch (Exception ignored) {
+            }
 
             totalsMap.merge(key, qty, Double::sum);
             capacityMap.putIfAbsent(resource, cap);
@@ -641,18 +1121,22 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         updateSingleChart(currentResourceFilter2, currentCapacityMode2, capacityChart2, groupFilterCombo2.getValue());
     }
 
-    private void updateSingleChart(String resourceFilter, String capacityMode, ApexCapacityChart chart, String groupFilter) {
+    private void updateSingleChart(String resourceFilter, String capacityMode, ApexCapacityChart chart,
+            String groupFilter) {
         String resourceCol = schedulerConfig.getColResource();
         String startDateCol = schedulerConfig.getColStartDate();
         String taskNameCol = schedulerConfig.getColTaskName();
         String groupCol = schedulerConfig.getColResourceGroup();
         String qtyCol = "QTYBOX".equals(capacityMode)
-                ? schedulerConfig.getColQty() : schedulerConfig.getColWeight();
+                ? schedulerConfig.getColQty()
+                : schedulerConfig.getColWeight();
         String capCol = "QTYBOX".equals(capacityMode)
-                ? schedulerConfig.getColMaxCapacity() : schedulerConfig.getColMaxCapacityWeight();
+                ? schedulerConfig.getColMaxCapacity()
+                : schedulerConfig.getColMaxCapacityWeight();
         String capacityLabel = "QTYBOX".equals(capacityMode) ? "Qty Box" : "Weight (kg)";
 
-        if (qtyCol == null || capCol == null) return;
+        if (qtyCol == null || capCol == null)
+            return;
 
         // Filter by group and resource
         List<Map<String, Object>> filteredData = currentData;
@@ -676,7 +1160,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 try {
                     maxCapacity = (int) Double.parseDouble(row.get(capCol).toString());
                     break;
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         }
 
@@ -687,11 +1172,18 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             Object dateVal = row.get(startDateCol);
             Object qtyVal = row.get(qtyCol);
             Object taskVal = row.get(taskNameCol);
-            if (dateVal == null || qtyVal == null) continue;
+            if (dateVal == null || qtyVal == null)
+                continue;
 
             JsonObject point = Json.createObject();
             point.put("date", dateVal.toString().substring(0, 10));
-            point.put("taskName", taskVal != null ? taskVal.toString() : "Unknown");
+            
+            String tName = taskVal != null ? taskVal.toString() : "Unknown";
+            if (currentLateSpks.contains(tName)) {
+                tName += " (LATE)";
+            }
+            point.put("taskName", tName);
+            
             try {
                 point.put("value", Double.parseDouble(qtyVal.toString()));
             } catch (Exception e) {
@@ -700,26 +1192,57 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             chartData.set(idx++, point);
         }
 
-        chart.setChartData(chartData, maxCapacity, capacityLabel);
+        String startDateStr = startDateFilter.getValue() != null ? startDateFilter.getValue().toString() : null;
+        String endDateStr = endDateFilter.getValue() != null ? endDateFilter.getValue().toString() : null;
+        chart.setChartData(chartData, maxCapacity, capacityLabel, startDateStr, endDateStr);
     }
 
     // ================================================================
     // HANDLE CHART ITEM CLICK
     // ================================================================
-    private void handleChartItemClick(String taskName) {
-        if (taskName == null || "Unknown".equals(taskName)) return;
+    private void handleChartItemClick(String taskName, String clickedDate) {
+        if (taskName == null || "Unknown".equals(taskName))
+            return;
+            
+        String originalTaskName = taskName;
+        if (taskName.endsWith(" (LATE)")) {
+            originalTaskName = taskName.substring(0, taskName.length() - 7);
+        }
+            
         String taskNameCol = schedulerConfig.getColTaskName();
         String pkCol = schedulerConfig.getColPrimaryKey();
+        String dateCol = schedulerConfig.getColStartDate();
+        
+        elemental.json.JsonArray selectedIds = elemental.json.Json.createArray();
+        int idx = 0;
+        java.util.Set<Map<String, Object>> selectedRows = new java.util.HashSet<>();
+        
         for (Map<String, Object> row : currentData) {
             Object tn = row.get(taskNameCol);
-            if (tn != null && taskName.equals(tn.toString())) {
-                grid.select(row);
+            Object rowDate = row.get(dateCol);
+            
+            boolean nameMatch = tn != null && originalTaskName.equals(tn.toString());
+            boolean dateMatch = true;
+            
+            if (clickedDate != null && !clickedDate.isEmpty() && rowDate != null) {
+                // rowDate is usually a java.sql.Date or Timestamp or String "YYYY-MM-DD..."
+                dateMatch = rowDate.toString().startsWith(clickedDate);
+            }
+            
+            if (nameMatch && dateMatch) {
+                selectedRows.add(row);
                 Object id = row.get(pkCol);
                 if (id != null) {
-                    timeline.setSelection(id.toString());
+                    selectedIds.set(idx++, id.toString());
                 }
-                break;
             }
+        }
+        
+        if (!selectedRows.isEmpty()) {
+            grid.asMultiSelect().setValue(selectedRows);
+        }
+        if (idx > 0) {
+            timeline.setSelection(selectedIds);
         }
     }
 
@@ -727,7 +1250,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
     // HANDLE ITEM CLICK (select in grid)
     // ================================================================
     private void handleItemClick(String itemId) {
-        if (itemId == null) return;
+        if (itemId == null)
+            return;
         String pkCol = schedulerConfig.getColPrimaryKey();
         for (Map<String, Object> row : currentData) {
             Object id = row.get(pkCol);
@@ -742,8 +1266,9 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
     // HANDLE ITEM CONTEXT MENU (Right Click in Timeline)
     // ================================================================
     private void handleItemContextMenu(String clickedItemId, String[] allSelectedItems) {
-        if (clickedItemId == null) return;
-        
+        if (clickedItemId == null)
+            return;
+
         // Select in grid if not already selected
         String pkCol = schedulerConfig.getColPrimaryKey();
         Map<String, Object> clickedRow = null;
@@ -755,8 +1280,9 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 break;
             }
         }
-        
-        if (clickedRow == null) return;
+
+        if (clickedRow == null)
+            return;
 
         com.vaadin.flow.component.dialog.Dialog actionDialog = new com.vaadin.flow.component.dialog.Dialog();
         actionDialog.setHeaderTitle("Task Actions - " + clickedItemId);
@@ -776,14 +1302,15 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             actionDialog.close();
             Set<Map<String, Object>> selectedRows = grid.getSelectedItems();
             if (selectedRows.size() < 2) {
-                Notification.show("Pilih minimal 2 baris (dengan Ctrl+Click) untuk digabung!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Pilih minimal 2 baris (dengan Ctrl+Click) untuk digabung!", 3000,
+                        Notification.Position.MIDDLE);
                 return;
             }
             executeMerge(selectedRows);
         });
         btnMerge.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnMerge.setWidthFull();
-        
+
         // Only enable merge if > 1 selected
         Set<Map<String, Object>> currentGridSelection = grid.getSelectedItems();
         btnMerge.setEnabled(currentGridSelection.size() >= 2);
@@ -809,23 +1336,25 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 break;
             }
         }
-        if (targetRow == null) return;
-        
+        if (targetRow == null)
+            return;
+
         Object currentQtyObj = targetRow.get(qtyCol);
         if (currentQtyObj == null) {
             Notification.show("Qty baris ini kosong!", 3000, Notification.Position.MIDDLE);
             return;
         }
-        
+
         double currentQty = Double.parseDouble(currentQtyObj.toString());
 
         com.vaadin.flow.component.dialog.Dialog splitDialog = new com.vaadin.flow.component.dialog.Dialog();
         splitDialog.setHeaderTitle("Split Task");
 
-        com.vaadin.flow.component.textfield.NumberField splitField = new com.vaadin.flow.component.textfield.NumberField("Qty Baru (yang dipisah)");
+        com.vaadin.flow.component.textfield.IntegerField splitField = new com.vaadin.flow.component.textfield.IntegerField(
+                "Qty Baru (yang dipisah)");
         splitField.setMin(1);
-        splitField.setMax(currentQty - 1);
-        splitField.setValue(currentQty / 2); // Default to half
+        splitField.setMax((int) currentQty - 1);
+        splitField.setValue((int) currentQty / 2); // Default to half
         splitField.setStep(1);
         splitField.setWidthFull();
         splitField.setHelperText("Qty Awal: " + currentQty);
@@ -834,13 +1363,13 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         final double finalCurrentQty = currentQty;
 
         Button btnSave = new Button("Proses Split", VaadinIcon.SCISSORS.create(), e -> {
-            Double splitQty = splitField.getValue();
+            Integer splitQty = splitField.getValue();
             if (splitQty == null || splitQty <= 0 || splitQty >= finalCurrentQty) {
                 Notification.show("Qty split tidak valid!", 3000, Notification.Position.MIDDLE);
                 return;
             }
             splitDialog.close();
-            executeSplit(finalTargetRow, splitQty, finalCurrentQty);
+            executeSplit(finalTargetRow, (double) splitQty, finalCurrentQty);
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         Button btnCancel = new Button("Batal", e -> splitDialog.close());
@@ -854,20 +1383,28 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         String updateTable = schedulerConfig.getUpdateTable();
         String pkCol = schedulerConfig.getColPrimaryKey();
         String qtyCol = schedulerConfig.getColQty();
-        String weightCol = schedulerConfig.getColWeight();
+        String weightCol = null; // Always null to exclude weight calculation
         String splitGroupCol = schedulerConfig.getColSplitGroup();
         String groupIdCol = schedulerConfig.getColGroupId();
         String sequenceCol = schedulerConfig.getColSequence();
-        
+        String qtyProdCol = schedulerConfig.getColQtyProd();
+        String pcsPerBoxCol = schedulerConfig.getColPcsPerBox();
+
         if (updateTable == null || pkCol == null || qtyCol == null) {
             Notification.show("Config Update Table/PK/Qty belum lengkap!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
         // Determine matching criteria for downstream cascade
-        String targetSplitGroup = splitGroupCol != null && targetRow.get(splitGroupCol) != null ? targetRow.get(splitGroupCol).toString() : null;
-        String targetGroupId = groupIdCol != null && targetRow.get(groupIdCol) != null ? targetRow.get(groupIdCol).toString() : null;
-        Integer targetSequence = sequenceCol != null && targetRow.get(sequenceCol) != null ? Integer.parseInt(targetRow.get(sequenceCol).toString()) : 0;
+        String targetSplitGroup = splitGroupCol != null && targetRow.get(splitGroupCol) != null
+                ? targetRow.get(splitGroupCol).toString()
+                : null;
+        String targetGroupId = groupIdCol != null && targetRow.get(groupIdCol) != null
+                ? targetRow.get(groupIdCol).toString()
+                : null;
+        Integer targetSequence = sequenceCol != null && targetRow.get(sequenceCol) != null
+                ? Integer.parseInt(targetRow.get(sequenceCol).toString())
+                : 0;
 
         // Find max split index for the current base prefix
         String basePrefix = (targetGroupId != null && !targetGroupId.trim().isEmpty() ? targetGroupId : "GRP") + "-S";
@@ -878,8 +1415,10 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 if (sg.startsWith(basePrefix)) {
                     try {
                         int idx = Integer.parseInt(sg.substring(basePrefix.length()));
-                        if (idx > maxSplitIndex) maxSplitIndex = idx;
-                    } catch (Exception ignored) {}
+                        if (idx > maxSplitIndex)
+                            maxSplitIndex = idx;
+                    } catch (Exception ignored) {
+                    }
                 }
             }
         }
@@ -888,21 +1427,28 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         String newRemainSplitGroup = basePrefix + (maxSplitIndex + 1);
         String newSplitSplitGroup = basePrefix + (maxSplitIndex + 2);
 
-        // Find all rows in currentData that match the criteria (including the target row itself)
+        // Find all rows in currentData that match the criteria (including the target
+        // row itself)
         List<Map<String, Object>> rowsToSplit = new ArrayList<>();
         for (Map<String, Object> row : currentData) {
-            Integer rowSeq = sequenceCol != null && row.get(sequenceCol) != null ? Integer.parseInt(row.get(sequenceCol).toString()) : 0;
+            Integer rowSeq = sequenceCol != null && row.get(sequenceCol) != null
+                    ? Integer.parseInt(row.get(sequenceCol).toString())
+                    : 0;
             if (rowSeq >= targetSequence) {
                 // If the target had a split group, match it
                 if (targetSplitGroup != null && !targetSplitGroup.trim().isEmpty()) {
-                    String rowSplitGroup = splitGroupCol != null && row.get(splitGroupCol) != null ? row.get(splitGroupCol).toString() : null;
+                    String rowSplitGroup = splitGroupCol != null && row.get(splitGroupCol) != null
+                            ? row.get(splitGroupCol).toString()
+                            : null;
                     if (targetSplitGroup.equals(rowSplitGroup)) {
                         rowsToSplit.add(row);
                     }
-                } 
+                }
                 // Otherwise, match by original group ID (e.g. tsProductionOrderId)
                 else if (targetGroupId != null && !targetGroupId.trim().isEmpty()) {
-                    String rowGroupId = groupIdCol != null && row.get(groupIdCol) != null ? row.get(groupIdCol).toString() : null;
+                    String rowGroupId = groupIdCol != null && row.get(groupIdCol) != null
+                            ? row.get(groupIdCol).toString()
+                            : null;
                     if (targetGroupId.equals(rowGroupId)) {
                         rowsToSplit.add(row);
                     }
@@ -910,7 +1456,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             }
         }
 
-        // If no matching logic possible (e.g. no split_group and no group_id config), just split the single row
+        // If no matching logic possible (e.g. no split_group and no group_id config),
+        // just split the single row
         if (rowsToSplit.isEmpty()) {
             rowsToSplit.add(targetRow);
         }
@@ -921,7 +1468,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         try {
             for (Map<String, Object> row : rowsToSplit) {
                 Object rowPkVal = row.get(pkCol);
-                
+
                 // Get current row Qty & Weight
                 double rowCurrentQty = Double.parseDouble(row.get(qtyCol).toString());
                 double rowRemainQty, rowSplitQty;
@@ -932,8 +1479,10 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     rowSplitQty = rowCurrentQty * splitRatio;
                     rowRemainQty = rowCurrentQty * remainRatio;
                 }
-                
-                Double rowOriginalWeight = weightCol != null && row.get(weightCol) != null ? Double.parseDouble(row.get(weightCol).toString()) : null;
+
+                Double rowOriginalWeight = weightCol != null && row.get(weightCol) != null
+                        ? Double.parseDouble(row.get(weightCol).toString())
+                        : null;
                 Double rowRemainWeight = null;
                 Double rowSplitWeight = null;
                 if (rowOriginalWeight != null && rowCurrentQty > 0) {
@@ -945,34 +1494,70 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                         rowRemainWeight = rowOriginalWeight * remainRatio;
                     }
                 }
+
+                // Hitung Qty Prod (berdasarkan asumsi box diisi urut)
+                Double rowOriginalQtyProd = qtyProdCol != null && row.get(qtyProdCol) != null
+                        ? Double.parseDouble(row.get(qtyProdCol).toString())
+                        : null;
+                Double rowPcsPerBox = pcsPerBoxCol != null && row.get(pcsPerBoxCol) != null
+                        ? Double.parseDouble(row.get(pcsPerBoxCol).toString())
+                        : null;
                 
+                Double rowRemainQtyProd = null;
+                Double rowSplitQtyProd = null;
+
+                if (rowOriginalQtyProd != null && rowPcsPerBox != null && rowCurrentQty > 0) {
+                    // Baris asli (remain) menempati urutan awal, sehingga diasumsikan box nya terisi penuh
+                    // Batasnya adalah tidak melebihi rowOriginalQtyProd (total pcs saat ini)
+                    rowRemainQtyProd = Math.min(rowRemainQty * rowPcsPerBox, rowOriginalQtyProd);
+                    rowSplitQtyProd = rowOriginalQtyProd - rowRemainQtyProd;
+                }
+
                 // 1. Ambil data asli dari DB (agar kolom-kolom persis sama)
                 String selectSql = "SELECT * FROM " + updateTable + " WHERE " + pkCol + " = ?";
                 Map<String, Object> dbRow = jdbcTemplate.queryForMap(selectSql, rowPkVal);
-                
+
                 // Cari nama kolom asli (case-insensitive) dari dbRow
                 String actualPkKey = pkCol;
                 String actualQtyKey = qtyCol;
                 String actualWeightKey = weightCol;
                 String actualSplitGroupKey = splitGroupCol;
+                String actualQtyProdKey = qtyProdCol;
                 for (String key : dbRow.keySet()) {
-                    if (key.equalsIgnoreCase(pkCol)) actualPkKey = key;
-                    if (key.equalsIgnoreCase(qtyCol)) actualQtyKey = key;
-                    if (weightCol != null && key.equalsIgnoreCase(weightCol)) actualWeightKey = key;
-                    if (splitGroupCol != null && key.equalsIgnoreCase(splitGroupCol)) actualSplitGroupKey = key;
-                }
-                
-                if (actualSplitGroupKey == null && splitGroupCol != null) {
-                    actualSplitGroupKey = splitGroupCol; // Fallback jika tidak ditemukan (misal karena tabel baru di-alter tapi belum ada isi)
+                    if (key.equalsIgnoreCase(pkCol))
+                        actualPkKey = key;
+                    if (key.equalsIgnoreCase(qtyCol))
+                        actualQtyKey = key;
+                    if (weightCol != null && key.equalsIgnoreCase(weightCol))
+                        actualWeightKey = key;
+                    if (splitGroupCol != null && key.equalsIgnoreCase(splitGroupCol))
+                        actualSplitGroupKey = key;
+                    if (qtyProdCol != null && key.equalsIgnoreCase(qtyProdCol))
+                        actualQtyProdKey = key;
                 }
 
-                // 2. Update baris asli (remainQty & remainWeight & splitGroup)
-                String updateSql = "UPDATE " + updateTable + " SET " + qtyCol + " = ?";
+                if (actualSplitGroupKey == null && splitGroupCol != null) {
+                    actualSplitGroupKey = splitGroupCol; // Fallback jika tidak ditemukan (misal karena tabel baru
+                                                         // di-alter tapi belum ada isi)
+                }
+
+                // 2. Update baris asli (remainQty & remainWeight & splitGroup & qtyprod)
+                AppUser currentUser = securityService.getCurrentUser();
+                String currentUsername = currentUser != null ? currentUser.getUsername() : "system";
+                java.sql.Timestamp currentTimestamp = new java.sql.Timestamp(System.currentTimeMillis());
+
+                String updateSql = "UPDATE " + updateTable + " SET " + qtyCol + " = ?, updateby = ?, updatedt = ?";
                 List<Object> updateParams = new ArrayList<>();
                 updateParams.add(rowRemainQty);
+                updateParams.add(currentUsername);
+                updateParams.add(currentTimestamp);
                 if (weightCol != null) {
                     updateSql += ", " + weightCol + " = ?";
                     updateParams.add(rowRemainWeight);
+                }
+                if (qtyProdCol != null && rowRemainQtyProd != null) {
+                    updateSql += ", " + qtyProdCol + " = ?";
+                    updateParams.add(rowRemainQtyProd);
                 }
                 if (splitGroupCol != null) {
                     updateSql += ", " + splitGroupCol + " = ?";
@@ -981,9 +1566,10 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 updateSql += " WHERE " + pkCol + " = ?";
                 updateParams.add(rowPkVal);
                 jdbcTemplate.update(updateSql, updateParams.toArray());
-                
+
                 // 3. Duplikasi baris (rowSplitQty & rowSplitWeight & splitGroup)
-                // Generate PK Baru (Bypass masalah Auto-Increment Hibernate/DB yang tidak ter-set)
+                // Generate PK Baru (Bypass masalah Auto-Increment Hibernate/DB yang tidak
+                // ter-set)
                 Object originalPkVal = dbRow.get(actualPkKey);
                 Object newPkVal;
                 if (originalPkVal instanceof Number) {
@@ -993,22 +1579,46 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 } else {
                     newPkVal = java.util.UUID.randomUUID().toString().substring(0, 8); // Random string PK
                 }
-                
+
                 dbRow.put(actualPkKey, newPkVal);
                 dbRow.put(actualQtyKey, rowSplitQty);
                 if (weightCol != null && rowSplitWeight != null) {
                     dbRow.put(actualWeightKey, rowSplitWeight);
                 }
+                if (qtyProdCol != null && actualQtyProdKey != null && rowSplitQtyProd != null) {
+                    dbRow.put(actualQtyProdKey, rowSplitQtyProd);
+                }
                 if (splitGroupCol != null && actualSplitGroupKey != null) {
                     dbRow.put(actualSplitGroupKey, newSplitSplitGroup);
                 }
                 
+                AppUser currentUserInsert = securityService.getCurrentUser();
+                String currentUsernameInsert = currentUserInsert != null ? currentUserInsert.getUsername() : "system";
+                java.sql.Timestamp currentTimestampInsert = new java.sql.Timestamp(System.currentTimeMillis());
+                
+                // Cari key aktual untuk kolom audit
+                String actualInputByKey = "inputby";
+                String actualInputDtKey = "inputdt";
+                String actualUpdateByKey = "updateby";
+                String actualUpdateDtKey = "updatedt";
+                for (String key : dbRow.keySet()) {
+                    if (key.equalsIgnoreCase("inputby")) actualInputByKey = key;
+                    if (key.equalsIgnoreCase("inputdt")) actualInputDtKey = key;
+                    if (key.equalsIgnoreCase("updateby")) actualUpdateByKey = key;
+                    if (key.equalsIgnoreCase("updatedt")) actualUpdateDtKey = key;
+                }
+                
+                dbRow.put(actualInputByKey, currentUsernameInsert);
+                dbRow.put(actualInputDtKey, currentTimestampInsert);
+                dbRow.put(actualUpdateByKey, currentUsernameInsert);
+                dbRow.put(actualUpdateDtKey, currentTimestampInsert);
+
                 // Build Insert SQL
                 List<String> columns = new ArrayList<>(dbRow.keySet());
                 List<Object> values = new ArrayList<>();
                 StringBuilder sqlCols = new StringBuilder();
                 StringBuilder sqlVals = new StringBuilder();
-                
+
                 for (int i = 0; i < columns.size(); i++) {
                     String col = columns.get(i);
                     sqlCols.append(col);
@@ -1019,12 +1629,14 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     }
                     values.add(dbRow.get(col));
                 }
-                
-                String insertSql = "INSERT INTO " + updateTable + " (" + sqlCols.toString() + ") VALUES (" + sqlVals.toString() + ")";
+
+                String insertSql = "INSERT INTO " + updateTable + " (" + sqlCols.toString() + ") VALUES ("
+                        + sqlVals.toString() + ")";
                 jdbcTemplate.update(insertSql, values.toArray());
             }
-            
-            Notification.show("Berhasil memecah " + rowsToSplit.size() + " task secara berantai (Cascading Split)!", 4000, Notification.Position.MIDDLE);
+
+            Notification.show("Berhasil memecah " + rowsToSplit.size() + " task secara berantai (Cascading Split)!",
+                    4000, Notification.Position.MIDDLE);
             refreshData();
         } catch (Exception e) {
             e.printStackTrace();
@@ -1037,7 +1649,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         String pkCol = schedulerConfig.getColPrimaryKey();
         String qtyCol = schedulerConfig.getColQty();
         String weightCol = schedulerConfig.getColWeight();
-        
+
         if (updateTable == null || pkCol == null || qtyCol == null) {
             Notification.show("Config Update Table/PK/Qty belum lengkap!", 3000, Notification.Position.MIDDLE);
             return;
@@ -1046,23 +1658,25 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         List<Map<String, Object>> rowsList = new ArrayList<>(selectedRows);
         Map<String, Object> parentRow = rowsList.get(0); // Jadikan baris pertama sebagai Induk
         Object parentPk = parentRow.get(pkCol);
-        
+
         double totalQty = 0;
         double totalWeight = 0;
         boolean hasWeight = (weightCol != null);
-        
+
         List<Object> pksToDelete = new ArrayList<>();
-        
+
         for (int i = 0; i < rowsList.size(); i++) {
             Map<String, Object> r = rowsList.get(i);
             Object qObj = r.get(qtyCol);
-            if (qObj != null) totalQty += Double.parseDouble(qObj.toString());
-            
+            if (qObj != null)
+                totalQty += Double.parseDouble(qObj.toString());
+
             if (hasWeight) {
                 Object wObj = r.get(weightCol);
-                if (wObj != null) totalWeight += Double.parseDouble(wObj.toString());
+                if (wObj != null)
+                    totalWeight += Double.parseDouble(wObj.toString());
             }
-            
+
             if (i > 0) {
                 pksToDelete.add(r.get(pkCol));
             }
@@ -1070,9 +1684,15 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         try {
             // 1. Update Induk
-            String updateSql = "UPDATE " + updateTable + " SET " + qtyCol + " = ?";
+            AppUser currentUser = securityService.getCurrentUser();
+            String currentUsername = currentUser != null ? currentUser.getUsername() : "system";
+            java.sql.Timestamp currentTimestamp = new java.sql.Timestamp(System.currentTimeMillis());
+
+            String updateSql = "UPDATE " + updateTable + " SET " + qtyCol + " = ?, updateby = ?, updatedt = ?";
             List<Object> updateParams = new ArrayList<>();
             updateParams.add(totalQty);
+            updateParams.add(currentUsername);
+            updateParams.add(currentTimestamp);
             if (hasWeight) {
                 updateSql += ", " + weightCol + " = ?";
                 updateParams.add(totalWeight);
@@ -1080,18 +1700,19 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             updateSql += " WHERE " + pkCol + " = ?";
             updateParams.add(parentPk);
             jdbcTemplate.update(updateSql, updateParams.toArray());
-            
+
             // 2. Delete sisa
             if (!pksToDelete.isEmpty()) {
                 StringBuilder deleteSql = new StringBuilder("DELETE FROM " + updateTable + " WHERE " + pkCol + " IN (");
                 for (int i = 0; i < pksToDelete.size(); i++) {
                     deleteSql.append("?");
-                    if (i < pksToDelete.size() - 1) deleteSql.append(", ");
+                    if (i < pksToDelete.size() - 1)
+                        deleteSql.append(", ");
                 }
                 deleteSql.append(")");
                 jdbcTemplate.update(deleteSql.toString(), pksToDelete.toArray());
             }
-            
+
             Notification.show("Tasks berhasil digabung!", 3000, Notification.Position.MIDDLE);
             refreshData();
         } catch (Exception ex) {
@@ -1109,9 +1730,11 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             String resourceCol = schedulerConfig.getColResource();
             String startDateCol = schedulerConfig.getColStartDate();
             String qtyCol = "QTYBOX".equals(currentCapacityMode1)
-                    ? schedulerConfig.getColQty() : schedulerConfig.getColWeight();
+                    ? schedulerConfig.getColQty()
+                    : schedulerConfig.getColWeight();
             String capCol = "QTYBOX".equals(currentCapacityMode1)
-                    ? schedulerConfig.getColMaxCapacity() : schedulerConfig.getColMaxCapacityWeight();
+                    ? schedulerConfig.getColMaxCapacity()
+                    : schedulerConfig.getColMaxCapacityWeight();
             String groupIdCol = schedulerConfig.getColGroupId();
             String seqCol = schedulerConfig.getColSequence();
             String leadDayCol = schedulerConfig.getColLeadDay();
@@ -1126,8 +1749,10 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
             // Parse new date
             String newDateStr = newStart != null && newStart.length() >= 10
-                    ? newStart.substring(0, 10) : null;
-            if (newDateStr == null) return;
+                    ? newStart.substring(0, 10)
+                    : null;
+            if (newDateStr == null)
+                return;
             LocalDate newDate = LocalDate.parse(newDateStr);
 
             // Find the dragged task data
@@ -1139,16 +1764,44 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     break;
                 }
             }
-            if (draggedTask == null) return;
+            if (draggedTask == null)
+                return;
 
-            String resource = draggedTask.get(resourceCol) != null
-                    ? draggedTask.get(resourceCol).toString() : "";
+            // Resource baru dari target drag
+            String resource = newGroup != null ? newGroup : "";
+
+            // Validasi: Cegah pindah antar Resource Group (Departemen) yang berbeda
+            String resourceGroupCol = schedulerConfig.getColResourceGroup();
+            if (resourceGroupCol != null) {
+                String sourceGroup = draggedTask.get(resourceGroupCol) != null ? draggedTask.get(resourceGroupCol).toString() : "";
+                String targetGroup = null;
+                for (Map<String, Object> row : currentData) {
+                    Object rVal = row.get(resourceCol);
+                    if (rVal != null && rVal.toString().equals(resource)) {
+                        targetGroup = row.get(resourceGroupCol) != null ? row.get(resourceGroupCol).toString() : "";
+                        break;
+                    }
+                }
+                
+                if (targetGroup != null && !sourceGroup.equals(targetGroup)) {
+                    Notification n = Notification.show("Tidak bisa memindahkan jadwal ke departemen/grup mesin yang berbeda (" + targetGroup + ")!", 5000, Notification.Position.MIDDLE);
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                    refreshData(); // Revert
+                    return;
+                }
+            }
 
             // --- CAPACITY VALIDATION ---
             double itemQty = 0;
-            try { itemQty = Double.parseDouble(draggedTask.get(qtyCol).toString()); } catch (Exception ignored) {}
+            try {
+                itemQty = Double.parseDouble(draggedTask.get(qtyCol).toString());
+            } catch (Exception ignored) {
+            }
             double maxCapacity = 0;
-            try { maxCapacity = Double.parseDouble(draggedTask.get(capCol).toString()); } catch (Exception ignored) {}
+            try {
+                maxCapacity = Double.parseDouble(draggedTask.get(capCol).toString());
+            } catch (Exception ignored) {
+            }
 
             // Calculate existing total at target date (excluding this item)
             double existingTotal = 0;
@@ -1181,7 +1834,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 confirmDlg.setConfirmButtonTheme("error primary");
 
                 confirmDlg.addConfirmListener(event -> {
-                    executeDragUpdate(itemId, newDate, finalDraggedTask);
+                    executeDragUpdate(itemId, newDate, resource, finalDraggedTask);
                 });
                 confirmDlg.addCancelListener(event -> {
                     // Revert: refresh data to restore original positions
@@ -1193,7 +1846,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             }
 
             // No overcapacity — proceed directly
-            executeDragUpdate(itemId, newDate, finalDraggedTask);
+            executeDragUpdate(itemId, newDate, resource, finalDraggedTask);
 
         } catch (Exception e) {
             Notification n = Notification.show("Error: " + e.getMessage(), 5000, Notification.Position.MIDDLE);
@@ -1205,7 +1858,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
     // ================================================================
     // EXECUTE DRAG UPDATE (save + cascade shift)
     // ================================================================
-    private void executeDragUpdate(String itemId, LocalDate newDate, Map<String, Object> draggedTask) {
+    private void executeDragUpdate(String itemId, LocalDate newDate, String newResource, Map<String, Object> draggedTask) {
         try {
             String pkCol = schedulerConfig.getColPrimaryKey();
             String dependencyIdCol = schedulerConfig.getColDependencyId(); // Changed from groupIdCol
@@ -1221,30 +1874,65 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             if (oldDateObj != null) {
                 try {
                     oldDate = LocalDate.parse(oldDateObj.toString().substring(0, 10));
-                } catch (Exception e) {}
+                } catch (Exception e) {
+                }
             }
-            
+
             long daysShifted = 0;
             if (oldDate != null) {
                 daysShifted = java.time.temporal.ChronoUnit.DAYS.between(oldDate, newDate);
             }
 
             // 1. UPDATE the dragged task's date
-            String updateSql = "UPDATE " + updateTable + " SET " + updateDateCol
-                    + " = ?::date WHERE " + pkCol + " = ?";
+            AppUser currentUser = securityService.getCurrentUser();
+            String currentUsername = currentUser != null ? currentUser.getUsername() : "system";
+            java.sql.Timestamp currentTimestamp = new java.sql.Timestamp(System.currentTimeMillis());
+
+            String resourceCol = schedulerConfig.getColResource();
+            String updateResourceCol = schedulerConfig.getUpdateResourceColumn();
             
-            Object originalIdObj = draggedTask.get(pkCol);
-            jdbcTemplate.update(updateSql, newDate.toString(), originalIdObj);
+            Object newResourceValToUpdate = newResource;
+            if (updateResourceCol != null && !updateResourceCol.trim().isEmpty() && resourceCol != null) {
+                // Cari ID aktual berdasarkan nama resource di data cache
+                for (Map<String, Object> row : currentData) {
+                    Object rVal = row.get(resourceCol);
+                    if (rVal != null && rVal.toString().equals(newResource)) {
+                        newResourceValToUpdate = row.get(updateResourceCol);
+                        break;
+                    }
+                }
+            }
+
+            String updateSql = "UPDATE " + updateTable + " SET " + updateDateCol
+                    + " = ?::date, updateby = ?, updatedt = ?";
+                    
+            List<Object> updateParams = new ArrayList<>();
+            updateParams.add(newDate.toString());
+            updateParams.add(currentUsername);
+            updateParams.add(currentTimestamp);
+
+            if (updateResourceCol != null && !updateResourceCol.trim().isEmpty()) {
+                updateSql += ", " + updateResourceCol + " = ?";
+                updateParams.add(newResourceValToUpdate);
+            } else if (resourceCol != null && newResource != null) {
+                updateSql += ", " + resourceCol + " = ?";
+                updateParams.add(newResource);
+            }
+            
+            updateSql += " WHERE " + pkCol + " = ?";
+            updateParams.add(draggedTask.get(pkCol));
+            
+            jdbcTemplate.update(updateSql, updateParams.toArray());
 
             // 2. CASCADE SHIFT — move related tasks by the same delta days
             if (dependencyIdCol != null && seqCol != null) {
                 Object seqVal = draggedTask.get(seqCol);
                 Object splitGroupVal = (splitGroupCol != null) ? draggedTask.get(splitGroupCol) : null;
                 Object dependencyIdVal = draggedTask.get(dependencyIdCol);
-                
+
                 String targetMatchCol = null;
                 Object targetMatchVal = null;
-                
+
                 if (splitGroupVal != null && !splitGroupVal.toString().trim().isEmpty()) {
                     targetMatchCol = splitGroupCol;
                     targetMatchVal = splitGroupVal;
@@ -1253,10 +1941,13 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     targetMatchVal = dependencyIdVal;
                 }
 
-                if (targetMatchCol != null && seqVal != null && daysShifted != 0) {
+                Object oldResourceObj = draggedTask.get(resourceCol);
+                boolean resourceChanged = resourceCol != null && newResource != null && !newResource.equals(oldResourceObj != null ? oldResourceObj.toString() : "");
+
+                if (targetMatchCol != null && seqVal != null && (daysShifted != 0 || resourceChanged)) {
                     // Find all tasks with same target match and sequence > current
                     String findSql = "SELECT " + pkCol + ", " + seqCol + ", " + updateDateCol
-                            + " FROM (" + schedulerConfig.getSchedulerQuery() + ") AS sq WHERE " 
+                            + " FROM (" + schedulerConfig.getSchedulerQuery() + ") AS sq WHERE "
                             + targetMatchCol + " = ? AND "
                             + seqCol + " > ? ORDER BY " + seqCol + " ASC";
 
@@ -1267,11 +1958,24 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                         Object relatedDateObj = related.get(updateDateCol);
                         if (relatedDateObj != null) {
                             try {
-                                LocalDate currentRelatedDate = LocalDate.parse(relatedDateObj.toString().substring(0, 10));
+                                LocalDate currentRelatedDate = LocalDate
+                                        .parse(relatedDateObj.toString().substring(0, 10));
                                 LocalDate cascadeDate = currentRelatedDate.plusDays(daysShifted);
                                 Object relatedId = related.get(pkCol);
-                                jdbcTemplate.update(updateSql, cascadeDate.toString(), relatedId);
-                            } catch (Exception ignored) {}
+                                
+                                String cascadeSql = "UPDATE " + updateTable + " SET " + updateDateCol
+                                        + " = ?::date, updateby = ?, updatedt = ? WHERE " + pkCol + " = ?";
+                                
+                                List<Object> cascadeParams = new ArrayList<>();
+                                cascadeParams.add(cascadeDate.toString());
+                                cascadeParams.add(currentUsername);
+                                cascadeParams.add(currentTimestamp);
+                                cascadeParams.add(relatedId);
+                                
+                                jdbcTemplate.update(cascadeSql, cascadeParams.toArray());
+                            } catch (Exception ex) {
+                                ex.printStackTrace();
+                            }
                         }
                     }
 

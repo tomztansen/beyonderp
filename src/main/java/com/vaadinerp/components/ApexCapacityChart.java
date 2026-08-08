@@ -6,7 +6,6 @@ import com.vaadin.flow.component.ComponentEventListener;
 import com.vaadin.flow.component.DomEvent;
 import com.vaadin.flow.component.EventData;
 import com.vaadin.flow.component.HasSize;
-import com.vaadin.flow.component.HasStyle;
 import com.vaadin.flow.component.Tag;
 import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.dependency.NpmPackage;
@@ -16,16 +15,28 @@ import elemental.json.JsonArray;
 @Tag("apex-capacity-wrapper")
 @NpmPackage(value = "apexcharts", version = "^4.5.0")
 @JsModule("./components/apexcharts-capacity-wrapper.js")
-public class ApexCapacityChart extends Component implements HasSize, HasStyle {
+public class ApexCapacityChart extends Component implements HasSize {
 
     @DomEvent("chart-item-click")
     public static class ChartItemClickEvent extends ComponentEvent<ApexCapacityChart> {
         private final String taskName;
-        public ChartItemClickEvent(ApexCapacityChart source, boolean fromClient, @EventData("event.detail.taskName") String taskName) {
+        private final String date;
+
+        public ChartItemClickEvent(ApexCapacityChart source, boolean fromClient,
+                @EventData("event.detail.taskName") String taskName,
+                @EventData("event.detail.date") String date) {
             super(source, fromClient);
             this.taskName = taskName;
+            this.date = date;
         }
-        public String getTaskName() { return taskName; }
+
+        public String getTaskName() {
+            return taskName;
+        }
+
+        public String getDate() {
+            return date;
+        }
     }
 
     public Registration addChartItemClickListener(ComponentEventListener<ChartItemClickEvent> listener) {
@@ -39,8 +50,8 @@ public class ApexCapacityChart extends Component implements HasSize, HasStyle {
      * @param maxCapacity maximum capacity line value (e.g. 80)
      * @param label       capacity label (e.g. "Qty Box" or "Weight (kg)")
      */
-    public void setChartData(JsonArray data, int maxCapacity, String label) {
-        getElement().callJsFunction("setChartData", data, maxCapacity, label);
+    public void setChartData(JsonArray data, int maxCapacity, String label, String startDate, String endDate) {
+        getElement().callJsFunction("setChartData", data, maxCapacity, label, startDate, endDate);
     }
 
     /**
