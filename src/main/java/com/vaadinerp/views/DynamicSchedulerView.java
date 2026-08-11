@@ -129,7 +129,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                         } else if (val != null) {
                             try {
                                 holidaySet.add(LocalDate.parse(val.toString()));
-                            } catch (Exception e) {}
+                            } catch (Exception e) {
+                            }
                         }
                     }
                 } catch (Exception e) {
@@ -140,16 +141,23 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
     }
 
     private boolean isHolidayOrSunday(LocalDate date) {
-        if (date == null) return false;
-        if (date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) return true;
+        if (date == null)
+            return false;
+        if (date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY)
+            return true;
         return holidaySet.contains(date);
     }
 
-    private java.time.LocalDateTime getNextWorkingTime(java.time.LocalDateTime time) {
-        if (time == null) return null;
+    private java.time.LocalDateTime getValidWorkingTime(java.time.LocalDateTime time, boolean shiftForward) {
+        if (time == null)
+            return null;
         java.time.LocalDateTime validTime = time;
         while (isHolidayOrSunday(validTime.toLocalDate())) {
-            validTime = validTime.plusDays(1).withHour(8).withMinute(0).withSecond(0).withNano(0);
+            if (shiftForward) {
+                validTime = validTime.plusDays(1).withHour(8).withMinute(0).withSecond(0).withNano(0);
+            } else {
+                validTime = validTime.minusDays(1).withHour(8).withMinute(0).withSecond(0).withNano(0);
+            }
         }
         return validTime;
     }
@@ -528,7 +536,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         refreshData();
 
         // Set initial visual timeline zoom: Hari Ini + 7 hingga + 14
-        timeline.setWindow(LocalDate.now().plusDays(7).toString(), LocalDate.now().plusDays(14).toString());
+        timeline.setWindow(LocalDate.now().plusDays(14).toString(), LocalDate.now().plusDays(21).toString());
     }
 
     // ================================================================
@@ -544,12 +552,12 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         startDateFilter = new com.vaadin.flow.component.datepicker.DatePicker();
         startDateFilter.setPlaceholder("Start Date");
-        startDateFilter.setValue(LocalDate.now().minusMonths(1));
+        startDateFilter.setValue(LocalDate.now().minusMonths(2));
         startDateFilter.setWidth("140px");
 
         endDateFilter = new com.vaadin.flow.component.datepicker.DatePicker();
         endDateFilter.setPlaceholder("End Date");
-        endDateFilter.setValue(LocalDate.now().plusMonths(1));
+        endDateFilter.setValue(LocalDate.now().plusMonths(2));
         endDateFilter.setWidth("140px");
 
         Button btnShiftLeft = new Button(VaadinIcon.ANGLE_LEFT.create(), e -> {
@@ -1098,7 +1106,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         List<Map<String, Object>> tableCols = null;
         try {
             tableCols = dataService.fetchTableSchemaDetails(tableName);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         int successCount = 0;
         try {
@@ -1119,7 +1128,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                         if (!first)
                             sql.append(", ");
                         sql.append(fName).append(" = ?");
-                        
+
                         Object newVal = row.get(fName);
                         if (newVal instanceof String && tableCols != null) {
                             String strVal = ((String) newVal).trim();
@@ -1138,12 +1147,14 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                                         newVal = Integer.parseInt(strVal);
                                     } else if (colType.contains("numeric") || colType.contains("decimal")) {
                                         newVal = new java.math.BigDecimal(strVal);
-                                    } else if (colType.contains("float") || colType.contains("double") || colType.contains("real")) {
+                                    } else if (colType.contains("float") || colType.contains("double")
+                                            || colType.contains("real")) {
                                         newVal = Double.parseDouble(strVal);
                                     } else if (colType.contains("bool")) {
                                         newVal = Boolean.parseBoolean(strVal);
                                     }
-                                } catch (Exception ignored) {}
+                                } catch (Exception ignored) {
+                                }
                             }
                         }
                         args.add(newVal);
@@ -1187,8 +1198,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 currentData = new ArrayList<>();
             } else if (dateCol != null && !dateCol.trim().isEmpty() && startDateFilter.getValue() != null
                     && endDateFilter.getValue() != null) {
-                String wrappedQuery = "SELECT * FROM (" + query + ") AS sq WHERE " + dateCol + " >= ? AND " + dateCol
-                        + " <= ?";
+                String wrappedQuery = "SELECT * FROM (" + query + ") AS sq WHERE (" + dateCol + " >= ? AND " + dateCol
+                        + " <= ?) OR " + dateCol + " IS NULL";
                 currentData = jdbcTemplate.queryForList(wrappedQuery, startDateFilter.getValue(),
                         endDateFilter.getValue());
             } else {
@@ -1261,6 +1272,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         }
         groupFilterCombo1.setItems(groups);
         groupFilterCombo2.setItems(groups);
+        String prevTimelineGrp = currentTimelineGroupFilter;
+
         timelineGroupFilter.setItems(groups);
 
         if (curr1 != null && groups.contains(curr1))
@@ -1268,33 +1281,14 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         if (curr2 != null && groups.contains(curr2))
             groupFilterCombo2.setValue(curr2);
 
-        // ALWAYS default to the group with the smallest sequence for the timeline upon data refresh
-        String seqCol = schedulerConfig.getColSequence();
-        if (seqCol != null && !seqCol.trim().isEmpty()) {
-            String groupWithMinSeq = null;
-            int minSeq = Integer.MAX_VALUE;
-            for (Map<String, Object> row : currentData) {
-                Object seqVal = row.get(seqCol);
-                Object groupVal = row.get(groupCol);
-                if (seqVal != null && !seqVal.toString().trim().isEmpty() && groupVal != null
-                        && !groupVal.toString().trim().isEmpty()) {
-                    try {
-                        int seq = Integer.parseInt(seqVal.toString().trim());
-                        if (seq < minSeq) {
-                            minSeq = seq;
-                            groupWithMinSeq = groupVal.toString().trim();
-                        }
-                    } catch (Exception ignored) {
-                    }
-                }
-            }
-            if (groupWithMinSeq != null && groups.contains(groupWithMinSeq)) {
-                currentTimelineGroupFilter = groupWithMinSeq;
-                timelineGroupFilter.setValue(groupWithMinSeq);
-            } else {
-                currentTimelineGroupFilter = null;
-                timelineGroupFilter.clear();
-            }
+        // Preserve previous timeline group filter if it still exists
+        if (prevTimelineGrp != null && groups.contains(prevTimelineGrp)) {
+            currentTimelineGroupFilter = prevTimelineGrp;
+            timelineGroupFilter.setValue(prevTimelineGrp);
+        } else {
+            // No default selection (show all)
+            currentTimelineGroupFilter = null;
+            timelineGroupFilter.clear();
         }
     }
 
@@ -1411,18 +1405,25 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         List<Map<String, Object>> filteredTimelineData = new ArrayList<>();
         for (Map<String, Object> row : currentData) {
-            // Apply timeline filters
-            if (currentTimelineGroupFilter != null && !currentTimelineGroupFilter.isEmpty() && groupCol != null
-                    && !groupCol.trim().isEmpty()) {
-                Object gVal = row.get(groupCol);
-                if (gVal == null || !currentTimelineGroupFilter.equals(gVal.toString())) {
-                    continue;
+            Object gVal = groupCol != null ? row.get(groupCol) : null;
+            Object rVal = resourceCol != null ? row.get(resourceCol) : null;
+
+            boolean isUnassigned = (gVal == null || gVal.toString().trim().isEmpty())
+                    && (rVal == null || rVal.toString().trim().isEmpty());
+            boolean showUnassigned = chkHideUnassigned != null && !chkHideUnassigned.getValue();
+
+            // Apply timeline filters (bypass for unassigned tasks if checkbox is unchecked)
+            if (!(isUnassigned && showUnassigned)) {
+                if (currentTimelineGroupFilter != null && !currentTimelineGroupFilter.isEmpty() && groupCol != null
+                        && !groupCol.trim().isEmpty()) {
+                    if (gVal == null || !currentTimelineGroupFilter.equals(gVal.toString())) {
+                        continue;
+                    }
                 }
-            }
-            if (currentTimelineResourceFilter != null && !currentTimelineResourceFilter.isEmpty()) {
-                Object rVal = row.get(resourceCol);
-                if (rVal == null || !currentTimelineResourceFilter.equals(rVal.toString())) {
-                    continue;
+                if (currentTimelineResourceFilter != null && !currentTimelineResourceFilter.isEmpty()) {
+                    if (rVal == null || !currentTimelineResourceFilter.equals(rVal.toString())) {
+                        continue;
+                    }
                 }
             }
             filteredTimelineData.add(row);
@@ -1544,6 +1545,60 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         Map<String, Set<String>> parentToChildren = new LinkedHashMap<>();
         Set<String> unassignedResources = new LinkedHashSet<>();
+
+        // If user wants to see empty facilities (Hide Unassigned is unchecked),
+        // we query all distinct machines regardless of the date filter.
+        if (chkHideUnassigned != null && !chkHideUnassigned.getValue()) {
+            try {
+                String rawQuery = schedulerConfig.getSchedulerQuery();
+                String optimizedQuery = rawQuery != null ? rawQuery.replaceAll("(?i)order\\s+by\\s+.*", "") : "";
+                String q = "SELECT DISTINCT " + groupCol + ", " + resourceCol + " FROM (" + optimizedQuery
+                        + ") AS sq WHERE " + resourceCol + " IS NOT NULL AND " + resourceCol + " != ''";
+                List<Map<String, Object>> allMachines = jdbcTemplate.queryForList(q);
+                for (Map<String, Object> m : allMachines) {
+                    Object rVal = m.get(resourceCol);
+                    Object gVal = m.get(groupCol);
+                    if (rVal != null) {
+                        String rStr = rVal.toString().trim();
+                        String gStr = (gVal != null) ? gVal.toString().trim() : null;
+
+                        // Apply group filter
+                        if (currentTimelineGroupFilter != null && !currentTimelineGroupFilter.isEmpty()) {
+                            if (gStr == null || !currentTimelineGroupFilter.equals(gStr)) {
+                                continue;
+                            }
+                        }
+
+                        // Apply resource filter
+                        if (currentTimelineResourceFilter != null && !currentTimelineResourceFilter.isEmpty()) {
+                            if (!currentTimelineResourceFilter.equals(rStr)) {
+                                continue;
+                            }
+                        }
+
+                        // Group grouping fallback logic
+                        String parentId = gStr;
+                        if ((parentId == null || parentId.isEmpty()) && rStr.contains(" : ")) {
+                            String fullPrefix = rStr.substring(0, rStr.indexOf(" : ")).trim();
+                            if (fullPrefix.contains(",")) {
+                                parentId = fullPrefix.substring(fullPrefix.lastIndexOf(",") + 1).trim();
+                            } else {
+                                parentId = fullPrefix;
+                            }
+                        }
+
+                        if (parentId != null && !parentId.isEmpty()) {
+                            parentToChildren.computeIfAbsent(parentId, k -> new LinkedHashSet<>()).add(rStr);
+                        } else {
+                            unassignedResources.add(rStr);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Error fetching distinct machines: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
 
         for (Map<String, Object> row : filteredTimelineData) {
             Object resourceVal = row.get(resourceCol);
@@ -1753,7 +1808,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         }
 
         // Add background items for Holidays & Sundays
-        if (startDateFilter != null && endDateFilter != null && startDateFilter.getValue() != null && endDateFilter.getValue() != null) {
+        if (startDateFilter != null && endDateFilter != null && startDateFilter.getValue() != null
+                && endDateFilter.getValue() != null) {
             LocalDate start = startDateFilter.getValue().minusDays(14); // extend visual range a bit
             LocalDate end = endDateFilter.getValue().plusDays(30);
             LocalDate curr = start;
@@ -1767,7 +1823,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     bgObj.put("start", curr.toString() + "T00:00:00");
                     bgObj.put("end", curr.toString() + "T23:59:59");
                     bgObj.put("type", "background");
-                    
+
                     if (isHoliday) {
                         bgObj.put("className", "vis-holiday-bg");
                     } else {
@@ -1802,40 +1858,41 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         // Set capacity colors
         updateTimelineCapacityColors();
 
-        // Inject Custom CSS globally to ensure the top-left corner ALWAYS shows the header,
+        // Inject Custom CSS globally to ensure the top-left corner ALWAYS shows the
+        // header,
         // even if vis-timeline destroys and recreates the DOM elements on redraw.
         timeline.getElement().executeJs(
-            "if (!document.getElementById('timeline-header-css')) {" +
-            "  const style = document.createElement('style');" +
-            "  style.id = 'timeline-header-css';" +
-            "  style.innerHTML = `" +
-            "    .vis-panel.vis-left.vis-top {" +
-            "      display: flex !important;" +
-            "      align-items: center;" +
-            "      justify-content: center;" +
-            "      background-color: #f9fafb !important;" +
-            "      border-bottom: 1px solid #e5e7eb !important;" +
-            "      border-right: 1px solid #e5e7eb !important;" +
-            "    }" +
-            "    .vis-panel.vis-left.vis-top::before {" +
-            "      content: 'Mesin / Stasiun Kerja';" +
-            "      font-weight: 600;" +
-            "      font-size: 13px;" +
-            "      color: #4b5563;" +
-            "      text-align: center;" +
-            "      width: 100%;" +
-            "      padding: 5px;" +
-            "      box-sizing: border-box;" +
-            "    }" +
-            "    .vis-holiday-bg {" +
-            "      background-color: rgba(239, 68, 68, 0.15) !important;" + // Lumo error color
-            "    }" +
-            "    .vis-sunday-bg {" +
-            "      background-color: rgba(245, 158, 11, 0.15) !important;" + // Lumo warning color (orange/yellow)
-            "    }`;" +
-            "  document.head.appendChild(style);" +
-            "}"
-        );
+                "if (!document.getElementById('timeline-header-css')) {" +
+                        "  const style = document.createElement('style');" +
+                        "  style.id = 'timeline-header-css';" +
+                        "  style.innerHTML = `" +
+                        "    .vis-panel.vis-left.vis-top {" +
+                        "      display: flex !important;" +
+                        "      align-items: center;" +
+                        "      justify-content: center;" +
+                        "      background-color: #f9fafb !important;" +
+                        "      border-bottom: 1px solid #e5e7eb !important;" +
+                        "      border-right: 1px solid #e5e7eb !important;" +
+                        "    }" +
+                        "    .vis-panel.vis-left.vis-top::before {" +
+                        "      content: 'Mesin / Stasiun Kerja';" +
+                        "      font-weight: 600;" +
+                        "      font-size: 13px;" +
+                        "      color: #4b5563;" +
+                        "      text-align: center;" +
+                        "      width: 100%;" +
+                        "      padding: 5px;" +
+                        "      box-sizing: border-box;" +
+                        "    }" +
+                        "    .vis-holiday-bg {" +
+                        "      background-color: rgba(239, 68, 68, 0.15) !important;" + // Lumo error color
+                        "    }" +
+                        "    .vis-sunday-bg {" +
+                        "      background-color: rgba(245, 158, 11, 0.15) !important;" + // Lumo warning color
+                                                                                         // (orange/yellow)
+                        "    }`;" +
+                        "  document.head.appendChild(style);" +
+                        "}");
     }
 
     // ================================================================
@@ -2397,7 +2454,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         List<Map<String, Object>> allRelatedData = new ArrayList<>();
         try {
             String query = schedulerConfig.getSchedulerQuery();
-            if (query != null && !query.trim().isEmpty() && targetGroupId != null && !targetGroupId.trim().isEmpty() && groupIdCol != null) {
+            if (query != null && !query.trim().isEmpty() && targetGroupId != null && !targetGroupId.trim().isEmpty()
+                    && groupIdCol != null) {
                 String sql = "SELECT * FROM (" + query + ") AS sq WHERE " + groupIdCol + " = ?";
                 allRelatedData = jdbcTemplate.queryForList(sql, targetGroupId);
             } else {
@@ -2412,10 +2470,12 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         boolean foundTarget = false;
         for (Map<String, Object> r : allRelatedData) {
             if (java.util.Objects.equals(r.get(pkCol), targetRow.get(pkCol))) {
-                foundTarget = true; break;
+                foundTarget = true;
+                break;
             }
         }
-        if (!foundTarget) allRelatedData.add(targetRow);
+        if (!foundTarget)
+            allRelatedData.add(targetRow);
 
         for (Map<String, Object> row : allRelatedData) {
             if (splitGroupCol != null && row.get(splitGroupCol) != null) {
@@ -2723,7 +2783,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         List<Map<String, Object>> allRelatedData = new ArrayList<>();
         try {
             String query = schedulerConfig.getSchedulerQuery();
-            if (query != null && !query.trim().isEmpty() && firstGroupId != null && !firstGroupId.trim().isEmpty() && groupIdCol != null) {
+            if (query != null && !query.trim().isEmpty() && firstGroupId != null && !firstGroupId.trim().isEmpty()
+                    && groupIdCol != null) {
                 String sql = "SELECT * FROM (" + query + ") AS sq WHERE " + groupIdCol + " = ?";
                 allRelatedData = jdbcTemplate.queryForList(sql, firstGroupId);
             } else {
@@ -2739,10 +2800,12 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             boolean found = false;
             for (Map<String, Object> r : allRelatedData) {
                 if (java.util.Objects.equals(r.get(pkCol), sr.get(pkCol))) {
-                    found = true; break;
+                    found = true;
+                    break;
                 }
             }
-            if (!found) allRelatedData.add(sr);
+            if (!found)
+                allRelatedData.add(sr);
         }
 
         List<Map<String, Object>> allRowsToMerge = new ArrayList<>();
@@ -3142,18 +3205,21 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                             try {
                                 LocalDate currentRelatedDate = LocalDate
                                         .parse(relatedDateObj.toString().substring(0, 10));
-                                
+
                                 // Apply accumulated offset
                                 LocalDate cascadeDate = currentRelatedDate.plusDays(accumulatedOffsetDays);
-                                
+
                                 // Validate against holidays/Sundays
                                 java.time.LocalDateTime cascadeDateTime = cascadeDate.atStartOfDay();
-                                java.time.LocalDateTime validDateTime = getNextWorkingTime(cascadeDateTime);
+                                boolean shiftForward = accumulatedOffsetDays >= 0;
+                                java.time.LocalDateTime validDateTime = getValidWorkingTime(cascadeDateTime,
+                                        shiftForward);
                                 LocalDate finalCascadeDate = validDateTime.toLocalDate();
-                                
+
                                 // If bounced, increase accumulated offset for the NEXT sequence
-                                long bounceDays = java.time.temporal.ChronoUnit.DAYS.between(cascadeDate, finalCascadeDate);
-                                if (bounceDays > 0) {
+                                long bounceDays = java.time.temporal.ChronoUnit.DAYS.between(cascadeDate,
+                                        finalCascadeDate);
+                                if (bounceDays != 0) {
                                     accumulatedOffsetDays += bounceDays;
                                 }
 
