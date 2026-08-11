@@ -80,6 +80,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
     private List<Map<String, Object>> currentData = new ArrayList<>();
     private java.util.Set<Map<String, Object>> modifiedRows = new java.util.HashSet<>();
     private java.util.Set<String> currentLateSpks = new java.util.HashSet<>();
+    private java.util.Set<LocalDate> holidaySet = new java.util.HashSet<>();
     private Button btnSaveEdits;
     private com.vaadin.flow.component.checkbox.Checkbox chkHideUnassigned;
 
@@ -108,6 +109,49 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
     public void setCloseHandler(Runnable closeHandler) {
         this.closeHandler = closeHandler;
+    }
+
+    private void loadHolidayData() {
+        holidaySet.clear();
+        if (schedulerConfig != null) {
+            String hTable = schedulerConfig.getHolidayTable();
+            String hCol = schedulerConfig.getHolidayDateCol();
+            if (hTable != null && !hTable.trim().isEmpty() && hCol != null && !hCol.trim().isEmpty()) {
+                try {
+                    String sql = "SELECT " + hCol + " FROM " + hTable;
+                    List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+                    for (Map<String, Object> row : rows) {
+                        Object val = row.get(hCol);
+                        if (val instanceof java.sql.Date) {
+                            holidaySet.add(((java.sql.Date) val).toLocalDate());
+                        } else if (val instanceof java.sql.Timestamp) {
+                            holidaySet.add(((java.sql.Timestamp) val).toLocalDateTime().toLocalDate());
+                        } else if (val != null) {
+                            try {
+                                holidaySet.add(LocalDate.parse(val.toString()));
+                            } catch (Exception e) {}
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("Gagal meload data hari libur: " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    private boolean isHolidayOrSunday(LocalDate date) {
+        if (date == null) return false;
+        if (date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) return true;
+        return holidaySet.contains(date);
+    }
+
+    private java.time.LocalDateTime getNextWorkingTime(java.time.LocalDateTime time) {
+        if (time == null) return null;
+        java.time.LocalDateTime validTime = time;
+        while (isHolidayOrSunday(validTime.toLocalDate())) {
+            validTime = validTime.plusDays(1).withHour(8).withMinute(0).withSecond(0).withNano(0);
+        }
+        return validTime;
     }
 
     @Override
@@ -211,7 +255,27 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             }
         });
 
-        timelineHeader.add(timelineTitle, timelineGroupFilter, timelineResourceFilter);
+        HorizontalLayout legendLayout = new HorizontalLayout();
+        legendLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        legendLayout.getStyle().set("margin-right", "15px").set("gap", "6px");
+
+        Span boxHoliday = new Span();
+        boxHoliday.setWidth("12px");
+        boxHoliday.setHeight("12px");
+        boxHoliday.getStyle().set("background-color", "rgba(239, 68, 68, 0.5)").set("border-radius", "2px");
+        Span lblHoliday = new Span("Public Holiday");
+        lblHoliday.getStyle().set("font-size", "11px").set("color", "#64748b").set("margin-right", "8px");
+
+        Span boxSunday = new Span();
+        boxSunday.setWidth("12px");
+        boxSunday.setHeight("12px");
+        boxSunday.getStyle().set("background-color", "rgba(245, 158, 11, 0.5)").set("border-radius", "2px");
+        Span lblSunday = new Span("Sunday");
+        lblSunday.getStyle().set("font-size", "11px").set("color", "#64748b");
+
+        legendLayout.add(boxHoliday, lblHoliday, boxSunday, lblSunday);
+
+        timelineHeader.add(timelineTitle, legendLayout, timelineGroupFilter, timelineResourceFilter);
 
         timeline = new VisTimeline();
         timeline.setSizeFull();
@@ -460,7 +524,11 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         add(toolbar, outerSplit);
 
+        // Fetch data
         refreshData();
+
+        // Set initial visual timeline zoom: Hari Ini + 7 hingga + 14
+        timeline.setWindow(LocalDate.now().plusDays(7).toString(), LocalDate.now().plusDays(14).toString());
     }
 
     // ================================================================
@@ -476,12 +544,12 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         startDateFilter = new com.vaadin.flow.component.datepicker.DatePicker();
         startDateFilter.setPlaceholder("Start Date");
-        startDateFilter.setValue(LocalDate.now().minusDays(7));
+        startDateFilter.setValue(LocalDate.now().minusMonths(1));
         startDateFilter.setWidth("140px");
 
         endDateFilter = new com.vaadin.flow.component.datepicker.DatePicker();
         endDateFilter.setPlaceholder("End Date");
-        endDateFilter.setValue(LocalDate.now().plusDays(30));
+        endDateFilter.setValue(LocalDate.now().plusMonths(1));
         endDateFilter.setWidth("140px");
 
         Button btnShiftLeft = new Button(VaadinIcon.ANGLE_LEFT.create(), e -> {
@@ -1147,6 +1215,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             currentData = new ArrayList<>();
         }
 
+        loadHolidayData();
         populateGroupFilter();
         populateTimelineResourceFilter();
         populateResourceFilters1();
@@ -1199,33 +1268,32 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         if (curr2 != null && groups.contains(curr2))
             groupFilterCombo2.setValue(curr2);
 
-        if (currTimeline != null && groups.contains(currTimeline)) {
-            timelineGroupFilter.setValue(currTimeline);
-        } else if (currTimeline == null) {
-            // Default to the group with the smallest sequence for the timeline
-            String seqCol = schedulerConfig.getColSequence();
-            if (seqCol != null && !seqCol.trim().isEmpty()) {
-                String groupWithMinSeq = null;
-                int minSeq = Integer.MAX_VALUE;
-                for (Map<String, Object> row : currentData) {
-                    Object seqVal = row.get(seqCol);
-                    Object groupVal = row.get(groupCol);
-                    if (seqVal != null && !seqVal.toString().trim().isEmpty() && groupVal != null
-                            && !groupVal.toString().trim().isEmpty()) {
-                        try {
-                            int seq = Integer.parseInt(seqVal.toString().trim());
-                            if (seq < minSeq) {
-                                minSeq = seq;
-                                groupWithMinSeq = groupVal.toString().trim();
-                            }
-                        } catch (Exception ignored) {
+        // ALWAYS default to the group with the smallest sequence for the timeline upon data refresh
+        String seqCol = schedulerConfig.getColSequence();
+        if (seqCol != null && !seqCol.trim().isEmpty()) {
+            String groupWithMinSeq = null;
+            int minSeq = Integer.MAX_VALUE;
+            for (Map<String, Object> row : currentData) {
+                Object seqVal = row.get(seqCol);
+                Object groupVal = row.get(groupCol);
+                if (seqVal != null && !seqVal.toString().trim().isEmpty() && groupVal != null
+                        && !groupVal.toString().trim().isEmpty()) {
+                    try {
+                        int seq = Integer.parseInt(seqVal.toString().trim());
+                        if (seq < minSeq) {
+                            minSeq = seq;
+                            groupWithMinSeq = groupVal.toString().trim();
                         }
+                    } catch (Exception ignored) {
                     }
                 }
-                if (groupWithMinSeq != null && groups.contains(groupWithMinSeq)) {
-                    currentTimelineGroupFilter = groupWithMinSeq;
-                    timelineGroupFilter.setValue(groupWithMinSeq);
-                }
+            }
+            if (groupWithMinSeq != null && groups.contains(groupWithMinSeq)) {
+                currentTimelineGroupFilter = groupWithMinSeq;
+                timelineGroupFilter.setValue(groupWithMinSeq);
+            } else {
+                currentTimelineGroupFilter = null;
+                timelineGroupFilter.clear();
             }
         }
     }
@@ -1684,6 +1752,33 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             items.set(itemIndex++, itemObj);
         }
 
+        // Add background items for Holidays & Sundays
+        if (startDateFilter != null && endDateFilter != null && startDateFilter.getValue() != null && endDateFilter.getValue() != null) {
+            LocalDate start = startDateFilter.getValue().minusDays(14); // extend visual range a bit
+            LocalDate end = endDateFilter.getValue().plusDays(30);
+            LocalDate curr = start;
+            while (!curr.isAfter(end)) {
+                boolean isSunday = curr.getDayOfWeek() == java.time.DayOfWeek.SUNDAY;
+                boolean isHoliday = holidaySet.contains(curr);
+
+                if (isSunday || isHoliday) {
+                    elemental.json.JsonObject bgObj = elemental.json.Json.createObject();
+                    bgObj.put("id", "bg_holiday_" + curr.toString());
+                    bgObj.put("start", curr.toString() + "T00:00:00");
+                    bgObj.put("end", curr.toString() + "T23:59:59");
+                    bgObj.put("type", "background");
+                    
+                    if (isHoliday) {
+                        bgObj.put("className", "vis-holiday-bg");
+                    } else {
+                        bgObj.put("className", "vis-sunday-bg");
+                    }
+                    items.set(itemIndex++, bgObj);
+                }
+                curr = curr.plusDays(1);
+            }
+        }
+
         // Add custom time markers for Shipping Dates
         JsonArray customTimes = Json.createArray();
         int ctIndex = 0;
@@ -1706,6 +1801,41 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         // Set capacity colors
         updateTimelineCapacityColors();
+
+        // Inject Custom CSS globally to ensure the top-left corner ALWAYS shows the header,
+        // even if vis-timeline destroys and recreates the DOM elements on redraw.
+        timeline.getElement().executeJs(
+            "if (!document.getElementById('timeline-header-css')) {" +
+            "  const style = document.createElement('style');" +
+            "  style.id = 'timeline-header-css';" +
+            "  style.innerHTML = `" +
+            "    .vis-panel.vis-left.vis-top {" +
+            "      display: flex !important;" +
+            "      align-items: center;" +
+            "      justify-content: center;" +
+            "      background-color: #f9fafb !important;" +
+            "      border-bottom: 1px solid #e5e7eb !important;" +
+            "      border-right: 1px solid #e5e7eb !important;" +
+            "    }" +
+            "    .vis-panel.vis-left.vis-top::before {" +
+            "      content: 'Mesin / Stasiun Kerja';" +
+            "      font-weight: 600;" +
+            "      font-size: 13px;" +
+            "      color: #4b5563;" +
+            "      text-align: center;" +
+            "      width: 100%;" +
+            "      padding: 5px;" +
+            "      box-sizing: border-box;" +
+            "    }" +
+            "    .vis-holiday-bg {" +
+            "      background-color: rgba(239, 68, 68, 0.15) !important;" + // Lumo error color
+            "    }" +
+            "    .vis-sunday-bg {" +
+            "      background-color: rgba(245, 158, 11, 0.15) !important;" + // Lumo warning color (orange/yellow)
+            "    }`;" +
+            "  document.head.appendChild(style);" +
+            "}"
+        );
     }
 
     // ================================================================
@@ -2819,62 +2949,83 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 }
             }
 
-            // --- CAPACITY VALIDATION ---
-            double itemQty = 0;
-            try {
-                itemQty = Double.parseDouble(draggedTask.get(qtyCol).toString());
-            } catch (Exception ignored) {
-            }
-            double maxCapacity = 0;
-            try {
-                maxCapacity = Double.parseDouble(draggedTask.get(capCol).toString());
-            } catch (Exception ignored) {
-            }
-
-            // Calculate existing total at target date (excluding this item)
-            double existingTotal = 0;
-            try {
-                String sumSql = "SELECT COALESCE(SUM(\"" + qtyCol + "\"), 0) FROM \"" + updateTable
-                        + "\" WHERE \"" + resourceCol + "\" = ? AND \"" + updateDateCol + "\" = ?::date AND \""
-                        + pkCol + "\" != ?";
-                Object sumResult = jdbcTemplate.queryForObject(sumSql, Object.class,
-                        resource, newDateStr, Integer.parseInt(itemId));
-                existingTotal = Double.parseDouble(sumResult.toString());
-            } catch (Exception ex) {
-                System.err.println("Capacity check error: " + ex.getMessage());
-            }
-
-            double newTotal = existingTotal + itemQty;
-            boolean isOvercapacity = maxCapacity > 0 && newTotal > maxCapacity;
-
+            // --- CAPACITY VALIDATION & EXECUTION WRAPPER ---
             final Map<String, Object> finalDraggedTask = draggedTask;
-            if (isOvercapacity) {
-                // Show confirm dialog
-                String capacityLabel = "QTYBOX".equals(currentCapacityMode1) ? "Qty Box" : "Weight (kg)";
-                ConfirmDialog confirmDlg = new ConfirmDialog();
-                confirmDlg.setHeader("⚠️ Peringatan Kapasitas");
-                confirmDlg.setText(String.format(
-                        "Mesin: %s\nTanggal: %s\nTotal %s: %.0f / %.0f (MELEBIHI KAPASITAS)\n\nApakah Anda yakin ingin melanjutkan?",
-                        resource, newDateStr, capacityLabel, newTotal, maxCapacity));
-                confirmDlg.setCancelable(true);
-                confirmDlg.setCancelText("Batalkan");
-                confirmDlg.setConfirmText("Ya, Lanjutkan");
-                confirmDlg.setConfirmButtonTheme("error primary");
+            Runnable checkCapacityAndExecute = () -> {
+                double itemQty = 0;
+                try {
+                    itemQty = Double.parseDouble(finalDraggedTask.get(qtyCol).toString());
+                } catch (Exception ignored) {
+                }
+                double maxCapacity = 0;
+                try {
+                    maxCapacity = Double.parseDouble(finalDraggedTask.get(capCol).toString());
+                } catch (Exception ignored) {
+                }
 
-                confirmDlg.addConfirmListener(event -> {
+                // Calculate existing total at target date (excluding this item)
+                double existingTotal = 0;
+                try {
+                    String sumSql = "SELECT COALESCE(SUM(\"" + qtyCol + "\"), 0) FROM \"" + updateTable
+                            + "\" WHERE \"" + resourceCol + "\" = ? AND \"" + updateDateCol + "\" = ?::date AND \""
+                            + pkCol + "\" != ?";
+                    Object sumResult = jdbcTemplate.queryForObject(sumSql, Object.class,
+                            resource, newDateStr, Integer.parseInt(itemId));
+                    existingTotal = Double.parseDouble(sumResult.toString());
+                } catch (Exception ex) {
+                    System.err.println("Capacity check error: " + ex.getMessage());
+                }
+
+                double newTotal = existingTotal + itemQty;
+                boolean isOvercapacity = maxCapacity > 0 && newTotal > maxCapacity;
+
+                if (isOvercapacity) {
+                    // Show confirm dialog
+                    String capacityLabel = "QTYBOX".equals(currentCapacityMode1) ? "Qty Box" : "Weight (kg)";
+                    ConfirmDialog confirmDlg = new ConfirmDialog();
+                    confirmDlg.setHeader("⚠️ Peringatan Kapasitas");
+                    confirmDlg.setText(String.format(
+                            "Mesin: %s\nTanggal: %s\nTotal %s: %.0f / %.0f (MELEBIHI KAPASITAS)\n\nApakah Anda yakin ingin melanjutkan?",
+                            resource, newDateStr, capacityLabel, newTotal, maxCapacity));
+                    confirmDlg.setCancelable(true);
+                    confirmDlg.setCancelText("Batalkan");
+                    confirmDlg.setConfirmText("Ya, Lanjutkan");
+                    confirmDlg.setConfirmButtonTheme("error primary");
+
+                    confirmDlg.addConfirmListener(event -> {
+                        executeDragUpdate(itemId, newDate, resource, finalDraggedTask);
+                    });
+                    confirmDlg.addCancelListener(event -> {
+                        // Revert: refresh data to restore original positions
+                        refreshData();
+                    });
+
+                    confirmDlg.open();
+                } else {
+                    // No overcapacity — proceed directly
                     executeDragUpdate(itemId, newDate, resource, finalDraggedTask);
-                });
-                confirmDlg.addCancelListener(event -> {
-                    // Revert: refresh data to restore original positions
-                    refreshData();
-                });
+                }
+            };
 
-                confirmDlg.open();
-                return;
+            // --- SUNDAY / HOLIDAY CHECK ---
+            if (isHolidayOrSunday(newDate)) {
+                ConfirmDialog holidayDlg = new ConfirmDialog();
+                holidayDlg.setHeader("⚠️ Hari Libur / Minggu");
+                holidayDlg.setText(String.format(
+                        "Tanggal %s adalah hari libur atau hari Minggu.\n\nApakah Anda yakin ingin menjadwalkan lembur pada hari ini?",
+                        newDateStr));
+                holidayDlg.setCancelable(true);
+                holidayDlg.setCancelText("Batalkan");
+                holidayDlg.setConfirmText("Ya, Lanjutkan");
+                holidayDlg.setConfirmButtonTheme("warning primary");
+
+                holidayDlg.addConfirmListener(event -> checkCapacityAndExecute.run());
+                holidayDlg.addCancelListener(event -> refreshData());
+
+                holidayDlg.open();
+            } else {
+                checkCapacityAndExecute.run();
             }
-
-            // No overcapacity — proceed directly
-            executeDragUpdate(itemId, newDate, resource, finalDraggedTask);
 
         } catch (Exception e) {
             Notification n = Notification.show("Error: " + e.getMessage(), 5000, Notification.Position.MIDDLE);
@@ -2983,20 +3134,36 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     List<Map<String, Object>> relatedTasks = jdbcTemplate.queryForList(findSql,
                             targetMatchVal, seqVal);
 
+                    long accumulatedOffsetDays = daysShifted;
+
                     for (Map<String, Object> related : relatedTasks) {
                         Object relatedDateObj = related.get(updateDateCol);
                         if (relatedDateObj != null) {
                             try {
                                 LocalDate currentRelatedDate = LocalDate
                                         .parse(relatedDateObj.toString().substring(0, 10));
-                                LocalDate cascadeDate = currentRelatedDate.plusDays(daysShifted);
+                                
+                                // Apply accumulated offset
+                                LocalDate cascadeDate = currentRelatedDate.plusDays(accumulatedOffsetDays);
+                                
+                                // Validate against holidays/Sundays
+                                java.time.LocalDateTime cascadeDateTime = cascadeDate.atStartOfDay();
+                                java.time.LocalDateTime validDateTime = getNextWorkingTime(cascadeDateTime);
+                                LocalDate finalCascadeDate = validDateTime.toLocalDate();
+                                
+                                // If bounced, increase accumulated offset for the NEXT sequence
+                                long bounceDays = java.time.temporal.ChronoUnit.DAYS.between(cascadeDate, finalCascadeDate);
+                                if (bounceDays > 0) {
+                                    accumulatedOffsetDays += bounceDays;
+                                }
+
                                 Object relatedId = related.get(pkCol);
 
                                 String cascadeSql = "UPDATE " + updateTable + " SET " + updateDateCol
                                         + " = ?::date, updateby = ?, updatedt = ? WHERE " + pkCol + " = ?";
 
                                 List<Object> cascadeParams = new ArrayList<>();
-                                cascadeParams.add(cascadeDate.toString());
+                                cascadeParams.add(finalCascadeDate.toString());
                                 cascadeParams.add(currentUsername);
                                 cascadeParams.add(currentTimestamp);
                                 cascadeParams.add(relatedId);

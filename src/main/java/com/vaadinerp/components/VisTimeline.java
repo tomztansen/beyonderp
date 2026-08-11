@@ -65,6 +65,10 @@ public class VisTimeline extends Component implements HasSize {
         getElement().callJsFunction("setStackMode", stack);
     }
 
+    public void setWindow(String start, String end) {
+        getElement().callJsFunction("setWindow", start, end);
+    }
+
     public boolean isStackMode() {
         return this.stackMode;
     }

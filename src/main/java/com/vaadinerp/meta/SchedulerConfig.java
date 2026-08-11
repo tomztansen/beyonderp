@@ -88,4 +88,10 @@ public class SchedulerConfig {
 
     @Column(name = "col_shipping_date", length = 100)
     private String colShippingDate;
+
+    @Column(name = "holiday_table", length = 100)
+    private String holidayTable;
+
+    @Column(name = "holiday_date_col", length = 100)
+    private String holidayDateCol;
 }
