@@ -21,45 +21,6 @@ class VisTimelineWrapper extends LitElement {
         width: 100%;
         height: 100%;
       }
-      .vis-timeline {
-        border: none;
-        font-family: var(--lumo-font-family);
-      }
-      .vis-item {
-        border-color: #2563eb;
-        background-color: #3b82f6;
-        color: white;
-        border-radius: 4px;
-        font-size: 13px;
-        overflow: hidden;
-      }
-      .vis-item.vis-selected {
-        border-color: #1e40af;
-        background-color: #1d4ed8;
-      }
-      .vis-item.overcapacity {
-        border-color: #dc2626;
-        background-color: #ef4444;
-      }
-      .vis-item.overcapacity.vis-selected {
-        border-color: #991b1b;
-        background-color: #dc2626;
-      }
-      .vis-item.warning-capacity {
-        border-color: #d97706;
-        background-color: #f59e0b;
-      }
-      .vis-item.is-late {
-        background-color: #ef4444 !important;
-        border-color: #b91c1c !important;
-        color: white !important;
-        font-weight: bold !important;
-      }
-      .vis-item.is-late.vis-selected {
-        background-color: #b91c1c !important;
-        border-color: #7f1d1d !important;
-        border-width: 2px !important;
-      }
     `;
   }
 
@@ -70,6 +31,8 @@ class VisTimelineWrapper extends LitElement {
     this.items = new DataSet([]);
     this.groups = new DataSet([]);
     this._capacityMap = {}; // { "mesin|date": { total, max, overcapacity } }
+    this.moveDebounceTimers = {}; // { itemId: timerId }
+    this._timelineScale = 'daily'; // 'daily' or 'weekly'
   }
 
   createRenderRoot() {
@@ -77,7 +40,114 @@ class VisTimelineWrapper extends LitElement {
   }
 
   render() {
-    return html`<div id="visualization"></div>`;
+    return html`
+      <style>
+        .vis-timeline {
+          border: none;
+          font-family: var(--lumo-font-family);
+        }
+        /* Mengatur lebar kolom pertama (Grup/Mesin) agar teksnya menurun (wrap) */
+        .vis-labelset .vis-label {
+          width: 200px !important;
+          white-space: normal !important;
+          word-wrap: break-word !important;
+          padding: 8px !important;
+          color: #1e293b !important;
+        }
+        .vis-labelset .vis-label .vis-inner {
+          white-space: normal !important;
+          word-wrap: break-word !important;
+          color: #1e293b !important;
+        }
+        /* Nested group parent label */
+        .vis-labelset .vis-label.vis-nesting-group {
+          background-color: #e2e8f0 !important;
+          color: #334155 !important;
+          font-weight: 600 !important;
+        }
+        /* Fix the arrow and text alignment for parent groups */
+        .vis-labelset .vis-label.vis-nesting-group .vis-inner {
+          display: inline-block !important;
+          vertical-align: top !important;
+        }
+        /* Nested group child label */
+        .vis-labelset .vis-label.vis-nested-group {
+          background-color: #f8fafc !important;
+          color: #1e293b !important;
+          padding-left: 20px !important;
+        }
+        .vis-labelset .vis-label.vis-nested-group .vis-inner {
+          color: #1e293b !important;
+          display: inline-block !important;
+        }
+        
+        /* Mengisi header kosong di sudut kiri atas */
+        .vis-panel.vis-top.vis-left {
+          display: flex !important;
+          align-items: center;
+          justify-content: center;
+          background-color: #f9fafb;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .vis-panel.vis-top.vis-left::before {
+          content: "Mesin / Stasiun Kerja";
+          font-weight: 600;
+          font-size: 13px;
+          color: #4b5563;
+          text-align: center;
+        }
+
+        .vis-item {
+          border-color: #2563eb;
+          background-color: #3b82f6;
+          color: white;
+          border-radius: 4px;
+          font-size: 13px;
+          overflow: hidden;
+        }
+        .vis-item.vis-selected {
+          border-color: #1e40af;
+          background-color: #1d4ed8;
+        }
+        .vis-item.overcapacity {
+          border-color: #dc2626;
+          background-color: #ef4444;
+        }
+        .vis-item.overcapacity.vis-selected {
+          border-color: #991b1b;
+          background-color: #dc2626;
+        }
+        .vis-item.warning-capacity {
+          border-color: #d97706;
+          background-color: #f59e0b;
+        }
+        .vis-item.is-late {
+          background-color: #ef4444 !important;
+          border-color: #b91c1c !important;
+          color: white !important;
+          font-weight: bold !important;
+        }
+        .vis-item.is-late.vis-selected {
+          background-color: #b91c1c !important;
+          border-color: #7f1d1d !important;
+          border-width: 2px !important;
+        }
+        #visualization:focus {
+          outline: none;
+        }
+        /* Weekly mode: items fill ~1 week width */
+        .weekly-scale .vis-item {
+          min-width: 12% !important;
+        }
+        .weekly-scale .vis-item .vis-item-content {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+        }
+      </style>
+      <div id="visualization" style="width: 100%; height: 100%;" tabindex="0"></div>
+    `;
   }
 
   firstUpdated() {
@@ -85,11 +155,10 @@ class VisTimelineWrapper extends LitElement {
 
     const options = {
       groupOrder: function (a, b) {
-        if (a.id === 'shipping_milestones') return -1;
-        if (b.id === 'shipping_milestones') return 1;
-        if (a.id === 'unassigned') return 1;
-        if (b.id === 'unassigned') return -1;
-        return (a.content || '').localeCompare(b.content || '');
+        // Use explicit order index from server to guarantee parent-child grouping stability
+        const orderA = a.orderIndex !== undefined ? a.orderIndex : 99999;
+        const orderB = b.orderIndex !== undefined ? b.orderIndex : 99999;
+        return orderA - orderB;
       },
       editable: {
         add: false,
@@ -117,10 +186,10 @@ class VisTimelineWrapper extends LitElement {
       onMove: (item, callback) => {
         // Notify server when drop is complete
         const formatLocal = (date) => {
-            if (!date) return null;
-            const d = new Date(date);
-            const pad = (n) => n.toString().padStart(2, '0');
-            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+          if (!date) return null;
+          const d = new Date(date);
+          const pad = (n) => n.toString().padStart(2, '0');
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
         };
         const newStart = formatLocal(item.start);
         const newEnd = formatLocal(item.end);
@@ -136,14 +205,66 @@ class VisTimelineWrapper extends LitElement {
       tooltip: {
         followMouse: true,
         overflowMethod: 'cap'
-      }
+      },
+      multiselect: true,
+      multiselectPerGroup: true
     };
 
     this.timeline = new Timeline(container, this.items, this.groups, options);
 
     this.timeline.on('select', (properties) => {
-      if (properties.items && properties.items.length > 0) {
-        this.$server.onItemClicked(properties.items[0].toString());
+      container.focus(); // Ensure container receives keyboard events
+      if (properties.items) {
+        this.$server.onItemsSelected(properties.items.map(String));
+      }
+    });
+
+    // Keyboard support for moving items left and right
+    container.addEventListener('keydown', (e) => {
+      const selection = this.timeline.getSelection();
+      if (!selection || selection.length === 0) return;
+
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const daysToMove = (e.key === 'ArrowRight' ? 1 : -1) * (this._timelineScale === 'weekly' ? 7 : 1);
+
+
+        selection.forEach(itemId => {
+          const item = this.items.get(itemId);
+          if (item) {
+            // Visual update
+            const newStart = new Date(item.start);
+            newStart.setDate(newStart.getDate() + daysToMove);
+            item.start = newStart;
+
+            if (item.end) {
+              const newEnd = new Date(item.end);
+              newEnd.setDate(newEnd.getDate() + daysToMove);
+              item.end = newEnd;
+            }
+            this.items.update(item);
+
+            // Debounce server update
+            if (this.moveDebounceTimers[itemId]) {
+              clearTimeout(this.moveDebounceTimers[itemId]);
+            }
+            this.moveDebounceTimers[itemId] = setTimeout(() => {
+              const formatLocal = (date) => {
+                if (!date) return null;
+                const d = new Date(date);
+                const pad = (n) => n.toString().padStart(2, '0');
+                return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+              };
+              this.$server.onItemMoved(
+                item.id.toString(), 
+                formatLocal(item.start), 
+                formatLocal(item.end), 
+                item.group != null ? item.group.toString() : null
+              );
+              delete this.moveDebounceTimers[itemId];
+            }, 600); // 600ms debounce
+          }
+        });
       }
     });
 
@@ -164,7 +285,16 @@ class VisTimelineWrapper extends LitElement {
   setGroups(groupsArray) {
     this.groups.clear();
     if (groupsArray && groupsArray.length > 0) {
-      this.groups.add(groupsArray);
+      console.log('[VIS-TIMELINE] setGroups received:', JSON.stringify(groupsArray, null, 2));
+      // Use update instead of add to gracefully handle any duplicate IDs from the backend
+      this.groups.update(groupsArray);
+      
+      if (this.timeline) {
+        // Force redraw to ensure label heights and visibility are calculated correctly
+        setTimeout(() => {
+          this.timeline.redraw();
+        }, 50);
+      }
     }
   }
 
@@ -181,29 +311,29 @@ class VisTimelineWrapper extends LitElement {
 
   setCustomTimes(timesArray) {
     if (!this.timeline) return;
-    
+
     if (!this._addedCustomTimes) {
       this._addedCustomTimes = [];
     }
-    
+
     // Remove existing
     this._addedCustomTimes.forEach(id => {
-      try { this.timeline.removeCustomTime(id); } catch (e) {}
+      try { this.timeline.removeCustomTime(id); } catch (e) { }
     });
     this._addedCustomTimes = [];
-    
+
     // Add new
     if (timesArray && timesArray.length > 0) {
       timesArray.forEach(t => {
         try {
           this.timeline.addCustomTime(t.date, t.id);
           // Use HTML in title to add emoji
-          let titleHtml = t.isLate ? 
-            "<span style='color:red; font-weight:bold;'>📦 " + t.title + "</span>" : 
+          let titleHtml = t.isLate ?
+            "<span style='color:red; font-weight:bold;'>📦 " + t.title + "</span>" :
             "<span style='color:green; font-weight:bold;'>📦 " + t.title + "</span>";
           this.timeline.setCustomTimeMarker(titleHtml, t.id);
           this._addedCustomTimes.push(t.id);
-        } catch (e) {}
+        } catch (e) { }
       });
     }
   }
@@ -226,14 +356,14 @@ class VisTimelineWrapper extends LitElement {
       if (item) {
         let baseClass = item.className || '';
         baseClass = baseClass.replace(/\bovercapacity\b/g, '').replace(/\bwarning-capacity\b/g, '').trim();
-        
+
         let capClass = '';
         if (status.overcapacity) {
           capClass = 'overcapacity';
         } else if (status.warningCapacity) {
           capClass = 'warning-capacity';
         }
-        
+
         let newClassName = (baseClass + ' ' + capClass).trim();
         if (newClassName !== (item.className || '')) {
           this.items.update({ id: status.itemId, className: newClassName });
@@ -247,6 +377,60 @@ class VisTimelineWrapper extends LitElement {
     if (this.timeline) {
       this.timeline.setOptions({ stack: stack });
     }
+  }
+
+  /**
+   * Switch timeline scale between 'daily' and 'weekly'.
+   * - daily: timeAxis day/1, snap to day, keyboard ±1 day
+   * - weekly: timeAxis day/7, snap to Monday, keyboard ±7 days
+   */
+  setTimelineScale(mode) {
+    this._timelineScale = mode; // 'daily' or 'weekly'
+    if (!this.timeline) return;
+
+    const container = this.querySelector('#visualization');
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    if (mode === 'weekly') {
+      container.classList.add('weekly-scale');
+      this.timeline.setOptions({
+        timeAxis: { scale: 'week', step: 1 },
+        snap: (date) => {
+          // Snap to Monday
+          const d = new Date(date);
+          const day = d.getDay();
+          const diff = day === 0 ? -6 : 1 - day; // Monday = 1
+          d.setDate(d.getDate() + diff);
+          d.setHours(0, 0, 0, 0);
+          return d;
+        },
+        zoomMin: 1000 * 60 * 60 * 24 * 14,   // min zoom: 2 weeks
+        zoomMax: 1000 * 60 * 60 * 24 * 365,   // max zoom: 1 year
+      });
+      // Zoom out to show ~8 weeks
+      const start = new Date(now);
+      start.setDate(start.getDate() - 7);
+      const end = new Date(now);
+      end.setDate(end.getDate() + 7 * 8);
+      this.timeline.setWindow(start, end, { animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
+    } else {
+      container.classList.remove('weekly-scale');
+      this.timeline.setOptions({
+        timeAxis: { scale: 'day', step: 1 },
+        snap: (date) => {
+          const d = new Date(date);
+          d.setHours(0, 0, 0, 0);
+          return d;
+        },
+        zoomMin: 1000 * 60 * 60 * 24 * 7,    // min zoom: 7 days
+        zoomMax: 1000 * 60 * 60 * 24 * 90,   // max zoom: 90 days
+      });
+      // Restore default view: fit all items
+      this.timeline.fit({ animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
+    }
+
+    this.timeline.redraw();
   }
 
   zoomIn() {

@@ -85,10 +85,8 @@ public class FormBuilderView extends VerticalLayout {
     // Selected Field State
     private java.util.Set<FieldMetaTemp> selectedFields = new java.util.LinkedHashSet<>();
     private boolean isSelectingField = false;
-    private String selectedFormCode = null;
     private java.util.List<FieldMetaTemp> draggedFields = new java.util.ArrayList<>();
     private String draggedPaletteType = null;
-    private String draggedSubformPaletteType = null;
 
     private List<FieldMetaTemp> fieldsList = new ArrayList<>();
 
@@ -421,15 +419,15 @@ public class FormBuilderView extends VerticalLayout {
         com.vaadinerp.components.StandardGridUtils.enableRowClickSelection(historyGrid);
         historyGrid.setAllRowsVisible(true);
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(historyGrid);
-        Grid.Column<FormMeta> codeCol = historyGrid.addColumn(FormMeta::getFormCode).setHeader("Form Code")
+        Grid.Column<FormMeta> codeCol = historyGrid.addColumn(f -> f.getFormCode()).setHeader("Form Code")
                 .setSortable(true).setAutoWidth(true).setKey("formCode");
-        Grid.Column<FormMeta> titleCol = historyGrid.addColumn(FormMeta::getFormTitle).setHeader("Judul Form")
+        Grid.Column<FormMeta> titleCol = historyGrid.addColumn(f -> f.getFormTitle()).setHeader("Judul Form")
                 .setSortable(true).setAutoWidth(true).setKey("formTitle");
-        Grid.Column<FormMeta> typeCol = historyGrid.addColumn(FormMeta::getFormType).setHeader("Form Type")
+        Grid.Column<FormMeta> typeCol = historyGrid.addColumn(f -> f.getFormType()).setHeader("Form Type")
                 .setSortable(true).setAutoWidth(true).setKey("formType");
-        Grid.Column<FormMeta> tableCol = historyGrid.addColumn(FormMeta::getTableName).setHeader("Table Name")
+        Grid.Column<FormMeta> tableCol = historyGrid.addColumn(f -> f.getTableName()).setHeader("Table Name")
                 .setSortable(true).setAutoWidth(true).setKey("tableName");
-        Grid.Column<FormMeta> dtlTableCol = historyGrid.addColumn(FormMeta::getDetailTableName)
+        Grid.Column<FormMeta> dtlTableCol = historyGrid.addColumn(f -> f.getDetailTableName())
                 .setHeader("Tabel Detail").setSortable(true).setAutoWidth(true).setKey("detailTableName");
 
         com.vaadin.flow.component.grid.HeaderRow filterRow = historyGrid.appendHeaderRow();
@@ -1575,12 +1573,10 @@ public class FormBuilderView extends VerticalLayout {
         });
 
         dropTarget.addDropListener(e -> {
-            boolean droppedFromPalette = false;
             if (draggedPaletteType != null) {
                 draggedFields.clear();
                 draggedFields.add(createFieldMetaTemp(draggedPaletteType));
                 draggedPaletteType = null;
-                droppedFromPalette = true;
                 fieldsList.add(draggedFields.get(0)); // Add temporarily so reorder logic finds it
             }
 
@@ -1758,7 +1754,7 @@ public class FormBuilderView extends VerticalLayout {
                 rowGroupsOrder.add(f.rowGroup);
             }
         }
-        rowGroupsOrder.sort(Integer::compareTo);
+        rowGroupsOrder.sort((i1, i2) -> i1.compareTo(i2));
 
         int numRows = rowGroupsOrder.size();
 
@@ -1855,12 +1851,10 @@ public class FormBuilderView extends VerticalLayout {
             placeholder.getStyle().set("background-color", "rgba(255,255,255,0.5)");
             placeholder.getStyle().set("color", "#94a3b8");
 
-            boolean droppedFromPalette = false;
             if (draggedPaletteType != null) {
                 draggedFields.clear();
                 draggedFields.add(createFieldMetaTemp(draggedPaletteType));
                 draggedPaletteType = null;
-                droppedFromPalette = true;
                 fieldsList.add(draggedFields.get(0)); // Add temporarily
             }
 
@@ -2171,12 +2165,10 @@ public class FormBuilderView extends VerticalLayout {
                     .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
                     .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
 
-            boolean droppedFromPalette = false;
             if (draggedPaletteType != null) {
                 draggedFields.clear();
                 draggedFields.add(createFieldMetaTemp(draggedPaletteType));
                 draggedPaletteType = null;
-                droppedFromPalette = true;
                 fieldsList.add(draggedFields.get(0));
             }
 
@@ -2972,14 +2964,14 @@ public class FormBuilderView extends VerticalLayout {
         Grid<FieldFilterMetaTemp> filtersGrid = new Grid<>();
         filtersGrid.setSizeFull();
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(filtersGrid);
-        filtersGrid.addColumn(FieldFilterMetaTemp::getLogicalOperator).setHeader("Logika").setWidth("80px")
+        filtersGrid.addColumn(f -> f.getLogicalOperator()).setHeader("Logika").setWidth("80px")
                 .setFlexGrow(0);
-        filtersGrid.addColumn(FieldFilterMetaTemp::getFilterColumn).setHeader("Target Kolom").setFlexGrow(1);
-        filtersGrid.addColumn(FieldFilterMetaTemp::getComparisonOperator).setHeader("Op").setWidth("80px")
+        filtersGrid.addColumn(f -> f.getFilterColumn()).setHeader("Target Kolom").setFlexGrow(1);
+        filtersGrid.addColumn(f -> f.getComparisonOperator()).setHeader("Op").setWidth("80px")
                 .setFlexGrow(0);
-        filtersGrid.addColumn(FieldFilterMetaTemp::getSourceType).setHeader("Source Type").setWidth("100px")
+        filtersGrid.addColumn(f -> f.getSourceType()).setHeader("Source Type").setWidth("100px")
                 .setFlexGrow(0);
-        filtersGrid.addColumn(FieldFilterMetaTemp::getSourceName).setHeader("Source Name").setFlexGrow(1);
+        filtersGrid.addColumn(f -> f.getSourceName()).setHeader("Source Name").setFlexGrow(1);
 
         final FieldFilterMetaTemp[] currentEditing = new FieldFilterMetaTemp[1];
         Button btnAddFilter = new Button("Add", VaadinIcon.PLUS.create());
@@ -3144,7 +3136,7 @@ public class FormBuilderView extends VerticalLayout {
         java.util.Set<com.vaadinerp.meta.FormActionMeta> chosenActions = assignedActionsCombo.getValue();
         if (chosenActions != null && !chosenActions.isEmpty()) {
             String joined = chosenActions.stream()
-                    .map(com.vaadinerp.meta.FormActionMeta::getActionCode)
+                    .map(a -> a.getActionCode())
                     .filter(c -> c != null && !c.trim().isEmpty())
                     .collect(java.util.stream.Collectors.joining(","));
             formMeta.setExtraToolbars(joined);
@@ -3182,7 +3174,6 @@ public class FormBuilderView extends VerticalLayout {
         }
 
         List<FieldMeta> updatedFields = new ArrayList<>();
-        int order = 10;
         for (FieldMetaTemp temp : fieldsList) {
             String key = temp.fieldName != null ? temp.fieldName.trim().toLowerCase() : "";
             FieldMeta field = existingFieldMap.remove(key);
@@ -3542,10 +3533,10 @@ public class FormBuilderView extends VerticalLayout {
         Grid<FieldLovTargetMetaTemp> grid = new Grid<>();
         grid.setSizeFull();
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(grid);
-        grid.addColumn(FieldLovTargetMetaTemp::getSourceColumn).setHeader("Source Column");
-        grid.addColumn(FieldLovTargetMetaTemp::getTargetField).setHeader("Target Field");
-        grid.addColumn(FieldLovTargetMetaTemp::getActionType).setHeader("Action Type");
-        grid.addColumn(FieldLovTargetMetaTemp::getLookupColumn).setHeader("Lookup Column");
+        grid.addColumn(f -> f.getSourceColumn()).setHeader("Source Column");
+        grid.addColumn(f -> f.getTargetField()).setHeader("Target Field");
+        grid.addColumn(f -> f.getActionType()).setHeader("Action Type");
+        grid.addColumn(f -> f.getLookupColumn()).setHeader("Lookup Column");
 
         final FieldLovTargetMetaTemp[] currentEditing = new FieldLovTargetMetaTemp[1];
         Button btnAdd = new Button("Tambah Target", VaadinIcon.PLUS.create());
@@ -4133,10 +4124,13 @@ public class FormBuilderView extends VerticalLayout {
         nameField.setWidthFull();
         TextField tableField = new TextField("Table Name / Query");
         tableField.setWidthFull();
+        tableField.setReadOnly(true);
         TextField valueColField = new TextField("Value Column");
         valueColField.setWidthFull();
+        valueColField.setReadOnly(true);
         TextField labelColField = new TextField("Label Column");
         labelColField.setWidthFull();
+        labelColField.setReadOnly(true);
         TextField searchColField = new TextField("Search Column(s)");
         searchColField.setWidthFull();
         TextArea gridColsField = new TextArea("Grid Columns Configuration");
@@ -4624,22 +4618,6 @@ public class FormBuilderView extends VerticalLayout {
             field.setValue(formCode);
             applyHistoryFilters();
         }
-    }
-
-    private void shiftColsRight(int rowGroup, int startCol, int shiftAmount) {
-        for (FieldMetaTemp f : fieldsList) {
-            if (f.rowGroup == rowGroup && f.colIndex >= startCol) {
-                f.colIndex += shiftAmount;
-            }
-        }
-    }
-
-    private void rebuildListView() {
-        if (!isListView)
-            return;
-        listCanvas.deselectAll();
-        refreshListCanvas();
-        selectedFields.forEach(listCanvas::select);
     }
 
     // =========================================================================

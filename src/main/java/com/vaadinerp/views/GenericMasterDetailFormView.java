@@ -76,7 +76,10 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     private Button btnAddRow;
     private Button btnDeleteRow;
     private com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority auth;
+    
+    @SuppressWarnings("unused")
     private Runnable closeHandler;
+    
     private com.vaadin.flow.router.QueryParameters queryParameters;
 
     // Master Grid Filters and Reordering State
@@ -126,17 +129,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     private com.vaadin.flow.shared.Registration detailDragEndReg;
     private com.vaadin.flow.shared.Registration detailColReorderReg;
 
-    private Object getMapValIgnoreCase(Map<String, Object> rec, String col) {
-        if (col == null || rec == null)
-            return null;
-        if (rec.containsKey(col))
-            return rec.get(col);
-        for (Map.Entry<String, Object> e : rec.entrySet()) {
-            if (e.getKey().equalsIgnoreCase(col))
-                return e.getValue();
-        }
-        return null;
-    }
+
 
     private String getLovDisplayLabel(String lovCode, String val) {
         if (val == null || val.trim().isEmpty() || lovCode == null || lovCode.trim().isEmpty())

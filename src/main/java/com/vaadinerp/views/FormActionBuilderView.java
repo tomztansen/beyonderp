@@ -120,7 +120,7 @@ public class FormActionBuilderView extends VerticalLayout {
 
     private void setupFilterAndCombos() {
         List<String> formCodes = new ArrayList<>(formRepository.findAll().stream()
-                .map(FormMeta::getFormCode)
+                .map(f -> f.getFormCode())
                 .sorted()
                 .toList());
 
@@ -146,7 +146,7 @@ public class FormActionBuilderView extends VerticalLayout {
         actionTypeCombo.addValueChangeListener(e -> updateEditorVisibility(e.getValue()));
 
         iconNameCombo.setItems(java.util.Arrays.stream(com.vaadin.flow.component.icon.VaadinIcon.values())
-                .map(Enum::name)
+                .map(e -> e.name())
                 .collect(java.util.stream.Collectors.toList()));
         iconNameCombo.setAllowCustomValue(true);
         iconNameCombo.addCustomValueSetListener(e -> {
@@ -172,7 +172,7 @@ public class FormActionBuilderView extends VerticalLayout {
                 sources.add(f.getFormCode());
             }
         });
-        sources.sort(String::compareToIgnoreCase);
+        sources.sort((s1, s2) -> s1.compareToIgnoreCase(s2));
         sourceLovCodeCombo.setItems(sources);
 
         copySourceLovCodeCombo.setItems(sources);
@@ -588,12 +588,12 @@ public class FormActionBuilderView extends VerticalLayout {
         grid.setSizeFull();
         grid.addColumn(a -> a.getFormMeta() != null ? a.getFormMeta().getFormCode() : "[Katalog Global]")
                 .setHeader("Form Target").setSortable(true).setAutoWidth(true);
-        grid.addColumn(FormActionMeta::getActionCode).setHeader("Action Code").setSortable(true).setAutoWidth(true);
-        grid.addColumn(FormActionMeta::getActionLabel).setHeader("Label Tombol").setAutoWidth(true);
-        grid.addColumn(FormActionMeta::getTargetScope).setHeader("Posisi").setAutoWidth(true);
-        grid.addColumn(FormActionMeta::getActionType).setHeader("Action Type").setAutoWidth(true);
-        grid.addColumn(FormActionMeta::getMenuGroup).setHeader("Menu Group").setAutoWidth(true);
-        grid.addColumn(FormActionMeta::getSourceLovCode).setHeader("Source LOV").setAutoWidth(true);
+        grid.addColumn(a -> a.getActionCode()).setHeader("Action Code").setSortable(true).setAutoWidth(true);
+        grid.addColumn(a -> a.getActionLabel()).setHeader("Label Tombol").setAutoWidth(true);
+        grid.addColumn(a -> a.getTargetScope()).setHeader("Posisi").setAutoWidth(true);
+        grid.addColumn(a -> a.getActionType()).setHeader("Action Type").setAutoWidth(true);
+        grid.addColumn(a -> a.getMenuGroup()).setHeader("Menu Group").setAutoWidth(true);
+        grid.addColumn(a -> a.getSourceLovCode()).setHeader("Source LOV").setAutoWidth(true);
 
         grid.asSingleSelect().addValueChangeListener(event -> {
             if (event.getValue() != null) {
@@ -887,7 +887,6 @@ public class FormActionBuilderView extends VerticalLayout {
         layout.add(row);
     }
 
-    @SuppressWarnings("unchecked")
     private String generateMappingString(VerticalLayout layout, boolean isTargetMapping) {
         List<String> pairs = new ArrayList<>();
         for (com.vaadin.flow.component.Component c : layout.getChildren().toList()) {
@@ -936,7 +935,6 @@ public class FormActionBuilderView extends VerticalLayout {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void parseExistingMapping(String mapping, VerticalLayout layout, boolean isTargetMapping) {
         String clean = mapping.trim();
         if (clean.startsWith("{") && clean.endsWith("}"))
@@ -1005,7 +1003,6 @@ public class FormActionBuilderView extends VerticalLayout {
 
         com.vaadin.flow.data.provider.DataProvider<String, ?> dp = combo.getDataProvider();
         if (dp instanceof com.vaadin.flow.data.provider.ListDataProvider<?> listDp) {
-            @SuppressWarnings("unchecked")
             java.util.Collection<String> items = (java.util.Collection<String>) listDp.getItems();
             if (items == null || items.isEmpty()) {
                 combo.setItems(value);

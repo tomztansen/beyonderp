@@ -675,59 +675,60 @@ public class StandardGridUtils {
 
         // 2. JS Listener for Shift-Clicks (Range Selection Bypass)
         grid.getElement().executeJs(
-            "var grid = this;" +
-            "if (grid.$rowClickListenerAdded) return;" +
-            "grid.$rowClickListenerAdded = true;" +
-            "grid.addEventListener('click', function(e) {" +
-            "  var path = e.composedPath();" +
-            "  var isInteractive = false;" +
-            "  var isCheckbox = false;" +
-            "  var tr = null;" +
-            "  for (var i = 0; i < path.length; i++) {" +
-            "    var tag = path[i].tagName;" +
-            "    if (tag === 'VAADIN-CHECKBOX') { isCheckbox = true; }" +
-            "    else if (tag === 'VAADIN-BUTTON' || tag === 'BUTTON' || tag === 'A' || tag === 'INPUT') { isInteractive = true; }" +
-            "    if (tag === 'TR') { tr = path[i]; }" +
-            "    if (tag === 'VAADIN-GRID') break;" +
-            "  }" +
-            "  if ((isInteractive && !isCheckbox) || !tr) return;" +
+                "var grid = this;" +
+                        "if (grid.$rowClickListenerAdded) return;" +
+                        "grid.$rowClickListenerAdded = true;" +
+                        "grid.addEventListener('click', function(e) {" +
+                        "  var path = e.composedPath();" +
+                        "  var isInteractive = false;" +
+                        "  var isCheckbox = false;" +
+                        "  var tr = null;" +
+                        "  for (var i = 0; i < path.length; i++) {" +
+                        "    var tag = path[i].tagName;" +
+                        "    if (tag === 'VAADIN-CHECKBOX') { isCheckbox = true; }" +
+                        "    else if (tag === 'VAADIN-BUTTON' || tag === 'BUTTON' || tag === 'A' || tag === 'INPUT') { isInteractive = true; }"
+                        +
+                        "    if (tag === 'TR') { tr = path[i]; }" +
+                        "    if (tag === 'VAADIN-GRID') break;" +
+                        "  }" +
+                        "  if ((isInteractive && !isCheckbox) || !tr) return;" +
 
-            "  if (e.shiftKey && grid.$lastClickedTr && grid.$lastClickedTr !== tr && grid.$lastClickedTr.isConnected) {" +
-            "    e.stopPropagation();" +
-            "    e.preventDefault();" +
-            "    var tbody = tr.parentElement;" +
-            "    var rows = Array.prototype.slice.call(tbody.children);" +
-            "    var idx1 = rows.indexOf(grid.$lastClickedTr);" +
-            "    var idx2 = rows.indexOf(tr);" +
-            "    if (idx1 >= 0 && idx2 >= 0) {" +
-            "      var min = Math.min(idx1, idx2);" +
-            "      var max = Math.max(idx1, idx2);" +
-            "      setTimeout(function() {" +
-            "        for (var i = min; i <= max; i++) {" +
-            "          var row = rows[i];" +
-            "          var cb = null;" +
-            "          var slots = row.querySelectorAll('slot');" +
-            "          for (var k = 0; k < slots.length; k++) {" +
-            "            var nodes = slots[k].assignedNodes({flatten: true});" +
-            "            for (var j = 0; j < nodes.length; j++) {" +
-            "              if (nodes[j] && nodes[j].tagName === 'VAADIN-GRID-CELL-CONTENT') {" +
-            "                var foundCb = nodes[j].querySelector('vaadin-checkbox');" +
-            "                if (foundCb) { cb = foundCb; break; }" +
-            "              }" +
-            "            }" +
-            "            if (cb) break;" +
-            "          }" +
-            "          if (cb && !cb.checked) {" +
-            "            cb.click();" +
-            "          }" +
-            "        }" +
-            "      }, 10);" +
-            "    }" +
-            "  } else {" +
-            "    grid.$lastClickedTr = tr;" +
-            "  }" +
-            "}, true);"
-        );
+                        "  if (e.shiftKey && grid.$lastClickedTr && grid.$lastClickedTr !== tr && grid.$lastClickedTr.isConnected) {"
+                        +
+                        "    e.stopPropagation();" +
+                        "    e.preventDefault();" +
+                        "    var tbody = tr.parentElement;" +
+                        "    var rows = Array.prototype.slice.call(tbody.children);" +
+                        "    var idx1 = rows.indexOf(grid.$lastClickedTr);" +
+                        "    var idx2 = rows.indexOf(tr);" +
+                        "    if (idx1 >= 0 && idx2 >= 0) {" +
+                        "      var min = Math.min(idx1, idx2);" +
+                        "      var max = Math.max(idx1, idx2);" +
+                        "      setTimeout(function() {" +
+                        "        for (var i = min; i <= max; i++) {" +
+                        "          var row = rows[i];" +
+                        "          var cb = null;" +
+                        "          var slots = row.querySelectorAll('slot');" +
+                        "          for (var k = 0; k < slots.length; k++) {" +
+                        "            var nodes = slots[k].assignedNodes({flatten: true});" +
+                        "            for (var j = 0; j < nodes.length; j++) {" +
+                        "              if (nodes[j] && nodes[j].tagName === 'VAADIN-GRID-CELL-CONTENT') {" +
+                        "                var foundCb = nodes[j].querySelector('vaadin-checkbox');" +
+                        "                if (foundCb) { cb = foundCb; break; }" +
+                        "              }" +
+                        "            }" +
+                        "            if (cb) break;" +
+                        "          }" +
+                        "          if (cb && !cb.checked) {" +
+                        "            cb.click();" +
+                        "          }" +
+                        "        }" +
+                        "      }, 10);" +
+                        "    }" +
+                        "  } else {" +
+                        "    grid.$lastClickedTr = tr;" +
+                        "  }" +
+                        "}, true);");
     }
 
 }

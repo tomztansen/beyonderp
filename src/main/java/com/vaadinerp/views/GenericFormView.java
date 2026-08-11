@@ -185,17 +185,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private com.vaadin.flow.shared.Registration gridDragEndReg;
     private com.vaadin.flow.shared.Registration gridColReorderReg;
 
-    private Object getMapValIgnoreCase(Map<String, Object> rec, String col) {
-        if (col == null || rec == null)
-            return null;
-        if (rec.containsKey(col))
-            return rec.get(col);
-        for (Map.Entry<String, Object> e : rec.entrySet()) {
-            if (e.getKey().equalsIgnoreCase(col))
-                return e.getValue();
-        }
-        return null;
-    }
+
 
     private String getLovDisplayLabel(String lovCode, String val) {
         if (val == null || val.trim().isEmpty() || lovCode == null || lovCode.trim().isEmpty())
@@ -1220,7 +1210,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 rowGroupsOrder.add(rg);
             }
         }
-        rowGroupsOrder.sort(Integer::compareTo);
+        rowGroupsOrder.sort((i1, i2) -> i1.compareTo(i2));
 
         // Detect if form has SubformGrid — if yes, split header into collapsible
         // Details
@@ -1355,9 +1345,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 boolean rowHasSubform = groupFields.stream()
                         .anyMatch(f -> "SUBFORM_GRID".equalsIgnoreCase(f.getComponentType()));
                 if (rowHasSubform) {
-                    subformSection.add(rowLayout);
+                    if (subformSection != null) subformSection.add(rowLayout);
                 } else {
-                    headerSection.add(rowLayout);
+                    if (headerSection != null) headerSection.add(rowLayout);
                 }
             } else {
                 formLayout.add(rowLayout);

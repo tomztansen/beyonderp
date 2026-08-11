@@ -23,18 +23,20 @@ public class LovSelect extends Select<String> {
         setLabel(label);
         this.lovCode = lovCode;
         this.dataService = dataService;
-        
+
         setItemLabelGenerator(val -> valueToLabelMap.getOrDefault(val, val));
         setPlaceholder("Pilih...");
         setWidthFull();
         getStyle().set("min-width", "0").set("max-width", "100%").set("box-sizing", "border-box");
-        
+
         refreshItems();
     }
 
     private Object getCaseInsensitive(Map<String, Object> map, String key) {
-        if (map == null || key == null) return null;
-        if (map.containsKey(key)) return map.get(key);
+        if (map == null || key == null)
+            return null;
+        if (map.containsKey(key))
+            return map.get(key);
         for (Map.Entry<String, Object> entry : map.entrySet()) {
             if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(key)) {
                 return entry.getValue();
@@ -50,7 +52,8 @@ public class LovSelect extends Select<String> {
             if (!valueToLabelMap.containsKey(value)) {
                 LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
                 if (lovMeta != null) {
-                    Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), value);
+                    Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(),
+                            lovMeta.getValueColumn(), value);
                     if (rec != null) {
                         valueToRecordMap.put(value, rec);
                     }
@@ -87,23 +90,25 @@ public class LovSelect extends Select<String> {
                     "",
                     activeFilters.values(),
                     0,
-                    200
-            );
-            
+                    200);
+
             valueToLabelMap.clear();
             currentItems.clear();
             for (Map<String, Object> rec : records) {
                 Object valObj = getCaseInsensitive(rec, lovMeta.getValueColumn());
-                if (valObj == null && rec.containsKey("id")) valObj = rec.get("id");
+                if (valObj == null && rec.containsKey("id"))
+                    valObj = rec.get("id");
                 Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
                 if (lblObj == null || lblObj.toString().trim().isEmpty()) {
-                    if (getCaseInsensitive(rec, "code") != null) lblObj = getCaseInsensitive(rec, "code");
-                    else if (getCaseInsensitive(rec, "name") != null) lblObj = getCaseInsensitive(rec, "name");
+                    if (getCaseInsensitive(rec, "code") != null)
+                        lblObj = getCaseInsensitive(rec, "code");
+                    else if (getCaseInsensitive(rec, "name") != null)
+                        lblObj = getCaseInsensitive(rec, "name");
                 }
-                
+
                 String val = valObj != null ? valObj.toString().trim() : "";
                 String lbl = lblObj != null ? lblObj.toString().trim() : val;
-                
+
                 if (!val.isEmpty()) {
                     valueToLabelMap.put(val, lbl);
                     valueToRecordMap.put(val, rec);
@@ -133,7 +138,8 @@ public class LovSelect extends Select<String> {
         if (val != null && !val.isEmpty()) {
             LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
             if (lovMeta != null) {
-                Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), val);
+                Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(),
+                        val);
                 if (rec != null) {
                     valueToRecordMap.put(val, rec);
                     return rec;

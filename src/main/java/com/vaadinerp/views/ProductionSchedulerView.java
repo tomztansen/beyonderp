@@ -33,6 +33,7 @@ import java.util.*;
 
 public class ProductionSchedulerView extends VerticalLayout {
 
+    @SuppressWarnings("unused")
     private final DynamicDataService dynamicDataService;
     private final JdbcTemplate jdbcTemplate;
 
@@ -157,9 +158,9 @@ public class ProductionSchedulerView extends VerticalLayout {
         woListContainer.setSizeFull();
         woListContainer.setPadding(true);
 
-        Tab tabTimeline = tabSheet.add("🕒 Interactive Gantt Board & Timeline", timelineContainer);
-        Tab tabMonitor = tabSheet.add("📊 Machine Load & Bottleneck Leveling", loadMonitorContainer);
-        Tab tabWo = tabSheet.add("📋 Master Work Order (Production WO)", woListContainer);
+        tabSheet.add("🕒 Interactive Gantt Board & Timeline", timelineContainer);
+        tabSheet.add("📊 Machine Load & Bottleneck Leveling", loadMonitorContainer);
+        tabSheet.add("📋 Master Work Order (Production WO)", woListContainer);
 
         add(tabSheet);
     }

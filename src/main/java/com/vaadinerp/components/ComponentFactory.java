@@ -457,7 +457,7 @@ public class ComponentFactory {
 
             if (strVal.contains(",")) {
                 return java.util.Arrays.stream(strVal.split(","))
-                        .map(String::trim)
+                        .map(s -> s.trim())
                         .map(item -> {
                             String cachedLabel = map.getIfPresent(item);
                             if (cachedLabel != null)
@@ -1101,7 +1101,7 @@ public class ComponentFactory {
                             return row.get(lovMeta.getValueColumn()).toString();
                         }
                         return row.values().stream().filter(java.util.Objects::nonNull).findFirst()
-                                .map(Object::toString).orElse("");
+                                .map(o -> o.toString()).orElse("");
                     });
                 } else {
                     // Fallback static jika LovMeta tidak ditemukan di DB

@@ -66,7 +66,17 @@ class ApexCapacityWrapper extends LitElement {
 
     this._maxCapacity = maxCapacity || 80;
     
-    // Parse data: group by date, stack by idno/task
+    // Helper: get Monday of a given date string "YYYY-MM-DD"
+    const getMondayStr = (dateStr) => {
+      const d = new Date(dateStr);
+      const day = d.getDay();
+      const diff = day === 0 ? -6 : 1 - day; // Monday = 1
+      d.setDate(d.getDate() + diff);
+      const pad = (n) => n.toString().padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
+
+    // Parse data: group by date (or week), stack by idno/task
     const dates = [];
     const seriesMap = {};
 
@@ -77,6 +87,11 @@ class ApexCapacityWrapper extends LitElement {
       const value = item.value || 0;
 
       if (!date) continue;
+
+      // If weekly, bucket by Monday
+      if (this.weeklyView) {
+        date = getMondayStr(date);
+      }
       
       if (!dates.includes(date)) {
         dates.push(date);
@@ -108,18 +123,39 @@ class ApexCapacityWrapper extends LitElement {
         day = maxDt.getDay();
         diff = maxDt.getDate() + (day === 0 ? 0 : 7 - day);
         maxDt.setDate(diff);
+
+        // Generate all Mondays between min and max
+        const fullDates = [];
+        let curr = new Date(minDt);
+        while (curr <= maxDt) {
+          const pad = (n) => n.toString().padStart(2, '0');
+          fullDates.push(`${curr.getFullYear()}-${pad(curr.getMonth() + 1)}-${pad(curr.getDate())}`);
+          curr.setDate(curr.getDate() + 7); // Jump per week
+        }
+        dates.length = 0;
+        dates.push(...fullDates);
+      } else {
+        // Daily view: show 7 days starting from startDate filter (or today if not set)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const anchor = startDateStr ? new Date(startDateStr) : today;
+        anchor.setHours(0, 0, 0, 0);
+        const dailyEnd = new Date(anchor);
+        dailyEnd.setDate(dailyEnd.getDate() + 6); // 7 days total
+
+        const fullDates = [];
+        let curr = new Date(anchor);
+        while (curr <= dailyEnd) {
+          fullDates.push(curr.toISOString().split('T')[0]);
+          curr.setDate(curr.getDate() + 1);
+        }
+        dates.length = 0;
+        dates.push(...fullDates);
       }
-      
-      // Generate all dates between min and max
-      const fullDates = [];
-      let curr = new Date(minDt);
-      while (curr <= maxDt) {
-        fullDates.push(curr.toISOString().split('T')[0]);
-        curr.setDate(curr.getDate() + 1);
-      }
-      dates.length = 0;
-      dates.push(...fullDates);
     }
+
+    // Weekly capacity = daily capacity × 7
+    const effectiveMaxCap = this.weeklyView ? this._maxCapacity * 7 : this._maxCapacity;
 
     // Build ApexCharts series
     const series = Object.keys(seriesMap).map(name => ({
@@ -136,15 +172,16 @@ class ApexCapacityWrapper extends LitElement {
       return sum;
     });
 
-    const maxCap = this._maxCapacity;
+    const maxCap = effectiveMaxCap;
     const modeLabel = capacityLabel || 'Qty Box';
+    const isWeekly = this.weeklyView;
 
     const options = {
       chart: {
         type: 'bar',
         height: '100%',
         stacked: true,
-        toolbar: { show: true, tools: { download: true, zoom: true, pan: true } },
+        toolbar: { show: false },
         fontFamily: 'var(--lumo-font-family, Inter, sans-serif)',
         background: 'transparent',
         animations: { enabled: true, easing: 'easeinout', speed: 400 },
@@ -162,7 +199,7 @@ class ApexCapacityWrapper extends LitElement {
       plotOptions: {
         bar: {
           horizontal: false,
-          columnWidth: '60%',
+          columnWidth: isWeekly ? '80%' : '60%',
           borderRadius: 3,
           dataLabels: { total: { enabled: true, style: { fontSize: '11px', fontWeight: 600 } } }
         }
@@ -172,8 +209,7 @@ class ApexCapacityWrapper extends LitElement {
       },
       xaxis: {
         type: 'datetime',
-        tickAmount: this.weeklyView ? 7 : (dates.length > 0 ? dates.length : undefined),
-        range: this.weeklyView ? 7 * 24 * 60 * 60 * 1000 : undefined, // 7 days in milliseconds
+        tickAmount: isWeekly ? (dates.length > 0 ? dates.length : undefined) : (dates.length > 0 ? dates.length : undefined),
         categories: dates.map(d => new Date(d).getTime()),
         labels: { 
           hideOverlappingLabels: false,
@@ -181,12 +217,18 @@ class ApexCapacityWrapper extends LitElement {
           formatter: function(value, timestamp) {
             if (!timestamp) return '';
             const dt = new Date(timestamp);
+            if (isWeekly) {
+              // Show "W32 (4 Aug)"
+              const oneJan = new Date(dt.getFullYear(), 0, 1);
+              const weekNum = Math.ceil(((dt - oneJan) / 86400000 + oneJan.getDay() + 1) / 7);
+              return 'W' + weekNum + ' (' + dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ')';
+            }
             return dt.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short' });
           }
         }
       },
       yaxis: {
-        title: { text: modeLabel, style: { fontSize: '12px' } },
+        title: { text: modeLabel + (isWeekly ? ' / Minggu' : ''), style: { fontSize: '12px' } },
         max: Math.max(maxCap * 1.3, Math.max(...totals) * 1.1),
         labels: { style: { fontSize: '11px' } }
       },
@@ -197,9 +239,9 @@ class ApexCapacityWrapper extends LitElement {
           strokeDashArray: 0,
           borderWidth: 2,
           label: {
-            text: 'Max Capacity: ' + maxCap,
-            position: 'left',
-            offsetX: 10,
+            text: 'Max Capacity' + (isWeekly ? '/Week' : '') + ': ' + maxCap,
+            position: 'right',
+            offsetX: -10,
             style: {
               color: '#fff',
               background: '#ef4444',
@@ -218,9 +260,51 @@ class ApexCapacityWrapper extends LitElement {
       },
       fill: { opacity: 1 },
       tooltip: {
-        y: { formatter: (val) => val + ' ' + modeLabel },
         shared: true,
-        intersect: false
+        intersect: false,
+        custom: function({series, seriesIndex, dataPointIndex, w}) {
+          let dateStr = '';
+          const timestamp = w.globals.seriesX[0] ? w.globals.seriesX[0][dataPointIndex] : null;
+          if (timestamp) {
+            if (isWeekly) {
+              const monday = new Date(timestamp);
+              const sunday = new Date(timestamp);
+              sunday.setDate(sunday.getDate() + 6);
+              dateStr = monday.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + 
+                        ' – ' + sunday.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+            } else {
+              dateStr = new Date(timestamp).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
+            }
+          }
+          
+          let html = '<div style="font-family: var(--lumo-font-family, Inter, sans-serif);">' +
+                     '<div style="font-size: 12px; font-weight: 600; padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #1e293b;">' + 
+                     dateStr + '</div><div style="padding: 4px 0;">';
+          
+          let hasData = false;
+          series.forEach((s, i) => {
+            const val = s[dataPointIndex];
+            if (val && val > 0) {
+              hasData = true;
+              const color = w.globals.colors[i];
+              const seriesName = w.globals.seriesNames[i];
+              html += '<div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 12px; font-size: 12px;">' +
+                        '<div style="display: flex; align-items: center; gap: 8px; color: #475569;">' +
+                          '<span style="background-color: ' + color + '; width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span>' +
+                          '<span>' + seriesName + '</span>' +
+                        '</div>' +
+                        '<span style="font-weight: 600; margin-left: 20px; color: #0f172a;">' + val + ' ' + modeLabel + '</span>' +
+                      '</div>';
+            }
+          });
+          
+          if (!hasData) {
+             html += '<div style="padding: 8px 12px; font-size: 12px; color: #64748b;">Tidak ada jadwal</div>';
+          }
+          
+          html += '</div></div>';
+          return html;
+        }
       },
       grid: {
         borderColor: '#e2e8f0',
@@ -233,18 +317,6 @@ class ApexCapacityWrapper extends LitElement {
     if (!container) return;
 
     if (this.chart) {
-      // Coba pertahankan posisi zoom/pan saat ini (jika ada)
-      try {
-        const currentMin = this.chart.w.globals.minX;
-        const currentMax = this.chart.w.globals.maxX;
-        if (currentMin !== undefined && currentMax !== undefined) {
-          options.xaxis.min = currentMin;
-          options.xaxis.max = currentMax;
-          delete options.xaxis.range; // Matikan range default agar min/max yang dipakai
-        }
-      } catch (e) {
-        // Abaikan jika tidak bisa membaca globals
-      }
       this.chart.updateOptions(options);
     } else {
       this.chart = new this._ApexCharts(container, options);

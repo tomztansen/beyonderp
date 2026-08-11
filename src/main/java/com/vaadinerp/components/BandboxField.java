@@ -123,12 +123,13 @@ public class BandboxField<T, V> extends CustomField<V> {
     }
 
     private void buildPopupIfNeeded() {
-        if (popup != null) return;
-        
+        if (popup != null)
+            return;
+
         popup = new Dialog();
         grid = new Grid<>();
         searchField = new TextField();
-        
+
         popup.setWidth("700px");
         popup.setCloseOnOutsideClick(true);
         popup.setModal(false); // Modeless agar terasa seperti dropdown
@@ -150,8 +151,9 @@ public class BandboxField<T, V> extends CustomField<V> {
         grid.setEmptyStateText("Tidak ada data");
 
         grid.addItemDoubleClickListener(e -> doSelect(e.getItem()));
-        
-        com.vaadin.flow.component.Shortcuts.addShortcutListener(grid, this::selectFirstItemOrSelected, com.vaadin.flow.component.Key.ENTER);
+
+        com.vaadin.flow.component.Shortcuts.addShortcutListener(grid, this::selectFirstItemOrSelected,
+                com.vaadin.flow.component.Key.ENTER);
 
         if (gridConfigurator != null) {
             gridConfigurator.accept(grid);
@@ -209,7 +211,8 @@ public class BandboxField<T, V> extends CustomField<V> {
                                 "      }" +
                                 "      const popupWidth = overlayPart.offsetWidth || 700;" +
                                 "      if (rect.left + popupWidth > window.innerWidth) {" +
-                                "        overlayPart.style.left = Math.max(0, window.innerWidth - popupWidth - 15) + 'px';" +
+                                "        overlayPart.style.left = Math.max(0, window.innerWidth - popupWidth - 15) + 'px';"
+                                +
                                 "      } else {" +
                                 "        overlayPart.style.left = rect.left + 'px';" +
                                 "      }" +
@@ -221,38 +224,43 @@ public class BandboxField<T, V> extends CustomField<V> {
                 // Register click-outside and focus-outside listeners
                 this.getElement().executeJs(
                         "const self = this;" +
-                        "if (self._bandboxClick) { document.removeEventListener('mousedown', self._bandboxClick, true); }" +
-                        "if (self._bandboxFocus) { document.removeEventListener('focusin', self._bandboxFocus, true); }" +
-                        "const cleanUp = () => {" +
-                        "  if (self._bandboxClick) { document.removeEventListener('mousedown', self._bandboxClick, true); delete self._bandboxClick; }" +
-                        "  if (self._bandboxFocus) { document.removeEventListener('focusin', self._bandboxFocus, true); delete self._bandboxFocus; }" +
-                        "};" +
-                        "self._bandboxClick = (event) => {" +
-                        "  const path = event.composedPath();" +
-                        "  const isInsideDialog = path.some(el => el && (el.tagName === 'VAADIN-DIALOG-OVERLAY' || el === $1));" +
-                        "  if (!path.includes($0) && !isInsideDialog) {" +
-                        "    self.$server.closeFromClient();" +
-                        "    cleanUp();" +
-                        "  }" +
-                        "};" +
-                        "self._bandboxFocus = (event) => {" +
-                        "  const path = event.composedPath();" +
-                        "  const isInsideDialog = path.some(el => el && (el.tagName === 'VAADIN-DIALOG-OVERLAY' || el === $1));" +
-                        "  if (!path.includes($0) && !isInsideDialog) {" +
-                        "    self.$server.closeFromClient();" +
-                        "    cleanUp();" +
-                        "  }" +
-                        "};" +
-                        "document.addEventListener('mousedown', self._bandboxClick, true);" +
-                        "document.addEventListener('focusin', self._bandboxFocus, true);",
-                        displayField.getElement(), layout.getElement()
-                );
+                                "if (self._bandboxClick) { document.removeEventListener('mousedown', self._bandboxClick, true); }"
+                                +
+                                "if (self._bandboxFocus) { document.removeEventListener('focusin', self._bandboxFocus, true); }"
+                                +
+                                "const cleanUp = () => {" +
+                                "  if (self._bandboxClick) { document.removeEventListener('mousedown', self._bandboxClick, true); delete self._bandboxClick; }"
+                                +
+                                "  if (self._bandboxFocus) { document.removeEventListener('focusin', self._bandboxFocus, true); delete self._bandboxFocus; }"
+                                +
+                                "};" +
+                                "self._bandboxClick = (event) => {" +
+                                "  const path = event.composedPath();" +
+                                "  const isInsideDialog = path.some(el => el && (el.tagName === 'VAADIN-DIALOG-OVERLAY' || el === $1));"
+                                +
+                                "  if (!path.includes($0) && !isInsideDialog) {" +
+                                "    self.$server.closeFromClient();" +
+                                "    cleanUp();" +
+                                "  }" +
+                                "};" +
+                                "self._bandboxFocus = (event) => {" +
+                                "  const path = event.composedPath();" +
+                                "  const isInsideDialog = path.some(el => el && (el.tagName === 'VAADIN-DIALOG-OVERLAY' || el === $1));"
+                                +
+                                "  if (!path.includes($0) && !isInsideDialog) {" +
+                                "    self.$server.closeFromClient();" +
+                                "    cleanUp();" +
+                                "  }" +
+                                "};" +
+                                "document.addEventListener('mousedown', self._bandboxClick, true);" +
+                                "document.addEventListener('focusin', self._bandboxFocus, true);",
+                        displayField.getElement(), layout.getElement());
             } else {
                 // Remove listeners when closed
                 this.getElement().executeJs(
-                        "if (this._bandboxClick) { document.removeEventListener('mousedown', this._bandboxClick, true); delete this._bandboxClick; }" +
-                        "if (this._bandboxFocus) { document.removeEventListener('focusin', this._bandboxFocus, true); delete this._bandboxFocus; }"
-                );
+                        "if (this._bandboxClick) { document.removeEventListener('mousedown', this._bandboxClick, true); delete this._bandboxClick; }"
+                                +
+                                "if (this._bandboxFocus) { document.removeEventListener('focusin', this._bandboxFocus, true); delete this._bandboxFocus; }");
             }
         });
     }
@@ -274,17 +282,16 @@ public class BandboxField<T, V> extends CustomField<V> {
 
     private void selectFirstItemOrSelected() {
         grid.asSingleSelect().getOptionalValue().ifPresentOrElse(
-            this::doSelect,
-            () -> {
-                try {
-                    T firstItem = grid.getGenericDataView().getItem(0);
-                    if (firstItem != null) {
-                        doSelect(firstItem);
+                this::doSelect,
+                () -> {
+                    try {
+                        T firstItem = grid.getGenericDataView().getItem(0);
+                        if (firstItem != null) {
+                            doSelect(firstItem);
+                        }
+                    } catch (IndexOutOfBoundsException | NullPointerException ignored) {
                     }
-                } catch (IndexOutOfBoundsException | NullPointerException ignored) {
-                }
-            }
-        );
+                });
     }
 
     @SuppressWarnings("unchecked")
@@ -299,7 +306,8 @@ public class BandboxField<T, V> extends CustomField<V> {
 
         if (labelGenerator != null) {
             String lbl = labelGenerator.apply(item);
-            setSelectedLabel((lbl != null && !lbl.isEmpty()) ? lbl : (this.selectedValue != null ? this.selectedValue.toString() : ""));
+            setSelectedLabel((lbl != null && !lbl.isEmpty()) ? lbl
+                    : (this.selectedValue != null ? this.selectedValue.toString() : ""));
         } else if (this.selectedValue != null) {
             setSelectedLabel(this.selectedValue.toString());
         }
