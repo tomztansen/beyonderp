@@ -210,7 +210,20 @@ class VisTimelineWrapper extends LitElement {
       multiselectPerGroup: true
     };
 
+    if (this._pendingWindowStart && this._pendingWindowEnd) {
+      options.start = this._pendingWindowStart;
+      options.end = this._pendingWindowEnd;
+    }
+
     this.timeline = new Timeline(container, this.items, this.groups, options);
+
+    // Inject custom header text into the top-left empty corner
+    this.timeline.on('changed', () => {
+      const topLeftPanel = container.querySelector('.vis-panel.vis-top.vis-left');
+      if (topLeftPanel && !topLeftPanel.querySelector('.custom-header-text')) {
+        topLeftPanel.innerHTML = '<div class="custom-header-text" style="display:flex; align-items:center; justify-content:center; width:100%; height:100%; font-weight:600; font-size:13px; color:#4b5563; background-color:#f9fafb; border-bottom:1px solid #e5e7eb; box-sizing:border-box; text-align:center; padding:5px;">Mesin / Stasiun Kerja</div>';
+      }
+    });
 
     this.timeline.on('select', (properties) => {
       container.focus(); // Ensure container receives keyboard events
@@ -303,10 +316,6 @@ class VisTimelineWrapper extends LitElement {
     if (itemsArray && itemsArray.length > 0) {
       this.items.add(itemsArray);
     }
-
-    if (this.timeline && itemsArray && itemsArray.length > 0) {
-      this.timeline.fit({ animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
-    }
   }
 
   setCustomTimes(timesArray) {
@@ -376,6 +385,14 @@ class VisTimelineWrapper extends LitElement {
     this.stackMode = stack;
     if (this.timeline) {
       this.timeline.setOptions({ stack: stack });
+    }
+  }
+
+  setWindow(start, end) {
+    this._pendingWindowStart = start;
+    this._pendingWindowEnd = end;
+    if (this.timeline) {
+      this.timeline.setWindow(start, end, { animation: false });
     }
   }
 
