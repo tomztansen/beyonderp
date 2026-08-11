@@ -158,7 +158,7 @@ public class PgCronDesignerView extends VerticalLayout {
             Map<String, Object> rowCopy = new HashMap<>(originalRow);
             Long jId = rowCopy.get("jobid") instanceof Number ? ((Number) rowCopy.get("jobid")).longValue() : null;
 
-            boolean replaced = false;
+
             for (PendingPgCronAction action : pendingChanges) {
                 if (action.jobId != null && action.jobId.equals(jId)) {
                     if (action.actionType == CronActionType.DELETE_JOB) {
@@ -170,7 +170,7 @@ public class PgCronDesignerView extends VerticalLayout {
                         rowCopy.put("command", action.command);
                         rowCopy.put("jobname", action.jobName);
                     }
-                    replaced = true;
+
                 }
             }
             mergedList.add(rowCopy);

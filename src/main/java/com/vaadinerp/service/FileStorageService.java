@@ -256,7 +256,7 @@ public class FileStorageService {
             return List.of();
         }
         return Arrays.stream(delimitedStr.split(","))
-                .map(String::trim)
+                .map(s -> s.trim())
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
     }
@@ -269,7 +269,7 @@ public class FileStorageService {
             return "";
         }
         return filenames.stream()
-                .map(String::trim)
+                .map(s -> s.trim())
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.joining(","));
     }

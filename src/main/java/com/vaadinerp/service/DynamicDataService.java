@@ -402,7 +402,7 @@ public class DynamicDataService {
     }
 
     public DynamicDataService(
-            JdbcTemplate jdbcTemplate, 
+            JdbcTemplate jdbcTemplate,
             LovMetaRepository lovMetaRepository,
             FormMetaRepository formMetaRepository,
             org.springframework.beans.factory.ObjectProvider<com.vaadinerp.security.repository.AppUserGridPreferenceRepository> userGridPreferenceRepository,
@@ -1990,9 +1990,9 @@ public class DynamicDataService {
                                                     "DELETE", fieldName, oldStr, null, currentUser, auditNowDt });
                                         }
                                     }
-                                    if (field.isDetail() && fileStorageService != null && 
-                                            ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType()) || 
-                                             "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType()))) {
+                                    if (field.isDetail() && fileStorageService != null &&
+                                            ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType()) ||
+                                                    "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType()))) {
                                         String fieldName = field.getFieldName();
                                         Object val = getCaseInsensitiveValue(dRow, fieldName);
                                         if (val != null && !val.toString().trim().isEmpty()) {
@@ -2779,7 +2779,8 @@ public class DynamicDataService {
     }
 
     public List<Map<String, Object>> fetchLovDataPaged(String tableName, String searchBy, String searchTerm,
-            java.util.Collection<com.vaadinerp.components.FilterCondition> filters, int offset, int limit, String sortField, String sortDir) {
+            java.util.Collection<com.vaadinerp.components.FilterCondition> filters, int offset, int limit,
+            String sortField, String sortDir) {
         if (tableName == null || tableName.trim().isEmpty()) {
             return new ArrayList<>();
         }
@@ -2885,7 +2886,8 @@ public class DynamicDataService {
             sql.append(" ORDER BY ");
             String[] fields = sortField.split(",");
             for (int i = 0; i < fields.length; i++) {
-                if (i > 0) sql.append(", ");
+                if (i > 0)
+                    sql.append(", ");
                 String field = fields[i].trim();
                 validateSqlIdentifier(field, "sort field");
                 sql.append(field);
@@ -2898,7 +2900,7 @@ public class DynamicDataService {
         } else {
             sql.append(getLovDefaultOrderByClause(tableName));
         }
-        
+
         sql.append(" LIMIT ? OFFSET ?");
         params.add(limit > 0 ? limit : 50);
         params.add(Math.max(0, offset));
@@ -3396,7 +3398,8 @@ public class DynamicDataService {
         args.add(offset);
 
         try {
-            System.out.println("DEBUG SQL fetchGridDataPaged (" + formMeta.getFormCode() + "): " + sql.toString() + " | Args: " + args);
+            System.out.println("DEBUG SQL fetchGridDataPaged (" + formMeta.getFormCode() + "): " + sql.toString()
+                    + " | Args: " + args);
             return jdbcTemplate.queryForList(sql.toString(), args.toArray());
         } catch (Exception e) {
             System.err.println("ERROR in fetchGridDataPaged: " + e.getMessage());
@@ -4562,7 +4565,8 @@ public class DynamicDataService {
 
     public List<Map<String, Object>> fetchPgCronLogs(Long jobId) {
         try {
-            return jdbcTemplate.queryForList("SELECT * FROM cron.job_run_details WHERE jobid = ? ORDER BY start_time DESC LIMIT 100", jobId);
+            return jdbcTemplate.queryForList(
+                    "SELECT * FROM cron.job_run_details WHERE jobid = ? ORDER BY start_time DESC LIMIT 100", jobId);
         } catch (Exception e) {
             log.warn("Gagal membaca log pg_cron: " + e.getMessage());
             return new ArrayList<>();

@@ -1127,7 +1127,7 @@ public class PortalView extends AppLayout {
         Set<String> allowedMenus = new java.util.HashSet<>();
         if (currentUser != null) {
             if ("SUPER_ADMIN".equalsIgnoreCase(currentUser.getRoleCode())) {
-                allowedMenus.addAll(allMenus.stream().map(AppMenu::getMenuCode).collect(Collectors.toSet()));
+                allowedMenus.addAll(allMenus.stream().map(m -> m.getMenuCode()).collect(Collectors.toSet()));
             } else {
                 List<RoleMenuPermission> perms = roleMenuPermissionRepository.findByRoleCode(currentUser.getRoleCode());
                 for (RoleMenuPermission p : perms) {
@@ -1138,7 +1138,7 @@ public class PortalView extends AppLayout {
 
         Set<String> favMenuCodes = currentUser != null
                 ? appUserFavoriteMenuRepository.findByUsername(currentUser.getUsername()).stream()
-                        .map(AppUserFavoriteMenu::getMenuCode)
+                        .map(m -> m.getMenuCode())
                         .collect(Collectors.toSet())
                 : java.util.Collections.emptySet();
 

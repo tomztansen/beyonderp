@@ -7,6 +7,7 @@ import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.dependency.NpmPackage;
 import com.vaadin.flow.component.ClientCallable;
 import elemental.json.JsonArray;
+import java.util.List;
 
 @Tag("vis-timeline-wrapper")
 @NpmPackage(value = "vis-timeline", version = "^7.7.3")
@@ -21,8 +22,8 @@ public class VisTimeline extends Component implements HasSize {
         void onItemMoved(String itemId, String newStart, String newEnd, String newGroup);
     }
 
-    public interface ItemClickListener {
-        void onItemClicked(String itemId);
+    public interface ItemsSelectedListener {
+        void onItemsSelected(List<String> itemIds);
     }
 
     public interface ItemContextMenuListener {
@@ -30,7 +31,7 @@ public class VisTimeline extends Component implements HasSize {
     }
 
     private ItemMoveListener itemMoveListener;
-    private ItemClickListener itemClickListener;
+    private ItemsSelectedListener itemsSelectedListener;
     private ItemContextMenuListener itemContextMenuListener;
 
     public VisTimeline() {
@@ -84,12 +85,20 @@ public class VisTimeline extends Component implements HasSize {
         getElement().callJsFunction("fitAll");
     }
 
+    /**
+     * Switch timeline scale between 'daily' and 'weekly'.
+     * @param mode "daily" or "weekly"
+     */
+    public void setTimelineScale(String mode) {
+        getElement().callJsFunction("setTimelineScale", mode);
+    }
+
     public void setItemMoveListener(ItemMoveListener listener) {
         this.itemMoveListener = listener;
     }
 
-    public void setItemClickListener(ItemClickListener listener) {
-        this.itemClickListener = listener;
+    public void setItemsSelectedListener(ItemsSelectedListener listener) {
+        this.itemsSelectedListener = listener;
     }
 
     @ClientCallable
@@ -100,9 +109,9 @@ public class VisTimeline extends Component implements HasSize {
     }
 
     @ClientCallable
-    public void onItemClicked(String itemId) {
-        if (itemClickListener != null) {
-            itemClickListener.onItemClicked(itemId);
+    public void onItemsSelected(String[] itemIds) {
+        if (itemsSelectedListener != null) {
+            itemsSelectedListener.onItemsSelected(itemIds != null ? java.util.Arrays.asList(itemIds) : new java.util.ArrayList<String>());
         }
     }
 

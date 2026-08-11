@@ -621,7 +621,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         grid.setMultiSort(true);
 
         List<FieldMeta> childFields = childFormDef.getFields().stream()
-                .filter(FieldMeta::isShowInGrid)
+                .filter(f -> f.isShowInGrid())
                 .collect(Collectors.toList());
 
         // Sort by colOrder
@@ -1188,7 +1188,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         }).setHeader("#")
           .setWidth("60px")
           .setFlexGrow(0)
-          .setFrozen(true)
+          .setFrozen(false)
           .setSortable(false)
           .setResizable(false)
           .setKey("_lineNo");
@@ -1200,13 +1200,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         grid.getDataProvider().refreshAll();
     }
 
-    /** Removes the line number column */
-    private void removeLineNoColumn() {
-        if (lineNoCol == null) return;
-        grid.removeColumn(lineNoCol);
-        lineNoCol = null;
-        grid.getDataProvider().refreshAll();
-    }
+
 
     private void evaluateRowFormulas(Map<String, Object> row) {
         if (childFormDef == null)

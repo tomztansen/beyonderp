@@ -71,7 +71,7 @@ public class FormDebugUtils {
                 }
             }
         }
-        allItems.sort(Comparator.comparing(DebugItem::getKey));
+        allItems.sort(Comparator.comparing(item -> item.getKey()));
 
         Grid<DebugItem> grid = new Grid<>();
         
@@ -120,7 +120,7 @@ public class FormDebugUtils {
             return hl;
         }).setHeader("Nilai Saat Ini").setAutoWidth(true).setResizable(true).setFlexGrow(2);
 
-        grid.addColumn(DebugItem::getType).setHeader("Data Type").setAutoWidth(true).setResizable(true);
+        grid.addColumn(item -> item.getType()).setHeader("Data Type").setAutoWidth(true).setResizable(true);
 
         grid.setItems(allItems);
 
