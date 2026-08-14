@@ -188,7 +188,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 "if (!document.getElementById('late-timeline-styles')) {" +
                         "  const style = document.createElement('style');" +
                         "  style.id = 'late-timeline-styles';" +
-                        "  style.innerHTML = '.vis-item.is-late { background-color: #ef4444 !important; border-color: #b91c1c !important; color: white !important; font-weight: bold !important; } .vis-item.is-late.vis-selected { border-width: 2px !important; border-color: #7f1d1d !important; background-color: #b91c1c !important; }';"
+                        "  style.innerHTML = '.vis-item.is-late { background-color: #ff0000 !important; border-color: #cc0000 !important; color: white !important; font-weight: bold !important; } .vis-item.is-late.vis-selected { border-width: 2px !important; border-color: #990000 !important; background-color: #cc0000 !important; }';"
                         +
                         "  document.head.appendChild(style);" +
                         "}");
@@ -1394,8 +1394,11 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         if (resourceCol == null || startDateCol == null || pkCol == null) {
             Notification.show("Scheduler config incomplete: resource, start_date, and primary_key are required",
                     5000, Notification.Position.MIDDLE);
+           if (currentData == null)
             return;
         }
+
+        java.util.Set<String> uniqueSpksForColor = new java.util.HashSet<>();
 
         JsonArray groups = Json.createArray();
         int groupIndex = 0;
@@ -1434,6 +1437,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         Map<String, LocalDate> spkShippingDate = new HashMap<>();
         Set<String> lateSpks = new HashSet<>();
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        DateTimeFormatter dtfDisplay = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
         if (taskNameCol != null) {
             Set<String> visibleSpks = new HashSet<>();
@@ -1552,8 +1556,17 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             try {
                 String rawQuery = schedulerConfig.getSchedulerQuery();
                 String optimizedQuery = rawQuery != null ? rawQuery.replaceAll("(?i)order\\s+by\\s+.*", "") : "";
-                String q = "SELECT DISTINCT " + groupCol + ", " + resourceCol + " FROM (" + optimizedQuery
-                        + ") AS sq WHERE " + resourceCol + " IS NOT NULL AND " + resourceCol + " != ''";
+                String sequenceCol = schedulerConfig.getColSequence();
+                String q;
+                if (sequenceCol != null && !sequenceCol.trim().isEmpty()) {
+                    q = "SELECT " + groupCol + ", " + resourceCol + " FROM (" + optimizedQuery
+                            + ") AS sq WHERE " + resourceCol + " IS NOT NULL AND " + resourceCol + " != ''"
+                            + " GROUP BY " + groupCol + ", " + resourceCol
+                            + " ORDER BY MIN(" + sequenceCol + ") ASC";
+                } else {
+                    q = "SELECT DISTINCT " + groupCol + ", " + resourceCol + " FROM (" + optimizedQuery
+                            + ") AS sq WHERE " + resourceCol + " IS NOT NULL AND " + resourceCol + " != ''";
+                }
                 List<Map<String, Object>> allMachines = jdbcTemplate.queryForList(q);
                 for (Map<String, Object> m : allMachines) {
                     Object rVal = m.get(resourceCol);
@@ -1768,10 +1781,19 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             }
 
             // Tooltip
+            String formattedDate = dateOnly;
+            try {
+                if (dateOnly.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                    java.time.LocalDate d = java.time.LocalDate.parse(dateOnly, dtf);
+                    formattedDate = d.format(dtfDisplay);
+                }
+            } catch (Exception ignored) {
+            }
+
             StringBuilder tooltip = new StringBuilder();
             tooltip.append("<b>").append(content).append("</b><br>");
             tooltip.append("Mesin: ").append(groupId).append("<br>");
-            tooltip.append("Tanggal: ").append(startVal).append("<br>");
+            tooltip.append("Tanggal: ").append(formattedDate).append("<br>");
             if (qtyCol != null && row.get(qtyCol) != null) {
                 tooltip.append("Qty: ").append(row.get(qtyCol)).append("<br>");
             }
@@ -1782,12 +1804,12 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
                 LocalDate shipDate = spkShippingDate.get(spk);
                 if (shipDate != null) {
-                    tooltip.append("Due Date: ").append(shipDate.format(dtf)).append("<br>");
+                    tooltip.append("Due Date: ").append(shipDate.format(dtfDisplay)).append("<br>");
                 }
 
                 LocalDate maxDate = spkMaxEndDate.get(spk);
                 if (maxDate != null) {
-                    tooltip.append("Last Process: ").append(maxDate.format(dtf)).append("<br>");
+                    tooltip.append("Last Process: ").append(maxDate.format(dtfDisplay)).append("<br>");
                 }
 
                 if (lateSpks.contains(spk)) {
@@ -1799,7 +1821,12 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             if (isLate) {
                 itemObj.put("className", "is-late");
             } else {
-                // use default coloring mechanism for timeline
+                String taskKey = (taskNameCol != null && row.get(taskNameCol) != null)
+                        ? row.get(taskNameCol).toString()
+                        : content;
+                String spkClass = "spk-color-" + Math.abs(taskKey.hashCode());
+                itemObj.put("className", spkClass);
+                uniqueSpksForColor.add(taskKey);
             }
 
             itemObj.put("title", tooltip.toString());
@@ -1893,6 +1920,51 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                         "    }`;" +
                         "  document.head.appendChild(style);" +
                         "}");
+
+        StringBuilder dynamicStyles = new StringBuilder();
+        for (String spk : uniqueSpksForColor) {
+            String bgColor = getHslColor(spk);
+            String borderColor = getHslBorderColor(spk);
+            String spkClass = "spk-color-" + Math.abs(spk.hashCode());
+            dynamicStyles.append(".vis-item.").append(spkClass).append(":not(.vis-selected) { ")
+                    .append("background-color: ").append(bgColor).append(" !important; ")
+                    .append("border-color: ").append(borderColor).append(" !important; ")
+                    .append("color: white !important; } ");
+        }
+
+        timeline.getElement().executeJs(
+                "let styleNode = document.getElementById('timeline-dynamic-colors');" +
+                        "if (!styleNode) {" +
+                        "  styleNode = document.createElement('style');" +
+                        "  styleNode.id = 'timeline-dynamic-colors';" +
+                        "  document.head.appendChild(styleNode);" +
+                        "}" +
+                        "styleNode.innerHTML = $0;",
+                dynamicStyles.toString());
+    }
+
+    private String getHslColor(String str) {
+        if (str == null || str.trim().isEmpty()) {
+            return "#3b82f6";
+        }
+        int hash = 0;
+        for (int i = 0; i < str.length(); i++) {
+            hash = str.charAt(i) + ((hash << 5) - hash);
+        }
+        int hue = Math.abs(hash % 360);
+        return "hsl(" + hue + ", 65%, 45%)";
+    }
+
+    private String getHslBorderColor(String str) {
+        if (str == null || str.trim().isEmpty()) {
+            return "#1d4ed8";
+        }
+        int hash = 0;
+        for (int i = 0; i < str.length(); i++) {
+            hash = str.charAt(i) + ((hash << 5) - hash);
+        }
+        int hue = Math.abs(hash % 360);
+        return "hsl(" + hue + ", 75%, 32%)";
     }
 
     // ================================================================
@@ -2030,10 +2102,12 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             point.put("date", dateVal.toString().substring(0, 10));
 
             String tName = taskVal != null ? taskVal.toString() : "Unknown";
+            String originalTaskName = tName;
             if (currentLateSpks.contains(tName)) {
                 tName += " (LATE)";
             }
             point.put("taskName", tName);
+            point.put("color", getHslColor(originalTaskName));
 
             try {
                 point.put("value", Double.parseDouble(qtyVal.toString()));
@@ -3125,43 +3199,18 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 daysShifted = java.time.temporal.ChronoUnit.DAYS.between(oldDate, newDate);
             }
 
-            // 1. UPDATE the dragged task's date
+            // 1. UPDATE the dragged task's date (mesin/resource tidak diupdate)
             AppUser currentUser = securityService.getCurrentUser();
             String currentUsername = currentUser != null ? currentUser.getUsername() : "system";
             java.sql.Timestamp currentTimestamp = new java.sql.Timestamp(System.currentTimeMillis());
 
-            String resourceCol = schedulerConfig.getColResource();
-            String updateResourceCol = schedulerConfig.getUpdateResourceColumn();
-
-            Object newResourceValToUpdate = newResource;
-            if (updateResourceCol != null && !updateResourceCol.trim().isEmpty() && resourceCol != null) {
-                // Cari ID aktual berdasarkan nama resource di data cache
-                for (Map<String, Object> row : currentData) {
-                    Object rVal = row.get(resourceCol);
-                    if (rVal != null && rVal.toString().equals(newResource)) {
-                        newResourceValToUpdate = row.get(updateResourceCol);
-                        break;
-                    }
-                }
-            }
-
             String updateSql = "UPDATE " + updateTable + " SET " + updateDateCol
-                    + " = ?::date, updateby = ?, updatedt = ?";
+                    + " = ?::date, updateby = ?, updatedt = ? WHERE " + pkCol + " = ?";
 
             List<Object> updateParams = new ArrayList<>();
             updateParams.add(newDate.toString());
             updateParams.add(currentUsername);
             updateParams.add(currentTimestamp);
-
-            if (updateResourceCol != null && !updateResourceCol.trim().isEmpty()) {
-                updateSql += ", " + updateResourceCol + " = ?";
-                updateParams.add(newResourceValToUpdate);
-            } else if (resourceCol != null && newResource != null) {
-                updateSql += ", " + resourceCol + " = ?";
-                updateParams.add(newResource);
-            }
-
-            updateSql += " WHERE " + pkCol + " = ?";
             updateParams.add(draggedTask.get(pkCol));
 
             jdbcTemplate.update(updateSql, updateParams.toArray());
@@ -3183,11 +3232,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     targetMatchVal = dependencyIdVal;
                 }
 
-                Object oldResourceObj = draggedTask.get(resourceCol);
-                boolean resourceChanged = resourceCol != null && newResource != null
-                        && !newResource.equals(oldResourceObj != null ? oldResourceObj.toString() : "");
-
-                if (targetMatchCol != null && seqVal != null && (daysShifted != 0 || resourceChanged)) {
+                if (targetMatchCol != null && seqVal != null && daysShifted != 0) {
                     // Find all tasks with same target match and sequence > current
                     String findSql = "SELECT " + pkCol + ", " + seqCol + ", " + updateDateCol
                             + " FROM (" + schedulerConfig.getSchedulerQuery() + ") AS sq WHERE "

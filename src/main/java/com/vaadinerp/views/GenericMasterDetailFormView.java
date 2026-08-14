@@ -580,8 +580,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 com.vaadin.flow.component.Component itemLabel = new HorizontalLayout(icon,
                         new com.vaadin.flow.component.html.Span(act.getActionLabel()));
                 subMenu.addItem(itemLabel, e -> {
-                    if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType())
-                            || (act.getScriptContent() != null && !act.getScriptContent().isBlank())) {
+                    if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType())) {
                         executeToolbarAction(act);
                     } else {
                         Editor<Map<String, Object>> editor = detailsGrid.getEditor();
@@ -598,8 +597,18 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                                         applyTargetMapping(newRow, newRow, srcRec, act.getTargetMapping());
                                         detailsList.add(newRow);
                                     }
+                                    detailsGrid.getDataProvider().refreshAll();
                                     applyDetailsFilters();
                                     applyMasterFiltersToDetailEditors(currentFormDef);
+                                    
+                                    // Eksekusi post-action script jika ada
+                                    if (act.getScriptContent() != null && !act.getScriptContent().isBlank()) {
+                                        if (dynamicDataService.getScriptExecutorService() != null) {
+                                            dynamicDataService.getScriptExecutorService().executeActionScript(
+                                                act, headerBean, null, GenericMasterDetailFormView.this
+                                            );
+                                        }
+                                    }
                                 });
                         dlg.open();
                     }
@@ -1325,6 +1334,24 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         }
     }
 
+    public void setFieldReadOnly(String fieldName, boolean readOnly) {
+        if (formComponents != null && formComponents.containsKey(fieldName)) {
+            Component comp = formComponents.get(fieldName);
+            if (comp instanceof com.vaadin.flow.component.HasValue<?, ?>) {
+                ((com.vaadin.flow.component.HasValue<?, ?>) comp).setReadOnly(readOnly);
+            }
+        }
+    }
+
+    public void setFieldDisabled(String fieldName, boolean disabled) {
+        if (formComponents != null && formComponents.containsKey(fieldName)) {
+            Component comp = formComponents.get(fieldName);
+            if (comp instanceof com.vaadin.flow.component.HasEnabled) {
+                ((com.vaadin.flow.component.HasEnabled) comp).setEnabled(!disabled);
+            }
+        }
+    }
+
     private void resetToolbarButtonsToInitialState() {
         if (auth == null) return;
         if (btnView != null) btnView.setVisible(auth.canView);
@@ -1421,8 +1448,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         if (selectedRows.isEmpty() && detailsGrid != null && detailsGrid.getSelectedItems() != null) {
             selectedRows.addAll(detailsGrid.getSelectedItems());
         }
-        if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType())
-                || (act.getScriptContent() != null && !act.getScriptContent().isBlank())) {
+        if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType())) {
             if (dynamicDataService != null && dynamicDataService.getScriptExecutorService() != null) {
                 dynamicDataService.getScriptExecutorService().executeActionScript(act, headerBean, selectedRows, this);
             }
@@ -1450,6 +1476,15 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         }
                         if (formBinder != null)
                             formBinder.readBean(headerBean);
+
+                        // Eksekusi post-action script jika ada
+                        if (act.getScriptContent() != null && !act.getScriptContent().isBlank()) {
+                            if (dynamicDataService != null && dynamicDataService.getScriptExecutorService() != null) {
+                                dynamicDataService.getScriptExecutorService().executeActionScript(
+                                    act, headerBean, selectedRows, GenericMasterDetailFormView.this
+                                );
+                            }
+                        }
                     });
             dlg.open();
         }

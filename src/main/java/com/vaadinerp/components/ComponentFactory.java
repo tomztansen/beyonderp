@@ -75,6 +75,9 @@ public class ComponentFactory {
                 @SuppressWarnings("unchecked")
                 com.vaadin.flow.component.HasValue<?, Object> hasValue = (com.vaadin.flow.component.HasValue<?, Object>) component;
                 hasValue.addValueChangeListener(event -> {
+                    if (!event.isFromClient()) {
+                        return;
+                    }
                     if (event.getValue() == null || event.getValue().toString().isEmpty()) {
                         for (com.vaadinerp.meta.FieldLovTargetMeta target : lovTargets) {
                             updateFieldValue.accept(target.getTargetField(), null);

@@ -894,8 +894,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         if (grid != null && grid.getSelectedItems() != null) {
             selectedRows.addAll(grid.getSelectedItems());
         }
-        if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType())
-                || (act.getScriptContent() != null && !act.getScriptContent().isBlank())) {
+        if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType())) {
             if (dynamicDataService != null && dynamicDataService.getScriptExecutorService() != null) {
                 dynamicDataService.getScriptExecutorService().executeActionScript(act, headerBean, selectedRows, this);
             }
@@ -907,6 +906,15 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         }
                         if (formBinder != null)
                             formBinder.readBean(headerBean);
+                            
+                        // Eksekusi post-action script jika ada
+                        if (act.getScriptContent() != null && !act.getScriptContent().isBlank()) {
+                            if (dynamicDataService != null && dynamicDataService.getScriptExecutorService() != null) {
+                                dynamicDataService.getScriptExecutorService().executeActionScript(
+                                    act, headerBean, selectedRows, GenericFormView.this
+                                );
+                            }
+                        }
                     });
             dlg.open();
         }

@@ -157,6 +157,20 @@ class ApexCapacityWrapper extends LitElement {
     // Weekly capacity = daily capacity × 7
     const effectiveMaxCap = this.weeklyView ? this._maxCapacity * 7 : this._maxCapacity;
 
+    // Extract colors from data
+    const colorMap = {};
+    for (let i = 0; i < dataArray.length; i++) {
+        const item = dataArray[i];
+        if (item.taskName && item.color) {
+            colorMap[item.taskName] = item.color;
+        }
+    }
+
+    const seriesColors = Object.keys(seriesMap).map(name => {
+        if (name.endsWith(" (LATE)")) return '#ff0000';
+        return colorMap[name] || '#3b82f6';
+    });
+
     // Build ApexCharts series
     const series = Object.keys(seriesMap).map(name => ({
       name: name,
@@ -196,6 +210,7 @@ class ApexCapacityWrapper extends LitElement {
           }
         }
       },
+      colors: seriesColors,
       plotOptions: {
         bar: {
           horizontal: false,
@@ -203,6 +218,10 @@ class ApexCapacityWrapper extends LitElement {
           borderRadius: 3,
           dataLabels: { total: { enabled: true, style: { fontSize: '11px', fontWeight: 600 } } }
         }
+      },
+      fill: {
+        type: 'solid',
+        opacity: 1
       },
       dataLabels: {
         enabled: false
@@ -252,7 +271,6 @@ class ApexCapacityWrapper extends LitElement {
           }
         }]
       },
-      colors: this._generateColors(Object.keys(seriesMap)),
       legend: {
         position: 'top',
         fontSize: '11px',

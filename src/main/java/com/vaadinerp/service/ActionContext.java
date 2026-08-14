@@ -105,6 +105,71 @@ public class ActionContext {
         }
     }
 
+    public void showOptionsDialog(String title, String message, List<String> options, Object callback) {
+        UI ui = UI.getCurrent();
+        if (ui == null && currentView != null && currentView.getUI().isPresent()) {
+            ui = currentView.getUI().get();
+        }
+        final UI activeUi = ui;
+
+        Command openDialog = () -> {
+            com.vaadin.flow.component.dialog.Dialog dialog = new com.vaadin.flow.component.dialog.Dialog();
+            dialog.setHeaderTitle(title != null ? title : "Pilihan");
+
+            com.vaadin.flow.component.orderedlayout.VerticalLayout layout = new com.vaadin.flow.component.orderedlayout.VerticalLayout();
+            layout.setPadding(false);
+            layout.setSpacing(true);
+
+            if (message != null && !message.isEmpty()) {
+                if (message.contains("<br") || message.contains("</br>") || message.contains("<b") || message.contains("<span")) {
+                    String cleanHtml = message.replace("</br>", "<br/>");
+                    layout.add(new Html("<div>" + cleanHtml + "</div>"));
+                } else {
+                    layout.add(new com.vaadin.flow.component.html.Span(message));
+                }
+            }
+
+            com.vaadin.flow.component.radiobutton.RadioButtonGroup<String> radioGroup = new com.vaadin.flow.component.radiobutton.RadioButtonGroup<>();
+            radioGroup.setItems(options);
+            radioGroup.addThemeVariants(com.vaadin.flow.component.radiobutton.RadioGroupVariant.LUMO_VERTICAL);
+            layout.add(radioGroup);
+
+            dialog.add(layout);
+
+            com.vaadin.flow.component.button.Button btnOk = new com.vaadin.flow.component.button.Button("OK", e -> {
+                String selected = radioGroup.getValue();
+                if (selected == null) {
+                    showError("Warning", "Silakan pilih salah satu opsi terlebih dahulu.");
+                    return;
+                }
+                dialog.close();
+                try {
+                    if (callback instanceof Closure<?> closure) {
+                        closure.call(selected);
+                    } else if (callback instanceof Consumer consumer) {
+                        @SuppressWarnings("unchecked")
+                        Consumer<String> c = (Consumer<String>) consumer;
+                        c.accept(selected);
+                    }
+                } catch (Exception ex) {
+                    showError("Script Execution Error", ex.getMessage());
+                }
+            });
+            btnOk.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
+            
+            com.vaadin.flow.component.button.Button btnCancel = new com.vaadin.flow.component.button.Button("Batal", e -> dialog.close());
+
+            dialog.getFooter().add(btnCancel, btnOk);
+            dialog.open();
+        };
+
+        if (activeUi != null) {
+            activeUi.access(openDialog);
+        } else {
+            openDialog.execute();
+        }
+    }
+
     public void msgBox(Object content) {
         msgBox("Message Box", content);
     }
@@ -259,6 +324,8 @@ public class ActionContext {
                 view.setComponentEnabled(finalFieldName, enabled);
             } else if (currentView instanceof com.vaadinerp.views.GenericMasterDetailFormView view) {
                 view.setComponentEnabled(finalFieldName, enabled);
+            } else if (currentView instanceof com.vaadinerp.components.SubformGridField view) {
+                view.setComponentEnabled(finalFieldName, enabled);
             }
         };
         if (ui != null)
@@ -284,6 +351,8 @@ public class ActionContext {
             if (currentView instanceof com.vaadinerp.views.GenericFormView view) {
                 view.setComponentReadOnly(finalFieldName, readOnly);
             } else if (currentView instanceof com.vaadinerp.views.GenericMasterDetailFormView view) {
+                view.setComponentReadOnly(finalFieldName, readOnly);
+            } else if (currentView instanceof com.vaadinerp.components.SubformGridField view) {
                 view.setComponentReadOnly(finalFieldName, readOnly);
             }
         };

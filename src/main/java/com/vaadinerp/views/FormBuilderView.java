@@ -414,10 +414,10 @@ public class FormBuilderView extends VerticalLayout {
         H4 historyTitle = new H4("Daftar Definisi Form Terdaftar");
         historyTitle.getStyle().set("margin", "0");
 
-        historyGrid.setWidthFull();
+        historyGrid.setSizeFull();
+        historyGrid.setMinHeight("300px");
         historyGrid.setSelectionMode(Grid.SelectionMode.MULTI);
         com.vaadinerp.components.StandardGridUtils.enableRowClickSelection(historyGrid);
-        historyGrid.setAllRowsVisible(true);
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(historyGrid);
         Grid.Column<FormMeta> codeCol = historyGrid.addColumn(f -> f.getFormCode()).setHeader("Form Code")
                 .setSortable(true).setAutoWidth(true).setKey("formCode");
@@ -515,6 +515,7 @@ public class FormBuilderView extends VerticalLayout {
         });
 
         historisLayout.add(historyTitle, historyGrid);
+        historisLayout.expand(historyGrid);
         historisTab = tabSheet.add("History", historisLayout);
 
         // TAB 2: TRANSAKSI / DESAINER
@@ -3968,7 +3969,9 @@ public class FormBuilderView extends VerticalLayout {
                 }
             }
             return true;
-        }).collect(java.util.stream.Collectors.toList());
+        })
+        .sorted(java.util.Comparator.comparing(item -> item.getFormCode() == null ? "" : item.getFormCode().toLowerCase()))
+        .collect(java.util.stream.Collectors.toList());
 
         historyGrid.setItems(filtered);
     }
