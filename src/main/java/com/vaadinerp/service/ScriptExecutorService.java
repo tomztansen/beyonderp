@@ -17,21 +17,20 @@ import java.util.concurrent.*;
 public class ScriptExecutorService {
 
     private final org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider;
-    private final com.github.benmanes.caffeine.cache.Cache<String, Class<? extends Script>> scriptCache = 
-        com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
+    private final com.github.benmanes.caffeine.cache.Cache<String, Class<? extends Script>> scriptCache = com.github.benmanes.caffeine.cache.Caffeine
+            .newBuilder()
             .maximumSize(500)
             .build();
-            
+
     private CompilerConfiguration compilerConfiguration;
     private final ExecutorService executorService = new ThreadPoolExecutor(
-        10, 50, 60L, TimeUnit.SECONDS,
-        new LinkedBlockingQueue<>(100),
-        r -> {
-            Thread t = new Thread(r, "groovy-script-exec");
-            t.setDaemon(true);
-            return t;
-        }
-    );
+            10, 50, 60L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(100),
+            r -> {
+                Thread t = new Thread(r, "groovy-script-exec");
+                t.setDaemon(true);
+                return t;
+            });
 
     @jakarta.annotation.PreDestroy
     public void shutdown() {
@@ -40,7 +39,8 @@ public class ScriptExecutorService {
         }
     }
 
-    public ScriptExecutorService(org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider) {
+    public ScriptExecutorService(
+            org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider) {
         this.dataServiceProvider = dataServiceProvider;
         initCompilerConfig();
     }
@@ -51,21 +51,26 @@ public class ScriptExecutorService {
         // Block dangerous imports & receivers
         secure.setDisallowedImports(Arrays.asList(
                 "java.lang.System", "java.lang.Runtime", "java.io.File",
-                "java.net.*", "java.lang.Thread", "java.lang.ThreadGroup", "java.lang.Process", "java.lang.ProcessBuilder",
+                "java.net.*", "java.lang.Thread", "java.lang.ThreadGroup", "java.lang.Process",
+                "java.lang.ProcessBuilder",
                 "java.lang.reflect.*", "java.lang.invoke.*", "org.springframework.*", "javax.sql.*", "java.sql.*",
-                "groovy.lang.GroovyShell", "groovy.lang.GroovyClassLoader", "groovy.util.Eval", "groovy.lang.MetaClass"
-        ));
+                "groovy.lang.GroovyShell", "groovy.lang.GroovyClassLoader", "groovy.util.Eval",
+                "groovy.lang.MetaClass"));
         secure.setDisallowedReceivers(Arrays.asList(
-                "java.lang.System", "java.lang.Runtime", "java.lang.Thread", "java.lang.ThreadGroup", "java.lang.Process", "java.lang.ProcessBuilder",
+                "java.lang.System", "java.lang.Runtime", "java.lang.Thread", "java.lang.ThreadGroup",
+                "java.lang.Process", "java.lang.ProcessBuilder",
                 "java.lang.Class", "java.lang.ClassLoader", "groovy.lang.GroovyShell", "groovy.lang.GroovyClassLoader",
-                "groovy.util.Eval", "groovy.lang.MetaClass", "org.codehaus.groovy.runtime.InvokerHelper", "org.codehaus.groovy.runtime.ProcessGroovyMethods"
-        ));
-        // Block dangerous reflection & code execution method calls to prevent dynamic typing/reflection bypasses
+                "groovy.util.Eval", "groovy.lang.MetaClass", "org.codehaus.groovy.runtime.InvokerHelper",
+                "org.codehaus.groovy.runtime.ProcessGroovyMethods"));
+        // Block dangerous reflection & code execution method calls to prevent dynamic
+        // typing/reflection bypasses
         secure.addExpressionCheckers(expression -> {
             if (expression instanceof org.codehaus.groovy.ast.expr.MethodCallExpression mce) {
                 String methodName = mce.getMethodAsString();
-                if (methodName != null && Arrays.asList("getClass", "forName", "invoke", "newInstance", "eval", "execute", "getSystemClassLoader", "getClassLoader",
-                        "getConstructor", "getDeclaredConstructor", "getMethod", "getDeclaredMethod", "getField", "getDeclaredField",
+                if (methodName != null && Arrays.asList("getClass", "forName", "invoke", "newInstance", "eval",
+                        "execute", "getSystemClassLoader", "getClassLoader",
+                        "getConstructor", "getDeclaredConstructor", "getMethod", "getDeclaredMethod", "getField",
+                        "getDeclaredField",
                         "exit", "halt", "loadClass", "defineClass", "getMetaClass", "setMetaClass", "invokeMethod",
                         "setProperty", "start", "dump", "inspect").contains(methodName)) {
                     return false;
@@ -74,9 +79,10 @@ public class ScriptExecutorService {
             return true;
         });
 
-
-        // Allow all constant literal types (int, boolean, String, BigDecimal, List, Map, etc.)
-        // Security is enforced via disallowed imports, receivers, methods, and execution timeout.
+        // Allow all constant literal types (int, boolean, String, BigDecimal, List,
+        // Map, etc.)
+        // Security is enforced via disallowed imports, receivers, methods, and
+        // execution timeout.
 
         compilerConfiguration = new CompilerConfiguration();
         compilerConfiguration.addCompilationCustomizers(secure);
@@ -84,14 +90,15 @@ public class ScriptExecutorService {
         // Add timeout protection (max 20 seconds)
         try {
             ASTTransformationCustomizer timerCustomizer = new ASTTransformationCustomizer(
-                    Collections.singletonMap("value", 20L), TimedInterrupt.class
-            );
+                    Collections.singletonMap("value", 20L), TimedInterrupt.class);
             compilerConfiguration.addCompilationCustomizers(timerCustomizer);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
     }
 
     public void executeOnAddScript(FieldMeta fieldMeta, Map<String, Object> newRow, int rowIndex,
-                                   Map<String, Object> headerData, List<Map<String, Object>> items, com.vaadin.flow.component.Component currentView) {
+            Map<String, Object> headerData, List<Map<String, Object>> items,
+            com.vaadin.flow.component.Component currentView) {
         if (fieldMeta == null) {
             return;
         }
@@ -100,18 +107,35 @@ public class ScriptExecutorService {
             return;
         }
 
-        executeScript(fieldMeta.getId() != null ? "field_" + fieldMeta.getId() + "_" + scriptText.hashCode() : "temp_" + scriptText.hashCode(),
+        executeScript(
+                fieldMeta.getId() != null ? "field_" + fieldMeta.getId() + "_" + scriptText.hashCode()
+                        : "temp_" + scriptText.hashCode(),
                 scriptText, newRow, rowIndex, headerData, items, currentView);
     }
 
     public void executeScript(String scriptId, String scriptText, Map<String, Object> newRow, int rowIndex,
-                              Map<String, Object> headerData, List<Map<String, Object>> items, com.vaadin.flow.component.Component currentView) {
+            Map<String, Object> headerData, List<Map<String, Object>> items,
+            com.vaadin.flow.component.Component currentView) {
         try {
             if (scriptText != null) {
-                scriptText = scriptText.replaceAll("(?i)setElementEnabled\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementEnabled('$1',");
-                scriptText = scriptText.replaceAll("(?i)setElementReadonly\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementReadonly('$1',");
-                scriptText = scriptText.replaceAll("(?i)setElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementValue('$1',");
-                scriptText = scriptText.replaceAll("(?i)getElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "getElementValue('$1',");
+                scriptText = scriptText.replaceAll(
+                        "(?i)setElementEnabled\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,",
+                        "setElementEnabled('$1',");
+                scriptText = scriptText.replaceAll(
+                        "(?i)setElementReadonly\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,",
+                        "setElementReadonly('$1',");
+                scriptText = scriptText.replaceAll(
+                        "(?i)setElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,",
+                        "setElementValue('$1',")
+                .replaceAll(
+                        "(?i)setElementDisabled\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,",
+                        "setElementDisabled('$1',")
+                .replaceAll(
+                        "(?i)setElementReadonly\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,",
+                        "setElementReadonly('$1',");
+                scriptText = scriptText.replaceAll(
+                        "(?i)getElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,",
+                        "getElementValue('$1',");
             }
             final String finalScriptText = scriptText;
 
@@ -136,7 +160,8 @@ public class ScriptExecutorService {
                 if (currentView instanceof com.vaadinerp.components.SubformGridField sub) {
                     parentView = sub.findParentView();
                 }
-                ActionContext ctx = new ActionContext(dataServiceProvider.getIfAvailable(), headerData, items, parentView);
+                ActionContext ctx = new ActionContext(dataServiceProvider.getIfAvailable(), headerData, items,
+                        parentView);
                 binding.setVariable("setElementEnabled", new groovy.lang.Closure<Void>(null) {
                     @SuppressWarnings("unused")
                     public void doCall(Object ref, boolean enabled) {
@@ -204,15 +229,16 @@ public class ScriptExecutorService {
 
     @SuppressWarnings("unused")
     public boolean executeActionScript(com.vaadinerp.meta.FormActionMeta act,
-                                     Map<String, Object> headerBean,
-                                     List<Map<String, Object>> selectedGridRows,
-                                     com.vaadin.flow.component.Component currentView) {
+            Map<String, Object> headerBean,
+            List<Map<String, Object>> selectedGridRows,
+            com.vaadin.flow.component.Component currentView) {
         if (act == null || act.getScriptContent() == null || act.getScriptContent().isBlank()) {
             return true;
         }
         String scriptText = act.getScriptContent().trim();
 
-        ActionContext ctx = new ActionContext(dataServiceProvider.getIfAvailable(), headerBean, selectedGridRows, currentView);
+        ActionContext ctx = new ActionContext(dataServiceProvider.getIfAvailable(), headerBean, selectedGridRows,
+                currentView);
 
         // Ganti macro @gridtable{...} dengan ctx.getElementValue('...', true)
         scriptText = scriptText.replaceAll("@gridtable\\{([^}]+)\\}", "ctx.getElementValue('$1', true)");
@@ -227,19 +253,31 @@ public class ScriptExecutorService {
             scriptText = "import groovy.json.JsonOutput;\nimport groovy.json.JsonSlurper;\n" + scriptText;
         }
 
-        // Auto fallback jika user mengetik nama procedure tanpa tanda kutip (misal: executeProcedure(salesordertoproduction, ...))
+        // Auto fallback jika user mengetik nama procedure tanpa tanda kutip (misal:
+        // executeProcedure(salesordertoproduction, ...))
         if (!scriptText.contains("propertyMissing")) {
             scriptText = scriptText + "\n\ndef propertyMissing(String name) { return name; }\n";
         }
 
-        // Tambahan syntax sugar untuk referensi object (mengubah setElementEnabled(row.tagid, ...) -> setElementEnabled('tagid', ...))
-        scriptText = scriptText.replaceAll("(?i)setElementEnabled\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementEnabled('$1',");
-        scriptText = scriptText.replaceAll("(?i)setElementReadonly\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementReadonly('$1',");
-        scriptText = scriptText.replaceAll("(?i)setElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "setElementValue('$1',");
-        scriptText = scriptText.replaceAll("(?i)getElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,", "getElementValue('$1',");
+        // Tambahan syntax sugar untuk referensi object (mengubah
+        // setElementEnabled(row.tagid, ...) -> setElementEnabled('tagid', ...))
+        scriptText = scriptText.replaceAll("(?i)setElementEnabled\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,",
+                "setElementEnabled('$1',");
+        scriptText = scriptText.replaceAll(
+                "(?i)setElementReadonly\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,",
+                "setElementReadonly('$1',");
+        scriptText = scriptText.replaceAll("(?i)setElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,",
+                "setElementValue('$1',")
+                .replaceAll("(?i)setElementDisabled\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,",
+                "setElementDisabled('$1',")
+                .replaceAll("(?i)setElementReadonly\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,",
+                "setElementReadonly('$1',");
+        scriptText = scriptText.replaceAll("(?i)getElementValue\\s*\\(\\s*(?:row|header|form)\\.([a-zA-Z0-9_]+)\\s*,",
+                "getElementValue('$1',");
 
         final String finalScriptText = scriptText;
-        String scriptId = "action_" + (act.getId() != null ? act.getId() : act.getActionCode()) + "_" + finalScriptText.hashCode();
+        String scriptId = "action_" + (act.getId() != null ? act.getId() : act.getActionCode()) + "_"
+                + finalScriptText.hashCode();
 
         try {
             Class<? extends Script> scriptClass = scriptCache.get(scriptId, id -> {
@@ -262,6 +300,47 @@ public class ScriptExecutorService {
                     ctx.showYesNoDialog(title, message, callback);
                 }
             });
+            binding.setVariable("showOptionsDialog", new groovy.lang.Closure<Void>(null) {
+                public void doCall(Object... args) {
+                    if (args == null || args.length == 0)
+                        return;
+
+                    Object callback = null;
+                    List<String> options = new ArrayList<>();
+                    String title = null;
+                    String message = null;
+                    List<String> standaloneStrings = new ArrayList<>();
+
+                    for (Object arg : args) {
+                        if (arg instanceof groovy.lang.Closure || arg instanceof java.util.function.Consumer) {
+                            callback = arg;
+                        } else if (arg instanceof List) {
+                            for (Object item : (List<?>) arg) {
+                                options.add(item != null ? item.toString() : "");
+                            }
+                        } else if (arg != null) {
+                            standaloneStrings.add(arg.toString());
+                        }
+                    }
+
+                    if (options.isEmpty()) {
+                        options.addAll(standaloneStrings);
+                        title = "Pilihan";
+                        message = "Silakan pilih salah satu opsi berikut:";
+                    } else {
+                        if (standaloneStrings.size() >= 1) title = standaloneStrings.get(0);
+                        if (standaloneStrings.size() >= 2) message = standaloneStrings.get(1);
+                        
+                        if (title == null) title = "Pilihan";
+                        if (message == null) message = "Silakan pilih salah satu opsi berikut:";
+                    }
+
+                    if (options.size() > 0) {
+                        ctx.showOptionsDialog(title, message, options, callback);
+                    }
+                }
+            });
+            binding.setVariable("showDialog", binding.getVariable("showOptionsDialog"));
             binding.setVariable("executeProcedure", new groovy.lang.Closure<Boolean>(null) {
                 public boolean doCall(Object procRef, Object callbackOrJson, Object... rest) {
                     return ctx.executeProcedure(procRef, callbackOrJson, rest);
@@ -292,27 +371,38 @@ public class ScriptExecutorService {
                 public void doCall(Object tabId, String tabTitle) {
                     ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, null, null);
                 }
+
                 public void doCall(Object tabId, String tabTitle, Object urlOrExtra) {
                     if (urlOrExtra instanceof Map) {
                         ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, null, urlOrExtra);
                     } else {
-                        ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, urlOrExtra != null ? urlOrExtra.toString() : null, null);
+                        ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle,
+                                urlOrExtra != null ? urlOrExtra.toString() : null, null);
                     }
                 }
+
                 public void doCall(Object tabId, String tabTitle, Object url, Object extra) {
-                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, url != null ? url.toString() : null, extra);
+                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle,
+                            url != null ? url.toString() : null, extra);
                 }
+
                 public void doCall(Map<?, ?> namedArgs, Object tabId, String tabTitle) {
                     ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, null, namedArgs);
                 }
+
                 public void doCall(Map<?, ?> namedArgs, Object tabId, String tabTitle, Object url) {
-                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, url != null ? url.toString() : null, namedArgs);
+                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle,
+                            url != null ? url.toString() : null, namedArgs);
                 }
+
                 public void doCall(Map<?, ?> namedArgs, Object tabId, String tabTitle, Object url, Object extra) {
-                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle, url != null ? url.toString() : null, namedArgs);
+                    ctx.showMainTab(tabId != null ? tabId.toString() : "", tabTitle,
+                            url != null ? url.toString() : null, namedArgs);
                 }
+
                 public void doCall(Object... args) {
-                    if (args == null || args.length == 0) return;
+                    if (args == null || args.length == 0)
+                        return;
                     Object extra = null;
                     Object tabId = null;
                     String tabTitle = "";
@@ -341,6 +431,16 @@ public class ScriptExecutorService {
             binding.setVariable("setElementValue", new groovy.lang.Closure<Void>(null) {
                 public void doCall(Object ref, Object val) {
                     ctx.setElementValue(ref, val);
+                }
+            });
+            binding.setVariable("setElementDisabled", new groovy.lang.Closure<Void>(null) {
+                public void doCall(Object ref, boolean disabled) {
+                    ctx.setElementEnabled(ref, !disabled);
+                }
+            });
+            binding.setVariable("setElementReadonly", new groovy.lang.Closure<Void>(null) {
+                public void doCall(Object ref, boolean readonly) {
+                    ctx.setElementReadonly(ref, readonly);
                 }
             });
             binding.setVariable("setElementEnabled", new groovy.lang.Closure<Void>(null) {
@@ -384,7 +484,8 @@ public class ScriptExecutorService {
     }
 
     public static Map<String, Object> prepareHeaderForScript(Map<String, Object> sourceBean) {
-        if (sourceBean == null) return new HashMap<>();
+        if (sourceBean == null)
+            return new HashMap<>();
         Map<String, SmartHeaderNode> smartNodes = new HashMap<>();
         Map<String, Object> targetBean = new HashMap<>(sourceBean);
 
@@ -392,7 +493,8 @@ public class ScriptExecutorService {
         for (Map.Entry<String, Object> entry : entries) {
             String k = entry.getKey();
             Object v = entry.getValue();
-            if (k == null) continue;
+            if (k == null)
+                continue;
 
             if (k.contains(".")) {
                 String[] parts = k.split("\\.", 2);
@@ -401,7 +503,8 @@ public class ScriptExecutorService {
 
                 SmartHeaderNode node = smartNodes.computeIfAbsent(parentKey, pk -> {
                     Object baseVal = targetBean.get(pk);
-                    if (baseVal instanceof SmartHeaderNode shn) return shn;
+                    if (baseVal instanceof SmartHeaderNode shn)
+                        return shn;
                     return new SmartHeaderNode(baseVal);
                 });
                 node.putProperty(subKey, v);
@@ -418,7 +521,8 @@ public class ScriptExecutorService {
                     String subKey = k.substring(idx + 1);
                     SmartHeaderNode node = smartNodes.computeIfAbsent(parentKey, pk -> {
                         Object baseVal = targetBean.get(pk);
-                        if (baseVal instanceof SmartHeaderNode shn) return shn;
+                        if (baseVal instanceof SmartHeaderNode shn)
+                            return shn;
                         return new SmartHeaderNode(baseVal);
                     });
                     node.putProperty(subKey, v);
@@ -442,7 +546,8 @@ public class ScriptExecutorService {
         return targetBean;
     }
 
-    public static class SmartHeaderNode extends Number implements Map<String, Object>, Comparable<Object>, groovy.lang.GroovyObject {
+    public static class SmartHeaderNode extends Number
+            implements Map<String, Object>, Comparable<Object>, groovy.lang.GroovyObject {
         private final Object primaryValue;
         private final Map<String, Object> properties = new LinkedHashMap<>();
         private transient groovy.lang.MetaClass metaClass;
@@ -450,7 +555,8 @@ public class ScriptExecutorService {
         public SmartHeaderNode(Object primaryValue) {
             this.primaryValue = normalizeValue(primaryValue);
             this.metaClass = groovy.lang.GroovySystem.getMetaClassRegistry().getMetaClass(SmartHeaderNode.class);
-            if (this.primaryValue != null && !(this.primaryValue instanceof Map) && !(this.primaryValue instanceof SmartHeaderNode)) {
+            if (this.primaryValue != null && !(this.primaryValue instanceof Map)
+                    && !(this.primaryValue instanceof SmartHeaderNode)) {
                 properties.put("id", this.primaryValue);
                 properties.put("value", this.primaryValue);
             }
@@ -459,14 +565,17 @@ public class ScriptExecutorService {
         private static Object normalizeValue(Object v) {
             if (v instanceof String s) {
                 String trim = s.trim();
-                if ("true".equalsIgnoreCase(trim)) return Boolean.TRUE;
-                if ("false".equalsIgnoreCase(trim)) return Boolean.FALSE;
+                if ("true".equalsIgnoreCase(trim))
+                    return Boolean.TRUE;
+                if ("false".equalsIgnoreCase(trim))
+                    return Boolean.FALSE;
             }
             return v;
         }
 
         public void putProperty(String key, Object value) {
-            if (key != null) properties.put(key, normalizeValue(value));
+            if (key != null)
+                properties.put(key, normalizeValue(value));
         }
 
         public Object getPrimaryValue() {
@@ -496,7 +605,8 @@ public class ScriptExecutorService {
             }
             if (primaryValue != null) {
                 try {
-                    return groovy.lang.GroovySystem.getMetaClassRegistry().getMetaClass(primaryValue.getClass()).getProperty(primaryValue, property);
+                    return groovy.lang.GroovySystem.getMetaClassRegistry().getMetaClass(primaryValue.getClass())
+                            .getProperty(primaryValue, property);
                 } catch (Exception e) {
                     return null;
                 }
@@ -510,13 +620,17 @@ public class ScriptExecutorService {
         }
 
         public boolean asBoolean() {
-            Object val = properties.containsKey("id") ? properties.get("id") : (properties.containsKey("value") ? properties.get("value") : primaryValue);
+            Object val = properties.containsKey("id") ? properties.get("id")
+                    : (properties.containsKey("value") ? properties.get("value") : primaryValue);
             val = normalizeValue(val);
-            if (val instanceof Boolean b) return b.booleanValue();
-            if (val instanceof Number n) return n.doubleValue() != 0;
+            if (val instanceof Boolean b)
+                return b.booleanValue();
+            if (val instanceof Number n)
+                return n.doubleValue() != 0;
             if (val instanceof String s) {
                 String trim = s.trim();
-                return !trim.isEmpty() && !"false".equalsIgnoreCase(trim) && !"0".equals(trim) && !"null".equalsIgnoreCase(trim);
+                return !trim.isEmpty() && !"false".equalsIgnoreCase(trim) && !"0".equals(trim)
+                        && !"null".equalsIgnoreCase(trim);
             }
             return val != null && !Boolean.FALSE.equals(val);
         }
@@ -531,24 +645,49 @@ public class ScriptExecutorService {
 
         @Override
         public Object invokeMethod(String name, Object args) {
-            Object[] argArray = args instanceof Object[] ? (Object[]) args : new Object[]{args};
+            Object[] argArray = args instanceof Object[] ? (Object[]) args : new Object[] { args };
             if (!metaClass.respondsTo(this, name, argArray).isEmpty()) {
                 return metaClass.invokeMethod(this, name, args);
             }
             if (primaryValue != null) {
-                return groovy.lang.GroovySystem.getMetaClassRegistry().getMetaClass(primaryValue.getClass()).invokeMethod(primaryValue, name, args);
+                return groovy.lang.GroovySystem.getMetaClassRegistry().getMetaClass(primaryValue.getClass())
+                        .invokeMethod(primaryValue, name, args);
             }
             throw new groovy.lang.MissingMethodException(name, SmartHeaderNode.class, argArray);
         }
 
-        @Override public int intValue() { return primaryValue instanceof Number n ? n.intValue() : (primaryValue != null && primaryValue.toString().matches("-?\\d+") ? Integer.parseInt(primaryValue.toString()) : 0); }
-        @Override public long longValue() { return primaryValue instanceof Number n ? n.longValue() : (primaryValue != null && primaryValue.toString().matches("-?\\d+") ? Long.parseLong(primaryValue.toString()) : 0L); }
-        @Override public float floatValue() { return primaryValue instanceof Number n ? n.floatValue() : (primaryValue != null ? Float.parseFloat(primaryValue.toString()) : 0f); }
-        @Override public double doubleValue() { return primaryValue instanceof Number n ? n.doubleValue() : (primaryValue != null ? Double.parseDouble(primaryValue.toString()) : 0d); }
+        @Override
+        public int intValue() {
+            return primaryValue instanceof Number n ? n.intValue()
+                    : (primaryValue != null && primaryValue.toString().matches("-?\\d+")
+                            ? Integer.parseInt(primaryValue.toString())
+                            : 0);
+        }
+
+        @Override
+        public long longValue() {
+            return primaryValue instanceof Number n ? n.longValue()
+                    : (primaryValue != null && primaryValue.toString().matches("-?\\d+")
+                            ? Long.parseLong(primaryValue.toString())
+                            : 0L);
+        }
+
+        @Override
+        public float floatValue() {
+            return primaryValue instanceof Number n ? n.floatValue()
+                    : (primaryValue != null ? Float.parseFloat(primaryValue.toString()) : 0f);
+        }
+
+        @Override
+        public double doubleValue() {
+            return primaryValue instanceof Number n ? n.doubleValue()
+                    : (primaryValue != null ? Double.parseDouble(primaryValue.toString()) : 0d);
+        }
 
         @Override
         public boolean equals(Object o) {
-            if (this == o) return true;
+            if (this == o)
+                return true;
             if (primaryValue != null && o != null) {
                 if (o instanceof SmartHeaderNode shn) {
                     return Objects.equals(primaryValue, shn.primaryValue);
@@ -580,25 +719,73 @@ public class ScriptExecutorService {
             return 0;
         }
 
-        @Override public int size() { return properties.size(); }
-        @Override public boolean isEmpty() { return properties.isEmpty(); }
-        @Override public boolean containsKey(Object key) { return properties.containsKey(key); }
-        @Override public boolean containsValue(Object value) { return properties.containsValue(value); }
-        @Override public Object get(Object key) { return properties.get(key); }
-        @Override public Object put(String key, Object value) { return properties.put(key, value); }
-        @Override public Object remove(Object key) { return properties.remove(key); }
-        @Override public void putAll(Map<? extends String, ?> m) { properties.putAll(m); }
-        @Override public void clear() { properties.clear(); }
-        @Override public Set<String> keySet() { return properties.keySet(); }
-        @Override public Collection<Object> values() { return properties.values(); }
-        @Override public Set<Entry<String, Object>> entrySet() { return properties.entrySet(); }
+        @Override
+        public int size() {
+            return properties.size();
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return properties.isEmpty();
+        }
+
+        @Override
+        public boolean containsKey(Object key) {
+            return properties.containsKey(key);
+        }
+
+        @Override
+        public boolean containsValue(Object value) {
+            return properties.containsValue(value);
+        }
+
+        @Override
+        public Object get(Object key) {
+            return properties.get(key);
+        }
+
+        @Override
+        public Object put(String key, Object value) {
+            return properties.put(key, value);
+        }
+
+        @Override
+        public Object remove(Object key) {
+            return properties.remove(key);
+        }
+
+        @Override
+        public void putAll(Map<? extends String, ?> m) {
+            properties.putAll(m);
+        }
+
+        @Override
+        public void clear() {
+            properties.clear();
+        }
+
+        @Override
+        public Set<String> keySet() {
+            return properties.keySet();
+        }
+
+        @Override
+        public Collection<Object> values() {
+            return properties.values();
+        }
+
+        @Override
+        public Set<Entry<String, Object>> entrySet() {
+            return properties.entrySet();
+        }
     }
 
     // Helper class for safe database queries in script
     public static class DatabaseHelper {
         private final org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider;
 
-        public DatabaseHelper(org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider) {
+        public DatabaseHelper(
+                org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider) {
             this.dataServiceProvider = dataServiceProvider;
         }
 
@@ -615,14 +802,16 @@ public class ScriptExecutorService {
         public Map<String, Object> find(String tableName, String keyColumn, Object keyValue) {
             try {
                 DynamicDataService dataService = dataServiceProvider.getIfAvailable();
-                if (dataService == null) return null;
+                if (dataService == null)
+                    return null;
                 return dataService.fetchLovRecord(tableName, keyColumn, keyValue);
             } catch (Exception e) {
                 return null;
             }
         }
 
-        // Ambil 1 nilai langsung dari SQL query ringan (hanya SELECT murni tanpa chained queries)
+        // Ambil 1 nilai langsung dari SQL query ringan (hanya SELECT murni tanpa
+        // chained queries)
         public Object getValue(String sql, Object... args) {
             try {
                 if (sql == null || sql.trim().isEmpty()) {
@@ -630,7 +819,8 @@ public class ScriptExecutorService {
                 }
                 String clean = sql.trim().toUpperCase();
                 if (!clean.startsWith("SELECT ") && !clean.startsWith("WITH ")) {
-                    throw new IllegalArgumentException("Hanya query SELECT atau WITH (CTE) yang diperbolehkan dalam script!");
+                    throw new IllegalArgumentException(
+                            "Hanya query SELECT atau WITH (CTE) yang diperbolehkan dalam script!");
                 }
                 if (clean.contains("INSERT ") || clean.contains("UPDATE ") || clean.contains("DELETE ") ||
                         clean.contains("DROP ") || clean.contains("ALTER ") || clean.contains("TRUNCATE ") ||
@@ -638,10 +828,12 @@ public class ScriptExecutorService {
                         clean.contains("EXECUTE ") || clean.contains("PG_SLEEP") || clean.contains("PG_TERMINATE") ||
                         clean.contains("PG_CANCEL") || clean.contains("DBLINK") || sql.contains(";") ||
                         sql.contains("--") || sql.contains("/*")) {
-                    throw new IllegalArgumentException("Query mengandung perintah perusak database atau karakter terlarang!");
+                    throw new IllegalArgumentException(
+                            "Query mengandung perintah perusak database atau karakter terlarang!");
                 }
                 DynamicDataService dataService = dataServiceProvider.getIfAvailable();
-                if (dataService == null) return null;
+                if (dataService == null)
+                    return null;
                 return dataService.getJdbcTemplate().queryForObject(sql, Object.class, args);
             } catch (Exception e) {
                 if (e instanceof IllegalArgumentException) {

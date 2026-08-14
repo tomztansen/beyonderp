@@ -85,6 +85,23 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         if (fieldName == null)
             return;
         String name = fieldName;
+        
+        if (name.startsWith("header.")) {
+            String headerField = name.substring(7);
+            java.util.Optional<com.vaadin.flow.component.Component> parent = getParent();
+            while (parent.isPresent()) {
+                if (parent.get() instanceof com.vaadinerp.views.GenericMasterDetailFormView mv) {
+                    mv.setComponentEnabled(headerField, enabled);
+                    return;
+                } else if (parent.get() instanceof com.vaadinerp.views.GenericFormView fv) {
+                    fv.setComponentEnabled(headerField, enabled);
+                    return;
+                }
+                parent = parent.get().getParent();
+            }
+            return;
+        }
+        
         if (name.startsWith("detail.") || name.startsWith("row.")) {
             name = name.substring(name.indexOf('.') + 1);
         }
@@ -98,6 +115,23 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         if (fieldName == null)
             return;
         String name = fieldName;
+        
+        if (name.startsWith("header.")) {
+            String headerField = name.substring(7);
+            java.util.Optional<com.vaadin.flow.component.Component> parent = getParent();
+            while (parent.isPresent()) {
+                if (parent.get() instanceof com.vaadinerp.views.GenericMasterDetailFormView mv) {
+                    mv.setComponentReadOnly(headerField, readOnly);
+                    return;
+                } else if (parent.get() instanceof com.vaadinerp.views.GenericFormView fv) {
+                    fv.setComponentReadOnly(headerField, readOnly);
+                    return;
+                }
+                parent = parent.get().getParent();
+            }
+            return;
+        }
+        
         if (name.startsWith("detail.") || name.startsWith("row.")) {
             name = name.substring(name.indexOf('.') + 1);
         }
@@ -314,24 +348,41 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
             actBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
             actBtn.addClickListener(e -> {
-                if (grid.getEditor().isOpen()) {
-                    grid.getEditor().cancel();
+                if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType())) {
+                    if (dataService != null && dataService.getScriptExecutorService() != null) {
+                        Map<String, Object> headerBean = headerRecordSupplier != null && headerRecordSupplier.get() != null
+                                ? headerRecordSupplier.get() : new HashMap<>();
+                        dataService.getScriptExecutorService().executeActionScript(act, headerBean, null, SubformGridField.this);
+                    }
+                } else {
+                    if (grid.getEditor().isOpen()) {
+                        grid.getEditor().cancel();
+                    }
+                    Map<String, Object> headerBean = headerRecordSupplier != null && headerRecordSupplier.get() != null
+                            ? headerRecordSupplier.get()
+                            : new HashMap<>();
+                    DynamicPickerPopupDialog dlg = new DynamicPickerPopupDialog(act, dataService, headerBean,
+                            selectedRecords -> {
+                                for (Map<String, Object> srcRec : selectedRecords) {
+                                    Map<String, Object> newRow = new HashMap<>();
+                                    newRow.put("_tempId", java.util.UUID.randomUUID().toString());
+                                    newRow.put("lineno", getMaxLineNoFromItems(items));
+                                    applyTargetMapping(newRow, srcRec, act.getTargetMapping());
+                                    items.add(newRow);
+                                }
+                                grid.getDataProvider().refreshAll();
+                                
+                                // Eksekusi post-action script jika ada
+                                if (act.getScriptContent() != null && !act.getScriptContent().isBlank()) {
+                                    if (dataService != null && dataService.getScriptExecutorService() != null) {
+                                        dataService.getScriptExecutorService().executeActionScript(
+                                            act, headerBean, null, SubformGridField.this
+                                        );
+                                    }
+                                }
+                            });
+                    dlg.open();
                 }
-                Map<String, Object> headerBean = headerRecordSupplier != null && headerRecordSupplier.get() != null
-                        ? headerRecordSupplier.get()
-                        : new HashMap<>();
-                DynamicPickerPopupDialog dlg = new DynamicPickerPopupDialog(act, dataService, headerBean,
-                        selectedRecords -> {
-                            for (Map<String, Object> srcRec : selectedRecords) {
-                                Map<String, Object> newRow = new HashMap<>();
-                                newRow.put("_tempId", java.util.UUID.randomUUID().toString());
-                                newRow.put("lineno", getMaxLineNoFromItems(items));
-                                applyTargetMapping(newRow, srcRec, act.getTargetMapping());
-                                items.add(newRow);
-                            }
-                            grid.getDataProvider().refreshAll();
-                        });
-                dlg.open();
             });
             extraActionsContainer.add(actBtn);
         }
@@ -370,24 +421,41 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 subMenu.addItem(
                         new HorizontalLayout(icon, new com.vaadin.flow.component.html.Span(act.getActionLabel())),
                         e -> {
-                            if (grid.getEditor().isOpen()) {
-                                grid.getEditor().cancel();
+                            if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType())) {
+                                if (dataService != null && dataService.getScriptExecutorService() != null) {
+                                    Map<String, Object> headerBean = headerRecordSupplier != null && headerRecordSupplier.get() != null
+                                            ? headerRecordSupplier.get() : new HashMap<>();
+                                    dataService.getScriptExecutorService().executeActionScript(act, headerBean, null, SubformGridField.this);
+                                }
+                            } else {
+                                if (grid.getEditor().isOpen()) {
+                                    grid.getEditor().cancel();
+                                }
+                                Map<String, Object> headerBean = headerRecordSupplier != null
+                                        && headerRecordSupplier.get() != null ? headerRecordSupplier.get()
+                                                : new HashMap<>();
+                                DynamicPickerPopupDialog dlg = new DynamicPickerPopupDialog(act, dataService, headerBean,
+                                        selectedRecords -> {
+                                            for (Map<String, Object> srcRec : selectedRecords) {
+                                                Map<String, Object> newRow = new HashMap<>();
+                                                newRow.put("_tempId", java.util.UUID.randomUUID().toString());
+                                                newRow.put("lineno", getMaxLineNoFromItems(items));
+                                                applyTargetMapping(newRow, srcRec, act.getTargetMapping());
+                                                items.add(newRow);
+                                            }
+                                            grid.getDataProvider().refreshAll();
+                                            
+                                            // Eksekusi post-action script jika ada
+                                            if (act.getScriptContent() != null && !act.getScriptContent().isBlank()) {
+                                                if (dataService != null && dataService.getScriptExecutorService() != null) {
+                                                    dataService.getScriptExecutorService().executeActionScript(
+                                                        act, headerBean, null, SubformGridField.this
+                                                    );
+                                                }
+                                            }
+                                        });
+                                dlg.open();
                             }
-                            Map<String, Object> headerBean = headerRecordSupplier != null
-                                    && headerRecordSupplier.get() != null ? headerRecordSupplier.get()
-                                            : new HashMap<>();
-                            DynamicPickerPopupDialog dlg = new DynamicPickerPopupDialog(act, dataService, headerBean,
-                                    selectedRecords -> {
-                                        for (Map<String, Object> srcRec : selectedRecords) {
-                                            Map<String, Object> newRow = new HashMap<>();
-                                            newRow.put("_tempId", java.util.UUID.randomUUID().toString());
-                                            newRow.put("lineno", getMaxLineNoFromItems(items));
-                                            applyTargetMapping(newRow, srcRec, act.getTargetMapping());
-                                            items.add(newRow);
-                                        }
-                                        grid.getDataProvider().refreshAll();
-                                    });
-                            dlg.open();
                         });
             }
             extraActionsContainer.add(menuBar);
@@ -405,6 +473,17 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 if (editor.isOpen() && editor.getItem() == item) {
                     return; // already editing
                 }
+                
+                boolean isNewRecord = item.containsKey("_tempId") || (item.get("id") == null && item.get("ID") == null);
+                if (childFormDef != null && childFormDef.getFields() != null) {
+                    for (com.vaadinerp.meta.FieldMeta field : childFormDef.getFields()) {
+                        com.vaadin.flow.component.Component comp = editorComponents.get(field.getFieldName());
+                        if (comp != null) {
+                            com.vaadinerp.components.ComponentFactory.applyReadonlyMode(comp, field, isNewRecord);
+                        }
+                    }
+                }
+
                 editor.editItem(item);
             }
         });
@@ -435,6 +514,15 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
             items.add(newRow);
             grid.getDataProvider().refreshAll();
+
+            if (childFormDef != null && childFormDef.getFields() != null) {
+                for (com.vaadinerp.meta.FieldMeta field : childFormDef.getFields()) {
+                    com.vaadin.flow.component.Component comp = editorComponents.get(field.getFieldName());
+                    if (comp != null) {
+                        com.vaadinerp.components.ComponentFactory.applyReadonlyMode(comp, field, true);
+                    }
+                }
+            }
 
             grid.getEditor().editItem(newRow);
 

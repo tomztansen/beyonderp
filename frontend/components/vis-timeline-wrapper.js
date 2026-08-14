@@ -122,14 +122,14 @@ class VisTimelineWrapper extends LitElement {
           background-color: #f59e0b;
         }
         .vis-item.is-late {
-          background-color: #ef4444 !important;
-          border-color: #b91c1c !important;
+          background-color: #ff0000 !important;
+          border-color: #cc0000 !important;
           color: white !important;
           font-weight: bold !important;
         }
         .vis-item.is-late.vis-selected {
-          background-color: #b91c1c !important;
-          border-color: #7f1d1d !important;
+          background-color: #cc0000 !important;
+          border-color: #990000 !important;
           border-width: 2px !important;
         }
         #visualization:focus {

@@ -47,6 +47,14 @@ public class FormActionBuilderView extends VerticalLayout {
     private final HorizontalLayout copyFilterLayout = new HorizontalLayout();
     private final HorizontalLayout targetLayout = new HorizontalLayout();
 
+    private final TextField formTargetFilterField = new TextField();
+    private final TextField actionCodeFilterField = new TextField();
+    private final TextField labelFilterField = new TextField();
+    private final TextField scopeFilterField = new TextField();
+    private final TextField typeFilterField = new TextField();
+    private final TextField groupFilterField = new TextField();
+    private final TextField sourceFilterField = new TextField();
+
     private FormActionMeta currentAction;
 
     private final com.vaadinerp.service.DynamicDataService dynamicDataService;
@@ -114,7 +122,11 @@ public class FormActionBuilderView extends VerticalLayout {
         Button btnDelete = new Button("Delete", VaadinIcon.CLOSE_CIRCLE.create(), e -> deleteAction());
         btnDelete.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
 
-        toolbar.add(btnNew, btnSave, btnDelete);
+        Button btnRefresh = new Button("Refresh", VaadinIcon.REFRESH.create(), e -> refreshGrid());
+        btnRefresh.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btnRefresh.getStyle().set("color", "#6b7280");
+
+        toolbar.add(btnNew, btnSave, btnDelete, btnRefresh);
         return toolbar;
     }
 
@@ -248,7 +260,15 @@ public class FormActionBuilderView extends VerticalLayout {
                   </tr>
                   <tr>
                     <td><code>setElementValue("field", nilai)</code></td>
-                    <td>Mengubah atau mengosongkan (<code>null</code> atau <code>0</code>) nilai pada field form tertentu dan langsung merefresh tampilan layar browser.</td>
+                    <td>Mengisi nilai pada komponen. Gunakan <code>null</code> atau <code>0</code> untuk mengosongkan.</td>
+                  </tr>
+                  <tr>
+                    <td><code>setElementDisabled("field", true)</code></td>
+                    <td>Mengunci komponen agar tidak bisa diklik / diisi (disabled).</td>
+                  </tr>
+                  <tr>
+                    <td><code>setElementReadonly("field", true)</code></td>
+                    <td>Mengubah komponen menjadi mode baca saja (readonly).</td>
                   </tr>
                   <tr>
                     <td><code>refreshForm()</code></td>
@@ -574,8 +594,16 @@ public class FormActionBuilderView extends VerticalLayout {
 
     private void updateEditorVisibility(String actionType) {
         boolean isGroovy = "GROOVY_SCRIPT".equalsIgnoreCase(actionType);
-        groovyHelperBar.setVisible(isGroovy);
-        scriptContentField.setVisible(isGroovy);
+        groovyHelperBar.setVisible(true); // Always show helper for both Groovy & Post-Action
+        scriptContentField.setVisible(true); // Always show script field (acts as post-action for popup)
+        
+        if (isGroovy) {
+            scriptContentField.setLabel("Groovy Script Context");
+            scriptContentField.setPlaceholder("// Tulis kode groovy di sini...");
+        } else {
+            scriptContentField.setLabel("Post-Action Groovy Script (Opsional)");
+            scriptContentField.setPlaceholder("// Dieksekusi otomatis SETELAH popup picker dipilih...");
+        }
 
         sourceLovCodeCombo.setVisible(!isGroovy);
         filterLayout.setVisible(!isGroovy);
@@ -586,14 +614,23 @@ public class FormActionBuilderView extends VerticalLayout {
 
     private void setupGrid() {
         grid.setSizeFull();
-        grid.addColumn(a -> a.getFormMeta() != null ? a.getFormMeta().getFormCode() : "[Katalog Global]")
+        var formCol = grid.addColumn(a -> a.getFormMeta() != null ? a.getFormMeta().getFormCode() : "[Katalog Global]")
                 .setHeader("Form Target").setSortable(true).setAutoWidth(true);
-        grid.addColumn(a -> a.getActionCode()).setHeader("Action Code").setSortable(true).setAutoWidth(true);
-        grid.addColumn(a -> a.getActionLabel()).setHeader("Label Tombol").setAutoWidth(true);
-        grid.addColumn(a -> a.getTargetScope()).setHeader("Posisi").setAutoWidth(true);
-        grid.addColumn(a -> a.getActionType()).setHeader("Action Type").setAutoWidth(true);
-        grid.addColumn(a -> a.getMenuGroup()).setHeader("Menu Group").setAutoWidth(true);
-        grid.addColumn(a -> a.getSourceLovCode()).setHeader("Source LOV").setAutoWidth(true);
+        var actionCol = grid.addColumn(a -> a.getActionCode()).setHeader("Action Code").setSortable(true).setAutoWidth(true);
+        var labelCol = grid.addColumn(a -> a.getActionLabel()).setHeader("Label Tombol").setSortable(true).setAutoWidth(true);
+        var scopeCol = grid.addColumn(a -> a.getTargetScope()).setHeader("Posisi").setSortable(true).setAutoWidth(true);
+        var typeCol = grid.addColumn(a -> a.getActionType()).setHeader("Action Type").setSortable(true).setAutoWidth(true);
+        var groupCol = grid.addColumn(a -> a.getMenuGroup()).setHeader("Menu Group").setSortable(true).setAutoWidth(true);
+        var sourceCol = grid.addColumn(a -> a.getSourceLovCode()).setHeader("Source LOV").setSortable(true).setAutoWidth(true);
+
+        com.vaadin.flow.component.grid.HeaderRow filterRow = grid.appendHeaderRow();
+        setupFilterField(formTargetFilterField, filterRow, formCol);
+        setupFilterField(actionCodeFilterField, filterRow, actionCol);
+        setupFilterField(labelFilterField, filterRow, labelCol);
+        setupFilterField(scopeFilterField, filterRow, scopeCol);
+        setupFilterField(typeFilterField, filterRow, typeCol);
+        setupFilterField(groupFilterField, filterRow, groupCol);
+        setupFilterField(sourceFilterField, filterRow, sourceCol);
 
         grid.asSingleSelect().addValueChangeListener(event -> {
             if (event.getValue() != null) {
@@ -602,6 +639,19 @@ public class FormActionBuilderView extends VerticalLayout {
                 clearForm();
             }
         });
+    }
+
+    private void setupFilterField(TextField filterField, com.vaadin.flow.component.grid.HeaderRow filterRow, com.vaadin.flow.component.grid.Grid.Column<FormActionMeta> column) {
+        filterField.setPlaceholder("Filter...");
+        filterField.setClearButtonVisible(true);
+        filterField.setWidthFull();
+        filterField.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.LAZY);
+        filterField.addValueChangeListener(e -> {
+            if (grid.getListDataView() != null) {
+                grid.getListDataView().refreshAll();
+            }
+        });
+        filterRow.getCell(column).setComponent(filterField);
     }
 
     private VerticalLayout buildEditorLayout() {
@@ -679,7 +729,32 @@ public class FormActionBuilderView extends VerticalLayout {
         } else {
             items = actionRepository.findAll();
         }
-        grid.setItems(items);
+        
+        items.sort(java.util.Comparator
+                .comparing((FormActionMeta a) -> a.getFormMeta() != null ? a.getFormMeta().getFormCode() : "")
+                .thenComparing(FormActionMeta::getTargetScope, java.util.Comparator.nullsLast(String::compareTo))
+                .thenComparing(FormActionMeta::getActionCode, java.util.Comparator.nullsLast(String::compareTo)));
+                
+        com.vaadin.flow.component.grid.dataview.GridListDataView<FormActionMeta> dataView = grid.setItems(items);
+        dataView.addFilter(this::matchesFilters);
+    }
+
+    private boolean matchesFilters(FormActionMeta a) {
+        String formTarget = a.getFormMeta() != null ? a.getFormMeta().getFormCode() : "[Katalog Global]";
+        if (!matches(formTarget, formTargetFilterField.getValue())) return false;
+        if (!matches(a.getActionCode(), actionCodeFilterField.getValue())) return false;
+        if (!matches(a.getActionLabel(), labelFilterField.getValue())) return false;
+        if (!matches(a.getTargetScope(), scopeFilterField.getValue())) return false;
+        if (!matches(a.getActionType(), typeFilterField.getValue())) return false;
+        if (!matches(a.getMenuGroup(), groupFilterField.getValue())) return false;
+        if (!matches(a.getSourceLovCode(), sourceFilterField.getValue())) return false;
+        return true;
+    }
+
+    private boolean matches(String value, String searchTerm) {
+        if (searchTerm == null || searchTerm.isEmpty()) return true;
+        if (value == null) return false;
+        return value.toLowerCase().contains(searchTerm.toLowerCase());
     }
 
     private void populateForm(FormActionMeta action) {
