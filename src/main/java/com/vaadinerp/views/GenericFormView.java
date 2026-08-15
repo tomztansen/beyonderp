@@ -1661,6 +1661,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 }
 
                 java.util.function.Function<Map<String, Object>, String> valueGetter = map -> {
+                    if (lovCode != null && !lovCode.trim().isEmpty()) {
+                        Object labelObj = getValueCaseInsensitive(map, fieldName + "_label");
+                        if (labelObj != null && !labelObj.toString().trim().isEmpty()) {
+                            return labelObj.toString();
+                        }
+                    }
                     Object valObj = getValueCaseInsensitive(map, fieldName);
                     String formatted = com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(field, valObj,
                             dynamicDataService);
@@ -1777,19 +1783,35 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
                 // Setup Comparator for Sorting
                 col.setComparator((map1, map2) -> {
-                    Object val1 = map1.get(fieldName);
-                    Object val2 = map2.get(fieldName);
+                    if (lovCode != null && !lovCode.trim().isEmpty()) {
+                        Object lbl1 = getValueCaseInsensitive(map1, fieldName + "_label");
+                        Object lbl2 = getValueCaseInsensitive(map2, fieldName + "_label");
+                        String s1 = "";
+                        if (lbl1 != null && !lbl1.toString().trim().isEmpty()) {
+                            s1 = lbl1.toString();
+                        } else {
+                            Object val1 = getValueCaseInsensitive(map1, fieldName);
+                            s1 = (val1 != null) ? getLovDisplayLabel(lovCode, val1.toString()) : "";
+                        }
+                        
+                        String s2 = "";
+                        if (lbl2 != null && !lbl2.toString().trim().isEmpty()) {
+                            s2 = lbl2.toString();
+                        } else {
+                            Object val2 = getValueCaseInsensitive(map2, fieldName);
+                            s2 = (val2 != null) ? getLovDisplayLabel(lovCode, val2.toString()) : "";
+                        }
+                        return s1.compareToIgnoreCase(s2);
+                    }
+                    
+                    Object val1 = getValueCaseInsensitive(map1, fieldName);
+                    Object val2 = getValueCaseInsensitive(map2, fieldName);
                     if (val1 == null && val2 == null)
                         return 0;
                     if (val1 == null)
                         return -1;
                     if (val2 == null)
                         return 1;
-                    if (lovCode != null && !lovCode.trim().isEmpty()) {
-                        String s1 = getLovDisplayLabel(lovCode, val1.toString());
-                        String s2 = getLovDisplayLabel(lovCode, val2.toString());
-                        return s1.compareToIgnoreCase(s2);
-                    }
                     if (val1 instanceof Comparable && val2 instanceof Comparable) {
                         @SuppressWarnings("unchecked")
                         Comparable<Object> comp1 = (Comparable<Object>) val1;

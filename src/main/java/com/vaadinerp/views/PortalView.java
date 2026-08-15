@@ -650,6 +650,20 @@ public class PortalView extends AppLayout {
     public void openMenuTab(AppMenu menu, Object extra, String forceTabId) {
         String code = menu.getMenuCode();
         String title = menu.getMenuTitle();
+        String activeTabId = forceTabId != null ? forceTabId : code;
+
+        // EARLY EXIT: Mencegah eksekusi query (Eager Evaluation) jika tab sudah terbuka
+        if (openTabs.containsKey(activeTabId)) {
+            Tab tab = openTabs.get(activeTabId);
+            tabSheet.setSelectedTab(tab);
+            Component existingContent = tabSheet.getComponent(tab);
+            if (existingContent instanceof GenericMasterDetailFormView mdView) {
+                mdView.applyInitialParameters(extra);
+            } else if (existingContent instanceof GenericFormView gView) {
+                gView.applyInitialParameters(extra);
+            }
+            return;
+        }
 
         Component content = switch (code) {
             case "FORM_BUILDER" -> {
@@ -686,7 +700,6 @@ public class PortalView extends AppLayout {
                         mdView.getStyle().set("padding", "4px");
                         mdView.applyInitialParameters(extra);
                         mdView.setCloseHandler(() -> {
-                            String activeTabId = forceTabId != null ? forceTabId : code;
                             Tab tab = openTabs.get(activeTabId);
                             if (tab != null) {
                                 tabSheet.remove(tab);
@@ -707,7 +720,6 @@ public class PortalView extends AppLayout {
                         schView.getStyle().set("padding", "4px");
                         schView.applyInitialParameters(extra);
                         schView.setCloseHandler(() -> {
-                            String activeTabId = forceTabId != null ? forceTabId : code;
                             Tab tab = openTabs.get(activeTabId);
                             if (tab != null) {
                                 tabSheet.remove(tab);
@@ -727,7 +739,6 @@ public class PortalView extends AppLayout {
                         gView.getStyle().set("padding", "4px");
                         gView.applyInitialParameters(extra);
                         gView.setCloseHandler(() -> {
-                            String activeTabId = forceTabId != null ? forceTabId : code;
                             Tab tab = openTabs.get(activeTabId);
                             if (tab != null) {
                                 tabSheet.remove(tab);
@@ -753,7 +764,6 @@ public class PortalView extends AppLayout {
             }
         };
 
-        String activeTabId = forceTabId != null ? forceTabId : code;
         openTab(activeTabId, title, content, code, extra);
     }
 
