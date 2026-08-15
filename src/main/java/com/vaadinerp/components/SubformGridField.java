@@ -376,7 +376,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                                 if (act.getScriptContent() != null && !act.getScriptContent().isBlank()) {
                                     if (dataService != null && dataService.getScriptExecutorService() != null) {
                                         dataService.getScriptExecutorService().executeActionScript(
-                                            act, headerBean, null, SubformGridField.this
+                                            act, headerBean, selectedRecords, SubformGridField.this
                                         );
                                     }
                                 }
@@ -449,7 +449,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                                             if (act.getScriptContent() != null && !act.getScriptContent().isBlank()) {
                                                 if (dataService != null && dataService.getScriptExecutorService() != null) {
                                                     dataService.getScriptExecutorService().executeActionScript(
-                                                        act, headerBean, null, SubformGridField.this
+                                                        act, headerBean, selectedRecords, SubformGridField.this
                                                     );
                                                 }
                                             }
@@ -1025,6 +1025,14 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         // 4. Column Reordering
         grid.setColumnReorderingAllowed(true);
+
+
+        if (grid.getDataProvider() != null) {
+            grid.getDataProvider().refreshAll();
+        }
+        List<String> subformUserOrder = dataService.getUserGridOrder(childFormDef.getFormCode(), "subformGrid");
+        com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(grid, columnToFieldNameMap, subformUserOrder);
+        
         gridColReorderReg = grid.addColumnReorderListener(event -> {
             List<Grid.Column<Map<String, Object>>> newOrder = event.getColumns();
             List<String> orderedFieldNames = new ArrayList<>();
@@ -1042,12 +1050,6 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                         Notification.Position.MIDDLE);
             }
         });
-
-        if (grid.getDataProvider() != null) {
-            grid.getDataProvider().refreshAll();
-        }
-        List<String> subformUserOrder = dataService.getUserGridOrder(childFormDef.getFormCode(), "subformGrid");
-        com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(grid, columnToFieldNameMap, subformUserOrder);
     }
 
     private Object convertToFieldValue(Object rawVal, Component comp) {

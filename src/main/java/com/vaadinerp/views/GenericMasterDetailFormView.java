@@ -605,7 +605,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                                     if (act.getScriptContent() != null && !act.getScriptContent().isBlank()) {
                                         if (dynamicDataService.getScriptExecutorService() != null) {
                                             dynamicDataService.getScriptExecutorService().executeActionScript(
-                                                act, headerBean, null, GenericMasterDetailFormView.this
+                                                act, headerBean, selectedRecords, GenericMasterDetailFormView.this
                                             );
                                         }
                                     }
@@ -2217,6 +2217,13 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         // 4. Column Reordering
         masterGrid.setColumnReorderingAllowed(true);
+
+
+        applyFilters();
+        java.util.List<String> masterUserOrder = dynamicDataService.getUserGridOrder(currentFormCode, "masterGrid");
+        com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(masterGrid, columnToFieldNameMap,
+                masterUserOrder);
+                
         masterColReorderReg = masterGrid.addColumnReorderListener(event -> {
             java.util.List<Grid.Column<Map<String, Object>>> newOrder = event.getColumns();
             java.util.List<String> orderedFieldNames = new java.util.ArrayList<>();
@@ -2234,11 +2241,6 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         Notification.Position.MIDDLE);
             }
         });
-
-        applyFilters();
-        java.util.List<String> masterUserOrder = dynamicDataService.getUserGridOrder(currentFormCode, "masterGrid");
-        com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(masterGrid, columnToFieldNameMap,
-                masterUserOrder);
 
         com.vaadinerp.components.StandardGridUtils.attachSelectAllHeader(masterGrid, () -> {
             if (currentFormDef == null)
@@ -2768,6 +2770,16 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         // 4. Column Reordering for Details Grid
         detailsGrid.setColumnReorderingAllowed(true);
+
+
+        // 5. Enable multi-sort on details grid
+        detailsGrid.setMultiSort(true);
+
+        applyDetailsFilters();
+        java.util.List<String> detailsUserOrder = dynamicDataService.getUserGridOrder(currentFormCode, "detailsGrid");
+        com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(detailsGrid, detailsColumnToFieldNameMap,
+                detailsUserOrder);
+                
         detailColReorderReg = detailsGrid.addColumnReorderListener(event -> {
             java.util.List<Grid.Column<Map<String, Object>>> newOrder = event.getColumns();
             java.util.List<String> orderedFieldNames = new java.util.ArrayList<>();
@@ -2785,14 +2797,6 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         Notification.Position.MIDDLE);
             }
         });
-
-        // 5. Enable multi-sort on details grid
-        detailsGrid.setMultiSort(true);
-
-        applyDetailsFilters();
-        java.util.List<String> detailsUserOrder = dynamicDataService.getUserGridOrder(currentFormCode, "detailsGrid");
-        com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(detailsGrid, detailsColumnToFieldNameMap,
-                detailsUserOrder);
     }
 
     private void applyDetailsFilters() {

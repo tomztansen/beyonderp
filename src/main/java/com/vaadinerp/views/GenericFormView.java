@@ -1943,27 +1943,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // ====== 4. AKTIFKAN COLUMN REORDERING (Drag-and-drop GESER KOLOM) ======
         grid.setColumnReorderingAllowed(true);
 
-        gridColReorderReg = grid.addColumnReorderListener(event -> {
-            java.util.List<Grid.Column<Map<String, Object>>> newOrder = event.getColumns();
 
-            // Terjemahkan urutan Column baru menjadi daftar nama field, sesuai urutan
-            // hasil drag user.
-            java.util.List<String> orderedFieldNames = new java.util.ArrayList<>();
-            for (Grid.Column<Map<String, Object>> col : newOrder) {
-                String fieldName = columnToFieldNameMap.get(col);
-                if (fieldName != null) {
-                    orderedFieldNames.add(fieldName);
-                }
-            }
-
-            try {
-                dynamicDataService.saveUserGridOrder(currentFormCode, "mainGrid", orderedFieldNames);
-                Notification.show("Urutan kolom disimpan", 1500, Notification.Position.BOTTOM_END);
-            } catch (Exception ex) {
-                Notification.show("Failed to save column order: " + ex.getMessage(),
-                        3000, Notification.Position.MIDDLE);
-            }
-        });
         // =========================================================================
 
         // Set Grid Items dari database
@@ -1972,6 +1952,25 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // Terapkan preferensi urutan kolom per user jika ada
         java.util.List<String> userOrder = dynamicDataService.getUserGridOrder(currentFormCode, "mainGrid");
         com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(grid, columnToFieldNameMap, userOrder);
+        
+        // Listener dipasang SETELAH applySafeColumnOrder agar tidak tertrigger saat loading awal
+        gridColReorderReg = grid.addColumnReorderListener(event -> {
+            java.util.List<Grid.Column<Map<String, Object>>> newOrder = event.getColumns();
+            java.util.List<String> orderedFieldNames = new java.util.ArrayList<>();
+            for (Grid.Column<Map<String, Object>> col : newOrder) {
+                String fieldName = columnToFieldNameMap.get(col);
+                if (fieldName != null) {
+                    orderedFieldNames.add(fieldName);
+                }
+            }
+            try {
+                dynamicDataService.saveUserGridOrder(currentFormCode, "mainGrid", orderedFieldNames);
+                Notification.show("Urutan kolom disimpan", 1500, Notification.Position.BOTTOM_END);
+            } catch (Exception ex) {
+                Notification.show("Failed to save column order: " + ex.getMessage(),
+                        3000, Notification.Position.MIDDLE);
+            }
+        });
 
         com.vaadinerp.components.StandardGridUtils.attachSelectAllHeader(grid, () -> {
             if (currentFormDef == null)
