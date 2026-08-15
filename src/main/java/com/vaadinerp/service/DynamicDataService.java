@@ -2711,19 +2711,15 @@ public class DynamicDataService {
                             boolean isEq = "=".equals(compOp);
                             if (isBoolTrue) {
                                 filterBuilder.append(
-                                        isEq ? "(CAST(" + safeFilterCol + " AS text) IN ('true', '1', 't', 'TRUE'))"
-                                                : "(CAST(" + safeFilterCol
-                                                        + " AS text) NOT IN ('true', '1', 't', 'TRUE') OR "
-                                                        + safeFilterCol + " IS NULL)");
+                                        isEq ? "(" + safeFilterCol + " = true)"
+                                                : "(" + safeFilterCol + " != true OR " + safeFilterCol + " IS NULL)");
                             } else {
                                 filterBuilder.append(isEq
-                                        ? "(CAST(" + safeFilterCol + " AS text) IN ('false', '0', 'f', 'FALSE') OR "
-                                                + safeFilterCol + " IS NULL)"
-                                        : "(CAST(" + safeFilterCol + " AS text) NOT IN ('false', '0', 'f', 'FALSE'))");
+                                        ? "(" + safeFilterCol + " = false OR " + safeFilterCol + " IS NULL)"
+                                        : "(" + safeFilterCol + " != false)");
                             }
                         } else {
-                            filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp)
-                                    .append(" ?");
+                            filterBuilder.append(safeFilterCol).append(" ").append(compOp).append(" ?");
                             params.add(valStr);
                         }
                     }
@@ -2831,19 +2827,15 @@ public class DynamicDataService {
                             boolean isEq = "=".equals(compOp);
                             if (isBoolTrue) {
                                 filterBuilder.append(
-                                        isEq ? "(CAST(" + safeFilterCol + " AS text) IN ('true', '1', 't', 'TRUE'))"
-                                                : "(CAST(" + safeFilterCol
-                                                        + " AS text) NOT IN ('true', '1', 't', 'TRUE') OR "
-                                                        + safeFilterCol + " IS NULL)");
+                                        isEq ? "(" + safeFilterCol + " = true)"
+                                                : "(" + safeFilterCol + " != true OR " + safeFilterCol + " IS NULL)");
                             } else {
                                 filterBuilder.append(isEq
-                                        ? "(CAST(" + safeFilterCol + " AS text) IN ('false', '0', 'f', 'FALSE') OR "
-                                                + safeFilterCol + " IS NULL)"
-                                        : "(CAST(" + safeFilterCol + " AS text) NOT IN ('false', '0', 'f', 'FALSE'))");
+                                        ? "(" + safeFilterCol + " = false OR " + safeFilterCol + " IS NULL)"
+                                        : "(" + safeFilterCol + " != false)");
                             }
                         } else {
-                            filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp)
-                                    .append(" ?");
+                            filterBuilder.append(safeFilterCol).append(" ").append(compOp).append(" ?");
                             params.add(valStr);
                         }
                     }
@@ -2966,19 +2958,15 @@ public class DynamicDataService {
                             boolean isEq = "=".equals(compOp);
                             if (isBoolTrue) {
                                 filterBuilder.append(
-                                        isEq ? "(CAST(" + safeFilterCol + " AS text) IN ('true', '1', 't', 'TRUE'))"
-                                                : "(CAST(" + safeFilterCol
-                                                        + " AS text) NOT IN ('true', '1', 't', 'TRUE') OR "
-                                                        + safeFilterCol + " IS NULL)");
+                                        isEq ? "(" + safeFilterCol + " = true)"
+                                                : "(" + safeFilterCol + " != true OR " + safeFilterCol + " IS NULL)");
                             } else {
                                 filterBuilder.append(isEq
-                                        ? "(CAST(" + safeFilterCol + " AS text) IN ('false', '0', 'f', 'FALSE') OR "
-                                                + safeFilterCol + " IS NULL)"
-                                        : "(CAST(" + safeFilterCol + " AS text) NOT IN ('false', '0', 'f', 'FALSE'))");
+                                        ? "(" + safeFilterCol + " = false OR " + safeFilterCol + " IS NULL)"
+                                        : "(" + safeFilterCol + " != false)");
                             }
                         } else {
-                            filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp)
-                                    .append(" ?");
+                            filterBuilder.append(safeFilterCol).append(" ").append(compOp).append(" ?");
                             params.add(valStr);
                         }
                     }
@@ -3400,7 +3388,90 @@ public class DynamicDataService {
         try {
             System.out.println("DEBUG SQL fetchGridDataPaged (" + formMeta.getFormCode() + "): " + sql.toString()
                     + " | Args: " + args);
-            return jdbcTemplate.queryForList(sql.toString(), args.toArray());
+            List<Map<String, Object>> results = jdbcTemplate.queryForList(sql.toString(), args.toArray());
+            if (results.isEmpty() || formMeta.getFields() == null) {
+                return results;
+            }
+
+            // Convert to modifiable maps
+            List<Map<String, Object>> modifiableResults = new ArrayList<>();
+            for (Map<String, Object> row : results) {
+                modifiableResults.add(new java.util.LinkedHashMap<>(row));
+            }
+
+            // Inject LOV Labels via Batch Fetching
+            for (com.vaadinerp.meta.FieldMeta field : formMeta.getFields()) {
+                if (field.getLovCode() != null && !field.getLovCode().trim().isEmpty()) {
+                    String lovCode = field.getLovCode().trim();
+                    String colName = field.getFieldName();
+
+                    // Collect unique non-null IDs for this column
+                    java.util.Set<Object> uniqueIds = new java.util.HashSet<>();
+                    for (Map<String, Object> row : modifiableResults) {
+                        Object val = getCaseInsensitiveValue(row, colName);
+                        if (val != null && !val.toString().trim().isEmpty()) {
+                            uniqueIds.add(val);
+                        }
+                    }
+
+                    if (!uniqueIds.isEmpty()) {
+                        com.vaadinerp.meta.LovMeta lovMeta = getLovMeta(lovCode).orElse(null);
+                        if (lovMeta != null && lovMeta.getTableName() != null && !lovMeta.getTableName().isBlank()) {
+                            String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank()
+                                    ? lovMeta.getValueColumn().trim()
+                                    : "id";
+                            if (!valCol.matches("^[a-zA-Z0-9_]+$")) valCol = "id";
+                            
+                            String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank()
+                                    ? lovMeta.getLabelColumn().trim()
+                                    : valCol;
+
+                            String tableName = lovMeta.getTableName().trim();
+                            String lovTableSql = isCustomSelectQuery(tableName)
+                                    ? " (" + validateAndSanitizeSelectQuery(tableName) + ") AS sub "
+                                    : getLovQualifiedTableName(tableName);
+
+                            StringBuilder inClause = new StringBuilder();
+                            List<Object> inArgs = new ArrayList<>();
+                            for (Object id : uniqueIds) {
+                                if (inClause.length() > 0) inClause.append(", ");
+                                inClause.append("?");
+                                inArgs.add(id); // Gunakan tipe asli (Integer/Long/String) agar index DB berjalan
+                            }
+
+                            String lovSql = "SELECT CAST(" + valCol + " AS TEXT) AS val, " + lblCol + " AS lbl FROM "
+                                    + lovTableSql + " WHERE " + valCol + " IN (" + inClause + ")";
+
+                            try {
+                                List<Map<String, Object>> lovData = jdbcTemplate.queryForList(lovSql, inArgs.toArray());
+                                Map<String, String> idToLabelMap = new java.util.HashMap<>();
+                                for (Map<String, Object> lovRow : lovData) {
+                                    Object v = getCaseInsensitiveValue(lovRow, "val");
+                                    Object l = getCaseInsensitiveValue(lovRow, "lbl");
+                                    if (v != null && l != null) {
+                                        idToLabelMap.put(v.toString(), l.toString());
+                                    }
+                                }
+
+                                // Inject labels back into the chunk
+                                for (Map<String, Object> row : modifiableResults) {
+                                    Object val = getCaseInsensitiveValue(row, colName);
+                                    if (val != null) {
+                                        String label = idToLabelMap.get(val.toString());
+                                        if (label != null) {
+                                            row.put(colName + "_label", label);
+                                        }
+                                    }
+                                }
+                            } catch (Exception ex) {
+                                System.err.println("Error batch fetching LOV labels for column " + colName + ": " + ex.getMessage());
+                            }
+                        }
+                    }
+                }
+            }
+
+            return modifiableResults;
         } catch (Exception e) {
             System.err.println("ERROR in fetchGridDataPaged: " + e.getMessage());
             e.printStackTrace();
@@ -4470,10 +4541,9 @@ public class DynamicDataService {
                                     || "f".equalsIgnoreCase(valStr);
                             if (isBoolTrue || isBoolFalse) {
                                 if (isBoolTrue) {
-                                    conditions.add("(CAST(" + col + " AS text) IN ('true', '1', 't', 'TRUE'))");
+                                    conditions.add("(" + col + " = true)");
                                 } else {
-                                    conditions.add("(CAST(" + col + " AS text) IN ('false', '0', 'f', 'FALSE') OR "
-                                            + col + " IS NULL)");
+                                    conditions.add("(" + col + " = false OR " + col + " IS NULL)");
                                 }
                             } else {
                                 conditions.add(col + " = ?");
