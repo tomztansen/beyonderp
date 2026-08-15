@@ -74,6 +74,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
     private String currentCapacityMode2 = "QTYBOX";
     private com.vaadin.flow.component.datepicker.DatePicker startDateFilter;
     private com.vaadin.flow.component.datepicker.DatePicker endDateFilter;
+    private com.vaadin.flow.component.textfield.TextField timelineSpkFilter;
     private LocalDate chartViewStartDate = LocalDate.now();
     private boolean isGridCollapsed = false;
 
@@ -283,7 +284,19 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         legendLayout.add(boxHoliday, lblHoliday, boxSunday, lblSunday);
 
-        timelineHeader.add(timelineTitle, legendLayout, timelineGroupFilter, timelineResourceFilter);
+        timelineSpkFilter = new com.vaadin.flow.component.textfield.TextField();
+        timelineSpkFilter.setPlaceholder("Cari PRD / SPK...");
+        timelineSpkFilter.setWidth("160px");
+        timelineSpkFilter.setClearButtonVisible(true);
+        timelineSpkFilter.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.LAZY);
+        timelineSpkFilter.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
+        timelineSpkFilter.addValueChangeListener(e -> {
+            if (e.isFromClient()) {
+                updateTimelineData();
+            }
+        });
+
+        timelineHeader.add(timelineTitle, legendLayout, timelineSpkFilter, timelineGroupFilter, timelineResourceFilter);
 
         timeline = new VisTimeline();
         timeline.setSizeFull();
@@ -1429,6 +1442,13 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     }
                 }
             }
+            if (timelineSpkFilter != null && timelineSpkFilter.getValue() != null && !timelineSpkFilter.getValue().trim().isEmpty()) {
+                String searchStr = timelineSpkFilter.getValue().trim().toLowerCase();
+                Object tName = row.get(taskNameCol);
+                if (tName == null || !tName.toString().toLowerCase().contains(searchStr)) {
+                    continue;
+                }
+            }
             filteredTimelineData.add(row);
         }
 
@@ -1951,8 +1971,11 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         for (int i = 0; i < str.length(); i++) {
             hash = str.charAt(i) + ((hash << 5) - hash);
         }
-        int hue = Math.abs(hash % 360);
-        return "hsl(" + hue + ", 65%, 45%)";
+        double goldenRatio = 0.618033988749895;
+        double h = Math.abs((double) hash) * goldenRatio;
+        h = h - Math.floor(h);
+        int hue = (int) (h * 360);
+        return "hsl(" + hue + ", 75%, 45%)";
     }
 
     private String getHslBorderColor(String str) {
@@ -1963,8 +1986,11 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         for (int i = 0; i < str.length(); i++) {
             hash = str.charAt(i) + ((hash << 5) - hash);
         }
-        int hue = Math.abs(hash % 360);
-        return "hsl(" + hue + ", 75%, 32%)";
+        double goldenRatio = 0.618033988749895;
+        double h = Math.abs((double) hash) * goldenRatio;
+        h = h - Math.floor(h);
+        int hue = (int) (h * 360);
+        return "hsl(" + hue + ", 85%, 32%)";
     }
 
     // ================================================================
@@ -2089,6 +2115,28 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         }
 
         // Build chart data: {date, taskName, value}
+        // Calculate totals to find Top 10 tasks
+        Map<String, Double> taskTotals = new HashMap<>();
+        for (Map<String, Object> row : filteredData) {
+            Object taskVal = row.get(taskNameCol);
+            Object qtyVal = row.get(qtyCol);
+            if (taskVal != null && qtyVal != null) {
+                String tName = taskVal.toString();
+                if (currentLateSpks.contains(tName)) {
+                    tName += " (LATE)";
+                }
+                try {
+                    taskTotals.merge(tName, Double.parseDouble(qtyVal.toString()), Double::sum);
+                } catch (Exception ignored) {}
+            }
+        }
+
+        Set<String> topTasks = taskTotals.entrySet().stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .limit(10)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+
         JsonArray chartData = Json.createArray();
         int idx = 0;
         for (Map<String, Object> row : filteredData) {
@@ -2106,8 +2154,14 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             if (currentLateSpks.contains(tName)) {
                 tName += " (LATE)";
             }
-            point.put("taskName", tName);
-            point.put("color", getHslColor(originalTaskName));
+            
+            if (topTasks.contains(tName)) {
+                point.put("taskName", tName);
+                point.put("color", getHslColor(originalTaskName));
+            } else {
+                point.put("taskName", "Lainnya");
+                point.put("color", "#94a3b8"); // slate-400 gray color
+            }
 
             try {
                 point.put("value", Double.parseDouble(qtyVal.toString()));
@@ -2126,7 +2180,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
     // HANDLE CHART ITEM CLICK
     // ================================================================
     private void handleChartItemClick(String taskName, String clickedDate) {
-        if (taskName == null || "Unknown".equals(taskName))
+        if (taskName == null || "Unknown".equals(taskName) || "Lainnya".equals(taskName))
             return;
 
         String originalTaskName = taskName;
