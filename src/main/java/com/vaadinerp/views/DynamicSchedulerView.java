@@ -3361,4 +3361,41 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             refreshData();
         }
     }
+    public void cleanup() {
+        if (this.timeline != null) {
+            this.timeline.cleanup();
+            this.timeline = null;
+        }
+        if (this.capacityChart1 != null) {
+            this.capacityChart1.cleanup();
+            this.capacityChart1 = null;
+        }
+        if (this.capacityChart2 != null) {
+            this.capacityChart2.cleanup();
+            this.capacityChart2 = null;
+        }
+        if (this.currentData != null) {
+            this.currentData.clear();
+            this.currentData = null;
+        }
+        if (this.modifiedRows != null) {
+            this.modifiedRows.clear();
+            this.modifiedRows = null;
+        }
+        if (this.holidaySet != null) {
+            this.holidaySet.clear();
+            this.holidaySet = null;
+        }
+        if (this.currentLateSpks != null) {
+            this.currentLateSpks.clear();
+            this.currentLateSpks = null;
+        }
+        if (this.colGetterMap != null) {
+            this.colGetterMap.clear();
+        }
+        this.formMeta = null;
+        this.schedulerConfig = null;
+        this.closeHandler = null;
+        this.reapplyGridFilters = null;
+    }
 }

@@ -74,4 +74,8 @@ public class ApexCapacityChart extends Component implements HasSize {
     public void destroyChart() {
         getElement().callJsFunction("destroyChart");
     }
+
+    public void cleanup() {
+        destroyChart();
+    }
 }

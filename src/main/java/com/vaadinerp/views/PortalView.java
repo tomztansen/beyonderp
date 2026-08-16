@@ -699,17 +699,7 @@ public class PortalView extends AppLayout {
                         mdView.hideTitle();
                         mdView.getStyle().set("padding", "4px");
                         mdView.applyInitialParameters(extra);
-                        mdView.setCloseHandler(() -> {
-                            Tab tab = openTabs.get(activeTabId);
-                            if (tab != null) {
-                                tabSheet.remove(tab);
-                                openTabs.remove(activeTabId);
-                                if (openTabs.isEmpty()) {
-                                    tabSheet.setSelectedIndex(0);
-                                    clearActiveLeaves();
-                                }
-                            }
-                        });
+                        mdView.setCloseHandler(() -> closeTabById(activeTabId));
                         yield mdView;
                     } else if ("SCHEDULER_SPLIT".equalsIgnoreCase(form.getFormType())) {
                         DynamicSchedulerView schView = new DynamicSchedulerView(formMetaRepository,
@@ -719,17 +709,7 @@ public class PortalView extends AppLayout {
                         schView.hideTitle();
                         schView.getStyle().set("padding", "4px");
                         schView.applyInitialParameters(extra);
-                        schView.setCloseHandler(() -> {
-                            Tab tab = openTabs.get(activeTabId);
-                            if (tab != null) {
-                                tabSheet.remove(tab);
-                                openTabs.remove(activeTabId);
-                                if (openTabs.isEmpty()) {
-                                    tabSheet.setSelectedIndex(0);
-                                    clearActiveLeaves();
-                                }
-                            }
-                        });
+                        schView.setCloseHandler(() -> closeTabById(activeTabId));
                         yield schView;
                     } else {
                         GenericFormView gView = new GenericFormView(formMetaRepository, dynamicDataService,
@@ -738,17 +718,7 @@ public class PortalView extends AppLayout {
                         gView.hideTitle();
                         gView.getStyle().set("padding", "4px");
                         gView.applyInitialParameters(extra);
-                        gView.setCloseHandler(() -> {
-                            Tab tab = openTabs.get(activeTabId);
-                            if (tab != null) {
-                                tabSheet.remove(tab);
-                                openTabs.remove(activeTabId);
-                                if (openTabs.isEmpty()) {
-                                    tabSheet.setSelectedIndex(0);
-                                    clearActiveLeaves();
-                                }
-                            }
-                        });
+                        gView.setCloseHandler(() -> closeTabById(activeTabId));
                         yield gView;
                     }
                 }
@@ -1108,6 +1078,8 @@ public class PortalView extends AppLayout {
                     vqbView.cleanup();
                 } else if (content instanceof ReportViewerView reportView) {
                     reportView.cleanup();
+                } else if (content instanceof DynamicSchedulerView schedulerView) {
+                    schedulerView.cleanup();
                 }
             }
         }
