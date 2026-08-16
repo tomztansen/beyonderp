@@ -51,10 +51,10 @@ public class ViewDesignerView extends VerticalLayout {
         searchField.setValueChangeMode(ValueChangeMode.LAZY);
         searchField.addValueChangeListener(e -> filterGrid());
 
-        Button btnRefresh = new Button("Refresh List", VaadinIcon.REFRESH.create());
+        Button btnRefresh = new com.vaadinerp.components.SafeButton("Refresh List", VaadinIcon.REFRESH.create());
         btnRefresh.addClickListener(e -> loadViews());
 
-        Button btnCreateNew = new Button("⚡ Create New View", VaadinIcon.PLUS.create());
+        Button btnCreateNew = new com.vaadinerp.components.SafeButton("⚡ Create New View", VaadinIcon.PLUS.create());
         btnCreateNew.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnCreateNew.addClickListener(e -> openViewDialog(null));
 
@@ -71,11 +71,11 @@ public class ViewDesignerView extends VerticalLayout {
         viewsGrid.addColumn(row -> row.get("view_name")).setHeader("View Name").setWidth("300px").setFlexGrow(1).setSortable(true);
 
         viewsGrid.addComponentColumn(row -> {
-            Button btnEdit = new Button("Edit Code", VaadinIcon.EDIT.create());
+            Button btnEdit = new com.vaadinerp.components.SafeButton("Edit Code", VaadinIcon.EDIT.create());
             btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
             btnEdit.addClickListener(e -> openViewDialog(row));
 
-            Button btnDrop = new Button("Delete", VaadinIcon.TRASH.create());
+            Button btnDrop = new com.vaadinerp.components.SafeButton("Delete", VaadinIcon.TRASH.create());
             btnDrop.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
             btnDrop.addClickListener(e -> confirmDropView(row));
 
@@ -133,7 +133,7 @@ public class ViewDesignerView extends VerticalLayout {
             TextField nameField = new TextField("View Name");
             nameField.setPlaceholder("contoh: v_rekap_penjualan");
 
-            Button btnGenerateTemplate = new Button("⚡ Generate Template Code", VaadinIcon.CODE.create());
+            Button btnGenerateTemplate = new com.vaadinerp.components.SafeButton("⚡ Generate Template Code", VaadinIcon.CODE.create());
             btnGenerateTemplate.addClickListener(e -> {
                 String sch = schemaSelect.getValue() != null ? schemaSelect.getValue() : "dynamic";
                 String nm = nameField.getValue() != null && !nameField.getValue().isBlank() ? nameField.getValue().trim().toLowerCase() : "nama_view";
@@ -166,7 +166,7 @@ public class ViewDesignerView extends VerticalLayout {
 
         dialogLayout.add(codeArea);
 
-        Button btnSave = new Button("💾 Save & Execute to Database", VaadinIcon.CHECK.create());
+        Button btnSave = new com.vaadinerp.components.SafeButton("💾 Save & Execute to Database", VaadinIcon.CHECK.create());
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnSave.addClickListener(e -> {
             String sql = codeArea.getValue();
@@ -184,7 +184,7 @@ public class ViewDesignerView extends VerticalLayout {
             }
         });
 
-        Button btnCancel = new Button("Cancel", e -> dialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
         dialog.getFooter().add(btnCancel, btnSave);
         dialog.add(dialogLayout);
         dialog.open();
@@ -202,7 +202,7 @@ public class ViewDesignerView extends VerticalLayout {
                 new Span("Nama: " + viewName)
         ));
 
-        Button btnYes = new Button("Yes, Delete Now", VaadinIcon.TRASH.create(), e -> {
+        Button btnYes = new com.vaadinerp.components.SafeButton("Yes, Delete Now", VaadinIcon.TRASH.create(), e -> {
             try {
                 String dropSql = "DROP VIEW IF EXISTS \"" + schemaName + "\".\"" + viewName + "\";";
                 dynamicDataService.executeViewScript(dropSql);
@@ -215,7 +215,7 @@ public class ViewDesignerView extends VerticalLayout {
         });
         btnYes.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
 
-        Button btnNo = new Button("Cancel", e -> dialog.close());
+        Button btnNo = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
         dialog.getFooter().add(btnNo, btnYes);
         dialog.open();
     }

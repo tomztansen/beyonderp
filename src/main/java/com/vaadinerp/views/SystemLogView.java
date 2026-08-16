@@ -69,7 +69,7 @@ public class SystemLogView extends VerticalLayout {
         searchKeywordField.setClearButtonVisible(true);
         searchKeywordField.addValueChangeListener(e -> refreshLogContent());
 
-        Button refreshBtn = new Button("🔄 Refresh Sekarang", new Icon(VaadinIcon.REFRESH));
+        Button refreshBtn = new com.vaadinerp.components.SafeButton("🔄 Refresh Sekarang", new Icon(VaadinIcon.REFRESH));
         refreshBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         refreshBtn.addClickListener(e -> refreshLogContent());
 
@@ -91,7 +91,7 @@ public class SystemLogView extends VerticalLayout {
         // Tombol Download File Log (.log)
         Anchor downloadAnchor = new Anchor();
         downloadAnchor.getElement().setAttribute("download", true);
-        Button downloadBtn = new Button("⬇️ Download Log File", new Icon(VaadinIcon.DOWNLOAD));
+        Button downloadBtn = new com.vaadinerp.components.SafeButton("⬇️ Download Log File", new Icon(VaadinIcon.DOWNLOAD));
         downloadBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
         downloadAnchor.add(downloadBtn);
         downloadAnchor.setHref(DownloadHandler.fromInputStream(event -> {

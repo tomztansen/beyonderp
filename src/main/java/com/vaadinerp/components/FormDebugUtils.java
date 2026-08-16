@@ -82,7 +82,7 @@ public class FormDebugUtils {
             hl.setSpacing(true);
             hl.setPadding(false);
             
-            Button copyBtn = new Button(new Icon(VaadinIcon.COPY));
+            Button copyBtn = new com.vaadinerp.components.SafeButton(new Icon(VaadinIcon.COPY));
             copyBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             copyBtn.getElement().setAttribute("title", "Salin sintaks ke clipboard");
             copyBtn.addClickListener(e -> {
@@ -105,7 +105,7 @@ public class FormDebugUtils {
             hl.setPadding(false);
             
             String valStr = item.getValue() != null ? item.getValue() : "";
-            Button copyBtn = new Button(new Icon(VaadinIcon.COPY));
+            Button copyBtn = new com.vaadinerp.components.SafeButton(new Icon(VaadinIcon.COPY));
             copyBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             copyBtn.getElement().setAttribute("title", "Salin nilai ke clipboard");
             copyBtn.addClickListener(e -> {
@@ -139,7 +139,7 @@ public class FormDebugUtils {
         content.add(desc, filterText, grid);
         dialog.add(content);
 
-        Button copyAllBtn = new Button("Salin Semua Data", new Icon(VaadinIcon.COPY));
+        Button copyAllBtn = new com.vaadinerp.components.SafeButton("Salin Semua Data", new Icon(VaadinIcon.COPY));
         copyAllBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
         copyAllBtn.addClickListener(e -> {
             StringBuilder sb = new StringBuilder();
@@ -150,7 +150,7 @@ public class FormDebugUtils {
             Notification.show("📋 Semua data berhasil disalin ke clipboard!", 2000, Notification.Position.BOTTOM_END);
         });
 
-        Button closeBtn = new Button("Close", e -> dialog.close());
+        Button closeBtn = new com.vaadinerp.components.SafeButton("Close", e -> dialog.close());
         closeBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         dialog.getFooter().add(copyAllBtn, closeBtn);

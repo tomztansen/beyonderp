@@ -77,7 +77,7 @@ public class DynamicPickerPopupDialog extends Dialog {
             }
         });
 
-        Button refreshBtn = new Button("Refresh", VaadinIcon.REFRESH.create(), e -> loadData());
+        Button refreshBtn = new com.vaadinerp.components.SafeButton("Refresh", VaadinIcon.REFRESH.create(), e -> loadData());
 
         HorizontalLayout searchToolbar = new HorizontalLayout(searchField, refreshBtn);
         searchToolbar.setWidthFull();
@@ -106,7 +106,7 @@ public class DynamicPickerPopupDialog extends Dialog {
         content.setSpacing(true);
         add(content);
 
-        Button btnOk = new Button("Select & Add", VaadinIcon.CHECK.create(), e -> {
+        Button btnOk = new com.vaadinerp.components.SafeButton("Select & Add", VaadinIcon.CHECK.create(), e -> {
             Set<Map<String, Object>> selected = grid.getSelectedItems();
             if (selected == null || selected.isEmpty()) {
                 Notification.show("Please select at least 1 data first!", 3000, Notification.Position.MIDDLE);
@@ -137,7 +137,7 @@ public class DynamicPickerPopupDialog extends Dialog {
         });
         btnOk.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnCancel = new Button("Cancel", e -> close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> close());
 
         getFooter().add(btnCancel, btnOk);
 

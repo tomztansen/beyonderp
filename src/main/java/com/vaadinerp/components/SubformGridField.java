@@ -40,8 +40,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private final List<Map<String, Object>> items = new ArrayList<>();
     private final List<Map<String, Object>> deletedItems = new ArrayList<>();
     private final Grid<Map<String, Object>> grid = new Grid<>();
-    private final Button btnAdd = new Button("Add Row", VaadinIcon.PLUS.create());
-    private final Button btnDelete = new Button("Delete Row", VaadinIcon.TRASH.create());
+    private final Button btnAdd = new com.vaadinerp.components.SafeButton("Add Row", VaadinIcon.PLUS.create());
+    private final Button btnDelete = new com.vaadinerp.components.SafeButton("Delete Row", VaadinIcon.TRASH.create());
     private final HorizontalLayout extraActionsContainer = new HorizontalLayout();
     private final Map<String, Component> editorComponents = new HashMap<>();
 
@@ -182,7 +182,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         // icDel.getStyle().set("color", "#ef4444").set("font-size", "1.1rem");
         // }
 
-        // Button btnResetSubformGrid = new Button("Reset Layout Grid",
+        // Button btnResetSubformGrid = new com.vaadinerp.components.SafeButton("Reset Layout Grid",
         // VaadinIcon.ROTATE_LEFT.create());
         // btnResetSubformGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY,
         // ButtonVariant.LUMO_SMALL);
@@ -212,7 +212,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         btnDelete.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
 
-        Button btnResetSubformGrid = new Button("Reset Layout Grid", VaadinIcon.ROTATE_LEFT.create());
+        Button btnResetSubformGrid = new com.vaadinerp.components.SafeButton("Reset Layout Grid", VaadinIcon.ROTATE_LEFT.create());
         btnResetSubformGrid.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         btnResetSubformGrid.addClickListener(e -> {
             if (childFormDef != null) {
@@ -345,7 +345,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             if (icon != null) {
                 icon.getStyle().set("color", "white").set("font-size", "1.1rem");
             }
-            Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
+            Button actBtn = icon != null ? new com.vaadinerp.components.SafeButton(act.getActionLabel(), icon) : new com.vaadinerp.components.SafeButton(act.getActionLabel());
             actBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
             actBtn.addClickListener(e -> {
                 if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType())) {
@@ -926,7 +926,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             filterField.setWidthFull();
             filterField.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
 
-            Button filterButton = new Button(VaadinIcon.FILTER.create());
+            Button filterButton = new com.vaadinerp.components.SafeButton(VaadinIcon.FILTER.create());
             filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
             filterButton.getStyle().set("cursor", "pointer");
             filterButton.getElement().setProperty("title", "Contains");

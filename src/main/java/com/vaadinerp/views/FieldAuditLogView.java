@@ -139,12 +139,12 @@ public class FieldAuditLogView extends VerticalLayout {
         filterActionBy.setPlaceholder("Nama user...");
         filterActionBy.setClearButtonVisible(true);
 
-        Button btnSearch = new Button("Cari / Filter", VaadinIcon.SEARCH.create());
+        Button btnSearch = new com.vaadinerp.components.SafeButton("Cari / Filter", VaadinIcon.SEARCH.create());
         btnSearch.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnSearch.getStyle().set("border-radius", "8px").set("font-weight", "600");
         btnSearch.addClickListener(e -> refreshGrid());
 
-        Button btnReset = new Button("Reset", VaadinIcon.REFRESH.create());
+        Button btnReset = new com.vaadinerp.components.SafeButton("Reset", VaadinIcon.REFRESH.create());
         btnReset.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnReset.addClickListener(e -> {
             filterFormCode.clear();

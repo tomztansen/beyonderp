@@ -330,7 +330,7 @@ public class StandardGridUtils {
             filterField.setWidthFull();
             filterField.addThemeVariants(TextFieldVariant.LUMO_SMALL);
 
-            Button filterButton = new Button(VaadinIcon.FILTER.create());
+            Button filterButton = new com.vaadinerp.components.SafeButton(VaadinIcon.FILTER.create());
             filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
             filterButton.getStyle().set("cursor", "pointer");
             filterButton.getElement().setProperty("title", "Contains");
@@ -461,7 +461,7 @@ public class StandardGridUtils {
 
     public static <T> Anchor createExportExcelButton(Grid<T> grid, String fileNamePrefix,
             Map<Grid.Column<T>, Function<T, String>> colGetterMap) {
-        Button btnExport = new Button("Export Excel", VaadinIcon.FILE_TABLE.create());
+        Button btnExport = new com.vaadinerp.components.SafeButton("Export Excel", VaadinIcon.FILE_TABLE.create());
         btnExport.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         btnExport.getStyle().set("cursor", "pointer");
 

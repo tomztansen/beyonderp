@@ -118,10 +118,10 @@ public class AuditTrailView extends VerticalLayout {
         actionFilter.setWidth("200px");
         actionFilter.addValueChangeListener(e -> refreshGrid());
 
-        Button btnRefresh = new Button("Refresh", VaadinIcon.REFRESH.create());
+        Button btnRefresh = new com.vaadinerp.components.SafeButton("Refresh", VaadinIcon.REFRESH.create());
         btnRefresh.addClickListener(e -> refreshGrid());
 
-        Button btnRecycleBinHelp = new Button("ℹ️ Help & Restore Guide", e -> showHelpDialog());
+        Button btnRecycleBinHelp = new com.vaadinerp.components.SafeButton("ℹ️ Help & Restore Guide", e -> showHelpDialog());
         btnRecycleBinHelp.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
         toolbar.add(searchField, actionFilter, btnRefresh, btnRecycleBinHelp);
@@ -174,14 +174,14 @@ public class AuditTrailView extends VerticalLayout {
             HorizontalLayout actions = new HorizontalLayout();
             actions.setSpacing(true);
 
-            Button btnViewJson = new Button("See Snapshot", VaadinIcon.FILE_TEXT.create());
+            Button btnViewJson = new com.vaadinerp.components.SafeButton("See Snapshot", VaadinIcon.FILE_TEXT.create());
             btnViewJson.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
             btnViewJson.addClickListener(e -> showSnapshotDialog(row));
             actions.add(btnViewJson);
 
             String actionType = row.get("action_type") != null ? row.get("action_type").toString() : "";
             if ("DELETE".equalsIgnoreCase(actionType) || "UPDATE".equalsIgnoreCase(actionType)) {
-                Button btnRestore = new Button("🔄 Pulihkan / Restore", VaadinIcon.ROTATE_LEFT.create());
+                Button btnRestore = new com.vaadinerp.components.SafeButton("🔄 Pulihkan / Restore", VaadinIcon.ROTATE_LEFT.create());
                 btnRestore.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY,
                         ButtonVariant.LUMO_SUCCESS);
                 btnRestore.getStyle().set("font-weight", "600");
@@ -267,7 +267,7 @@ public class AuditTrailView extends VerticalLayout {
         content.add(lblOld, preOld, lblNew, preNew);
         dialog.add(content);
 
-        Button btnClose = new Button("Close", e -> dialog.close());
+        Button btnClose = new com.vaadinerp.components.SafeButton("Close", e -> dialog.close());
         dialog.getFooter().add(btnClose);
         dialog.open();
     }
@@ -287,7 +287,7 @@ public class AuditTrailView extends VerticalLayout {
 
         confirmDialog.add(layout);
 
-        Button btnConfirm = new Button("Ya, Pulihkan Sekarang!", VaadinIcon.ROTATE_LEFT.create());
+        Button btnConfirm = new com.vaadinerp.components.SafeButton("Ya, Pulihkan Sekarang!", VaadinIcon.ROTATE_LEFT.create());
         btnConfirm.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnConfirm.addClickListener(e -> {
             try {
@@ -307,7 +307,7 @@ public class AuditTrailView extends VerticalLayout {
             confirmDialog.close();
         });
 
-        Button btnCancel = new Button("Cancel", e -> confirmDialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> confirmDialog.close());
         confirmDialog.getFooter().add(btnCancel, btnConfirm);
         confirmDialog.open();
     }
@@ -328,7 +328,7 @@ public class AuditTrailView extends VerticalLayout {
         layout.add(new Span("4. Relasi dan data Anda pun kembali aman tanpa perlu merestore full backup database!"));
 
         dialog.add(layout);
-        Button btnClose = new Button("Mengerti", e -> dialog.close());
+        Button btnClose = new com.vaadinerp.components.SafeButton("Mengerti", e -> dialog.close());
         dialog.getFooter().add(btnClose);
         dialog.open();
     }

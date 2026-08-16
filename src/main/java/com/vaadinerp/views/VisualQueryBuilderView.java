@@ -27,21 +27,21 @@ public class VisualQueryBuilderView extends VerticalLayout {
     private final ComboBox<String> tableSelect = new ComboBox<>("Select Base Table");
     private final MultiSelectComboBox<String> columnSelect = new MultiSelectComboBox<>("Select Column");
     private final TextArea sqlEditor = new TextArea("SQL Text (Generated / Manual Edit)");
-    private final Button btnExecute = new Button("Execute Query", VaadinIcon.PLAY.create());
-    private final Button btnCopy = new Button("Copy SQL", VaadinIcon.COPY.create());
+    private final Button btnExecute = new com.vaadinerp.components.SafeButton("Execute Query", VaadinIcon.PLAY.create());
+    private final Button btnCopy = new com.vaadinerp.components.SafeButton("Copy SQL", VaadinIcon.COPY.create());
     
     // Filters UI
     private final VerticalLayout filtersLayout = new VerticalLayout();
-    private final Button btnAddFilter = new Button("Add Filter", VaadinIcon.PLUS.create());
+    private final Button btnAddFilter = new com.vaadinerp.components.SafeButton("Add Filter", VaadinIcon.PLUS.create());
     
     // Aggregates UI
     private final VerticalLayout aggregateLayout = new VerticalLayout();
-    private final Button btnAddAggregate = new Button("Add Aggregate", VaadinIcon.PLUS.create());
+    private final Button btnAddAggregate = new com.vaadinerp.components.SafeButton("Add Aggregate", VaadinIcon.PLUS.create());
     private final List<AggregateRow> activeAggregates = new ArrayList<>();
 
     // JOIN UI
     private final VerticalLayout joinLayout = new VerticalLayout();
-    private final Button btnAddJoin = new Button("Add Join", VaadinIcon.PLUS.create());
+    private final Button btnAddJoin = new com.vaadinerp.components.SafeButton("Add Join", VaadinIcon.PLUS.create());
     private final List<JoinRow> activeJoins = new ArrayList<>();
 
     // ===================== INNER CLASSES =====================
@@ -55,8 +55,8 @@ public class VisualQueryBuilderView extends VerticalLayout {
         ComboBox<String> targetTableSelect = new ComboBox<>();
         List<JoinOnPair> onPairs = new ArrayList<>();
         VerticalLayout onPairsLayout = new VerticalLayout();
-        Button btnAddOn = new Button("+ ON", VaadinIcon.PLUS.create());
-        Button btnRemove = new Button(VaadinIcon.TRASH.create());
+        Button btnAddOn = new com.vaadinerp.components.SafeButton("+ ON", VaadinIcon.PLUS.create());
+        Button btnRemove = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create());
 
         JoinRow(List<String> allTables, List<String> sourceColumns) {
             setPadding(false);
@@ -133,7 +133,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
         private class JoinOnPair extends HorizontalLayout {
             ComboBox<String> sourceColSelect = new ComboBox<>();
             ComboBox<String> targetColSelect = new ComboBox<>();
-            Button btnRemovePair = new Button(VaadinIcon.CLOSE_SMALL.create());
+            Button btnRemovePair = new com.vaadinerp.components.SafeButton(VaadinIcon.CLOSE_SMALL.create());
 
             JoinOnPair(List<String> srcCols, List<String> tgtCols) {
                 sourceColSelect.setPlaceholder("Source Column (ON)...");
@@ -177,7 +177,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
         TextField valueField = new TextField();
         ComboBox<String> columnRefSelect = new ComboBox<>();
         Checkbox useColumnRef = new Checkbox("vs Kolom");
-        Button btnRemove = new Button(VaadinIcon.TRASH.create());
+        Button btnRemove = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create());
 
         boolean isColumnMode = false;
 
@@ -227,7 +227,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
     private class AggregateRow extends HorizontalLayout {
         ComboBox<String> funcSelect = new ComboBox<>();
         ComboBox<String> colSelect = new ComboBox<>();
-        Button btnRemove = new Button(VaadinIcon.TRASH.create());
+        Button btnRemove = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create());
 
         AggregateRow(List<String> availableColumns) {
             funcSelect.setItems("COUNT", "SUM", "AVG", "MIN", "MAX");

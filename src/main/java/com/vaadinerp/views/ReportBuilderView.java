@@ -100,7 +100,7 @@ public class ReportBuilderView extends VerticalLayout {
         loadReportCombo.setItems(reportMetaRepository.findAll());
         loadReportCombo.setItemLabelGenerator(r -> r.getReportTitle() + " (" + r.getReportCode() + ")");
 
-        Button btnClear = new Button("Create New (Reset)", VaadinIcon.REFRESH.create());
+        Button btnClear = new com.vaadinerp.components.SafeButton("Create New (Reset)", VaadinIcon.REFRESH.create());
         btnClear.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnClear.addClickListener(e -> {
             loadReportCombo.clear();
@@ -241,7 +241,7 @@ public class ReportBuilderView extends VerticalLayout {
         workspace.setFlexGrow(1, canvasPanel);
 
         // Save Button
-        Button btnSaveReport = new Button("Save Report & Generate Printable Template", VaadinIcon.DATABASE.create());
+        Button btnSaveReport = new com.vaadinerp.components.SafeButton("Save Report & Generate Printable Template", VaadinIcon.DATABASE.create());
         btnSaveReport.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnSaveReport.setWidthFull();
         btnSaveReport.addClickListener(e -> saveReportDefinition());
@@ -399,7 +399,7 @@ public class ReportBuilderView extends VerticalLayout {
                 .set("color", "#475569")
                 .set("flex-grow", "1");
 
-        Button btnAdd = new Button(VaadinIcon.PLUS.create());
+        Button btnAdd = new com.vaadinerp.components.SafeButton(VaadinIcon.PLUS.create());
         btnAdd.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
         btnAdd.addClickListener(e -> openAddElementDialog(bandType));
         
@@ -497,7 +497,7 @@ public class ReportBuilderView extends VerticalLayout {
 
         tools.add(badge, typeBadge);
 
-        Button btnEdit = new Button(VaadinIcon.COG.create());
+        Button btnEdit = new com.vaadinerp.components.SafeButton(VaadinIcon.COG.create());
         btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         btnEdit.getStyle()
                 .set("cursor", "pointer")
@@ -507,7 +507,7 @@ public class ReportBuilderView extends VerticalLayout {
                 .set("height", "26px");
         btnEdit.addClickListener(e -> selectElement(temp));
 
-        Button btnDel = new Button(VaadinIcon.TRASH.create());
+        Button btnDel = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create());
         btnDel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
         btnDel.getStyle()
                 .set("cursor", "pointer")
@@ -699,7 +699,7 @@ public class ReportBuilderView extends VerticalLayout {
         layout.add(typeSelect, valText, fieldCombo, sysSelect, aggFieldCombo);
         dialog.add(layout);
 
-        Button btnAdd = new Button("Add Element", e -> {
+        Button btnAdd = new com.vaadinerp.components.SafeButton("Add Element", e -> {
             String selectedType = typeSelect.getValue();
             String elemType = "LABEL";
             String elemValue = "";
@@ -752,7 +752,7 @@ public class ReportBuilderView extends VerticalLayout {
         });
         btnAdd.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnCancel = new Button("Cancel", e -> dialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
 
         dialog.getFooter().add(btnCancel, btnAdd);
         dialog.open();

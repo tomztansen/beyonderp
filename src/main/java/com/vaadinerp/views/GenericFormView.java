@@ -247,10 +247,11 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         historisLayout.expand(grid);
 
         transaksiLayout = new VerticalLayout();
-        transaksiLayout.setWidthFull();
+        transaksiLayout.setSizeFull();
         transaksiLayout.setPadding(false);
         transaksiLayout.setSpacing(false);
         transaksiLayout.getStyle().set("gap", "6px");
+        transaksiLayout.getStyle().set("overflow-y", "auto");
         transaksiLayout.add(formLayout);
 
         tabSheet = new TabSheet();
@@ -313,7 +314,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 .set("gap", "15px");
 
         // 1. TAMBAH BUTTON
-        btnNew = new Button("Add");
+        btnNew = new com.vaadinerp.components.SafeButton("Add");
         Icon iconNew = VaadinIcon.PLUS_CIRCLE.create();
         iconNew.getStyle().set("color", "#22c55e").set("font-size", "1.2rem");
         btnNew.setIcon(iconNew);
@@ -334,7 +335,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         // 1.5. EDIT BUTTON
-        btnEdit = new Button("Edit");
+        btnEdit = new com.vaadinerp.components.SafeButton("Edit");
         Icon iconEdit = VaadinIcon.EDIT.create();
         iconEdit.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnEdit.setIcon(iconEdit);
@@ -357,7 +358,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         // 1.6. VIEW BUTTON
-        btnView = new Button("View");
+        btnView = new com.vaadinerp.components.SafeButton("View");
         Icon iconView = VaadinIcon.SEARCH.create();
         iconView.getStyle().set("color", "#10b981").set("font-size", "1.2rem");
         btnView.setIcon(iconView);
@@ -380,7 +381,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         // 2. HAPUS BUTTON
-        btnDelete = new Button("Delete");
+        btnDelete = new com.vaadinerp.components.SafeButton("Delete");
         Icon iconDelete = VaadinIcon.CLOSE_CIRCLE.create();
         iconDelete.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnDelete.setIcon(iconDelete);
@@ -444,7 +445,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         // 3. SIMPAN BUTTON
-        btnSave = new Button("Save");
+        btnSave = new com.vaadinerp.components.SafeButton("Save");
         Icon iconSave = VaadinIcon.DOWNLOAD.create(); // matches floppy disk design
         iconSave.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnSave.setIcon(iconSave);
@@ -592,7 +593,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         // 4. BATAL BUTTON
-        btnCancel = new Button("Cancel");
+        btnCancel = new com.vaadinerp.components.SafeButton("Cancel");
         Icon iconCancel = VaadinIcon.BAN.create();
         iconCancel.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnCancel.setIcon(iconCancel);
@@ -605,7 +606,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         // 5. CETAK BUTTON
-        btnPrint = new Button("Cetak");
+        btnPrint = new com.vaadinerp.components.SafeButton("Cetak");
         Icon iconPrint = VaadinIcon.PRINT.create();
         iconPrint.getStyle().set("color", "#6b7280").set("font-size", "1.2rem");
         btnPrint.setIcon(iconPrint);
@@ -617,7 +618,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         });
 
         // 6. REFRESH BUTTON
-        btnRefresh = new Button("Refresh");
+        btnRefresh = new com.vaadinerp.components.SafeButton("Refresh");
         Icon iconRefresh = VaadinIcon.REFRESH.create();
         iconRefresh.getStyle().set("color", "#6b7280").set("font-size", "1.2rem");
         btnRefresh.setIcon(iconRefresh);
@@ -709,7 +710,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         }
 
         // 8. DEBUG CONTEXT BUTTON
-        btnDebug = new Button("Debug Context");
+        btnDebug = new com.vaadinerp.components.SafeButton("Debug Context");
         Icon iconDebug = VaadinIcon.BUG.create();
         iconDebug.getStyle().set("color", "#8b5cf6").set("font-size", "1.2rem");
         btnDebug.setIcon(iconDebug);
@@ -844,7 +845,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             if (icon != null) {
                 icon.getStyle().set("color", "#2563eb").set("font-size", "1.2rem");
             }
-            Button actBtn = icon != null ? new Button(act.getActionLabel(), icon) : new Button(act.getActionLabel());
+            Button actBtn = icon != null ? new com.vaadinerp.components.SafeButton(act.getActionLabel(), icon) : new com.vaadinerp.components.SafeButton(act.getActionLabel());
             actBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
             actBtn.getStyle().set("font-weight", "500").set("color", "#374151");
             actBtn.addClickListener(e -> executeToolbarAction(act));
@@ -1537,7 +1538,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         sectionTitle.getStyle().set("margin", "0");
         sectionTitle.getStyle().set("flex-grow", "1");
 
-        Button btnResetGridToolbar = new Button("Reset Layout Grid", VaadinIcon.ROTATE_LEFT.create());
+        Button btnResetGridToolbar = new com.vaadinerp.components.SafeButton("Reset Layout Grid", VaadinIcon.ROTATE_LEFT.create());
         btnResetGridToolbar.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY,
                 com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
         btnResetGridToolbar.addClickListener(e -> {
@@ -1839,7 +1840,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             filterField.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
 
             // Buat icon filter sebagai prefix di TextField
-            Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
+            Button filterButton = new com.vaadinerp.components.SafeButton(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
             filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
             filterButton.getStyle().set("cursor", "pointer");
             filterButton.getElement().setProperty("title", "Contains"); // tooltip default
@@ -2537,14 +2538,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         dialog.setHeaderTitle(titleText);
         dialog.add(new com.vaadin.flow.component.html.Paragraph(message));
 
-        Button btnConfirm = new Button("Ya, Hapus", event -> {
+        Button btnConfirm = new com.vaadinerp.components.SafeButton("Ya, Hapus", event -> {
             confirmAction.run();
             dialog.close();
         });
         btnConfirm.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY,
                 com.vaadin.flow.component.button.ButtonVariant.LUMO_ERROR);
 
-        Button btnCancel = new Button("Cancel", event -> dialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", event -> dialog.close());
         btnCancel.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
 
         dialog.getFooter().add(btnCancel, btnConfirm);

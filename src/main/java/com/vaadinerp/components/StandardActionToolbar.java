@@ -43,13 +43,13 @@ public class StandardActionToolbar extends HorizontalLayout {
         }
     }
 
-    private final Button btnNew = new Button("Tambah");
-    private final Button btnDelete = new Button("Hapus");
-    private final Button btnSave = new Button("Simpan");
-    private final Button btnCancel = new Button("Batal");
-    private final Button btnRefresh = new Button("Refresh");
+    private final Button btnNew = new com.vaadinerp.components.SafeButton("Tambah");
+    private final Button btnDelete = new com.vaadinerp.components.SafeButton("Hapus");
+    private final Button btnSave = new com.vaadinerp.components.SafeButton("Simpan");
+    private final Button btnCancel = new com.vaadinerp.components.SafeButton("Batal");
+    private final Button btnRefresh = new com.vaadinerp.components.SafeButton("Refresh");
 
-    private final Button btnPrint = new Button("Cetak");
+    private final Button btnPrint = new com.vaadinerp.components.SafeButton("Cetak");
 
     public StandardActionToolbar() {
         setWidthFull();

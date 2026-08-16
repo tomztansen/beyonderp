@@ -75,18 +75,18 @@ public class LovBuilderView extends VerticalLayout {
                 .set("z-index", "100")
                 .set("box-shadow", "0 4px 10px rgba(0,0,0,0.08)");
 
-        Button btnNew = new Button("New", VaadinIcon.PLUS_CIRCLE.create(), e -> clearForm());
+        Button btnNew = new com.vaadinerp.components.SafeButton("New", VaadinIcon.PLUS_CIRCLE.create(), e -> clearForm());
         btnNew.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnNew.getStyle().set("color", "#22c55e");
 
-        Button btnSave = new Button("Save", VaadinIcon.DOWNLOAD.create(), e -> saveLovMeta());
+        Button btnSave = new com.vaadinerp.components.SafeButton("Save", VaadinIcon.DOWNLOAD.create(), e -> saveLovMeta());
         btnSave.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnSave.getStyle().set("color", "#3b82f6");
 
-        Button btnDelete = new Button("Delete", VaadinIcon.CLOSE_CIRCLE.create(), e -> deleteLovMeta());
+        Button btnDelete = new com.vaadinerp.components.SafeButton("Delete", VaadinIcon.CLOSE_CIRCLE.create(), e -> deleteLovMeta());
         btnDelete.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
 
-        Button btnCopy = new Button("Copy", VaadinIcon.COPY.create(), e -> copyLovMeta());
+        Button btnCopy = new com.vaadinerp.components.SafeButton("Copy", VaadinIcon.COPY.create(), e -> copyLovMeta());
         btnCopy.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnCopy.getStyle().set("color", "#f59e0b");
 
