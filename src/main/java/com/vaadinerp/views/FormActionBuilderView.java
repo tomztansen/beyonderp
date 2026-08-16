@@ -111,18 +111,18 @@ public class FormActionBuilderView extends VerticalLayout {
                 .set("z-index", "100")
                 .set("box-shadow", "0 4px 10px rgba(0,0,0,0.08)");
 
-        Button btnNew = new Button("New", VaadinIcon.PLUS_CIRCLE.create(), e -> clearForm());
+        Button btnNew = new com.vaadinerp.components.SafeButton("New", VaadinIcon.PLUS_CIRCLE.create(), e -> clearForm());
         btnNew.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnNew.getStyle().set("color", "#22c55e");
 
-        Button btnSave = new Button("Save", VaadinIcon.DOWNLOAD.create(), e -> saveAction());
+        Button btnSave = new com.vaadinerp.components.SafeButton("Save", VaadinIcon.DOWNLOAD.create(), e -> saveAction());
         btnSave.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnSave.getStyle().set("color", "#3b82f6");
 
-        Button btnDelete = new Button("Delete", VaadinIcon.CLOSE_CIRCLE.create(), e -> deleteAction());
+        Button btnDelete = new com.vaadinerp.components.SafeButton("Delete", VaadinIcon.CLOSE_CIRCLE.create(), e -> deleteAction());
         btnDelete.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
 
-        Button btnRefresh = new Button("Refresh", VaadinIcon.REFRESH.create(), e -> refreshGrid());
+        Button btnRefresh = new com.vaadinerp.components.SafeButton("Refresh", VaadinIcon.REFRESH.create(), e -> refreshGrid());
         btnRefresh.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnRefresh.getStyle().set("color", "#6b7280");
 
@@ -198,17 +198,17 @@ public class FormActionBuilderView extends VerticalLayout {
         groovyHelperBar.getStyle().set("margin-top", "8px").set("background-color", "#f8fafc")
                 .set("padding", "8px 12px").set("border-radius", "6px").set("border", "1px dashed #cbd5e1");
 
-        Button openFullEditorBtn = new Button("🖥️ Buka Editor Fullscreen & Cek Sintaks",
+        Button openFullEditorBtn = new com.vaadinerp.components.SafeButton("🖥️ Buka Editor Fullscreen & Cek Sintaks",
                 VaadinIcon.EXPAND_FULL.create(), e -> showGroovyEditorModal());
         openFullEditorBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL,
                 com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY,
                 com.vaadin.flow.component.button.ButtonVariant.LUMO_SUCCESS);
 
-        Button checkSyntaxBtn = new Button("🔍 Cek Sintaks", VaadinIcon.CHECK_CIRCLE.create(),
+        Button checkSyntaxBtn = new com.vaadinerp.components.SafeButton("🔍 Cek Sintaks", VaadinIcon.CHECK_CIRCLE.create(),
                 e -> checkAndNotifyGroovySyntax(scriptContentField.getValue()));
         checkSyntaxBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
 
-        Button cheatSheetBtn = new Button("📖 Cheat Sheet", VaadinIcon.BOOK.create(),
+        Button cheatSheetBtn = new com.vaadinerp.components.SafeButton("📖 Cheat Sheet", VaadinIcon.BOOK.create(),
                 e -> showGroovyCheatSheetDialog());
         cheatSheetBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL,
                 com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
@@ -325,7 +325,7 @@ public class FormActionBuilderView extends VerticalLayout {
         content.add(new com.vaadin.flow.component.Html("<div>" + html + "</div>"));
         dlg.add(content);
 
-        Button closeBtn = new Button("Close", e -> dlg.close());
+        Button closeBtn = new com.vaadinerp.components.SafeButton("Close", e -> dlg.close());
         closeBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
         dlg.getFooter().add(closeBtn);
         dlg.open();
@@ -437,14 +437,14 @@ public class FormActionBuilderView extends VerticalLayout {
         toolbar.getStyle().set("background-color", "#f1f5f9").set("padding", "8px 16px").set("border-radius", "6px")
                 .set("border-bottom", "1px solid #cbd5e1");
 
-        Button checkBtn = new Button("🔍 Cek & Validasi Sintaks", VaadinIcon.CHECK_CIRCLE.create());
+        Button checkBtn = new com.vaadinerp.components.SafeButton("🔍 Cek & Validasi Sintaks", VaadinIcon.CHECK_CIRCLE.create());
         checkBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL,
                 com.vaadin.flow.component.button.ButtonVariant.LUMO_SUCCESS);
 
-        Button formatBtn = new Button("🧹 Format Indentasi", VaadinIcon.ALIGN_LEFT.create());
+        Button formatBtn = new com.vaadinerp.components.SafeButton("🧹 Format Indentasi", VaadinIcon.ALIGN_LEFT.create());
         formatBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
 
-        Button cheatBtn = new Button("📖 Cheat Sheet DSL", VaadinIcon.BOOK.create(), e -> showGroovyCheatSheetDialog());
+        Button cheatBtn = new com.vaadinerp.components.SafeButton("📖 Cheat Sheet DSL", VaadinIcon.BOOK.create(), e -> showGroovyCheatSheetDialog());
         cheatBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
 
         ComboBox<String> snippetComboModal = new ComboBox<>("⚡ Sisipkan Snippet");
@@ -494,7 +494,7 @@ public class FormActionBuilderView extends VerticalLayout {
 
         dlg.add(layout);
 
-        Button saveBtn = new Button("💾 Terapkan ke Form", VaadinIcon.CHECK.create(), e -> {
+        Button saveBtn = new com.vaadinerp.components.SafeButton("💾 Terapkan ke Form", VaadinIcon.CHECK.create(), e -> {
             scriptContentField.setValue(modalEditor.getValue());
             dlg.close();
             com.vaadin.flow.component.notification.Notification
@@ -504,7 +504,7 @@ public class FormActionBuilderView extends VerticalLayout {
         });
         saveBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
 
-        Button cancelBtn = new Button("Cancel", e -> dlg.close());
+        Button cancelBtn = new com.vaadinerp.components.SafeButton("Cancel", e -> dlg.close());
 
         dlg.getFooter().add(cancelBtn, saveBtn);
         dlg.open();
@@ -838,7 +838,7 @@ public class FormActionBuilderView extends VerticalLayout {
     }
 
     private Button createBuilderButton(TextArea targetField, boolean isTargetMapping) {
-        Button btn = new Button(VaadinIcon.MAGIC.create());
+        Button btn = new com.vaadinerp.components.SafeButton(VaadinIcon.MAGIC.create());
         btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btn.getElement().setProperty("title", "Mapping Builder");
         btn.addClickListener(e -> openMappingBuilderDialog(targetField, isTargetMapping));
@@ -853,16 +853,16 @@ public class FormActionBuilderView extends VerticalLayout {
         VerticalLayout rowsLayout = new VerticalLayout();
         rowsLayout.setPadding(false);
 
-        Button btnAddRow = new Button("Add Row", VaadinIcon.PLUS.create());
+        Button btnAddRow = new com.vaadinerp.components.SafeButton("Add Row", VaadinIcon.PLUS.create());
         btnAddRow.addClickListener(e -> addMappingRow(rowsLayout, isTargetMapping));
 
-        Button btnSave = new Button("Save", e -> {
+        Button btnSave = new com.vaadinerp.components.SafeButton("Save", e -> {
             String generated = generateMappingString(rowsLayout, isTargetMapping);
             targetField.setValue(generated);
             dialog.close();
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        Button btnCancel = new Button("Cancel", e -> dialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
 
         String existing = targetField.getValue();
         if (existing != null && !existing.isBlank()) {
@@ -881,7 +881,7 @@ public class FormActionBuilderView extends VerticalLayout {
         row.setWidthFull();
         row.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.BASELINE);
 
-        Button btnRemove = new Button(VaadinIcon.TRASH.create(), e -> layout.remove(row));
+        Button btnRemove = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create(), e -> layout.remove(row));
         btnRemove.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY);
 
         if (isTargetMapping) {

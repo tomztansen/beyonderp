@@ -153,10 +153,10 @@ public class UserAuthorityAdminView extends VerticalLayout {
         userGrid.addComponentColumn(u -> {
             HorizontalLayout actions = new HorizontalLayout();
             actions.setSpacing(true);
-            Button editBtn = new Button(VaadinIcon.EDIT.create(), e -> openUserDialog(u));
+            Button editBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.EDIT.create(), e -> openUserDialog(u));
             editBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
             editBtn.getElement().setAttribute("title", "Edit User");
-            Button deleteBtn = new Button(VaadinIcon.TRASH.create(), e -> {
+            Button deleteBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create(), e -> {
                 userRepository.delete(u);
                 Notification.show("User '" + u.getUsername() + "' deleted!", 2000, Notification.Position.BOTTOM_END);
                 refreshUserGrid();
@@ -221,7 +221,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         form.add(usernameField, fullNameField, passwordField, roleSelect, activeCheckbox);
 
-        Button saveBtn = new Button("Save", VaadinIcon.CHECK.create(), e -> {
+        Button saveBtn = new com.vaadinerp.components.SafeButton("Save", VaadinIcon.CHECK.create(), e -> {
             String username = usernameField.getValue();
             String role = roleSelect.getValue();
             if (username == null || username.isBlank()) {
@@ -268,7 +268,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        Button cancelBtn = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
 
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.add(form);
@@ -297,9 +297,9 @@ public class UserAuthorityAdminView extends VerticalLayout {
         roleGrid.addComponentColumn(r -> {
             HorizontalLayout actions = new HorizontalLayout();
             actions.setSpacing(true);
-            Button editBtn = new Button(VaadinIcon.EDIT.create(), e -> openRoleDialog(r));
+            Button editBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.EDIT.create(), e -> openRoleDialog(r));
             editBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
-            Button deleteBtn = new Button(VaadinIcon.TRASH.create(), e -> {
+            Button deleteBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create(), e -> {
                 roleRepository.delete(r);
                 refreshRoleGrid();
                 Notification.show("Role '" + r.getRoleCode() + "' deleted!", 2000, Notification.Position.BOTTOM_END);
@@ -351,7 +351,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         form.add(codeField, nameField, descField);
 
-        Button saveBtn = new Button("Save", e -> {
+        Button saveBtn = new com.vaadinerp.components.SafeButton("Save", e -> {
             if (codeField.getValue() == null || codeField.getValue().isBlank()) {
                 Notification.show("Kode Role is required!", 3000, Notification.Position.TOP_CENTER);
                 return;
@@ -369,7 +369,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        Button cancelBtn = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
 
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.add(form);
@@ -390,7 +390,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 .onRefresh(this::refreshMenuTreeGrid);
         toolbar.getBtnNew().setText("Add Menu Group");
 
-        Button addItemBtn = new Button("Add Menu Item (Root)", VaadinIcon.PLUS.create(),
+        Button addItemBtn = new com.vaadinerp.components.SafeButton("Add Menu Item (Root)", VaadinIcon.PLUS.create(),
                 e -> openMenuDialogItem(null, null));
         StandardActionToolbar.styleToolbarButton(addItemBtn, "#3b82f6");
         toolbar.add(addItemBtn);
@@ -424,7 +424,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
             actions.setSpacing(true);
 
             if ("GROUP".equalsIgnoreCase(m.getMenuType())) {
-                Button addChildBtn = new Button(VaadinIcon.PLUS_CIRCLE_O.create(),
+                Button addChildBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.PLUS_CIRCLE_O.create(),
                         e -> openMenuDialog(null, m.getMenuCode()));
                 addChildBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
                 addChildBtn.getElement().setAttribute("title", "Add Child Menu");
@@ -432,11 +432,11 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 actions.add(addChildBtn);
             }
 
-            Button editBtn = new Button(VaadinIcon.EDIT.create(), e -> openMenuDialog(m, m.getParentMenuCode()));
+            Button editBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.EDIT.create(), e -> openMenuDialog(m, m.getParentMenuCode()));
             editBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
             editBtn.getElement().setAttribute("title", "Edit Menu");
 
-            Button deleteBtn = new Button(VaadinIcon.TRASH.create(), e -> {
+            Button deleteBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create(), e -> {
                 deleteMenuAndDependencies(m);
                 refreshMenuTreeGrid();
                 Notification.show("Menu '" + m.getMenuCode() + "' deleted!", 2000, Notification.Position.BOTTOM_END);
@@ -634,7 +634,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         form.add(codeField, titleField, typeSelect, parentSelect, iconField, routeField, orderField);
 
-        Button saveBtn = new Button("Save", VaadinIcon.CHECK.create(), e -> {
+        Button saveBtn = new com.vaadinerp.components.SafeButton("Save", VaadinIcon.CHECK.create(), e -> {
             if (codeField.getValue() == null || codeField.getValue().isBlank() || titleField.getValue() == null
                     || titleField.getValue().isBlank()) {
                 Notification.show("Kode dan Judul Menu is required!", 3000, Notification.Position.TOP_CENTER);
@@ -695,7 +695,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        Button cancelBtn = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
 
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.add(form);
@@ -735,7 +735,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 .onNew(this::openPermissionDialog)
                 .onRefresh(this::refreshMatrixGrid);
 
-        Button btnCopy = new Button("Copy Akses", VaadinIcon.COPY.create(), e -> openCopyAccessDialog());
+        Button btnCopy = new com.vaadinerp.components.SafeButton("Copy Akses", VaadinIcon.COPY.create(), e -> openCopyAccessDialog());
         btnCopy.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         toolbar.add(btnCopy);
 
@@ -797,7 +797,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         }).setHeader("Can Print");
 
         matrixGrid.addComponentColumn(p -> {
-            Button deleteBtn = new Button(VaadinIcon.TRASH.create(), e -> {
+            Button deleteBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create(), e -> {
                 permissionRepository.delete(p);
                 refreshMatrixGrid();
                 Notification.show("Permission deleted!", 1500, Notification.Position.BOTTOM_END);
@@ -880,7 +880,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         form.setColspan(menuSelect, 2);
         form.setColspan(descField, 2);
 
-        Button saveBtn = new Button("Save", e -> {
+        Button saveBtn = new com.vaadinerp.components.SafeButton("Save", e -> {
             if (roleSelect.getValue() == null || menuSelect.getValue() == null) {
                 Notification.show("Role dan Menu must be selected!", 3000, Notification.Position.TOP_CENTER);
                 return;
@@ -909,7 +909,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        Button cancelBtn = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
 
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.add(form, cbLayout);
@@ -937,7 +937,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         form.add(sourceRoleSelect, targetRoleSelect);
 
-        Button saveBtn = new Button("Copy Akses", VaadinIcon.COPY.create(), e -> {
+        Button saveBtn = new com.vaadinerp.components.SafeButton("Copy Akses", VaadinIcon.COPY.create(), e -> {
             String source = sourceRoleSelect.getValue();
             String target = targetRoleSelect.getValue();
 
@@ -978,7 +978,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        Button cancelBtn = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.add(form);
 
@@ -1170,7 +1170,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
             filterField.setWidthFull();
             filterField.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
 
-            Button filterButton = new Button(VaadinIcon.FILTER.create());
+            Button filterButton = new com.vaadinerp.components.SafeButton(VaadinIcon.FILTER.create());
             filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
             filterButton.getStyle().set("cursor", "pointer");
             filterButton.getElement().setProperty("title", "Contains");

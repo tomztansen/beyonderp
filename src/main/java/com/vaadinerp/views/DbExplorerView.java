@@ -51,10 +51,10 @@ public class DbExplorerView extends VerticalLayout {
     private final Span schemaInfo = new Span("Select a table to view the column structure.");
     private final Span triggerInfo = new Span("No triggers registered yet.");
     private final Span constraintInfo = new Span("No constraints registered yet.");
-    private final Button btnAddConstraint = new Button("Add Constraint", VaadinIcon.PLUS.create());
-    private final Button btnAddTrigger = new Button("Add Trigger", VaadinIcon.PLUS.create());
-    private final Button btnAddColumn = new Button("Add Column", VaadinIcon.PLUS.create());
-    private final Button btnAddAuditCols = new Button("⚡ Add Default Audit Columns", VaadinIcon.TIME_FORWARD.create());
+    private final Button btnAddConstraint = new com.vaadinerp.components.SafeButton("Add Constraint", VaadinIcon.PLUS.create());
+    private final Button btnAddTrigger = new com.vaadinerp.components.SafeButton("Add Trigger", VaadinIcon.PLUS.create());
+    private final Button btnAddColumn = new com.vaadinerp.components.SafeButton("Add Column", VaadinIcon.PLUS.create());
+    private final Button btnAddAuditCols = new com.vaadinerp.components.SafeButton("⚡ Add Default Audit Columns", VaadinIcon.TIME_FORWARD.create());
 
     private List<Map<String, Object>> currentDataList = new ArrayList<>();
     private List<Map<String, Object>> currentSchemaList = new ArrayList<>();
@@ -106,8 +106,8 @@ public class DbExplorerView extends VerticalLayout {
     }
 
     private final List<PendingSchemaAction> pendingChanges = new ArrayList<>();
-    private final Button btnCommitChanges = new Button("Commit to DB", VaadinIcon.DATABASE.create());
-    private final Button btnDiscardChanges = new Button("Discard Draft", VaadinIcon.CLOSE_CIRCLE.create());
+    private final Button btnCommitChanges = new com.vaadinerp.components.SafeButton("Commit to DB", VaadinIcon.DATABASE.create());
+    private final Button btnDiscardChanges = new com.vaadinerp.components.SafeButton("Discard Draft", VaadinIcon.CLOSE_CIRCLE.create());
     private final Span pendingStatusInfo = new Span("");
 
     public DbExplorerView(DynamicDataService dynamicDataService, SessionSecurityService securityService) {
@@ -149,7 +149,7 @@ public class DbExplorerView extends VerticalLayout {
         explorerTabs.setSizeFull();
 
         // 1. Data Tab
-        Button btnResetDataGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        Button btnResetDataGrid = new com.vaadinerp.components.SafeButton("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
         btnResetDataGrid.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         btnResetDataGrid.addClickListener(e -> {
             if (currentTable != null) {
@@ -210,7 +210,7 @@ public class DbExplorerView extends VerticalLayout {
             }
         });
 
-        Button btnResetSchemaGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        Button btnResetSchemaGrid = new com.vaadinerp.components.SafeButton("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
         btnResetSchemaGrid.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         btnResetSchemaGrid.addClickListener(e -> {
             dynamicDataService.resetUserGridOrder("DB_EXPLORER", "schemaGrid");
@@ -228,7 +228,7 @@ public class DbExplorerView extends VerticalLayout {
         btnAddConstraint.setEnabled(false);
         btnAddConstraint.addClickListener(e -> openConstraintDialog(null));
 
-        Button btnResetConstraintGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        Button btnResetConstraintGrid = new com.vaadinerp.components.SafeButton("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
         btnResetConstraintGrid.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         btnResetConstraintGrid.addClickListener(e -> {
             dynamicDataService.resetUserGridOrder("DB_EXPLORER", "constraintsGrid");
@@ -247,7 +247,7 @@ public class DbExplorerView extends VerticalLayout {
         btnAddTrigger.setEnabled(false);
         btnAddTrigger.addClickListener(e -> openTriggerDialog(null));
 
-        Button btnResetTriggerGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        Button btnResetTriggerGrid = new com.vaadinerp.components.SafeButton("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
         btnResetTriggerGrid.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         btnResetTriggerGrid.addClickListener(e -> {
             dynamicDataService.resetUserGridOrder("DB_EXPLORER", "triggersGrid");
@@ -422,7 +422,7 @@ public class DbExplorerView extends VerticalLayout {
             filterField.setWidthFull();
             filterField.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
 
-            Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
+            Button filterButton = new com.vaadinerp.components.SafeButton(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
             filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
             filterButton.getStyle().set("cursor", "pointer");
             filterButton.getElement().setProperty("title", "Contains");
@@ -666,7 +666,7 @@ public class DbExplorerView extends VerticalLayout {
             }
         }
 
-        Button btnApply = new Button("Apply Constraint", VaadinIcon.CHECK.create());
+        Button btnApply = new com.vaadinerp.components.SafeButton("Apply Constraint", VaadinIcon.CHECK.create());
         btnApply.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnApply.addClickListener(e -> {
             String name = nameField.getValue().trim();
@@ -711,7 +711,7 @@ public class DbExplorerView extends VerticalLayout {
             }
         });
 
-        Button btnCancel = new Button("Cancel", e -> dialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
 
         layout.add(form);
         dialog.add(layout);
@@ -797,7 +797,7 @@ public class DbExplorerView extends VerticalLayout {
 
         layout.add(form, bodyField);
 
-        Button btnApply = new Button("Simpan Trigger", VaadinIcon.CHECK.create());
+        Button btnApply = new com.vaadinerp.components.SafeButton("Simpan Trigger", VaadinIcon.CHECK.create());
         btnApply.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnApply.addClickListener(e -> {
             String name = nameField.getValue().trim();
@@ -842,7 +842,7 @@ public class DbExplorerView extends VerticalLayout {
             }
         });
 
-        Button btnCancel = new Button("Cancel", e -> dialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
 
         dialog.add(layout);
         dialog.getFooter().add(btnCancel, btnApply);
@@ -932,7 +932,7 @@ public class DbExplorerView extends VerticalLayout {
         layout.add(form, nullableField);
 
         if (!isEdit) {
-            Button btnQuickAudit = new Button(
+            Button btnQuickAudit = new com.vaadinerp.components.SafeButton(
                     "⚡ Langsung Tambah Semua Kolom Audit Default (inputby, inputdt, updateby, updatedt)",
                     VaadinIcon.TIME_FORWARD.create());
             btnQuickAudit.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
@@ -951,7 +951,7 @@ public class DbExplorerView extends VerticalLayout {
             layout.add(new Hr(), btnQuickAudit);
         }
 
-        Button btnApply = new Button("Simpan Kolom", VaadinIcon.CHECK.create());
+        Button btnApply = new com.vaadinerp.components.SafeButton("Simpan Kolom", VaadinIcon.CHECK.create());
         btnApply.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnApply.addClickListener(e -> {
             String name = nameField.getValue().trim();
@@ -1007,7 +1007,7 @@ public class DbExplorerView extends VerticalLayout {
             }
         });
 
-        Button btnCancel = new Button("Cancel", e -> dialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
 
         dialog.add(layout);
         dialog.getFooter().add(btnCancel, btnApply);
@@ -1105,12 +1105,12 @@ public class DbExplorerView extends VerticalLayout {
 
             schemaGrid.addComponentColumn(row -> {
                 String colName = row.get("column_name") != null ? row.get("column_name").toString() : "";
-                Button btnEdit = new Button(VaadinIcon.EDIT.create());
+                Button btnEdit = new com.vaadinerp.components.SafeButton(VaadinIcon.EDIT.create());
                 btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
                 btnEdit.setTooltipText("Edit Kolom & Panjang Karakter");
                 btnEdit.addClickListener(e -> openColumnDialog(row));
 
-                Button btnDel = new Button(VaadinIcon.TRASH.create());
+                Button btnDel = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create());
                 btnDel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
                 btnDel.setTooltipText("Delete Column");
                 btnDel.addClickListener(e -> dropColumn(colName));
@@ -1184,12 +1184,12 @@ public class DbExplorerView extends VerticalLayout {
 
             triggersGrid.addComponentColumn(row -> {
                 String name = row.get("trigger_name") != null ? row.get("trigger_name").toString() : "";
-                Button btnEdit = new Button(VaadinIcon.EDIT.create());
+                Button btnEdit = new com.vaadinerp.components.SafeButton(VaadinIcon.EDIT.create());
                 btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
                 btnEdit.setTooltipText("Edit Trigger");
                 btnEdit.addClickListener(e -> openTriggerDialog(row));
 
-                Button btnDel = new Button(VaadinIcon.TRASH.create());
+                Button btnDel = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create());
                 btnDel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
                 btnDel.setTooltipText("Hapus Trigger");
                 btnDel.addClickListener(e -> dropTrigger(name));
@@ -1273,13 +1273,13 @@ public class DbExplorerView extends VerticalLayout {
                 boolean isPk = "PRIMARY KEY".equalsIgnoreCase(
                         row.get("constraint_type") != null ? row.get("constraint_type").toString() : "");
 
-                Button btnEdit = new Button(VaadinIcon.EDIT.create());
+                Button btnEdit = new com.vaadinerp.components.SafeButton(VaadinIcon.EDIT.create());
                 btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
                 btnEdit.setTooltipText("Edit Constraint");
                 btnEdit.setEnabled(!isPk);
                 btnEdit.addClickListener(e -> openConstraintDialog(row));
 
-                Button btnDel = new Button(VaadinIcon.TRASH.create());
+                Button btnDel = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create());
                 btnDel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
                 btnDel.setTooltipText("Hapus Constraint");
                 btnDel.setEnabled(!isPk);

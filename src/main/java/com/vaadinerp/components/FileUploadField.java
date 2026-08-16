@@ -72,7 +72,7 @@ public class FileUploadField extends CustomField<String> {
             this.upload.setMaxFiles(1); // Untuk kotak foto profil/barang, 1 foto utama
             this.upload.setAcceptedFileTypes("image/jpeg", "image/png", "image/webp", "image/gif", ".jpg", ".jpeg", ".png", ".webp", ".gif");
 
-            Button setFotoBtn = new Button("Set Foto");
+            Button setFotoBtn = new com.vaadinerp.components.SafeButton("Set Foto");
             setFotoBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
             setFotoBtn.setWidthFull();
             setFotoBtn.getStyle().set("cursor", "pointer");
@@ -102,7 +102,7 @@ public class FileUploadField extends CustomField<String> {
         this.fileListLayout.setWidthFull();
 
         if (isImageOnly) {
-            this.hapusBtn = new Button("Hapus", e -> {
+            this.hapusBtn = new com.vaadinerp.components.SafeButton("Hapus", e -> {
                 for (String stored : new ArrayList<>(currentFiles)) {
                     fileStorageService.deleteFile(stored);
                 }
@@ -272,7 +272,7 @@ public class FileUploadField extends CustomField<String> {
         infoLayout.getStyle().set("flex-grow", "1").set("overflow", "hidden");
 
         // 3. Tombol Download / Lihat
-        Button downloadBtn = new Button("Unduh", VaadinIcon.DOWNLOAD.create());
+        Button downloadBtn = new com.vaadinerp.components.SafeButton("Unduh", VaadinIcon.DOWNLOAD.create());
         downloadBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         downloadBtn.getStyle().set("cursor", "pointer");
 
@@ -289,7 +289,7 @@ public class FileUploadField extends CustomField<String> {
         downloadAnchor.add(downloadBtn);
 
         // 4. Tombol Hapus
-        Button deleteBtn = new Button(VaadinIcon.TRASH.create(), e -> {
+        Button deleteBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create(), e -> {
             currentFiles.remove(storedFilename);
             fileStorageService.deleteFile(storedFilename);
             updateValueAndUI();
@@ -328,7 +328,7 @@ public class FileUploadField extends CustomField<String> {
         layout.setSizeFull();
         dialog.add(layout);
 
-        Button closeBtn = new Button("Close", VaadinIcon.CLOSE.create(), e -> dialog.close());
+        Button closeBtn = new com.vaadinerp.components.SafeButton("Close", VaadinIcon.CLOSE.create(), e -> dialog.close());
         closeBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         dialog.getFooter().add(closeBtn);
 

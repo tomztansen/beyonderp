@@ -32,8 +32,8 @@ public class PgCronDesignerView extends VerticalLayout {
     private final Span recordCountSpan = new Span();
     private List<Map<String, Object>> allJobsList = new ArrayList<>();
 
-    private final Button btnCommitChanges = new Button("Commit to DB", VaadinIcon.DATABASE.create());
-    private final Button btnDiscardChanges = new Button("Discard Draft", VaadinIcon.CLOSE_CIRCLE.create());
+    private final Button btnCommitChanges = new com.vaadinerp.components.SafeButton("Commit to DB", VaadinIcon.DATABASE.create());
+    private final Button btnDiscardChanges = new com.vaadinerp.components.SafeButton("Discard Draft", VaadinIcon.CLOSE_CIRCLE.create());
     private final Span pendingStatusInfo = new Span("");
 
     public enum CronActionType {
@@ -66,10 +66,10 @@ public class PgCronDesignerView extends VerticalLayout {
         setPadding(true);
         setSpacing(true);
 
-        Button btnRefresh = new Button("Refresh List", VaadinIcon.REFRESH.create());
+        Button btnRefresh = new com.vaadinerp.components.SafeButton("Refresh List", VaadinIcon.REFRESH.create());
         btnRefresh.addClickListener(e -> loadJobs());
 
-        Button btnCreateNew = new Button("⚡ Create New Job", VaadinIcon.PLUS.create());
+        Button btnCreateNew = new com.vaadinerp.components.SafeButton("⚡ Create New Job", VaadinIcon.PLUS.create());
         btnCreateNew.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnCreateNew.addClickListener(e -> openJobDialog(null));
 
@@ -108,22 +108,22 @@ public class PgCronDesignerView extends VerticalLayout {
         jobsGrid.addComponentColumn(row -> {
             boolean isPendingDel = "_pending_delete".equals(row.get("_pending_state"));
 
-            Button btnEdit = new Button("Edit", VaadinIcon.EDIT.create());
+            Button btnEdit = new com.vaadinerp.components.SafeButton("Edit", VaadinIcon.EDIT.create());
             btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
             btnEdit.addClickListener(e -> openJobDialog(row));
             btnEdit.setEnabled(!isPendingDel);
 
-            Button btnDrop = new Button("Delete", VaadinIcon.TRASH.create());
+            Button btnDrop = new com.vaadinerp.components.SafeButton("Delete", VaadinIcon.TRASH.create());
             btnDrop.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
             btnDrop.addClickListener(e -> markJobForDeletion(row));
             btnDrop.setEnabled(!isPendingDel);
 
-            Button btnSyncNow = new Button("Sync Now", VaadinIcon.PLAY.create());
+            Button btnSyncNow = new com.vaadinerp.components.SafeButton("Sync Now", VaadinIcon.PLAY.create());
             btnSyncNow.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_SUCCESS);
             btnSyncNow.addClickListener(e -> executeSyncNow(row));
             btnSyncNow.setEnabled(!isPendingDel);
 
-            Button btnLog = new Button("Logs", VaadinIcon.FILE_TEXT_O.create());
+            Button btnLog = new com.vaadinerp.components.SafeButton("Logs", VaadinIcon.FILE_TEXT_O.create());
             btnLog.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
             btnLog.addClickListener(e -> openLogDialog(row));
             btnLog.setEnabled(row.get("jobid") instanceof Number && ((Number) row.get("jobid")).longValue() > 0);
@@ -259,7 +259,7 @@ public class PgCronDesignerView extends VerticalLayout {
         layout.add(nameField, scheduleType, minuteField, hourField, timePicker, customCronField, commandArea);
         dialog.add(layout);
 
-        Button btnSave = new Button("Save as Draft", VaadinIcon.PENCIL.create(), e -> {
+        Button btnSave = new com.vaadinerp.components.SafeButton("Save as Draft", VaadinIcon.PENCIL.create(), e -> {
             String jName = nameField.getValue().trim();
             String cmd = commandArea.getValue().trim();
 
@@ -294,7 +294,7 @@ public class PgCronDesignerView extends VerticalLayout {
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnCancel = new Button("Cancel", e -> dialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
         dialog.getFooter().add(btnCancel, btnSave);
         dialog.open();
     }
@@ -322,7 +322,7 @@ public class PgCronDesignerView extends VerticalLayout {
         confirm.add(new Span("Anda akan mengeksekusi perintah berikut saat ini juga:"));
         confirm.add(new com.vaadin.flow.component.html.Pre(cmd));
 
-        Button btnYes = new Button("Jalankan Sekarang", VaadinIcon.PLAY.create(), e -> {
+        Button btnYes = new com.vaadinerp.components.SafeButton("Jalankan Sekarang", VaadinIcon.PLAY.create(), e -> {
             try {
                 dynamicDataService.executeProcedureScript(cmd);
                 Notification.show("✅ Command berhasil dieksekusi secara instan!", 3000,
@@ -335,7 +335,7 @@ public class PgCronDesignerView extends VerticalLayout {
         });
         btnYes.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
 
-        Button btnNo = new Button("Batal", e -> confirm.close());
+        Button btnNo = new com.vaadinerp.components.SafeButton("Batal", e -> confirm.close());
         confirm.getFooter().add(btnNo, btnYes);
         confirm.open();
     }
@@ -401,7 +401,7 @@ public class PgCronDesignerView extends VerticalLayout {
         List<Map<String, Object>> logs = dynamicDataService.fetchPgCronLogs(jId);
         logGrid.setItems(logs);
         
-        Button btnClose = new Button("Tutup", e -> dialog.close());
+        Button btnClose = new com.vaadinerp.components.SafeButton("Tutup", e -> dialog.close());
         
         VerticalLayout layout = new VerticalLayout(new Span("Menampilkan hingga 100 riwayat eksekusi terakhir:"), logGrid);
         layout.setSizeFull();

@@ -16,13 +16,13 @@ public class PaginationBar extends HorizontalLayout {
     private long totalRecords = 0;
 
     private final ComboBox<Integer> pageSizeCombo = new ComboBox<>("Baris / hal");
-    private final Button btnFirst = new Button("<< Pertama");
-    private final Button btnPrev = new Button("< Prev");
-    private final Button btnNext = new Button("Next >");
-    private final Button btnLast = new Button("Terakhir >>");
+    private final Button btnFirst = new com.vaadinerp.components.SafeButton("<< Pertama");
+    private final Button btnPrev = new com.vaadinerp.components.SafeButton("< Prev");
+    private final Button btnNext = new com.vaadinerp.components.SafeButton("Next >");
+    private final Button btnLast = new com.vaadinerp.components.SafeButton("Terakhir >>");
     private final Span pageInfo = new Span("Halaman 0 dari 0");
     private final IntegerField jumpField = new IntegerField("Ke Hal");
-    private final Button btnGo = new Button("Go");
+    private final Button btnGo = new com.vaadinerp.components.SafeButton("Go");
 
     private Consumer<Void> onPageChange;
 

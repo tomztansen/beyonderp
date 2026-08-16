@@ -35,7 +35,7 @@ public class ReportViewerView extends VerticalLayout {
     // Controls
     private final ComboBox<ReportMeta> selectReportCombo = new ComboBox<>("Select Report");
     private final TextField globalSearchField = new TextField("Search Data (Global)");
-    private final Button btnPrint = new Button("Cetak Laporan", VaadinIcon.PRINT.create());
+    private final Button btnPrint = new com.vaadinerp.components.SafeButton("Cetak Laporan", VaadinIcon.PRINT.create());
 
     // Printable Page Container
     private final Div printablePage = new Div();

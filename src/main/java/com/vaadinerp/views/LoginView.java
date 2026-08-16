@@ -139,7 +139,7 @@ public class LoginView extends Div {
                 card.add(passwordField);
 
                 // ── Log On button ──
-                Button loginBtn = new Button("Log On");
+                Button loginBtn = new com.vaadinerp.components.SafeButton("Log On");
                 loginBtn.setWidthFull();
                 loginBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
                 loginBtn.getStyle()

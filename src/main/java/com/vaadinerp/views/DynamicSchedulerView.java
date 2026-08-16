@@ -363,14 +363,14 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             }
         });
 
-        Button btnChartPrev1 = new Button(VaadinIcon.ANGLE_LEFT.create(), e -> {
+        Button btnChartPrev1 = new com.vaadinerp.components.SafeButton(VaadinIcon.ANGLE_LEFT.create(), e -> {
             chartViewStartDate = chartViewStartDate.minusDays(1);
             updateAllCharts();
         });
         btnChartPrev1.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
         btnChartPrev1.setTooltipText("◀ Mundur 1 Hari");
 
-        Button btnChartNext1 = new Button(VaadinIcon.ANGLE_RIGHT.create(), e -> {
+        Button btnChartNext1 = new com.vaadinerp.components.SafeButton(VaadinIcon.ANGLE_RIGHT.create(), e -> {
             chartViewStartDate = chartViewStartDate.plusDays(1);
             updateAllCharts();
         });
@@ -434,14 +434,14 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             }
         });
 
-        Button btnChartPrev2 = new Button(VaadinIcon.ANGLE_LEFT.create(), e -> {
+        Button btnChartPrev2 = new com.vaadinerp.components.SafeButton(VaadinIcon.ANGLE_LEFT.create(), e -> {
             chartViewStartDate = chartViewStartDate.minusDays(1);
             updateAllCharts();
         });
         btnChartPrev2.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
         btnChartPrev2.setTooltipText("◀ Mundur 1 Hari");
 
-        Button btnChartNext2 = new Button(VaadinIcon.ANGLE_RIGHT.create(), e -> {
+        Button btnChartNext2 = new com.vaadinerp.components.SafeButton(VaadinIcon.ANGLE_RIGHT.create(), e -> {
             chartViewStartDate = chartViewStartDate.plusDays(1);
             updateAllCharts();
         });
@@ -478,11 +478,11 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         Span gridTitle = new Span(formMeta != null ? formMeta.getFormTitle() : "Daftar Jadwal");
         gridTitle.getStyle().set("font-weight", "bold").set("flex-grow", "1");
 
-        btnSaveEdits = new Button("Save Edits", VaadinIcon.CHECK.create(), e -> saveInlineEdits());
+        btnSaveEdits = new com.vaadinerp.components.SafeButton("Save Edits", VaadinIcon.CHECK.create(), e -> saveInlineEdits());
         btnSaveEdits.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
         btnSaveEdits.setEnabled(false);
 
-        Button btnToggleGrid = new Button(VaadinIcon.CARET_LEFT.create());
+        Button btnToggleGrid = new com.vaadinerp.components.SafeButton(VaadinIcon.CARET_LEFT.create());
         btnToggleGrid.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
         btnToggleGrid.setTooltipText("Collapse/Expand Grid");
 
@@ -573,7 +573,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         endDateFilter.setValue(LocalDate.now().plusMonths(2));
         endDateFilter.setWidth("140px");
 
-        Button btnShiftLeft = new Button(VaadinIcon.ANGLE_LEFT.create(), e -> {
+        Button btnShiftLeft = new com.vaadinerp.components.SafeButton(VaadinIcon.ANGLE_LEFT.create(), e -> {
             if (startDateFilter.getValue() != null)
                 startDateFilter.setValue(startDateFilter.getValue().minusDays(1));
             if (endDateFilter.getValue() != null)
@@ -583,7 +583,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         btnShiftLeft.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON);
         btnShiftLeft.setTooltipText("Mundur 1 Hari");
 
-        Button btnShiftRight = new Button(VaadinIcon.ANGLE_RIGHT.create(), e -> {
+        Button btnShiftRight = new com.vaadinerp.components.SafeButton(VaadinIcon.ANGLE_RIGHT.create(), e -> {
             if (startDateFilter.getValue() != null)
                 startDateFilter.setValue(startDateFilter.getValue().plusDays(1));
             if (endDateFilter.getValue() != null)
@@ -593,21 +593,21 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         btnShiftRight.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON);
         btnShiftRight.setTooltipText("Maju 1 Hari");
 
-        Button btnRefresh = new Button("Refresh", VaadinIcon.REFRESH.create(), e -> refreshData());
+        Button btnRefresh = new com.vaadinerp.components.SafeButton("Refresh", VaadinIcon.REFRESH.create(), e -> refreshData());
         btnRefresh.addThemeVariants(ButtonVariant.LUMO_SMALL);
 
-        Button btnZoomIn = new Button("", VaadinIcon.SEARCH_PLUS.create(), e -> timeline.zoomIn());
+        Button btnZoomIn = new com.vaadinerp.components.SafeButton("", VaadinIcon.SEARCH_PLUS.create(), e -> timeline.zoomIn());
         btnZoomIn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON);
         btnZoomIn.setTooltipText("Zoom In");
 
-        Button btnZoomOut = new Button("", VaadinIcon.SEARCH_MINUS.create(), e -> timeline.zoomOut());
+        Button btnZoomOut = new com.vaadinerp.components.SafeButton("", VaadinIcon.SEARCH_MINUS.create(), e -> timeline.zoomOut());
         btnZoomOut.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON);
         btnZoomOut.setTooltipText("Zoom Out");
 
-        Button btnFitAll = new Button("Fit All", VaadinIcon.EXPAND_SQUARE.create(), e -> timeline.fitAll());
+        Button btnFitAll = new com.vaadinerp.components.SafeButton("Fit All", VaadinIcon.EXPAND_SQUARE.create(), e -> timeline.fitAll());
         btnFitAll.addThemeVariants(ButtonVariant.LUMO_SMALL);
 
-        Button btnFullScreen = new Button("Full Screen", VaadinIcon.EXPAND_FULL.create(), e -> {
+        Button btnFullScreen = new com.vaadinerp.components.SafeButton("Full Screen", VaadinIcon.EXPAND_FULL.create(), e -> {
             getElement().executeJs(
                     "const view = this;" +
                             "if (!document.fullscreenElement) { " +
@@ -2290,14 +2290,14 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             }
         }
 
-        Button btnEditQty = new Button("Edit Qty", VaadinIcon.EDIT.create(), e -> {
+        Button btnEditQty = new com.vaadinerp.components.SafeButton("Edit Qty", VaadinIcon.EDIT.create(), e -> {
             actionDialog.close();
             openEditQtyDialog(clickedItemId);
         });
         btnEditQty.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnEditQty.setWidthFull();
 
-        Button btnSplit = new Button("Split Task", VaadinIcon.SCISSORS.create(), e -> {
+        Button btnSplit = new com.vaadinerp.components.SafeButton("Split Task", VaadinIcon.SCISSORS.create(), e -> {
             actionDialog.close();
             openSplitDialog(clickedItemId);
         });
@@ -2309,7 +2309,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             btnSplit.setTooltipText("Qty <= 1 tidak bisa displit");
         }
 
-        Button btnMerge = new Button("Merge Selected Tasks", VaadinIcon.COMPRESS.create(), e -> {
+        Button btnMerge = new com.vaadinerp.components.SafeButton("Merge Selected Tasks", VaadinIcon.COMPRESS.create(), e -> {
             actionDialog.close();
             Set<Map<String, Object>> selectedRows = grid.getSelectedItems();
             executeMerge(selectedRows);
@@ -2429,7 +2429,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         final Map<String, Object> finalTargetRow = targetRow;
 
-        Button btnSave = new Button("Simpan", VaadinIcon.CHECK.create(), e -> {
+        Button btnSave = new com.vaadinerp.components.SafeButton("Simpan", VaadinIcon.CHECK.create(), e -> {
             Double newQty = qtyField.getValue();
             if (newQty == null || newQty <= 0 || newQty > finalMaxLimit) {
                 Notification.show("Qty tidak valid!", 3000, Notification.Position.MIDDLE);
@@ -2461,7 +2461,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnCancel = new Button("Batal", e -> editDialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Batal", e -> editDialog.close());
 
         HorizontalLayout actions = new HorizontalLayout(btnCancel, btnSave);
         actions.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
@@ -2517,7 +2517,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         final Map<String, Object> finalTargetRow = targetRow;
         final double finalCurrentQty = currentQty;
 
-        Button btnSave = new Button("Proses Split", VaadinIcon.SCISSORS.create(), e -> {
+        Button btnSave = new com.vaadinerp.components.SafeButton("Proses Split", VaadinIcon.SCISSORS.create(), e -> {
             Integer splitQty = splitField.getValue();
             if (splitQty == null || splitQty <= 0 || splitQty >= finalCurrentQty) {
                 Notification.show("Qty split tidak valid!", 3000, Notification.Position.MIDDLE);
@@ -2527,7 +2527,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             executeSplit(finalTargetRow, (double) splitQty, finalCurrentQty);
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        Button btnCancel = new Button("Batal", e -> splitDialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Batal", e -> splitDialog.close());
 
         HorizontalLayout actions = new HorizontalLayout(btnCancel, btnSave);
         splitDialog.add(new VerticalLayout(splitField, actions));

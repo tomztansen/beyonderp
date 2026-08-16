@@ -20,8 +20,8 @@ import java.util.function.Consumer;
 public class BandboxField<T, V> extends CustomField<V> {
 
     private final TextField displayField = new TextField();
-    private final Button dropdownBtn = new Button(new Icon(VaadinIcon.CHEVRON_DOWN_SMALL));
-    private final Button clearBtn = new Button(new Icon(VaadinIcon.CLOSE_SMALL));
+    private final Button dropdownBtn = new com.vaadinerp.components.SafeButton(new Icon(VaadinIcon.CHEVRON_DOWN_SMALL));
+    private final Button clearBtn = new com.vaadinerp.components.SafeButton(new Icon(VaadinIcon.CLOSE_SMALL));
     private Dialog popup;
     private Grid<T> grid;
     private TextField searchField;
@@ -175,12 +175,12 @@ public class BandboxField<T, V> extends CustomField<V> {
         popup.add(layout);
 
         // Footer Buttons
-        Button btnPilih = new Button("Pilih", e -> {
+        Button btnPilih = new com.vaadinerp.components.SafeButton("Pilih", e -> {
             selectFirstItemOrSelected();
         });
         btnPilih.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnBatal = new Button("Batal", e -> popup.close());
+        Button btnBatal = new com.vaadinerp.components.SafeButton("Batal", e -> popup.close());
         popup.getFooter().add(btnBatal, btnPilih);
 
         // Load data initially

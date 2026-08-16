@@ -86,11 +86,11 @@ public class ProductionSchedulerView extends VerticalLayout {
         titleBox.add(factoryIcon, titleText);
 
         HorizontalLayout actions = new HorizontalLayout();
-        Button btnAddSlot = new Button("➕ Create Schedule / WO Slot", e -> openScheduleDialog(null));
+        Button btnAddSlot = new com.vaadinerp.components.SafeButton("➕ Create Schedule / WO Slot", e -> openScheduleDialog(null));
         btnAddSlot.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnAddSlot.getStyle().set("background", "linear-gradient(135deg, #4f46e5, #4338ca)").set("border-radius", "8px");
 
-        Button btnSeed = new Button("🔄 Reset Sample Data", VaadinIcon.REFRESH.create(), e -> {
+        Button btnSeed = new com.vaadinerp.components.SafeButton("🔄 Reset Sample Data", VaadinIcon.REFRESH.create(), e -> {
             initAndSeedManufacturingData(true);
             refreshAllViews();
             Notification.show("Manufacturing sample data reset & reloaded!", 3000, Notification.Position.BOTTOM_END)
@@ -121,7 +121,7 @@ public class ProductionSchedulerView extends VerticalLayout {
         filterStatus.setValue("SEMUA STATUS");
         filterStatus.addValueChangeListener(e -> refreshAllViews());
 
-        Button btnClearFilter = new Button("Reset Filter", VaadinIcon.CLOSE_CIRCLE_O.create(), e -> {
+        Button btnClearFilter = new com.vaadinerp.components.SafeButton("Reset Filter", VaadinIcon.CLOSE_CIRCLE_O.create(), e -> {
             filterWorkCenter.setValue("SEMUA MESIN / STASIUN");
             filterStatus.setValue("SEMUA STATUS");
         });
@@ -238,7 +238,7 @@ public class ProductionSchedulerView extends VerticalLayout {
                 wcTitleBox.add(tonBadge);
             }
 
-            Button btnQuickAdd = new Button("➕ Slot SPK di Mesin Ini", e -> {
+            Button btnQuickAdd = new com.vaadinerp.components.SafeButton("➕ Slot SPK di Mesin Ini", e -> {
                 Map<String, Object> pre = new HashMap<>();
                 pre.put("work_center_code", wcCode);
                 openScheduleDialog(pre);
@@ -403,17 +403,17 @@ public class ProductionSchedulerView extends VerticalLayout {
         cardActions.getStyle().set("margin-top", "8px");
 
         if ("SCHEDULED".equalsIgnoreCase(status)) {
-            Button btnStart = new Button("▶ Start", e -> updateSlotStatus(id, "RUNNING"));
+            Button btnStart = new com.vaadinerp.components.SafeButton("▶ Start", e -> updateSlotStatus(id, "RUNNING"));
             btnStart.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
             btnStart.getStyle().set("background", "#eab308").set("border-radius", "4px");
             cardActions.add(btnStart);
         } else if ("RUNNING".equalsIgnoreCase(status)) {
-            Button btnFinish = new Button("✅ Finish", e -> updateSlotStatus(id, "COMPLETED"));
+            Button btnFinish = new com.vaadinerp.components.SafeButton("✅ Finish", e -> updateSlotStatus(id, "COMPLETED"));
             btnFinish.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_SUCCESS);
             cardActions.add(btnFinish);
         }
 
-        Button btnEdit = new Button("✏ Geser", e -> openScheduleDialog(slot));
+        Button btnEdit = new com.vaadinerp.components.SafeButton("✏ Geser", e -> openScheduleDialog(slot));
         btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         cardActions.add(btnEdit);
 
@@ -532,7 +532,7 @@ public class ProductionSchedulerView extends VerticalLayout {
         H4 title = new H4("📋 Master Work Order (Surat Perintah Kerja Produksi)");
         title.getStyle().set("margin", "0");
 
-        Button btnAddWo = new Button("➕ Create New Work Order", e -> openWorkOrderDialog());
+        Button btnAddWo = new com.vaadinerp.components.SafeButton("➕ Create New Work Order", e -> openWorkOrderDialog());
         btnAddWo.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         woTop.add(title, btnAddWo);
         woListContainer.add(woTop);
@@ -551,7 +551,7 @@ public class ProductionSchedulerView extends VerticalLayout {
         }).setHeader("Due Date").setAutoWidth(true);
         grid.addColumn(m -> m.get("status")).setHeader("Work Order Status").setAutoWidth(true);
         grid.addComponentColumn(m -> {
-            Button btnBuatJadwal = new Button("➕ Jadwalkan Mesin", e -> {
+            Button btnBuatJadwal = new com.vaadinerp.components.SafeButton("➕ Jadwalkan Mesin", e -> {
                 Map<String, Object> pre = new HashMap<>();
                 pre.put("wo_no", m.get("wo_no"));
                 openScheduleDialog(pre);
@@ -649,7 +649,7 @@ public class ProductionSchedulerView extends VerticalLayout {
         form.add(fieldWo, fieldWc, fieldOp, fieldStart, fieldEnd, fieldStatus, fieldHeatNo, fieldAlloyGrade, fieldPourWeight, fieldNotes);
         dialog.add(form);
 
-        Button btnSave = new Button("Save Schedule", e -> {
+        Button btnSave = new com.vaadinerp.components.SafeButton("Save Schedule", e -> {
             if (fieldWo.isEmpty() || fieldWc.isEmpty() || fieldOp.isEmpty() || fieldStart.isEmpty() || fieldEnd.isEmpty()) {
                 Notification.show("Mohon lengkapi data SPK, Mesin, Nama Operasi, serta Waktu Mulai & Selesai!", 3000, Notification.Position.MIDDLE)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -677,7 +677,7 @@ public class ProductionSchedulerView extends VerticalLayout {
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnCancel = new Button("Cancel", e -> dialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
         dialog.getFooter().add(btnCancel, btnSave);
         dialog.open();
     }
@@ -699,7 +699,7 @@ public class ProductionSchedulerView extends VerticalLayout {
         form.add(fieldWo, fieldProd, fieldQty, fieldDue);
         dialog.add(form);
 
-        Button btnSave = new Button("Save Work Order", e -> {
+        Button btnSave = new com.vaadinerp.components.SafeButton("Save Work Order", e -> {
             try {
                 int qty = Integer.parseInt(fieldQty.getValue().trim());
                 jdbcTemplate.update("INSERT INTO trx_work_order (wo_no, product_name, target_qty, due_date, status) VALUES (?, ?, ?, ?, 'SCHEDULED')",
@@ -715,7 +715,7 @@ public class ProductionSchedulerView extends VerticalLayout {
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnCancel = new Button("Cancel", e -> dialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
         dialog.getFooter().add(btnCancel, btnSave);
         dialog.open();
     }

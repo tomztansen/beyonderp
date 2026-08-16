@@ -67,7 +67,7 @@ public class StandardFormatView extends VerticalLayout {
 
         titleBox.add(title, subtitle);
 
-        Button btnRefresh = new Button("Segarkan", VaadinIcon.REFRESH.create(), e -> {
+        Button btnRefresh = new com.vaadinerp.components.SafeButton("Segarkan", VaadinIcon.REFRESH.create(), e -> {
             service.refreshCache();
             refreshData();
             Notification.show("Daftar format disegarkan!", 2000, Notification.Position.BOTTOM_END);
@@ -125,7 +125,7 @@ public class StandardFormatView extends VerticalLayout {
         }).setHeader("Display Sample (Live Preview)").setWidth("250px").setFlexGrow(0);
 
         grid.addComponentColumn(fmt -> {
-            Button btnEdit = new Button("Edit", VaadinIcon.EDIT.create(), e -> openEditDialog(fmt));
+            Button btnEdit = new com.vaadinerp.components.SafeButton("Edit", VaadinIcon.EDIT.create(), e -> openEditDialog(fmt));
             btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
             return btnEdit;
         }).setHeader("Action").setWidth("120px").setFlexGrow(0);
@@ -187,7 +187,7 @@ public class StandardFormatView extends VerticalLayout {
         formLayout.add(txtType, txtPattern, txtDesc, previewBox);
         dialog.add(formLayout);
 
-        Button btnSave = new Button("Save Format", VaadinIcon.CHECK.create(), e -> {
+        Button btnSave = new com.vaadinerp.components.SafeButton("Save Format", VaadinIcon.CHECK.create(), e -> {
             if (txtPattern.getValue() == null || txtPattern.getValue().trim().isEmpty()) {
                 Notification.show("Format pattern cannot be empty!", 3000, Notification.Position.MIDDLE);
                 return;
@@ -200,7 +200,7 @@ public class StandardFormatView extends VerticalLayout {
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnCancel = new Button("Cancel", e -> dialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
         btnCancel.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
         dialog.getFooter().add(btnCancel, btnSave);

@@ -123,7 +123,7 @@ public class TableDesignerView extends VerticalLayout {
         flagsLayout.setSpacing(true);
         flagsLayout.getStyle().set("margin-top", "25px");
 
-        Button btnAddColumn = new Button("Add Column", VaadinIcon.PLUS.create());
+        Button btnAddColumn = new com.vaadinerp.components.SafeButton("Add Column", VaadinIcon.PLUS.create());
         btnAddColumn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnAddColumn.getStyle().set("margin-top", "20px");
         btnAddColumn.addClickListener(e -> addColumnToList());
@@ -137,12 +137,12 @@ public class TableDesignerView extends VerticalLayout {
         setupTriggerPanel();
 
         // Main Build Button
-        Button btnBuild = new Button("Build Physical Table & Trigger", VaadinIcon.CONNECT.create());
+        Button btnBuild = new com.vaadinerp.components.SafeButton("Build Physical Table & Trigger", VaadinIcon.CONNECT.create());
         btnBuild.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnBuild.setWidthFull();
         btnBuild.addClickListener(e -> buildTableAndTrigger());
 
-        Button btnResetColGrid = new Button("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
+        Button btnResetColGrid = new com.vaadinerp.components.SafeButton("Reset Layout", VaadinIcon.ROTATE_LEFT.create());
         btnResetColGrid.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         btnResetColGrid.addClickListener(e -> {
             dynamicDataService.resetUserGridOrder("TABLE_DESIGNER", "columnsGrid");
@@ -177,7 +177,7 @@ public class TableDesignerView extends VerticalLayout {
         Grid.Column<ColumnDefinition> c5 = columnsGrid.addColumn(ColumnDefinition::getDefaultValue).setHeader("Default Value");
 
         columnsGrid.addComponentColumn(col -> {
-            Button btnDel = new Button(VaadinIcon.TRASH.create());
+            Button btnDel = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create());
             btnDel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
             btnDel.setTooltipText("Delete Column");
             btnDel.addClickListener(e -> {

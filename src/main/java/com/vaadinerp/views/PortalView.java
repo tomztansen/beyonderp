@@ -208,11 +208,11 @@ public class PortalView extends AppLayout {
                 "2px");
 
         // 3. Action Buttons (Change Password & Logout)
-        Button changePassBtn = new Button("Change Password", VaadinIcon.KEY.create(), e -> openChangePasswordDialog());
+        Button changePassBtn = new com.vaadinerp.components.SafeButton("Change Password", VaadinIcon.KEY.create(), e -> openChangePasswordDialog());
         changePassBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         changePassBtn.getStyle().set("color", "#4f46e5").set("font-weight", "600").set("cursor", "pointer");
 
-        Button logoutBtn = new Button("Logout", VaadinIcon.SIGN_OUT.create(), e -> {
+        Button logoutBtn = new com.vaadinerp.components.SafeButton("Logout", VaadinIcon.SIGN_OUT.create(), e -> {
             securityService.logout();
             getUI().ifPresent(ui -> ui.navigate("login"));
         });
@@ -309,7 +309,7 @@ public class PortalView extends AppLayout {
                 .set("min-width", "0");
         searchField.setValueChangeMode(ValueChangeMode.LAZY);
 
-        Button favButton = new Button(VaadinIcon.STAR.create());
+        Button favButton = new com.vaadinerp.components.SafeButton(VaadinIcon.STAR.create());
         favButton.setTooltipText("Tampilkan Menu Favorit");
         favButton.getStyle()
                 .set("background", "rgba(255, 255, 255, 0.10)")
@@ -836,7 +836,7 @@ public class PortalView extends AppLayout {
         formLayout.setPadding(false);
         formLayout.setSpacing(true);
 
-        Button btnSimpan = new Button("Save", VaadinIcon.CHECK.create(), e -> {
+        Button btnSimpan = new com.vaadinerp.components.SafeButton("Save", VaadinIcon.CHECK.create(), e -> {
             String oldP = oldPassField.getValue();
             String newP = newPassField.getValue();
             String confP = confirmPassField.getValue();
@@ -862,7 +862,7 @@ public class PortalView extends AppLayout {
         btnSimpan.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnSimpan.getStyle().set("background", "#4f46e5");
 
-        Button btnBatal = new Button("Cancel", e -> dialog.close());
+        Button btnBatal = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
         btnBatal.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
         HorizontalLayout btnLayout = new HorizontalLayout(btnBatal, btnSimpan);
