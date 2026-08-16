@@ -1,0 +1,11 @@
+[part="content"] {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+::slotted(*) {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
