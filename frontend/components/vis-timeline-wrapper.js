@@ -233,7 +233,7 @@ class VisTimelineWrapper extends LitElement {
     });
 
     // Keyboard support for moving items left and right
-    container.addEventListener('keydown', (e) => {
+    this._keydownListener = (e) => {
       const selection = this.timeline.getSelection();
       if (!selection || selection.length === 0) return;
 
@@ -279,7 +279,8 @@ class VisTimelineWrapper extends LitElement {
           }
         });
       }
-    });
+    };
+    container.addEventListener('keydown', this._keydownListener);
 
     this.timeline.on('contextmenu', (props) => {
       props.event.preventDefault();
@@ -466,6 +467,25 @@ class VisTimelineWrapper extends LitElement {
     if (this.timeline) {
       this.timeline.fit({ animation: { duration: 300 } });
     }
+  }
+
+  destroyTimeline() {
+    if (this.timeline) {
+      this.timeline.destroy();
+      this.timeline = null;
+    }
+    if (this._keydownListener) {
+      const container = this.querySelector('#visualization');
+      if (container) {
+        container.removeEventListener('keydown', this._keydownListener);
+      }
+      this._keydownListener = null;
+    }
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.destroyTimeline();
   }
 }
 

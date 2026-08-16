@@ -140,8 +140,7 @@ public class ScriptExecutorService {
             final String finalScriptText = scriptText;
 
             Class<? extends Script> scriptClass = scriptCache.get(scriptId, id -> {
-                GroovyShell shell = new GroovyShell(compilerConfiguration);
-                return shell.parse(finalScriptText).getClass();
+                return new GroovyShell(compilerConfiguration).parse(finalScriptText).getClass();
             });
 
             Script scriptInstance = scriptClass.getDeclaredConstructor().newInstance();
@@ -281,8 +280,7 @@ public class ScriptExecutorService {
 
         try {
             Class<? extends Script> scriptClass = scriptCache.get(scriptId, id -> {
-                GroovyShell shell = new GroovyShell(compilerConfiguration);
-                return shell.parse(finalScriptText).getClass();
+                return new GroovyShell(compilerConfiguration).parse(finalScriptText).getClass();
             });
 
             Script scriptInstance = scriptClass.getDeclaredConstructor().newInstance();

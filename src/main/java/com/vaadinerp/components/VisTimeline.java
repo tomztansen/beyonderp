@@ -129,4 +129,11 @@ public class VisTimeline extends Component implements HasSize {
             itemContextMenuListener.onItemContextMenu(clickedItemId, allSelectedItems);
         }
     }
+
+    public void cleanup() {
+        getElement().callJsFunction("destroyTimeline");
+        this.itemMoveListener = null;
+        this.itemsSelectedListener = null;
+        this.itemContextMenuListener = null;
+    }
 }
