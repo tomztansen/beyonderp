@@ -27,8 +27,7 @@ public class SessionSecurityService {
     }
 
     /**
-     * Login: mendukung plain-text lama dan BCrypt hash.
-     * Jika password masih plain-text, otomatis di-migrasi ke BCrypt.
+     * Login menggunakan BCrypt hash.
      */
     public boolean login(String username, String password) {
         if (username == null || password == null)
@@ -40,20 +39,7 @@ public class SessionSecurityService {
 
         AppUser u = opt.get();
         String storedHash = u.getPasswordHash();
-        boolean matched;
-
-        // Cek apakah hash tersimpan adalah BCrypt (diawali $2a$, $2b$, atau $2y$)
-        if (storedHash != null && storedHash.startsWith("$2")) {
-            matched = passwordEncoder.matches(password, storedHash);
-        } else {
-            // Password masih plain-text (legacy) — bandingkan langsung
-            matched = password.equals(storedHash);
-            if (matched) {
-                // Auto-migrasi ke BCrypt
-                u.setPasswordHash(passwordEncoder.encode(password));
-                userRepository.save(u);
-            }
-        }
+        boolean matched = storedHash != null && passwordEncoder.matches(password, storedHash);
 
         if (!matched)
             return false;
@@ -90,9 +76,7 @@ public class SessionSecurityService {
             return "Password baru tidak boleh kosong!";
 
         String storedHash = user.getPasswordHash();
-        boolean oldMatched = (storedHash != null && storedHash.startsWith("$2"))
-                ? passwordEncoder.matches(oldPassword, storedHash)
-                : oldPassword.equals(storedHash);
+        boolean oldMatched = storedHash != null && passwordEncoder.matches(oldPassword, storedHash);
 
         if (!oldMatched)
             return "Password lama tidak sesuai!";
