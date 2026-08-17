@@ -214,7 +214,7 @@ public class PortalView extends AppLayout {
 
         Button logoutBtn = new com.vaadinerp.components.SafeButton("Logout", VaadinIcon.SIGN_OUT.create(), e -> {
             securityService.logout();
-            getUI().ifPresent(ui -> ui.navigate("login"));
+            getUI().ifPresent(ui -> ui.getPage().setLocation("login"));
         });
         logoutBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         logoutBtn.getStyle().set("color", "#ef4444").set("font-weight", "600").set("cursor", "pointer");
