@@ -8,7 +8,7 @@ import lombok.Setter;
 @Table(name = "app_roles", schema = "public")
 @Getter
 @Setter
-public class AppRole {
+public class AppRole extends com.vaadinerp.meta.BaseAuditableEntity {
     @Id
     @Column(name = "role_code", length = 50)
     private String roleCode;

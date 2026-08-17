@@ -12,9 +12,9 @@ import lombok.EqualsAndHashCode;
 @EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Getter
 @Setter
-@EqualsAndHashCode(of = { "id", "fieldName" })
+@EqualsAndHashCode(callSuper = false, of = { "id", "fieldName" })
 @ToString(exclude = { "formMeta", "lovTargets" })
-public class FieldMeta {
+public class FieldMeta extends BaseAuditableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

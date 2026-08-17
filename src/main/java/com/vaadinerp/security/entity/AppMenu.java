@@ -8,7 +8,7 @@ import lombok.Setter;
 @Table(name = "app_menus", schema = "public")
 @Getter
 @Setter
-public class AppMenu {
+public class AppMenu extends com.vaadinerp.meta.BaseAuditableEntity {
     @Id
     @Column(name = "menu_code", length = 50)
     private String menuCode;

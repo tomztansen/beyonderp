@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 })
 @Getter
 @Setter
-public class AppUserGridPreference {
+public class AppUserGridPreference extends com.vaadinerp.meta.BaseAuditableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
