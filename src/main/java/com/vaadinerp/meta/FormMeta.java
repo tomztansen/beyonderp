@@ -14,9 +14,9 @@ import lombok.ToString;
 @EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Getter
 @Setter
-@EqualsAndHashCode(of = "formCode")
+@EqualsAndHashCode(callSuper = false, of = "formCode")
 @ToString(exclude = "fields")
-public class FormMeta {
+public class FormMeta extends BaseAuditableEntity {
     @Id
     @Column(name = "form_code", length = 50)
     private String formCode;

@@ -11,7 +11,7 @@ import lombok.ToString;
 @Getter
 @Setter
 @ToString(exclude = "fieldMeta")
-public class FieldLovTargetMeta {
+public class FieldLovTargetMeta extends BaseAuditableEntity {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

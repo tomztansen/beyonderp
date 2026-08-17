@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Getter
 @Setter
-public class AppStandardFormat {
+public class AppStandardFormat extends BaseAuditableEntity {
     @Id
     @Column(name = "component_type", length = 50, nullable = false)
     private String componentType;

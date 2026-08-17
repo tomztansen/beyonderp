@@ -10,7 +10,7 @@ import lombok.Setter;
 })
 @Getter
 @Setter
-public class RoleMenuPermission {
+public class RoleMenuPermission extends com.vaadinerp.meta.BaseAuditableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

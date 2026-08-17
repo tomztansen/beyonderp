@@ -8,7 +8,7 @@ import lombok.Setter;
 @Table(name = "meta_scheduler_config", schema = "public")
 @Getter
 @Setter
-public class SchedulerConfig {
+public class SchedulerConfig extends BaseAuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

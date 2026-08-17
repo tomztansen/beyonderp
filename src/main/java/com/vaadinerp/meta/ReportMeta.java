@@ -10,7 +10,7 @@ import java.util.List;
 @EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Getter
 @Setter
-public class ReportMeta {
+public class ReportMeta extends BaseAuditableEntity {
     @Id
     @Column(name = "report_code", length = 50)
     private String reportCode;

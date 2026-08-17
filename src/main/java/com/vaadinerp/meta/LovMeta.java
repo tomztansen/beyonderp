@@ -9,7 +9,7 @@ import lombok.Setter;
 @EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Getter
 @Setter
-public class LovMeta {
+public class LovMeta extends BaseAuditableEntity {
     @Id
     @Column(name = "lov_code", length = 50)
     private String lovCode;

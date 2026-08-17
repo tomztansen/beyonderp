@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 })
 @Getter
 @Setter
-public class AppUserFavoriteMenu {
+public class AppUserFavoriteMenu extends com.vaadinerp.meta.BaseAuditableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
