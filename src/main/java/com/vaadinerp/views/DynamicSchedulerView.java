@@ -285,7 +285,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         legendLayout.add(boxHoliday, lblHoliday, boxSunday, lblSunday);
 
         timelineSpkFilter = new com.vaadin.flow.component.textfield.TextField();
-        timelineSpkFilter.setPlaceholder("Cari PRD / SPK...");
+        timelineSpkFilter.setPlaceholder("Find Product Code...");
         timelineSpkFilter.setWidth("160px");
         timelineSpkFilter.setClearButtonVisible(true);
         timelineSpkFilter.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.LAZY);
@@ -478,7 +478,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         Span gridTitle = new Span(formMeta != null ? formMeta.getFormTitle() : "Daftar Jadwal");
         gridTitle.getStyle().set("font-weight", "bold").set("flex-grow", "1");
 
-        btnSaveEdits = new com.vaadinerp.components.SafeButton("Save Edits", VaadinIcon.CHECK.create(), e -> saveInlineEdits());
+        btnSaveEdits = new com.vaadinerp.components.SafeButton("Save Edits", VaadinIcon.CHECK.create(),
+                e -> saveInlineEdits());
         btnSaveEdits.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
         btnSaveEdits.setEnabled(false);
 
@@ -593,48 +594,53 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         btnShiftRight.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON);
         btnShiftRight.setTooltipText("Maju 1 Hari");
 
-        Button btnRefresh = new com.vaadinerp.components.SafeButton("Refresh", VaadinIcon.REFRESH.create(), e -> refreshData());
+        Button btnRefresh = new com.vaadinerp.components.SafeButton("Refresh", VaadinIcon.REFRESH.create(),
+                e -> refreshData());
         btnRefresh.addThemeVariants(ButtonVariant.LUMO_SMALL);
 
-        Button btnZoomIn = new com.vaadinerp.components.SafeButton("", VaadinIcon.SEARCH_PLUS.create(), e -> timeline.zoomIn());
+        Button btnZoomIn = new com.vaadinerp.components.SafeButton("", VaadinIcon.SEARCH_PLUS.create(),
+                e -> timeline.zoomIn());
         btnZoomIn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON);
         btnZoomIn.setTooltipText("Zoom In");
 
-        Button btnZoomOut = new com.vaadinerp.components.SafeButton("", VaadinIcon.SEARCH_MINUS.create(), e -> timeline.zoomOut());
+        Button btnZoomOut = new com.vaadinerp.components.SafeButton("", VaadinIcon.SEARCH_MINUS.create(),
+                e -> timeline.zoomOut());
         btnZoomOut.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON);
         btnZoomOut.setTooltipText("Zoom Out");
 
-        Button btnFitAll = new com.vaadinerp.components.SafeButton("Fit All", VaadinIcon.EXPAND_SQUARE.create(), e -> timeline.fitAll());
+        Button btnFitAll = new com.vaadinerp.components.SafeButton("Fit All", VaadinIcon.EXPAND_SQUARE.create(),
+                e -> timeline.fitAll());
         btnFitAll.addThemeVariants(ButtonVariant.LUMO_SMALL);
 
-        Button btnFullScreen = new com.vaadinerp.components.SafeButton("Full Screen", VaadinIcon.EXPAND_FULL.create(), e -> {
-            getElement().executeJs(
-                    "const view = this;" +
-                            "if (!document.fullscreenElement) { " +
-                            "  document.documentElement.requestFullscreen().then(() => { " +
-                            "    view.style.position = 'fixed';" +
-                            "    view.style.top = '0';" +
-                            "    view.style.left = '0';" +
-                            "    view.style.width = '100vw';" +
-                            "    view.style.height = '100vh';" +
-                            "    view.style.zIndex = '99';" +
-                            "    const handler = () => {" +
-                            "      if (!document.fullscreenElement) {" +
-                            "        view.style.position = '';" +
-                            "        view.style.top = '';" +
-                            "        view.style.left = '';" +
-                            "        view.style.width = '';" +
-                            "        view.style.height = '';" +
-                            "        view.style.zIndex = '';" +
-                            "        document.removeEventListener('fullscreenchange', handler);" +
-                            "      }" +
-                            "    };" +
-                            "    document.addEventListener('fullscreenchange', handler);" +
-                            "  }).catch(err => console.error('Error enabling full-screen: ' + err.message)); " +
-                            "} else { " +
-                            "  if (document.exitFullscreen) { document.exitFullscreen(); } " +
-                            "}");
-        });
+        Button btnFullScreen = new com.vaadinerp.components.SafeButton("Full Screen", VaadinIcon.EXPAND_FULL.create(),
+                e -> {
+                    getElement().executeJs(
+                            "const view = this;" +
+                                    "if (!document.fullscreenElement) { " +
+                                    "  document.documentElement.requestFullscreen().then(() => { " +
+                                    "    view.style.position = 'fixed';" +
+                                    "    view.style.top = '0';" +
+                                    "    view.style.left = '0';" +
+                                    "    view.style.width = '100vw';" +
+                                    "    view.style.height = '100vh';" +
+                                    "    view.style.zIndex = '99';" +
+                                    "    const handler = () => {" +
+                                    "      if (!document.fullscreenElement) {" +
+                                    "        view.style.position = '';" +
+                                    "        view.style.top = '';" +
+                                    "        view.style.left = '';" +
+                                    "        view.style.width = '';" +
+                                    "        view.style.height = '';" +
+                                    "        view.style.zIndex = '';" +
+                                    "        document.removeEventListener('fullscreenchange', handler);" +
+                                    "      }" +
+                                    "    };" +
+                                    "    document.addEventListener('fullscreenchange', handler);" +
+                                    "  }).catch(err => console.error('Error enabling full-screen: ' + err.message)); " +
+                                    "} else { " +
+                                    "  if (document.exitFullscreen) { document.exitFullscreen(); } " +
+                                    "}");
+                });
         btnFullScreen.addThemeVariants(ButtonVariant.LUMO_SMALL);
         btnFullScreen.setTooltipText("Toggle Full Screen");
 
@@ -1407,8 +1413,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         if (resourceCol == null || startDateCol == null || pkCol == null) {
             Notification.show("Scheduler config incomplete: resource, start_date, and primary_key are required",
                     5000, Notification.Position.MIDDLE);
-           if (currentData == null)
-            return;
+            if (currentData == null)
+                return;
         }
 
         java.util.Set<String> uniqueSpksForColor = new java.util.HashSet<>();
@@ -1442,7 +1448,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     }
                 }
             }
-            if (timelineSpkFilter != null && timelineSpkFilter.getValue() != null && !timelineSpkFilter.getValue().trim().isEmpty()) {
+            if (timelineSpkFilter != null && timelineSpkFilter.getValue() != null
+                    && !timelineSpkFilter.getValue().trim().isEmpty()) {
                 String searchStr = timelineSpkFilter.getValue().trim().toLowerCase();
                 Object tName = row.get(taskNameCol);
                 if (tName == null || !tName.toString().toLowerCase().contains(searchStr)) {
@@ -1811,20 +1818,49 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             }
 
             StringBuilder tooltip = new StringBuilder();
-            tooltip.append("<b>").append(content).append("</b><br>");
-            tooltip.append("Mesin: ").append(groupId).append("<br>");
-            tooltip.append("Tanggal: ").append(formattedDate).append("<br>");
+
+            Object spkNum = row.get("spknumber") != null ? row.get("spknumber") : "-";
+            Object salesId = row.get("salesid") != null ? row.get("salesid") : "-";
+
+            Object qtyOrder = "0";
+            if (row.get("qty") != null) {
+                try {
+                    qtyOrder = (int) Double.parseDouble(row.get("qty").toString().trim());
+                } catch (Exception e) {
+                    qtyOrder = row.get("qty");
+                }
+            }
+
+            Object qtybox = "0";
+            if (row.get("pcsperbox") != null) {
+                try {
+                    qtybox = (int) Double.parseDouble(row.get("pcsperbox").toString().trim());
+                } catch (Exception e) {
+                    qtybox = row.get("pcsperbox");
+                }
+            }
+
+            Object uom = row.get("uom") != null ? row.get("uom") : "";
+
+            tooltip.append("<b>").append(spkNum).append("</b>")
+                    .append(" | OC. No: ").append(salesId)
+                    .append(" | Order Qty: ").append(qtyOrder).append(" ").append(uom)
+                    .append(" | Pcs/Box: ").append(qtybox).append(" ").append(uom)
+                    .append(" | Qty: ").append(row.get(qtyCol)).append(" box")
+                    .append("<br>");
+
+            tooltip.append("Facility: ").append(groupId).append(" | ");
             if (qtyCol != null && row.get(qtyCol) != null) {
-                tooltip.append("Qty: ").append(row.get(qtyCol)).append("<br>");
+                tooltip.append("Material: ").append(row.get("abmengineermaterialid")).append("<br>");
             }
 
             boolean isLate = false;
             if (taskNameCol != null && row.get(taskNameCol) != null) {
                 String spk = row.get(taskNameCol).toString();
-
+                tooltip.append("Date: ").append(formattedDate).append(" | ");
                 LocalDate shipDate = spkShippingDate.get(spk);
                 if (shipDate != null) {
-                    tooltip.append("Due Date: ").append(shipDate.format(dtfDisplay)).append("<br>");
+                    tooltip.append("Due Date: ").append(shipDate.format(dtfDisplay)).append(" | ");
                 }
 
                 LocalDate maxDate = spkMaxEndDate.get(spk);
@@ -2127,7 +2163,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 }
                 try {
                     taskTotals.merge(tName, Double.parseDouble(qtyVal.toString()), Double::sum);
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         }
 
@@ -2154,7 +2191,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             if (currentLateSpks.contains(tName)) {
                 tName += " (LATE)";
             }
-            
+
             if (topTasks.contains(tName)) {
                 point.put("taskName", tName);
                 point.put("color", getHslColor(originalTaskName));
@@ -2309,11 +2346,12 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             btnSplit.setTooltipText("Qty <= 1 tidak bisa displit");
         }
 
-        Button btnMerge = new com.vaadinerp.components.SafeButton("Merge Selected Tasks", VaadinIcon.COMPRESS.create(), e -> {
-            actionDialog.close();
-            Set<Map<String, Object>> selectedRows = grid.getSelectedItems();
-            executeMerge(selectedRows);
-        });
+        Button btnMerge = new com.vaadinerp.components.SafeButton("Merge Selected Tasks", VaadinIcon.COMPRESS.create(),
+                e -> {
+                    actionDialog.close();
+                    Set<Map<String, Object>> selectedRows = grid.getSelectedItems();
+                    executeMerge(selectedRows);
+                });
         btnMerge.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnMerge.setWidthFull();
 
@@ -3237,6 +3275,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             String seqCol = schedulerConfig.getColSequence();
             String updateTable = schedulerConfig.getUpdateTable();
             String updateDateCol = schedulerConfig.getUpdateDateColumn();
+            String resourceCol = schedulerConfig.getColResource();
+            String updateResourceCol = schedulerConfig.getUpdateResourceColumn();
 
             // Get original date of dragged task before moving
             Object oldDateObj = draggedTask.get(updateDateCol);
@@ -3253,16 +3293,43 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 daysShifted = java.time.temporal.ChronoUnit.DAYS.between(oldDate, newDate);
             }
 
-            // 1. UPDATE the dragged task's date (mesin/resource tidak diupdate)
+            // Check if machine changed
+            String originalResource = draggedTask.get(resourceCol) != null ? draggedTask.get(resourceCol).toString()
+                    : "";
+            boolean machineChanged = newResource != null && !newResource.equals(originalResource);
+
+            // Determine final column name and value for resource update
+            String finalUpdateResCol = (updateResourceCol != null && !updateResourceCol.trim().isEmpty())
+                    ? updateResourceCol
+                    : resourceCol;
+            Object targetResourceVal = newResource;
+            if (machineChanged) {
+                for (Map<String, Object> row : currentData) {
+                    Object rVal = row.get(resourceCol);
+                    if (rVal != null && rVal.toString().equals(newResource)) {
+                        if (row.containsKey(finalUpdateResCol) && row.get(finalUpdateResCol) != null) {
+                            targetResourceVal = row.get(finalUpdateResCol);
+                        }
+                        break;
+                    }
+                }
+            } else {
+                if (draggedTask.containsKey(finalUpdateResCol) && draggedTask.get(finalUpdateResCol) != null) {
+                    targetResourceVal = draggedTask.get(finalUpdateResCol);
+                }
+            }
+
+            // 1. UPDATE the dragged task's date and resource
             AppUser currentUser = securityService.getCurrentUser();
             String currentUsername = currentUser != null ? currentUser.getUsername() : "system";
             java.sql.Timestamp currentTimestamp = new java.sql.Timestamp(System.currentTimeMillis());
 
             String updateSql = "UPDATE " + updateTable + " SET " + updateDateCol
-                    + " = ?::date, updateby = ?, updatedt = ? WHERE " + pkCol + " = ?";
+                    + " = ?::date, " + finalUpdateResCol + " = ?, updateby = ?, updatedt = ? WHERE " + pkCol + " = ?";
 
             List<Object> updateParams = new ArrayList<>();
             updateParams.add(newDate.toString());
+            updateParams.add(targetResourceVal);
             updateParams.add(currentUsername);
             updateParams.add(currentTimestamp);
             updateParams.add(draggedTask.get(pkCol));
@@ -3361,6 +3428,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             refreshData();
         }
     }
+
     public void cleanup() {
         if (this.timeline != null) {
             this.timeline.cleanup();
