@@ -1670,93 +1670,99 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     public void applyInitialParameters(Object extra) {
         if (extra == null)
             return;
-        if (extra instanceof String strExtra) {
-            String trimmed = strExtra.trim();
-            if ("HIDE_HISTORIS".equalsIgnoreCase(trimmed) || "HIDE_HISTORY".equalsIgnoreCase(trimmed)) {
-                hideHistorisTab();
-                return;
-            }
-            if (trimmed.contains("=")) {
-                String[] pairs = trimmed.split("[&,]");
-                for (String pair : pairs) {
-                    String[] kv = pair.split("=");
-                    if (kv.length == 2) {
-                        applySingleParameter(kv[0].trim(), kv[1].trim());
+        boolean originalLoadingState = isLoadingExistingData;
+        try {
+            isLoadingExistingData = true;
+            if (extra instanceof String strExtra) {
+                String trimmed = strExtra.trim();
+                if ("HIDE_HISTORIS".equalsIgnoreCase(trimmed) || "HIDE_HISTORY".equalsIgnoreCase(trimmed)) {
+                    hideHistorisTab();
+                    return;
+                }
+                if (trimmed.contains("=")) {
+                    String[] pairs = trimmed.split("[&,]");
+                    for (String pair : pairs) {
+                        String[] kv = pair.split("=");
+                        if (kv.length == 2) {
+                            applySingleParameter(kv[0].trim(), kv[1].trim());
+                        }
                     }
                 }
-            }
-        } else if (extra instanceof Map<?, ?> mapExtra) {
-            boolean needsFilterApply = false;
-            for (Map.Entry<?, ?> entry : mapExtra.entrySet()) {
-                String key = entry.getKey() != null ? entry.getKey().toString().trim() : "";
-                Object val = entry.getValue();
-                if (key.isEmpty())
-                    continue;
-                if ("HIDE_HISTORIS".equalsIgnoreCase(key) || "HIDE_HISTORY".equalsIgnoreCase(key)
-                        || "HIDEHISTORIS".equalsIgnoreCase(key.replace("_", ""))
-                        || "HIDEHISTORY".equalsIgnoreCase(key.replace("_", ""))) {
-                    if (val == null || "true".equalsIgnoreCase(val.toString())
-                            || "HIDE_HISTORIS".equalsIgnoreCase(val.toString()) || "1".equals(val.toString())) {
-                        hideHistorisTab();
-                    }
-                } else if (key.toUpperCase().startsWith("FILTER_OP_")) {
-                    String fieldName = key.substring(10);
-                    FilterCriteria criteria = filterValues.get(fieldName);
-                    if (criteria == null) {
-                        for (Map.Entry<String, FilterCriteria> fEntry : filterValues.entrySet()) {
-                            if (fEntry.getKey().equalsIgnoreCase(fieldName)) {
-                                fieldName = fEntry.getKey();
-                                criteria = fEntry.getValue();
-                                break;
+            } else if (extra instanceof Map<?, ?> mapExtra) {
+                boolean needsFilterApply = false;
+                for (Map.Entry<?, ?> entry : mapExtra.entrySet()) {
+                    String key = entry.getKey() != null ? entry.getKey().toString().trim() : "";
+                    Object val = entry.getValue();
+                    if (key.isEmpty())
+                        continue;
+                    if ("HIDE_HISTORIS".equalsIgnoreCase(key) || "HIDE_HISTORY".equalsIgnoreCase(key)
+                            || "HIDEHISTORIS".equalsIgnoreCase(key.replace("_", ""))
+                            || "HIDEHISTORY".equalsIgnoreCase(key.replace("_", ""))) {
+                        if (val == null || "true".equalsIgnoreCase(val.toString())
+                                || "HIDE_HISTORIS".equalsIgnoreCase(val.toString()) || "1".equals(val.toString())) {
+                            hideHistorisTab();
+                        }
+                    } else if (key.toUpperCase().startsWith("FILTER_OP_")) {
+                        String fieldName = key.substring(10);
+                        FilterCriteria criteria = filterValues.get(fieldName);
+                        if (criteria == null) {
+                            for (Map.Entry<String, FilterCriteria> fEntry : filterValues.entrySet()) {
+                                if (fEntry.getKey().equalsIgnoreCase(fieldName)) {
+                                    fieldName = fEntry.getKey();
+                                    criteria = fEntry.getValue();
+                                    break;
+                                }
                             }
                         }
-                    }
-                    if (criteria == null) {
-                        criteria = new FilterCriteria();
-                        filterValues.put(fieldName, criteria);
-                    }
-                    criteria.operator = val != null ? val.toString() : "Contains";
-                    needsFilterApply = true;
-                } else if (key.toUpperCase().startsWith("FILTER_")) {
-                    String fieldName = key.substring(7);
-                    FilterCriteria criteria = filterValues.get(fieldName);
-                    if (criteria == null) {
-                        for (Map.Entry<String, FilterCriteria> fEntry : filterValues.entrySet()) {
-                            if (fEntry.getKey().equalsIgnoreCase(fieldName)) {
-                                fieldName = fEntry.getKey();
-                                criteria = fEntry.getValue();
-                                break;
+                        if (criteria == null) {
+                            criteria = new FilterCriteria();
+                            filterValues.put(fieldName, criteria);
+                        }
+                        criteria.operator = val != null ? val.toString() : "Contains";
+                        needsFilterApply = true;
+                    } else if (key.toUpperCase().startsWith("FILTER_")) {
+                        String fieldName = key.substring(7);
+                        FilterCriteria criteria = filterValues.get(fieldName);
+                        if (criteria == null) {
+                            for (Map.Entry<String, FilterCriteria> fEntry : filterValues.entrySet()) {
+                                if (fEntry.getKey().equalsIgnoreCase(fieldName)) {
+                                    fieldName = fEntry.getKey();
+                                    criteria = fEntry.getValue();
+                                    break;
+                                }
                             }
                         }
-                    }
-                    if (criteria == null) {
-                        criteria = new FilterCriteria();
-                        filterValues.put(fieldName, criteria);
-                    }
-                    criteria.value = val != null ? val.toString() : "";
-                    needsFilterApply = true;
-                    com.vaadin.flow.component.notification.Notification.show("Filter applied: " + fieldName + " " + criteria.operator + " " + criteria.value, 3000, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
-                } else {
-                    applySingleParameter(key, val);
-                }
-            }
-            if (needsFilterApply) {
-                if (paginationBar != null) paginationBar.resetPage();
-                applyFilters();
-                
-                // Jika Historis disembunyikan dan ada filter, otomatis load record pertama (jika ada)
-                if (historisTab != null && !historisTab.isVisible() && masterGrid != null) {
-                    try {
-                        com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = 
-                            (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) masterGrid.getDataProvider();
-                        if (dp != null && dp.getItems() != null && !dp.getItems().isEmpty()) {
-                            loadAndEditData(dp.getItems().iterator().next());
+                        if (criteria == null) {
+                            criteria = new FilterCriteria();
+                            filterValues.put(fieldName, criteria);
                         }
-                    } catch (Exception ignored) {
-                        // ignore cast exception if not ListDataProvider
+                        criteria.value = val != null ? val.toString() : "";
+                        needsFilterApply = true;
+                        com.vaadin.flow.component.notification.Notification.show("Filter applied: " + fieldName + " " + criteria.operator + " " + criteria.value, 3000, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
+                    } else {
+                        applySingleParameter(key, val);
+                    }
+                }
+                if (needsFilterApply) {
+                    if (paginationBar != null) paginationBar.resetPage();
+                    applyFilters();
+                    
+                    // Jika Historis disembunyikan dan ada filter, otomatis load record pertama (jika ada)
+                    if (historisTab != null && !historisTab.isVisible() && masterGrid != null) {
+                        try {
+                            com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = 
+                                (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) masterGrid.getDataProvider();
+                            if (dp != null && dp.getItems() != null && !dp.getItems().isEmpty()) {
+                                loadAndEditData(dp.getItems().iterator().next());
+                            }
+                        } catch (Exception ignored) {
+                            // ignore cast exception if not ListDataProvider
+                        }
                     }
                 }
             }
+        } finally {
+            isLoadingExistingData = originalLoadingState;
         }
     }
 

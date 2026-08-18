@@ -122,13 +122,13 @@ class VisTimelineWrapper extends LitElement {
           background-color: #f59e0b;
         }
         .vis-item.is-late {
-          background-color: #ff0000 !important;
+          background: linear-gradient(to bottom, #ff0000 50%, #ffff00 50%) !important;
           border-color: #cc0000 !important;
-          color: white !important;
+          color: black !important;
           font-weight: bold !important;
         }
         .vis-item.is-late.vis-selected {
-          background-color: #cc0000 !important;
+          background: linear-gradient(to bottom, #cc0000 50%, #d4d400 50%) !important;
           border-color: #990000 !important;
           border-width: 2px !important;
         }
@@ -138,6 +138,17 @@ class VisTimelineWrapper extends LitElement {
         /* Weekly mode: items fill ~1 week width */
         .weekly-scale .vis-item {
           min-width: 12% !important;
+        }
+        .vis-tooltip {
+          font-size: 11px !important;
+          padding: 6px 10px !important;
+          background-color: rgba(255, 255, 255, 0.96) !important;
+          border: 1px solid #cbd5e1 !important;
+          border-radius: 6px !important;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+          line-height: 1.4 !important;
+          pointer-events: none !important; /* Membuat tooltip tidak menghalangi klik mouse */
+          z-index: 9999 !important;
         }
         .weekly-scale .vis-item .vis-item-content {
           white-space: nowrap;
@@ -163,7 +174,7 @@ class VisTimelineWrapper extends LitElement {
       editable: {
         add: false,
         updateTime: true,
-        updateGroup: false, // Drag hanya horizontal (tanggal), tidak pindah mesin
+        updateGroup: true, // Drag vertikal dan horizontal
         remove: false
       },
       margin: {
@@ -232,50 +243,81 @@ class VisTimelineWrapper extends LitElement {
       }
     });
 
-    // Keyboard support for moving items left and right
+    // Keyboard support for moving items left/right and up/down
     this._keydownListener = (e) => {
       const selection = this.timeline.getSelection();
       if (!selection || selection.length === 0) return;
 
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault();
-        const daysToMove = (e.key === 'ArrowRight' ? 1 : -1) * (this._timelineScale === 'weekly' ? 7 : 1);
 
+        let allGroups = null;
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+           allGroups = this.groups.get();
+           allGroups.sort((a, b) => {
+              let orderA = a.orderIndex !== undefined ? a.orderIndex : 99999;
+              let orderB = b.orderIndex !== undefined ? b.orderIndex : 99999;
+              return orderA - orderB;
+           });
+        }
+
+        const daysToMove = (e.key === 'ArrowRight' ? 1 : (e.key === 'ArrowLeft' ? -1 : 0)) * (this._timelineScale === 'weekly' ? 7 : 1);
 
         selection.forEach(itemId => {
           const item = this.items.get(itemId);
           if (item) {
-            // Visual update
-            const newStart = new Date(item.start);
-            newStart.setDate(newStart.getDate() + daysToMove);
-            item.start = newStart;
+            let changed = false;
 
-            if (item.end) {
-              const newEnd = new Date(item.end);
-              newEnd.setDate(newEnd.getDate() + daysToMove);
-              item.end = newEnd;
-            }
-            this.items.update(item);
+            if (daysToMove !== 0) {
+                // Visual update date
+                const newStart = new Date(item.start);
+                newStart.setDate(newStart.getDate() + daysToMove);
+                item.start = newStart;
 
-            // Debounce server update
-            if (this.moveDebounceTimers[itemId]) {
-              clearTimeout(this.moveDebounceTimers[itemId]);
+                if (item.end) {
+                  const newEnd = new Date(item.end);
+                  newEnd.setDate(newEnd.getDate() + daysToMove);
+                  item.end = newEnd;
+                }
+                changed = true;
             }
-            this.moveDebounceTimers[itemId] = setTimeout(() => {
-              const formatLocal = (date) => {
-                if (!date) return null;
-                const d = new Date(date);
-                const pad = (n) => n.toString().padStart(2, '0');
-                return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-              };
-              this.$server.onItemMoved(
-                item.id.toString(), 
-                formatLocal(item.start), 
-                formatLocal(item.end), 
-                item.group != null ? item.group.toString() : null
-              );
-              delete this.moveDebounceTimers[itemId];
-            }, 600); // 600ms debounce
+
+            if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && item.group) {
+                const currentGroupIndex = allGroups.findIndex(g => g.id === item.group);
+                if (currentGroupIndex !== -1) {
+                   // Cari grup berikutnya ke atas/bawah
+                   let step = e.key === 'ArrowDown' ? 1 : -1;
+                   let newGroupIndex = currentGroupIndex + step;
+                   if (newGroupIndex >= 0 && newGroupIndex < allGroups.length) {
+                       item.group = allGroups[newGroupIndex].id;
+                       changed = true;
+                   }
+                }
+            }
+
+            if (changed) {
+                this.items.update(item);
+
+                // Debounce server update
+                if (this.moveDebounceTimers[itemId]) {
+                  clearTimeout(this.moveDebounceTimers[itemId]);
+                }
+                this.moveDebounceTimers[itemId] = setTimeout(() => {
+                  const formatLocal = (date) => {
+                    if (!date) return null;
+                    const d = new Date(date);
+                    const pad = (n) => n.toString().padStart(2, '0');
+                    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                  };
+                  this.$server.onItemMoved(
+                    item.id.toString(), 
+                    formatLocal(item.start), 
+                    formatLocal(item.end), 
+                    item.group != null ? item.group.toString() : null
+                  );
+                  delete this.moveDebounceTimers[itemId];
+                }, 600); // 600ms debounce
+            }
           }
         });
       }
