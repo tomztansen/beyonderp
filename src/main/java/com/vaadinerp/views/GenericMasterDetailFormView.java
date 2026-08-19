@@ -2102,7 +2102,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             filterField.setWidthFull();
             filterField.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
 
-            Button filterButton = new com.vaadinerp.components.SafeButton(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
+            Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
             filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
             filterButton.getStyle().set("cursor", "pointer");
             filterButton.getElement().setProperty("title", "Contains");
@@ -2679,7 +2679,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             filterField.setWidthFull();
             filterField.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
 
-            Button filterButton = new com.vaadinerp.components.SafeButton(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
+            Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
             filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
             filterButton.getStyle().set("cursor", "pointer");
             filterButton.getElement().setProperty("title", "Contains");

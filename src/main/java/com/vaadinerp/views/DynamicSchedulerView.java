@@ -1846,6 +1846,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             if (qtyCol != null && row.get(qtyCol) != null) {
                 double qtyVal = 0;
                 double qtyBookVal = 0;
+                double weight = 0;
                 try {
                     qtyVal = Double.parseDouble(row.get(qtyCol).toString().trim());
                 } catch (Exception e) {
@@ -1857,10 +1858,18 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 } catch (Exception e) {
                 }
 
+                try {
+                    if (row.get("weight") != null) {
+                        weight = Double.parseDouble(row.get("weight").toString().trim());
+                    }
+                } catch (Exception e) {
+                }
+
                 int balance = (int) (qtyVal - qtyBookVal);
 
+                java.text.DecimalFormat dfWeight = new java.text.DecimalFormat("#,##0.00");
                 content += " ( " + (row.get("abmengineermaterialid") != null ? row.get("abmengineermaterialid") : "")
-                        + " ) GW: " + (row.get("weight") != null ? row.get("weight") : "0") + " kg <br>";
+                        + " ) GW: " + dfWeight.format(weight) + " kg <br>";
                 content += " Qty: " + (int) qtyVal + " box ( Bal: " + balance + " box )";
             }
             itemObj.put("content", content);
