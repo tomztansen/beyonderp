@@ -178,7 +178,10 @@ class VisTimelineWrapper extends LitElement {
         remove: false
       },
       margin: {
-        item: 10,
+        item: {
+          horizontal: 0,
+          vertical: 10
+        },
         axis: 5
       },
       orientation: 'top',

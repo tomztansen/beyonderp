@@ -1170,7 +1170,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
             filterField.setWidthFull();
             filterField.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
 
-            Button filterButton = new com.vaadinerp.components.SafeButton(VaadinIcon.FILTER.create());
+            Button filterButton = new Button(VaadinIcon.FILTER.create());
             filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
             filterButton.getStyle().set("cursor", "pointer");
             filterButton.getElement().setProperty("title", "Contains");

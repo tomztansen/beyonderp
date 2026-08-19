@@ -330,7 +330,7 @@ public class StandardGridUtils {
             filterField.setWidthFull();
             filterField.addThemeVariants(TextFieldVariant.LUMO_SMALL);
 
-            Button filterButton = new com.vaadinerp.components.SafeButton(VaadinIcon.FILTER.create());
+            Button filterButton = new Button(VaadinIcon.FILTER.create());
             filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
             filterButton.getStyle().set("cursor", "pointer");
             filterButton.getElement().setProperty("title", "Contains");
