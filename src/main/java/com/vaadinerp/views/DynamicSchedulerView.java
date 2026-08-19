@@ -77,12 +77,13 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
     private com.vaadin.flow.component.textfield.TextField timelineSpkFilter;
     private LocalDate chartViewStartDate = LocalDate.now();
     private boolean isGridCollapsed = false;
-
+    private boolean isTimelineCollapsed = false;
     private List<Map<String, Object>> currentData = new ArrayList<>();
     private java.util.Set<Map<String, Object>> modifiedRows = new java.util.HashSet<>();
     private java.util.Set<String> currentLateSpks = new java.util.HashSet<>();
     private java.util.Set<LocalDate> holidaySet = new java.util.HashSet<>();
     private Button btnSaveEdits;
+    private Button btnCancelEdits;
     private com.vaadin.flow.component.checkbox.Checkbox chkHideUnassigned;
 
     @SuppressWarnings("unused")
@@ -189,7 +190,11 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 "if (!document.getElementById('late-timeline-styles')) {" +
                         "  const style = document.createElement('style');" +
                         "  style.id = 'late-timeline-styles';" +
-                        "  style.innerHTML = '.vis-item.is-late { background-color: #ff0000 !important; border-color: #cc0000 !important; color: white !important; font-weight: bold !important; } .vis-item.is-late.vis-selected { border-width: 2px !important; border-color: #990000 !important; background-color: #cc0000 !important; }';"
+                        "  style.innerHTML = '.vis-item.is-late { background-color: #ff0000 !important; border-color: #cc0000 !important; color: white !important; font-weight: bold !important; } "
+                        +
+                        "                     .vis-item.is-late.vis-selected { border-width: 2px !important; border-color: #990000 !important; background-color: #cc0000 !important; } "
+                        +
+                        "                     .vis-item .vis-item-content { white-space: normal !important; word-break: break-word !important; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.2; padding: 2px; }';"
                         +
                         "  document.head.appendChild(style);" +
                         "}");
@@ -483,6 +488,16 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         btnSaveEdits.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
         btnSaveEdits.setEnabled(false);
 
+        btnCancelEdits = new com.vaadinerp.components.SafeButton("Batal", VaadinIcon.CLOSE.create(),
+                e -> {
+                    modifiedRows.clear();
+                    btnSaveEdits.setEnabled(false);
+                    btnCancelEdits.setEnabled(false);
+                    refreshData(); // Reload dari DB
+                });
+        btnCancelEdits.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
+        btnCancelEdits.setEnabled(false);
+
         Button btnToggleGrid = new com.vaadinerp.components.SafeButton(VaadinIcon.CARET_LEFT.create());
         btnToggleGrid.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
         btnToggleGrid.setTooltipText("Collapse/Expand Grid");
@@ -493,6 +508,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 grid.setVisible(false);
                 gridTitle.setVisible(false);
                 btnSaveEdits.setVisible(false);
+                btnCancelEdits.setVisible(false);
                 outerSplit.setSplitterPosition(3);
                 btnToggleGrid.setIcon(VaadinIcon.CARET_RIGHT.create());
                 isGridCollapsed = true;
@@ -501,10 +517,13 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 grid.setVisible(true);
                 gridTitle.setVisible(true);
                 btnSaveEdits.setVisible(true);
+                btnCancelEdits.setVisible(true);
                 outerSplit.setSplitterPosition(25);
                 btnToggleGrid.setIcon(VaadinIcon.CARET_LEFT.create());
                 isGridCollapsed = false;
             }
+            com.vaadin.flow.component.UI.getCurrent().getPage()
+                    .executeJs("setTimeout(() => window.dispatchEvent(new Event('resize')), 300);");
         });
 
         grid = new Grid<>() {
@@ -537,7 +556,32 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 .createExportExcelButton(grid, formCode != null ? formCode + "_export" : "scheduler_export",
                         colGetterMap);
 
-        gridToolbar.add(btnToggleGrid, gridTitle, btnExportExcel, btnSaveEdits);
+        Button btnToggleTimeline = new com.vaadinerp.components.SafeButton(VaadinIcon.CARET_RIGHT.create());
+        btnToggleTimeline.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON,
+                ButtonVariant.LUMO_TERTIARY);
+        btnToggleTimeline.setTooltipText("Collapse/Expand Timeline & Chart");
+
+        btnToggleTimeline.addClickListener(e -> {
+            if (!isTimelineCollapsed) {
+                // Collapse timeline to the right
+                outerSplit.setSplitterPosition(98);
+                btnToggleTimeline.setIcon(VaadinIcon.CARET_LEFT.create());
+                isTimelineCollapsed = true;
+                if (isGridCollapsed) {
+                    // If grid is already collapsed, expand it back to prevent empty screen
+                    btnToggleGrid.click();
+                }
+            } else {
+                // Expand
+                outerSplit.setSplitterPosition(25);
+                btnToggleTimeline.setIcon(VaadinIcon.CARET_RIGHT.create());
+                isTimelineCollapsed = false;
+            }
+            com.vaadin.flow.component.UI.getCurrent().getPage()
+                    .executeJs("setTimeout(() => window.dispatchEvent(new Event('resize')), 300);");
+        });
+
+        gridToolbar.add(btnToggleGrid, gridTitle, btnExportExcel, btnCancelEdits, btnSaveEdits, btnToggleTimeline);
 
         gridPanel.add(gridToolbar, grid);
 
@@ -1007,6 +1051,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                                     editingItem.put(fieldName, val);
                                     modifiedRows.add(editingItem);
                                     btnSaveEdits.setEnabled(true);
+                                    btnCancelEdits.setEnabled(true);
                                 }
                             });
                         }
@@ -1144,6 +1189,30 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                         String fName = field.getFieldName();
                         if (fName.equalsIgnoreCase(pkCol))
                             continue;
+
+                        // Validasi Form Builder: pastikan kolom diizinkan untuk disimpan saat update
+                        if (Boolean.FALSE.equals(field.getSaveOnUpdate())) {
+                            continue;
+                        }
+
+                        // Validasi Fisik: pastikan kolom ini benar-benar ada di tabel fisik
+                        boolean columnExists = false;
+                        String colType = "";
+                        if (tableCols != null) {
+                            for (Map<String, Object> c : tableCols) {
+                                if (fName.equalsIgnoreCase((String) c.get("column_name"))) {
+                                    columnExists = true;
+                                    colType = ((String) c.get("data_type")).toLowerCase();
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Jika kolom tidak ada di tabel fisik (misal hasil join), skip update kolom ini
+                        if (tableCols != null && !tableCols.isEmpty() && !columnExists) {
+                            continue;
+                        }
+
                         if (!first)
                             sql.append(", ");
                         sql.append(fName).append(" = ?");
@@ -1154,13 +1223,6 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                             if (strVal.isEmpty()) {
                                 newVal = null;
                             } else {
-                                String colType = "";
-                                for (Map<String, Object> c : tableCols) {
-                                    if (fName.equalsIgnoreCase((String) c.get("column_name"))) {
-                                        colType = ((String) c.get("data_type")).toLowerCase();
-                                        break;
-                                    }
-                                }
                                 try {
                                     if (colType.contains("int") || colType.contains("serial")) {
                                         newVal = Integer.parseInt(strVal);
@@ -1191,6 +1253,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
             modifiedRows.clear();
             btnSaveEdits.setEnabled(false);
+            btnCancelEdits.setEnabled(false);
             Notification.show(successCount + " baris berhasil disimpan.", 3000, Notification.Position.BOTTOM_END)
                     .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
 
@@ -1781,7 +1844,24 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 content = row.get(taskNameCol).toString();
             }
             if (qtyCol != null && row.get(qtyCol) != null) {
-                content += " (Qty: " + row.get(qtyCol) + ")";
+                double qtyVal = 0;
+                double qtyBookVal = 0;
+                try {
+                    qtyVal = Double.parseDouble(row.get(qtyCol).toString().trim());
+                } catch (Exception e) {
+                }
+                try {
+                    if (row.get("qtybook") != null) {
+                        qtyBookVal = Double.parseDouble(row.get("qtybook").toString().trim());
+                    }
+                } catch (Exception e) {
+                }
+
+                int balance = (int) (qtyVal - qtyBookVal);
+
+                content += " ( " + (row.get("abmengineermaterialid") != null ? row.get("abmengineermaterialid") : "")
+                        + " ) GW: " + (row.get("weight") != null ? row.get("weight") : "0") + " kg <br>";
+                content += " Qty: " + (int) qtyVal + " box ( Bal: " + balance + " box )";
             }
             itemObj.put("content", content);
 
@@ -2873,6 +2953,17 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 jdbcTemplate.update(insertSql, values.toArray());
             }
 
+            // Eksekusi prosedur sp_allocate_schedule_byorderid untuk PO yang terpengaruh
+            if (!rowsToSplit.isEmpty() && rowsToSplit.get(0).get("tsproductionorderid") != null) {
+                try {
+                    Long poId = Long.parseLong(rowsToSplit.get(0).get("tsproductionorderid").toString());
+                    jdbcTemplate.update("CALL dynamic.sp_allocate_schedule_byorderid(?)", poId);
+                } catch (Exception ex) {
+                    System.err.println("Gagal memanggil sp_allocate_schedule_byorderid untuk PO");
+                    ex.printStackTrace();
+                }
+            }
+
             Notification.show("Berhasil memecah " + rowsToSplit.size() + " task secara berantai (Cascading Split)!",
                     4000, Notification.Position.MIDDLE);
             refreshData();
@@ -3093,6 +3184,17 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     }
                     deleteSql.append(")");
                     jdbcTemplate.update(deleteSql.toString(), pksToDeleteForSeq.toArray());
+                }
+            }
+
+            // Eksekusi prosedur sp_allocate_schedule_byorderid untuk PO yang terpengaruh
+            if (!allRowsToMerge.isEmpty() && allRowsToMerge.get(0).get("tsproductionorderid") != null) {
+                try {
+                    Long poId = Long.parseLong(allRowsToMerge.get(0).get("tsproductionorderid").toString());
+                    jdbcTemplate.update("CALL dynamic.sp_allocate_schedule_byorderid(?)", poId);
+                } catch (Exception ex) {
+                    System.err.println("Gagal memanggil sp_allocate_schedule_byorderid untuk PO");
+                    ex.printStackTrace();
                 }
             }
 
