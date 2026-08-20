@@ -175,12 +175,12 @@ public class BandboxField<T, V> extends CustomField<V> {
         popup.add(layout);
 
         // Footer Buttons
-        Button btnPilih = new com.vaadinerp.components.SafeButton("Pilih", e -> {
+        Button btnPilih = new com.vaadinerp.components.SafeButton("Select", e -> {
             selectFirstItemOrSelected();
         });
         btnPilih.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnBatal = new com.vaadinerp.components.SafeButton("Batal", e -> popup.close());
+        Button btnBatal = new com.vaadinerp.components.SafeButton("Cancel", e -> popup.close());
         popup.getFooter().add(btnBatal, btnPilih);
 
         // Load data initially

@@ -25,7 +25,7 @@ public class LovSelect extends Select<String> {
         this.dataService = dataService;
 
         setItemLabelGenerator(val -> valueToLabelMap.getOrDefault(val, val));
-        setPlaceholder("Pilih...");
+        setPlaceholder("Select...");
         setWidthFull();
         getStyle().set("min-width", "0").set("max-width", "100%").set("box-sizing", "border-box");
 

@@ -718,8 +718,8 @@ public class ComponentFactory {
                 "Agustus", "September", "Oktober", "November", "Desember"));
         i18n.setWeekdays(java.util.Arrays.asList("Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"));
         i18n.setWeekdaysShort(java.util.Arrays.asList("Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"));
-        i18n.setToday("Hari Ini");
-        i18n.setCancel("Batal");
+        i18n.setToday("Today");
+        i18n.setCancel("Cancel");
         i18n.setDateFormat(dateFormat != null && !dateFormat.trim().isEmpty() ? dateFormat.trim() : "dd/MM/yyyy");
         return i18n;
     }
@@ -990,7 +990,7 @@ public class ComponentFactory {
                             if (allCols.isEmpty()) {
                                 String valCol = lovMeta.getValueColumn() != null ? lovMeta.getValueColumn() : "code";
                                 String lblCol = lovMeta.getLabelColumn() != null ? lovMeta.getLabelColumn() : "name";
-                                
+
                                 com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col1 = grid
                                         .addColumn(row -> {
                                             Object valObj = getCaseInsensitiveVal(row, valCol);
@@ -1001,13 +1001,16 @@ public class ComponentFactory {
                                         .setKey(valCol)
                                         .setSortProperty(valCol)
                                         .setSortable(true);
-                                        
+
                                 col1.setComparator((map1, map2) -> {
                                     Object val1 = getCaseInsensitiveVal(map1, valCol);
                                     Object val2 = getCaseInsensitiveVal(map2, valCol);
-                                    if (val1 == null && val2 == null) return 0;
-                                    if (val1 == null) return -1;
-                                    if (val2 == null) return 1;
+                                    if (val1 == null && val2 == null)
+                                        return 0;
+                                    if (val1 == null)
+                                        return -1;
+                                    if (val2 == null)
+                                        return 1;
                                     return val1.toString().compareToIgnoreCase(val2.toString());
                                 });
 
@@ -1021,13 +1024,16 @@ public class ComponentFactory {
                                         .setKey(lblCol)
                                         .setSortProperty(lblCol)
                                         .setSortable(true);
-                                        
+
                                 col2.setComparator((map1, map2) -> {
                                     Object val1 = getCaseInsensitiveVal(map1, lblCol);
                                     Object val2 = getCaseInsensitiveVal(map2, lblCol);
-                                    if (val1 == null && val2 == null) return 0;
-                                    if (val1 == null) return -1;
-                                    if (val2 == null) return 1;
+                                    if (val1 == null && val2 == null)
+                                        return 0;
+                                    if (val1 == null)
+                                        return -1;
+                                    if (val2 == null)
+                                        return 1;
                                     return val1.toString().compareToIgnoreCase(val2.toString());
                                 });
                             } else {
@@ -1044,13 +1050,16 @@ public class ComponentFactory {
                                             .setKey(colName)
                                             .setSortProperty(colName)
                                             .setSortable(true);
-                                            
+
                                     col.setComparator((map1, map2) -> {
                                         Object val1 = getCaseInsensitiveVal(map1, colName);
                                         Object val2 = getCaseInsensitiveVal(map2, colName);
-                                        if (val1 == null && val2 == null) return 0;
-                                        if (val1 == null) return -1;
-                                        if (val2 == null) return 1;
+                                        if (val1 == null && val2 == null)
+                                            return 0;
+                                        if (val1 == null)
+                                            return -1;
+                                        if (val2 == null)
+                                            return 1;
                                         return val1.toString().compareToIgnoreCase(val2.toString());
                                     });
                                 }
@@ -1068,10 +1077,13 @@ public class ComponentFactory {
                         if (!query.getSortOrders().isEmpty()) {
                             com.vaadin.flow.data.provider.QuerySortOrder sortOrder = query.getSortOrders().get(0);
                             sortField = sortOrder.getSorted();
-                            sortDir = sortOrder.getDirection() == com.vaadin.flow.data.provider.SortDirection.DESCENDING ? "desc" : "asc";
+                            sortDir = sortOrder.getDirection() == com.vaadin.flow.data.provider.SortDirection.DESCENDING
+                                    ? "desc"
+                                    : "asc";
                         }
                         return dataService.fetchLovDataPaged(lovMeta.getTableName(), searchCol, keyword,
-                                bandbox.getActiveFilters().values(), query.getOffset(), query.getLimit(), sortField, sortDir).stream();
+                                bandbox.getActiveFilters().values(), query.getOffset(), query.getLimit(), sortField,
+                                sortDir).stream();
                     }, query -> {
                         String keyword = query.getFilter().orElse("");
                         return dataService.countLovData(lovMeta.getTableName(), searchCol, keyword,

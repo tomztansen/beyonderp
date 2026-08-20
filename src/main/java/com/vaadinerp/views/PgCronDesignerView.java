@@ -32,8 +32,10 @@ public class PgCronDesignerView extends VerticalLayout {
     private final Span recordCountSpan = new Span();
     private List<Map<String, Object>> allJobsList = new ArrayList<>();
 
-    private final Button btnCommitChanges = new com.vaadinerp.components.SafeButton("Commit to DB", VaadinIcon.DATABASE.create());
-    private final Button btnDiscardChanges = new com.vaadinerp.components.SafeButton("Discard Draft", VaadinIcon.CLOSE_CIRCLE.create());
+    private final Button btnCommitChanges = new com.vaadinerp.components.SafeButton("Commit to DB",
+            VaadinIcon.DATABASE.create());
+    private final Button btnDiscardChanges = new com.vaadinerp.components.SafeButton("Discard Draft",
+            VaadinIcon.CLOSE_CIRCLE.create());
     private final Span pendingStatusInfo = new Span("");
 
     public enum CronActionType {
@@ -157,7 +159,6 @@ public class PgCronDesignerView extends VerticalLayout {
         for (Map<String, Object> originalRow : allJobsList) {
             Map<String, Object> rowCopy = new HashMap<>(originalRow);
             Long jId = rowCopy.get("jobid") instanceof Number ? ((Number) rowCopy.get("jobid")).longValue() : null;
-
 
             for (PendingPgCronAction action : pendingChanges) {
                 if (action.jobId != null && action.jobId.equals(jId)) {
@@ -335,7 +336,7 @@ public class PgCronDesignerView extends VerticalLayout {
         });
         btnYes.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
 
-        Button btnNo = new com.vaadinerp.components.SafeButton("Batal", e -> confirm.close());
+        Button btnNo = new com.vaadinerp.components.SafeButton("Cancel", e -> confirm.close());
         confirm.getFooter().add(btnNo, btnYes);
         confirm.open();
     }
@@ -360,7 +361,7 @@ public class PgCronDesignerView extends VerticalLayout {
                 if (action.actionType == CronActionType.DELETE_JOB) {
                     dynamicDataService.unschedulePgCronJob(action.jobId);
                 } else if (action.actionType == CronActionType.ADD_JOB) {
-                    // Cukup gunakan schedule(). pg_cron akan otomatis melakukan UPDATE 
+                    // Cukup gunakan schedule(). pg_cron akan otomatis melakukan UPDATE
                     // dan mempertahankan jobid serta riwayat log asalkan jobName sama.
                     dynamicDataService.schedulePgCronJob(action.jobName, action.schedule, action.command);
                 }
@@ -382,8 +383,9 @@ public class PgCronDesignerView extends VerticalLayout {
 
     private void openLogDialog(Map<String, Object> row) {
         Long jId = row.get("jobid") instanceof Number ? ((Number) row.get("jobid")).longValue() : null;
-        if (jId == null) return;
-        
+        if (jId == null)
+            return;
+
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Riwayat Log Eksekusi Job: " + row.get("jobname"));
         dialog.setWidth("800px");
@@ -392,21 +394,22 @@ public class PgCronDesignerView extends VerticalLayout {
         Grid<Map<String, Object>> logGrid = new Grid<>();
         logGrid.setSizeFull();
         logGrid.addThemeVariants(GridVariant.LUMO_COMPACT, GridVariant.LUMO_ROW_STRIPES);
-        
+
         logGrid.addColumn(r -> r.get("start_time")).setHeader("Mulai").setAutoWidth(true);
         logGrid.addColumn(r -> r.get("end_time")).setHeader("Selesai").setAutoWidth(true);
         logGrid.addColumn(r -> r.get("status")).setHeader("Status").setAutoWidth(true);
         logGrid.addColumn(r -> r.get("return_message")).setHeader("Pesan").setWidth("250px").setFlexGrow(1);
-        
+
         List<Map<String, Object>> logs = dynamicDataService.fetchPgCronLogs(jId);
         logGrid.setItems(logs);
-        
+
         Button btnClose = new com.vaadinerp.components.SafeButton("Tutup", e -> dialog.close());
-        
-        VerticalLayout layout = new VerticalLayout(new Span("Menampilkan hingga 100 riwayat eksekusi terakhir:"), logGrid);
+
+        VerticalLayout layout = new VerticalLayout(new Span("Menampilkan hingga 100 riwayat eksekusi terakhir:"),
+                logGrid);
         layout.setSizeFull();
         layout.setPadding(false);
-        
+
         dialog.add(layout);
         dialog.getFooter().add(btnClose);
         dialog.open();

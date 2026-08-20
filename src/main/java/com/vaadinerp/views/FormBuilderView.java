@@ -2984,7 +2984,7 @@ public class FormBuilderView extends VerticalLayout {
 
         final FieldFilterMetaTemp[] currentEditing = new FieldFilterMetaTemp[1];
         Button btnAddFilter = new com.vaadinerp.components.SafeButton("Add", VaadinIcon.PLUS.create());
-        Button btnCancelEdit = new com.vaadinerp.components.SafeButton("Batal Edit", VaadinIcon.CLOSE.create());
+        Button btnCancelEdit = new com.vaadinerp.components.SafeButton("Cancel Edit", VaadinIcon.CLOSE.create());
         btnCancelEdit.setVisible(false);
 
         Runnable resetForm = () -> {
@@ -3549,7 +3549,7 @@ public class FormBuilderView extends VerticalLayout {
 
         final FieldLovTargetMetaTemp[] currentEditing = new FieldLovTargetMetaTemp[1];
         Button btnAdd = new com.vaadinerp.components.SafeButton("Tambah Target", VaadinIcon.PLUS.create());
-        Button btnCancelEdit = new com.vaadinerp.components.SafeButton("Batal Edit", VaadinIcon.CLOSE.create());
+        Button btnCancelEdit = new com.vaadinerp.components.SafeButton("Cancel Edit", VaadinIcon.CLOSE.create());
         btnCancelEdit.setVisible(false);
 
         Runnable resetForm = () -> {
@@ -3990,7 +3990,7 @@ public class FormBuilderView extends VerticalLayout {
         dialog.setHeaderTitle(titleText);
         dialog.add(new com.vaadin.flow.component.html.Paragraph(message));
 
-        Button btnConfirm = new com.vaadinerp.components.SafeButton("Ya, Hapus", event -> {
+        Button btnConfirm = new com.vaadinerp.components.SafeButton("Yes, Delete", event -> {
             confirmAction.run();
             dialog.close();
         });

@@ -2545,7 +2545,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         dialog.setHeaderTitle(titleText);
         dialog.add(new com.vaadin.flow.component.html.Paragraph(message));
 
-        Button btnConfirm = new com.vaadinerp.components.SafeButton("Ya, Hapus", event -> {
+        Button btnConfirm = new com.vaadinerp.components.SafeButton("Yes, Delete", event -> {
             confirmAction.run();
             dialog.close();
         });

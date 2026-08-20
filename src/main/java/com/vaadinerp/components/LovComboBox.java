@@ -27,7 +27,7 @@ public class LovComboBox extends ComboBox<String> {
         // Map value (key) to its display label
         setItemLabelGenerator(val -> valueToLabelMap.getOrDefault(val, val));
         setClearButtonVisible(true);
-        setPlaceholder("Pilih...");
+        setPlaceholder("Select...");
         setWidthFull();
         getStyle().set("min-width", "0").set("max-width", "100%").set("box-sizing", "border-box");
 

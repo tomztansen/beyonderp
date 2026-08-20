@@ -26,10 +26,10 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
 
         setItemLabelGenerator(val -> valueToLabelMap.getOrDefault(val, val));
         setClearButtonVisible(true);
-        setPlaceholder("Pilih beberapa...");
+        setPlaceholder("Select multiple...");
         setWidthFull();
         getStyle().set("min-width", "0").set("max-width", "100%").set("box-sizing", "border-box");
-        
+
         setupLazyDataProvider();
     }
 
@@ -57,11 +57,14 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
                     List<String> pageItems = new ArrayList<>();
                     for (Map<String, Object> rec : records) {
                         Object valObj = getCaseInsensitive(rec, lovMeta.getValueColumn());
-                        if (valObj == null && rec.containsKey("id")) valObj = rec.get("id");
+                        if (valObj == null && rec.containsKey("id"))
+                            valObj = rec.get("id");
                         Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
                         if (lblObj == null || lblObj.toString().trim().isEmpty()) {
-                            if (getCaseInsensitive(rec, "code") != null) lblObj = getCaseInsensitive(rec, "code");
-                            else if (getCaseInsensitive(rec, "name") != null) lblObj = getCaseInsensitive(rec, "name");
+                            if (getCaseInsensitive(rec, "code") != null)
+                                lblObj = getCaseInsensitive(rec, "code");
+                            else if (getCaseInsensitive(rec, "name") != null)
+                                lblObj = getCaseInsensitive(rec, "name");
                         }
 
                         String val = valObj != null ? valObj.toString().trim() : "";
@@ -132,8 +135,9 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
     }
 
     public void refreshItems() {
-        if (!isAttached()) return;
-        
+        if (!isAttached())
+            return;
+
         if (getDataProvider() != null) {
             getDataProvider().refreshAll();
         } else {

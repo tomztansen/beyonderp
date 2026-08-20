@@ -114,14 +114,15 @@ public class ActionContext {
 
         Command openDialog = () -> {
             com.vaadin.flow.component.dialog.Dialog dialog = new com.vaadin.flow.component.dialog.Dialog();
-            dialog.setHeaderTitle(title != null ? title : "Pilihan");
+            dialog.setHeaderTitle(title != null ? title : "Option");
 
             com.vaadin.flow.component.orderedlayout.VerticalLayout layout = new com.vaadin.flow.component.orderedlayout.VerticalLayout();
             layout.setPadding(false);
             layout.setSpacing(true);
 
             if (message != null && !message.isEmpty()) {
-                if (message.contains("<br") || message.contains("</br>") || message.contains("<b") || message.contains("<span")) {
+                if (message.contains("<br") || message.contains("</br>") || message.contains("<b")
+                        || message.contains("<span")) {
                     String cleanHtml = message.replace("</br>", "<br/>");
                     layout.add(new Html("<div>" + cleanHtml + "</div>"));
                 } else {
@@ -139,7 +140,7 @@ public class ActionContext {
             com.vaadin.flow.component.button.Button btnOk = new com.vaadin.flow.component.button.Button("OK", e -> {
                 String selected = radioGroup.getValue();
                 if (selected == null) {
-                    showError("Warning", "Silakan pilih salah satu opsi terlebih dahulu.");
+                    showError("Warning", "Please select one of the options first.");
                     return;
                 }
                 dialog.close();
@@ -156,8 +157,9 @@ public class ActionContext {
                 }
             });
             btnOk.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
-            
-            com.vaadin.flow.component.button.Button btnCancel = new com.vaadin.flow.component.button.Button("Batal", e -> dialog.close());
+
+            com.vaadin.flow.component.button.Button btnCancel = new com.vaadin.flow.component.button.Button("Cancel",
+                    e -> dialog.close());
 
             dialog.getFooter().add(btnCancel, btnOk);
             dialog.open();
@@ -285,7 +287,7 @@ public class ActionContext {
                 headerBean.put(fieldName, val);
             }
         }
-        
+
         UI ui = UI.getCurrent();
         if (ui == null && currentView != null && currentView.getUI().isPresent()) {
             ui = currentView.getUI().get();
@@ -441,12 +443,14 @@ public class ActionContext {
 
                     if (cleanRest.length >= 6) {
                         System.out.println("Executing Procedure [" + procName + "] with 6 arguments: " + cleanRest[0]
-                                + ", " + cleanRest[1] + ", " + cleanRest[2] + ", " + cleanRest[3] + ", " + cleanRest[4] + ", " + cleanRest[5]);
+                                + ", " + cleanRest[1] + ", " + cleanRest[2] + ", " + cleanRest[3] + ", " + cleanRest[4]
+                                + ", " + cleanRest[5]);
                         dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?, ?, ?, ?, ?)", cleanRest[0],
                                 cleanRest[1], cleanRest[2], cleanRest[3], cleanRest[4], cleanRest[5]);
                     } else if (cleanRest.length == 5) {
                         System.out.println("Executing Procedure [" + procName + "] with 5 arguments: " + cleanRest[0]
-                                + ", " + cleanRest[1] + ", " + cleanRest[2] + ", " + cleanRest[3] + ", " + cleanRest[4]);
+                                + ", " + cleanRest[1] + ", " + cleanRest[2] + ", " + cleanRest[3] + ", "
+                                + cleanRest[4]);
                         dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?, ?, ?, ?)", cleanRest[0],
                                 cleanRest[1], cleanRest[2], cleanRest[3], cleanRest[4]);
                     } else if (cleanRest.length == 4) {
