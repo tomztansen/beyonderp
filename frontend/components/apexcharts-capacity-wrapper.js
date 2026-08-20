@@ -240,9 +240,9 @@ class ApexCapacityWrapper extends LitElement {
               // Show "W32 (4 Aug)"
               const oneJan = new Date(dt.getFullYear(), 0, 1);
               const weekNum = Math.ceil(((dt - oneJan) / 86400000 + oneJan.getDay() + 1) / 7);
-              return 'W' + weekNum + ' (' + dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ')';
+              return 'W' + weekNum + ' (' + dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ')';
             }
-            return dt.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short' });
+            return dt.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
           }
         }
       },
@@ -288,10 +288,10 @@ class ApexCapacityWrapper extends LitElement {
               const monday = new Date(timestamp);
               const sunday = new Date(timestamp);
               sunday.setDate(sunday.getDate() + 6);
-              dateStr = monday.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + 
-                        ' – ' + sunday.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+              dateStr = monday.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + 
+                        ' – ' + sunday.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
             } else {
-              dateStr = new Date(timestamp).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
+              dateStr = new Date(timestamp).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
             }
           }
           

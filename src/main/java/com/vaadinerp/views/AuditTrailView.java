@@ -121,7 +121,8 @@ public class AuditTrailView extends VerticalLayout {
         Button btnRefresh = new com.vaadinerp.components.SafeButton("Refresh", VaadinIcon.REFRESH.create());
         btnRefresh.addClickListener(e -> refreshGrid());
 
-        Button btnRecycleBinHelp = new com.vaadinerp.components.SafeButton("ℹ️ Help & Restore Guide", e -> showHelpDialog());
+        Button btnRecycleBinHelp = new com.vaadinerp.components.SafeButton("ℹ️ Help & Restore Guide",
+                e -> showHelpDialog());
         btnRecycleBinHelp.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
         toolbar.add(searchField, actionFilter, btnRefresh, btnRecycleBinHelp);
@@ -181,7 +182,8 @@ public class AuditTrailView extends VerticalLayout {
 
             String actionType = row.get("action_type") != null ? row.get("action_type").toString() : "";
             if ("DELETE".equalsIgnoreCase(actionType) || "UPDATE".equalsIgnoreCase(actionType)) {
-                Button btnRestore = new com.vaadinerp.components.SafeButton("🔄 Pulihkan / Restore", VaadinIcon.ROTATE_LEFT.create());
+                Button btnRestore = new com.vaadinerp.components.SafeButton("🔄 Pulihkan / Restore",
+                        VaadinIcon.ROTATE_LEFT.create());
                 btnRestore.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY,
                         ButtonVariant.LUMO_SUCCESS);
                 btnRestore.getStyle().set("font-weight", "600");
@@ -210,7 +212,7 @@ public class AuditTrailView extends VerticalLayout {
             }
 
             String action = actionFilter.getValue();
-            if (action != null && !"Semua Aksi".equals(action)) {
+            if (action != null && !"All Actions".equals(action)) {
                 sql.append("AND action_type = ? ");
                 args.add(action);
             }
@@ -274,33 +276,34 @@ public class AuditTrailView extends VerticalLayout {
 
     private void confirmRestore(Map<String, Object> row) {
         Dialog confirmDialog = new Dialog();
-        confirmDialog.setHeaderTitle("🛡️ Konfirmasi Pulihkan / Restore Data");
+        confirmDialog.setHeaderTitle("🛡️ Confirm to Restore Data");
 
         String tableName = (String) row.get("table_name");
         String recordId = (String) row.get("record_id");
         Long logId = ((Number) row.get("id")).longValue();
 
         VerticalLayout layout = new VerticalLayout();
-        layout.add(new Span("Apakah Anda yakin ingin memulihkan (restore) record berikut ke database?"));
-        layout.add(new Span("🎯 Tabel: " + tableName + " | ID Record: " + recordId));
-        layout.add(new Span("⚠️ Sistem akan memasukkan kembali snapshot data asli secara utuh ke dalam tabel tujuan."));
+        layout.add(new Span("Are you sure you want to restore (restore) the following record to the database?"));
+        layout.add(new Span("🎯 Table: " + tableName + " | Record ID: " + recordId));
+        layout.add(new Span("⚠️ The system will insert the original data snapshot back intact into the target table."));
 
         confirmDialog.add(layout);
 
-        Button btnConfirm = new com.vaadinerp.components.SafeButton("Ya, Pulihkan Sekarang!", VaadinIcon.ROTATE_LEFT.create());
+        Button btnConfirm = new com.vaadinerp.components.SafeButton("Yes, Restore Now!",
+                VaadinIcon.ROTATE_LEFT.create());
         btnConfirm.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnConfirm.addClickListener(e -> {
             try {
                 boolean success = dynamicDataService.restoreFromAuditLog(logId);
                 if (success) {
                     Notification notif = Notification.show(
-                            "🎉 Data ID [" + recordId + "] pada tabel [" + tableName + "] BERHASIL DIPULIHKAN 100%!",
+                            "🎉 Data ID [" + recordId + "] on table [" + tableName + "] RESTORED SUCCESSFULLY!",
                             5000, Notification.Position.TOP_CENTER);
                     notif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
                     refreshGrid();
                 }
             } catch (Exception ex) {
-                Notification notif = Notification.show("❌ Gagal memulihkan data: " + ex.getMessage(), 6000,
+                Notification notif = Notification.show("❌ Failed to restore data: " + ex.getMessage(), 6000,
                         Notification.Position.MIDDLE);
                 notif.addThemeVariants(NotificationVariant.LUMO_ERROR);
             }
@@ -314,18 +317,19 @@ public class AuditTrailView extends VerticalLayout {
 
     private void showHelpDialog() {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("ℹ️ Panduan Audit Trail & Data Recovery Center");
+        dialog.setHeaderTitle("ℹ️ Audit Trail & Data Recovery Center");
         dialog.setWidth("650px");
 
         VerticalLayout layout = new VerticalLayout();
-        layout.add(new H3("Bagaimana cara kerja pemulihan data (Restore)?"));
+        layout.add(new H3("How does data recovery (Restore) work?"));
         layout.add(new Span(
-                "1. Setiap kali terjadi penghapusan (DELETE) atau pengubahan (UPDATE) pada menu ERP, sistem merekam snapshot isi data lengkap dalam format JSON ke dalam tabel sys_audit_log."));
+                "1. Every time a deletion (DELETE) or modification (UPDATE) occurs in the ERP menu, the system records a complete data snapshot in JSON format into the sys_audit_log table."));
         layout.add(new Span(
-                "2. Jika ada user tidak sengaja menghapus data atau salah melakukan edit, Anda cukup mencari nama tabel atau ID record di halaman ini."));
+                "2. If a user accidentally deletes data or makes an incorrect edit, you simply search for the table name or Record ID on this page."));
         layout.add(new Span(
-                "3. Klik tombol '🔄 Pulihkan / Restore'. Sistem otomatis membaca snapshot JSON lama dan memasukkan/mengembalikan data tersebut ke dalam tabel aslinya."));
-        layout.add(new Span("4. Relasi dan data Anda pun kembali aman tanpa perlu merestore full backup database!"));
+                "3. Click the '🔄 Restore' button. The system automatically reads the old JSON snapshot and inserts/restores the data into the original table."));
+        layout.add(new Span(
+                "4. Your relationships and data are safe again without needing to restore a full database backup!"));
 
         dialog.add(layout);
         Button btnClose = new com.vaadinerp.components.SafeButton("Mengerti", e -> dialog.close());

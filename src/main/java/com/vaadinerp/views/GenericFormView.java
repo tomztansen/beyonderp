@@ -185,8 +185,6 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private com.vaadin.flow.shared.Registration gridDragEndReg;
     private com.vaadin.flow.shared.Registration gridColReorderReg;
 
-
-
     private String getLovDisplayLabel(String lovCode, String val) {
         if (val == null || val.trim().isEmpty() || lovCode == null || lovCode.trim().isEmpty())
             return val != null ? val : "";
@@ -392,14 +390,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 java.util.Set<Map<String, Object>> selectedItems = grid.getSelectedItems();
                 if (selectedItems != null && !selectedItems.isEmpty()) {
                     showConfirmDialog("Confirm Delete",
-                            "Apakah Anda yakin ingin menghapus " + selectedItems.size() + " data yang dipilih ini?",
+                            "Are you sure you want to delete " + selectedItems.size() + " data that was selected?",
                             () -> {
                                 toolbar.setEnabled(false);
                                 try {
                                     for (Map<String, Object> selected : selectedItems) {
                                         dynamicDataService.deleteData(formDef, selected);
                                     }
-                                    Notification.show("Data successfully deleted!", 3000,
+                                    Notification.show("Data deleted successfully!", 3000,
                                             Notification.Position.TOP_CENTER);
                                     refreshGridData(formDef);
                                     grid.deselectAll();
@@ -845,7 +843,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             if (icon != null) {
                 icon.getStyle().set("color", "#2563eb").set("font-size", "1.2rem");
             }
-            Button actBtn = icon != null ? new com.vaadinerp.components.SafeButton(act.getActionLabel(), icon) : new com.vaadinerp.components.SafeButton(act.getActionLabel());
+            Button actBtn = icon != null ? new com.vaadinerp.components.SafeButton(act.getActionLabel(), icon)
+                    : new com.vaadinerp.components.SafeButton(act.getActionLabel());
             actBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
             actBtn.getStyle().set("font-weight", "500").set("color", "#374151");
             actBtn.addClickListener(e -> executeToolbarAction(act));
@@ -907,13 +906,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         }
                         if (formBinder != null)
                             formBinder.readBean(headerBean);
-                            
+
                         // Eksekusi post-action script jika ada
                         if (act.getScriptContent() != null && !act.getScriptContent().isBlank()) {
                             if (dynamicDataService != null && dynamicDataService.getScriptExecutorService() != null) {
                                 dynamicDataService.getScriptExecutorService().executeActionScript(
-                                    act, headerBean, selectedRows, GenericFormView.this
-                                );
+                                        act, headerBean, selectedRows, GenericFormView.this);
                             }
                         }
                     });
@@ -1130,7 +1128,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     if (paginationBar != null)
                         paginationBar.resetPage();
                     applyFilters();
-    
+
                     // Jika Historis disembunyikan dan ada filter, otomatis load record pertama
                     // (jika ada)
                     if (historisTab != null && !historisTab.isVisible() && grid != null) {
@@ -1360,9 +1358,11 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 boolean rowHasSubform = groupFields.stream()
                         .anyMatch(f -> "SUBFORM_GRID".equalsIgnoreCase(f.getComponentType()));
                 if (rowHasSubform) {
-                    if (subformSection != null) subformSection.add(rowLayout);
+                    if (subformSection != null)
+                        subformSection.add(rowLayout);
                 } else {
-                    if (headerSection != null) headerSection.add(rowLayout);
+                    if (headerSection != null)
+                        headerSection.add(rowLayout);
                 }
             } else {
                 formLayout.add(rowLayout);
@@ -1544,7 +1544,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         sectionTitle.getStyle().set("margin", "0");
         sectionTitle.getStyle().set("flex-grow", "1");
 
-        Button btnResetGridToolbar = new com.vaadinerp.components.SafeButton("Reset Layout Grid", VaadinIcon.ROTATE_LEFT.create());
+        Button btnResetGridToolbar = new com.vaadinerp.components.SafeButton("Reset Layout Grid",
+                VaadinIcon.ROTATE_LEFT.create());
         btnResetGridToolbar.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY,
                 com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
         btnResetGridToolbar.addClickListener(e -> {
@@ -1800,7 +1801,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             Object val1 = getValueCaseInsensitive(map1, fieldName);
                             s1 = (val1 != null) ? getLovDisplayLabel(lovCode, val1.toString()) : "";
                         }
-                        
+
                         String s2 = "";
                         if (lbl2 != null && !lbl2.toString().trim().isEmpty()) {
                             s2 = lbl2.toString();
@@ -1810,7 +1811,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         }
                         return s1.compareToIgnoreCase(s2);
                     }
-                    
+
                     Object val1 = getValueCaseInsensitive(map1, fieldName);
                     Object val2 = getValueCaseInsensitive(map2, fieldName);
                     if (val1 == null && val2 == null)
@@ -1972,7 +1973,6 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // ====== 4. AKTIFKAN COLUMN REORDERING (Drag-and-drop GESER KOLOM) ======
         grid.setColumnReorderingAllowed(true);
 
-
         // =========================================================================
 
         // Set Grid Items dari database
@@ -1981,8 +1981,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // Terapkan preferensi urutan kolom per user jika ada
         java.util.List<String> userOrder = dynamicDataService.getUserGridOrder(currentFormCode, "mainGrid");
         com.vaadinerp.components.StandardGridUtils.applySafeColumnOrder(grid, columnToFieldNameMap, userOrder);
-        
-        // Listener dipasang SETELAH applySafeColumnOrder agar tidak tertrigger saat loading awal
+
+        // Listener dipasang SETELAH applySafeColumnOrder agar tidak tertrigger saat
+        // loading awal
         gridColReorderReg = grid.addColumnReorderListener(event -> {
             java.util.List<Grid.Column<Map<String, Object>>> newOrder = event.getColumns();
             java.util.List<String> orderedFieldNames = new java.util.ArrayList<>();
