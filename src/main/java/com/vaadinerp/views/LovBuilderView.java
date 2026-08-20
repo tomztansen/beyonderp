@@ -75,15 +75,18 @@ public class LovBuilderView extends VerticalLayout {
                 .set("z-index", "100")
                 .set("box-shadow", "0 4px 10px rgba(0,0,0,0.08)");
 
-        Button btnNew = new com.vaadinerp.components.SafeButton("New", VaadinIcon.PLUS_CIRCLE.create(), e -> clearForm());
+        Button btnNew = new com.vaadinerp.components.SafeButton("New", VaadinIcon.PLUS_CIRCLE.create(),
+                e -> clearForm());
         btnNew.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnNew.getStyle().set("color", "#22c55e");
 
-        Button btnSave = new com.vaadinerp.components.SafeButton("Save", VaadinIcon.DOWNLOAD.create(), e -> saveLovMeta());
+        Button btnSave = new com.vaadinerp.components.SafeButton("Save", VaadinIcon.DOWNLOAD.create(),
+                e -> saveLovMeta());
         btnSave.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnSave.getStyle().set("color", "#3b82f6");
 
-        Button btnDelete = new com.vaadinerp.components.SafeButton("Delete", VaadinIcon.CLOSE_CIRCLE.create(), e -> deleteLovMeta());
+        Button btnDelete = new com.vaadinerp.components.SafeButton("Delete", VaadinIcon.CLOSE_CIRCLE.create(),
+                e -> deleteLovMeta());
         btnDelete.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
 
         Button btnCopy = new com.vaadinerp.components.SafeButton("Copy", VaadinIcon.COPY.create(), e -> copyLovMeta());
@@ -248,11 +251,11 @@ public class LovBuilderView extends VerticalLayout {
             lovCodeField.setValue(currentLovMeta.getLovCode() + "_COPY");
             lovNameField.setValue(currentLovMeta.getLovName() + " Copy");
             currentLovMeta = null;
-            Notification.show("Silakan ubah LOV Code dan tekan Simpan.", 4000, Notification.Position.MIDDLE);
+            Notification.show("Please change the LOV Code and press Save.", 4000, Notification.Position.MIDDLE);
             lovCodeField.focus();
             grid.deselectAll();
         } else {
-            Notification.show("Pilih LOV yang akan di-copy terlebih dahulu.", 3000, Notification.Position.MIDDLE);
+            Notification.show("Please select the LOV to copy first.", 3000, Notification.Position.MIDDLE);
         }
     }
 }

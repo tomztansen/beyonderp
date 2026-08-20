@@ -23,7 +23,7 @@ class ApexCapacityWrapper extends LitElement {
     `;
   }
 
-    constructor() {
+  constructor() {
     super();
     this.chart = null;
     this.capacityMode = 'QTYBOX';
@@ -65,7 +65,7 @@ class ApexCapacityWrapper extends LitElement {
     }
 
     this._maxCapacity = maxCapacity || 80;
-    
+
     // Helper: get Monday of a given date string "YYYY-MM-DD"
     const getMondayStr = (dateStr) => {
       const d = new Date(dateStr);
@@ -92,7 +92,7 @@ class ApexCapacityWrapper extends LitElement {
       if (this.weeklyView) {
         date = getMondayStr(date);
       }
-      
+
       if (!dates.includes(date)) {
         dates.push(date);
       }
@@ -118,7 +118,7 @@ class ApexCapacityWrapper extends LitElement {
         let day = minDt.getDay();
         let diff = minDt.getDate() - day + (day === 0 ? -6 : 1);
         minDt.setDate(diff);
-        
+
         // Adjust max to Sunday
         day = maxDt.getDay();
         diff = maxDt.getDate() + (day === 0 ? 0 : 7 - day);
@@ -160,15 +160,38 @@ class ApexCapacityWrapper extends LitElement {
     // Extract colors from data
     const colorMap = {};
     for (let i = 0; i < dataArray.length; i++) {
-        const item = dataArray[i];
-        if (item.taskName && item.color) {
-            colorMap[item.taskName] = item.color;
-        }
+      const item = dataArray[i];
+      if (item.taskName && item.color) {
+        colorMap[item.taskName] = item.color;
+      }
     }
 
+    const hslToHex = (hslStr) => {
+      if (!hslStr || !hslStr.startsWith('hsl')) return hslStr;
+      const match = hslStr.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+      if (!match) return hslStr;
+      const h = parseInt(match[1]);
+      const s = parseInt(match[2]) / 100;
+      const l = parseInt(match[3]) / 100;
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      const m = l - c / 2;
+      let r = 0, g = 0, b = 0;
+      if (0 <= h && h < 60) { r = c; g = x; b = 0; }
+      else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
+      else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
+      else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
+      else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
+      else if (300 <= h && h < 360) { r = c; g = 0; b = x; }
+      r = Math.round((r + m) * 255).toString(16).padStart(2, '0');
+      g = Math.round((g + m) * 255).toString(16).padStart(2, '0');
+      b = Math.round((b + m) * 255).toString(16).padStart(2, '0');
+      return `#${r}${g}${b}`;
+    };
+
     const seriesColors = Object.keys(seriesMap).map(name => {
-        if (name.endsWith(" (LATE)")) return '#ff0000';
-        return colorMap[name] || '#3b82f6';
+      if (name.endsWith(" (LATE)")) return '#ff0000';
+      return hslToHex(colorMap[name]) || '#3b82f6';
     });
 
     // Build ApexCharts series
@@ -202,9 +225,16 @@ class ApexCapacityWrapper extends LitElement {
         events: {
           dataPointSelection: (event, chartContext, config) => {
             if (config.seriesIndex !== undefined && config.seriesIndex !== null && config.dataPointIndex !== undefined) {
-              const seriesName = config.w.config.series[config.seriesIndex].name;
-              const timestamp = config.w.config.xaxis.categories[config.dataPointIndex];
-              const dateStr = timestamp ? new Date(timestamp).toISOString().split('T')[0] : '';
+              const seriesName = config.w.globals.seriesNames[config.seriesIndex];
+              const timestamp = config.w.globals.seriesX[0] ? config.w.globals.seriesX[0][config.dataPointIndex] : null;
+              let dateStr = '';
+              if (timestamp) {
+                // Determine date string from local timezone in case it's shifted, or just use ISO string if it's UTC midnight.
+                // To be safe, we extract the YYYY-MM-DD from the local date since ApexCharts parses timestamps into local context.
+                const d = new Date(timestamp);
+                const pad = (n) => n.toString().padStart(2, '0');
+                dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+              }
               this.dispatchEvent(new CustomEvent('chart-item-click', { detail: { taskName: seriesName, date: dateStr } }));
             }
           }
@@ -230,10 +260,10 @@ class ApexCapacityWrapper extends LitElement {
         type: 'datetime',
         tickAmount: isWeekly ? (dates.length > 0 ? dates.length : undefined) : (dates.length > 0 ? dates.length : undefined),
         categories: dates.map(d => new Date(d).getTime()),
-        labels: { 
+        labels: {
           hideOverlappingLabels: false,
           style: { fontSize: '11px' },
-          formatter: function(value, timestamp) {
+          formatter: function (value, timestamp) {
             if (!timestamp) return '';
             const dt = new Date(timestamp);
             if (isWeekly) {
@@ -280,7 +310,7 @@ class ApexCapacityWrapper extends LitElement {
       tooltip: {
         shared: true,
         intersect: false,
-        custom: function({series, seriesIndex, dataPointIndex, w}) {
+        custom: function ({ series, seriesIndex, dataPointIndex, w }) {
           let dateStr = '';
           const timestamp = w.globals.seriesX[0] ? w.globals.seriesX[0][dataPointIndex] : null;
           if (timestamp) {
@@ -288,17 +318,17 @@ class ApexCapacityWrapper extends LitElement {
               const monday = new Date(timestamp);
               const sunday = new Date(timestamp);
               sunday.setDate(sunday.getDate() + 6);
-              dateStr = monday.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + 
-                        ' – ' + sunday.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+              dateStr = monday.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) +
+                ' – ' + sunday.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
             } else {
               dateStr = new Date(timestamp).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
             }
           }
-          
+
           let html = '<div style="font-family: var(--lumo-font-family, Inter, sans-serif);">' +
-                     '<div style="font-size: 12px; font-weight: 600; padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #1e293b;">' + 
-                     dateStr + '</div><div style="padding: 4px 0;">';
-          
+            '<div style="font-size: 12px; font-weight: 600; padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #1e293b;">' +
+            dateStr + '</div><div style="padding: 4px 0;">';
+
           let hasData = false;
           series.forEach((s, i) => {
             const val = s[dataPointIndex];
@@ -307,19 +337,19 @@ class ApexCapacityWrapper extends LitElement {
               const color = w.globals.colors[i];
               const seriesName = w.globals.seriesNames[i];
               html += '<div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 12px; font-size: 12px;">' +
-                        '<div style="display: flex; align-items: center; gap: 8px; color: #475569;">' +
-                          '<span style="background-color: ' + color + '; width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span>' +
-                          '<span>' + seriesName + '</span>' +
-                        '</div>' +
-                        '<span style="font-weight: 600; margin-left: 20px; color: #0f172a;">' + val + ' ' + modeLabel + '</span>' +
-                      '</div>';
+                '<div style="display: flex; align-items: center; gap: 8px; color: #475569;">' +
+                '<span style="background-color: ' + color + '; width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span>' +
+                '<span>' + seriesName + '</span>' +
+                '</div>' +
+                '<span style="font-weight: 600; margin-left: 20px; color: #0f172a;">' + val + ' ' + modeLabel + '</span>' +
+                '</div>';
             }
           });
-          
+
           if (!hasData) {
-             html += '<div style="padding: 8px 12px; font-size: 12px; color: #64748b;">Tidak ada jadwal</div>';
+            html += '<div style="padding: 8px 12px; font-size: 12px; color: #64748b;">Tidak ada jadwal</div>';
           }
-          
+
           html += '</div></div>';
           return html;
         }

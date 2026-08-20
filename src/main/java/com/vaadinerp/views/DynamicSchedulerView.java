@@ -2896,16 +2896,17 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 // Generate PK Baru (Bypass masalah Auto-Increment Hibernate/DB yang tidak
                 // ter-set)
                 Object originalPkVal = dbRow.get(actualPkKey);
-                Object newPkVal;
                 if (originalPkVal instanceof Number) {
-                    String maxSql = "SELECT MAX(" + actualPkKey + ") FROM " + updateTable;
-                    Long maxId = jdbcTemplate.queryForObject(maxSql, Long.class);
-                    newPkVal = (maxId != null ? maxId : 0) + 1;
+                    // Jika tipe datanya Number (misal int/bigint) yang menggunakan SEQUENCE,
+                    // lebih aman membuang kolom PK dari query insert agar DB otomatis 
+                    // mengisi ID menggunakan nextval() atau AUTO_INCREMENT.
+                    // Ini menghindari masalah bentrok/duplicate key dengan sequence di masa depan.
+                    dbRow.remove(actualPkKey);
                 } else {
-                    newPkVal = java.util.UUID.randomUUID().toString().substring(0, 8); // Random string PK
+                    Object newPkVal = java.util.UUID.randomUUID().toString().substring(0, 8); // Random string PK
+                    dbRow.put(actualPkKey, newPkVal);
                 }
 
-                dbRow.put(actualPkKey, newPkVal);
                 dbRow.put(actualQtyKey, rowSplitQty);
                 if (weightCol != null && rowSplitWeight != null) {
                     dbRow.put(actualWeightKey, rowSplitWeight);

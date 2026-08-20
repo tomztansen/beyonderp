@@ -8,14 +8,17 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 
 /**
- * Komponen Toolbar Aksi Standar ERP (Tambah, Hapus, Simpan, Batal, Refresh, Tutup, Cetak).
- * Didesain dengan Fluent API dan kesiapan Otoritas/RBAC (Role-Based Access Control) per User per Menu.
+ * Komponen Toolbar Aksi Standar ERP (Tambah, Hapus, Simpan, Batal, Refresh,
+ * Tutup, Cetak).
+ * Didesain dengan Fluent API dan kesiapan Otoritas/RBAC (Role-Based Access
+ * Control) per User per Menu.
  */
 public class StandardActionToolbar extends HorizontalLayout {
 
     /**
      * DTO Otoritas Menu Granular.
-     * Digunakan untuk mengatur hak akses tombol aksi berdasarkan otoritas user yang sedang login.
+     * Digunakan untuk mengatur hak akses tombol aksi berdasarkan otoritas user yang
+     * sedang login.
      */
     public static class MenuAccessAuthority {
         public boolean canAdd = true;
@@ -43,13 +46,13 @@ public class StandardActionToolbar extends HorizontalLayout {
         }
     }
 
-    private final Button btnNew = new com.vaadinerp.components.SafeButton("Tambah");
-    private final Button btnDelete = new com.vaadinerp.components.SafeButton("Hapus");
-    private final Button btnSave = new com.vaadinerp.components.SafeButton("Simpan");
-    private final Button btnCancel = new com.vaadinerp.components.SafeButton("Batal");
+    private final Button btnNew = new com.vaadinerp.components.SafeButton("Add");
+    private final Button btnDelete = new com.vaadinerp.components.SafeButton("Delete");
+    private final Button btnSave = new com.vaadinerp.components.SafeButton("Save");
+    private final Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel");
     private final Button btnRefresh = new com.vaadinerp.components.SafeButton("Refresh");
 
-    private final Button btnPrint = new com.vaadinerp.components.SafeButton("Cetak");
+    private final Button btnPrint = new com.vaadinerp.components.SafeButton("Print");
 
     public StandardActionToolbar() {
         setWidthFull();
@@ -68,12 +71,16 @@ public class StandardActionToolbar extends HorizontalLayout {
                 .set("top", "0")
                 .set("z-index", "50");
 
-        getElement().addEventListener("mouseover", e -> {}).addEventData("element.style.boxShadow='0 8px 20px rgba(0,0,0,0.08)'; element.style.borderColor='#94a3b8'; element.style.background='linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)'");
-        getElement().addEventListener("mouseout", e -> {}).addEventData("element.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)'; element.style.borderColor='#cbd5e1'; element.style.background='linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)'");
+        getElement().addEventListener("mouseover", e -> {
+        }).addEventData(
+                "element.style.boxShadow='0 8px 20px rgba(0,0,0,0.08)'; element.style.borderColor='#94a3b8'; element.style.background='linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)'");
+        getElement().addEventListener("mouseout", e -> {
+        }).addEventData(
+                "element.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)'; element.style.borderColor='#cbd5e1'; element.style.background='linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)'");
 
         // 1. TAMBAH
         setupButton(btnNew, VaadinIcon.PLUS_CIRCLE, "#22c55e");
-        
+
         // 2. HAPUS
         setupButton(btnDelete, VaadinIcon.CLOSE_CIRCLE, "#ef4444");
 
@@ -119,8 +126,12 @@ public class StandardActionToolbar extends HorizontalLayout {
                 .set("transition", "all 0.2s ease-in-out")
                 .set("border", "1px solid transparent");
 
-        btn.getElement().addEventListener("mouseover", e -> {}).addEventData("element.style.backgroundColor='#ffffff'; element.style.boxShadow='0 4px 12px rgba(0,0,0,0.14)'; element.style.borderColor='#cbd5e1'; element.style.transform='translateY(-1px)'");
-        btn.getElement().addEventListener("mouseout", e -> {}).addEventData("element.style.backgroundColor=''; element.style.boxShadow=''; element.style.borderColor='transparent'; element.style.transform=''");
+        btn.getElement().addEventListener("mouseover", e -> {
+        }).addEventData(
+                "element.style.backgroundColor='#ffffff'; element.style.boxShadow='0 4px 12px rgba(0,0,0,0.14)'; element.style.borderColor='#cbd5e1'; element.style.transform='translateY(-1px)'");
+        btn.getElement().addEventListener("mouseout", e -> {
+        }).addEventData(
+                "element.style.backgroundColor=''; element.style.boxShadow=''; element.style.borderColor='transparent'; element.style.transform=''");
     }
 
     // --- FLUENT ACTION SETTERS ---
@@ -165,10 +176,12 @@ public class StandardActionToolbar extends HorizontalLayout {
 
     /**
      * Menerapkan aturan otoritas menu ke toolbar ini.
-     * Tombol aksi (Tambah, Edit/Simpan, Hapus, Cetak) akan otomatis disembunyikan/disabled jika user tidak berwenang.
+     * Tombol aksi (Tambah, Edit/Simpan, Hapus, Cetak) akan otomatis
+     * disembunyikan/disabled jika user tidak berwenang.
      */
     public StandardActionToolbar applyAuthority(MenuAccessAuthority auth) {
-        if (auth == null) return this;
+        if (auth == null)
+            return this;
 
         if (!auth.canAdd) {
             btnNew.setVisible(false);
@@ -186,23 +199,40 @@ public class StandardActionToolbar extends HorizontalLayout {
             btnPrint.setVisible(false);
             btnPrint.setEnabled(false);
         }
-        
-        // Logika Opsi 1/2: Tombol Batal hanya aktif jika user memiliki hak Add atau Edit
+
+        // Logika Opsi 1/2: Tombol Batal hanya aktif jika user memiliki hak Add atau
+        // Edit
         if (!auth.canAdd && !auth.canEdit) {
             btnCancel.setVisible(false);
             btnCancel.setEnabled(false);
         }
-        
+
         return this;
     }
 
     // --- DIRECT COMPONENT ACCESSORS ---
 
-    public Button getBtnNew() { return btnNew; }
-    public Button getBtnDelete() { return btnDelete; }
-    public Button getBtnSave() { return btnSave; }
-    public Button getBtnCancel() { return btnCancel; }
-    public Button getBtnRefresh() { return btnRefresh; }
+    public Button getBtnNew() {
+        return btnNew;
+    }
 
-    public Button getBtnPrint() { return btnPrint; }
+    public Button getBtnDelete() {
+        return btnDelete;
+    }
+
+    public Button getBtnSave() {
+        return btnSave;
+    }
+
+    public Button getBtnCancel() {
+        return btnCancel;
+    }
+
+    public Button getBtnRefresh() {
+        return btnRefresh;
+    }
+
+    public Button getBtnPrint() {
+        return btnPrint;
+    }
 }
