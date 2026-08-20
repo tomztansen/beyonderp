@@ -136,7 +136,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                         }
                     }
                 } catch (Exception e) {
-                    System.err.println("Gagal meload data hari libur: " + e.getMessage());
+                    System.err.println("Failed to load holiday data: " + e.getMessage());
                 }
             }
         }
@@ -245,7 +245,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 .set("margin-right", "auto");
 
         timelineGroupFilter = new ComboBox<>();
-        timelineGroupFilter.setPlaceholder("Group (Semua)");
+        timelineGroupFilter.setPlaceholder("Group (All)");
         timelineGroupFilter.setClearButtonVisible(true);
         timelineGroupFilter.setWidth("160px");
         timelineGroupFilter.addThemeVariants(com.vaadin.flow.component.combobox.ComboBoxVariant.LUMO_SMALL);
@@ -258,7 +258,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         });
 
         timelineResourceFilter = new ComboBox<>();
-        timelineResourceFilter.setPlaceholder("Mesin (Semua)");
+        timelineResourceFilter.setPlaceholder("Machine (All)");
         timelineResourceFilter.setClearButtonVisible(true);
         timelineResourceFilter.setWidth("160px");
         timelineResourceFilter.addThemeVariants(com.vaadin.flow.component.combobox.ComboBoxVariant.LUMO_SMALL);
@@ -329,7 +329,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         title1.getStyle().set("font-weight", "600").set("font-size", "14px").set("padding", "8px").set("color",
                 "#334155");
         groupFilterCombo1 = new ComboBox<>();
-        groupFilterCombo1.setPlaceholder("Group 1 (Semua)");
+        groupFilterCombo1.setPlaceholder("Group 1 (All)");
         groupFilterCombo1.setClearButtonVisible(true);
         groupFilterCombo1.setWidth("160px");
         groupFilterCombo1.addThemeVariants(com.vaadin.flow.component.combobox.ComboBoxVariant.LUMO_SMALL);
@@ -342,7 +342,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         });
 
         resourceFilterCombo1 = new ComboBox<>();
-        resourceFilterCombo1.setPlaceholder("Mesin 1 (Semua)");
+        resourceFilterCombo1.setPlaceholder("Machine 1 (All)");
         resourceFilterCombo1.setClearButtonVisible(true);
         resourceFilterCombo1.setWidth("160px");
         resourceFilterCombo1.addThemeVariants(com.vaadin.flow.component.combobox.ComboBoxVariant.LUMO_SMALL);
@@ -373,14 +373,14 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             updateAllCharts();
         });
         btnChartPrev1.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
-        btnChartPrev1.setTooltipText("◀ Mundur 1 Hari");
+        btnChartPrev1.setTooltipText("◀ Go back 1 day");
 
         Button btnChartNext1 = new com.vaadinerp.components.SafeButton(VaadinIcon.ANGLE_RIGHT.create(), e -> {
             chartViewStartDate = chartViewStartDate.plusDays(1);
             updateAllCharts();
         });
         btnChartNext1.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
-        btnChartNext1.setTooltipText("▶ Maju 1 Hari");
+        btnChartNext1.setTooltipText("▶ Go forward 1 day");
 
         header1.add(title1, btnChartPrev1, btnChartNext1, groupFilterCombo1, resourceFilterCombo1, capacityModeCombo1);
         capacityChart1 = new ApexCapacityChart();
@@ -401,7 +401,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         title2.getStyle().set("font-weight", "600").set("font-size", "14px").set("padding", "8px").set("color",
                 "#334155");
         groupFilterCombo2 = new ComboBox<>();
-        groupFilterCombo2.setPlaceholder("Group 2 (Semua)");
+        groupFilterCombo2.setPlaceholder("Group 2 (All)");
         groupFilterCombo2.setClearButtonVisible(true);
         groupFilterCombo2.setWidth("160px");
         groupFilterCombo2.addThemeVariants(com.vaadin.flow.component.combobox.ComboBoxVariant.LUMO_SMALL);
@@ -414,7 +414,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         });
 
         resourceFilterCombo2 = new ComboBox<>();
-        resourceFilterCombo2.setPlaceholder("Mesin 2 (Semua)");
+        resourceFilterCombo2.setPlaceholder("Machine 2 (All)");
         resourceFilterCombo2.setClearButtonVisible(true);
         resourceFilterCombo2.setWidth("160px");
         resourceFilterCombo2.addThemeVariants(com.vaadin.flow.component.combobox.ComboBoxVariant.LUMO_SMALL);
@@ -444,14 +444,14 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             updateAllCharts();
         });
         btnChartPrev2.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
-        btnChartPrev2.setTooltipText("◀ Mundur 1 Hari");
+        btnChartPrev2.setTooltipText("◀ Go back 1 day");
 
         Button btnChartNext2 = new com.vaadinerp.components.SafeButton(VaadinIcon.ANGLE_RIGHT.create(), e -> {
             chartViewStartDate = chartViewStartDate.plusDays(1);
             updateAllCharts();
         });
         btnChartNext2.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
-        btnChartNext2.setTooltipText("▶ Maju 1 Hari");
+        btnChartNext2.setTooltipText("▶ Go forward 1 day");
 
         header2.add(title2, btnChartPrev2, btnChartNext2, groupFilterCombo2, resourceFilterCombo2, capacityModeCombo2);
         capacityChart2 = new ApexCapacityChart();
@@ -488,7 +488,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         btnSaveEdits.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
         btnSaveEdits.setEnabled(false);
 
-        btnCancelEdits = new com.vaadinerp.components.SafeButton("Batal", VaadinIcon.CLOSE.create(),
+        btnCancelEdits = new com.vaadinerp.components.SafeButton("Cancel", VaadinIcon.CLOSE.create(),
                 e -> {
                     modifiedRows.clear();
                     btnSaveEdits.setEnabled(false);
@@ -626,7 +626,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             refreshData();
         });
         btnShiftLeft.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON);
-        btnShiftLeft.setTooltipText("Mundur 1 Hari");
+        btnShiftLeft.setTooltipText("Go back 1 day");
 
         Button btnShiftRight = new com.vaadinerp.components.SafeButton(VaadinIcon.ANGLE_RIGHT.create(), e -> {
             if (startDateFilter.getValue() != null)
@@ -636,7 +636,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             refreshData();
         });
         btnShiftRight.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ICON);
-        btnShiftRight.setTooltipText("Maju 1 Hari");
+        btnShiftRight.setTooltipText("Go forward 1 day");
 
         Button btnRefresh = new com.vaadinerp.components.SafeButton("Refresh", VaadinIcon.REFRESH.create(),
                 e -> refreshData());
@@ -710,13 +710,13 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         // View Mode Toggle
         viewModeCombo = new ComboBox<>();
-        viewModeCombo.setItems("Harian (Daily)", "Mingguan (Weekly)");
-        viewModeCombo.setValue("Harian (Daily)");
+        viewModeCombo.setItems("Daily", "Weekly");
+        viewModeCombo.setValue("Daily");
         viewModeCombo.setWidth("160px");
         viewModeCombo.addThemeVariants(com.vaadin.flow.component.combobox.ComboBoxVariant.LUMO_SMALL);
         viewModeCombo.addValueChangeListener(e -> {
             if (e.isFromClient()) {
-                isWeeklyView = "Mingguan (Weekly)".equals(e.getValue());
+                isWeeklyView = "Weekly".equals(e.getValue());
                 timeline.setTimelineScale(isWeeklyView ? "weekly" : "daily");
                 capacityChart1.setWeeklyView(isWeeklyView);
                 capacityChart2.setWeeklyView(isWeeklyView);
@@ -914,7 +914,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 }
                 isEditorSwitching[0] = false;
             } catch (Exception ex) {
-                com.vaadin.flow.component.notification.Notification.show("Gagal membuka editor: " + ex.getMessage(),
+                com.vaadin.flow.component.notification.Notification.show("Failed to open editor: " + ex.getMessage(),
                         5000, com.vaadin.flow.component.notification.Notification.Position.MIDDLE);
                 ex.printStackTrace();
             }
@@ -1127,7 +1127,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             try {
                 dataService.saveUserGridOrder(formCode != null ? formCode : "schedulerGrid", "mainGrid",
                         orderedFieldNames);
-                com.vaadin.flow.component.notification.Notification.show("Urutan kolom disimpan", 1500,
+                com.vaadin.flow.component.notification.Notification.show("Column order saved", 1500,
                         com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
                 ex.printStackTrace();
@@ -1146,7 +1146,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
     private void saveInlineEdits() {
         if (modifiedRows.isEmpty()) {
-            Notification.show("Tidak ada perubahan untuk disimpan.", 3000, Notification.Position.BOTTOM_END);
+            Notification.show("There are no changes to save.", 3000, Notification.Position.BOTTOM_END);
             return;
         }
 
@@ -1254,7 +1254,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             modifiedRows.clear();
             btnSaveEdits.setEnabled(false);
             btnCancelEdits.setEnabled(false);
-            Notification.show(successCount + " baris berhasil disimpan.", 3000, Notification.Position.BOTTOM_END)
+            Notification.show(successCount + " rows saved successfully.", 3000, Notification.Position.BOTTOM_END)
                     .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
 
             // Refresh visuals to reflect new capacity if qty was changed
@@ -1263,7 +1263,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         } catch (Exception ex) {
             ex.printStackTrace();
-            Notification.show("Gagal menyimpan: " + ex.getMessage(), 5000, Notification.Position.MIDDLE)
+            Notification.show("Failed to save: " + ex.getMessage(), 5000, Notification.Position.MIDDLE)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
@@ -2432,7 +2432,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         if (currentQty <= 1) {
             btnSplit.setEnabled(false);
-            btnSplit.setTooltipText("Qty <= 1 tidak bisa displit");
+            btnSplit.setTooltipText("Qty <= 1 cannot be split.");
         }
 
         Button btnMerge = new com.vaadinerp.components.SafeButton("Merge Selected Tasks", VaadinIcon.COMPRESS.create(),
@@ -2476,11 +2476,12 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 btnMerge.setEnabled(true);
             } else {
                 btnMerge.setEnabled(false);
-                btnMerge.setTooltipText("Merge hanya bisa dilakukan jika Dependency ID dan Mesin/Resource sama");
+                btnMerge.setTooltipText(
+                        "Merge can only be done if the Dependency ID and Machine/Resource are the same");
             }
         } else {
             btnMerge.setEnabled(false);
-            btnMerge.setTooltipText("Pilih minimal 2 baris (dengan Ctrl+Click) untuk digabung");
+            btnMerge.setTooltipText("Select at least 2 rows (with Ctrl+Click) to merge");
         }
 
         if (isMultiSelect) {
@@ -2498,7 +2499,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         String qtyProdCol = schedulerConfig.getColQtyProd();
 
         if (qtyProdCol == null) {
-            Notification.show("Kolom Qty Prod belum disetting di Config!", 3000, Notification.Position.MIDDLE);
+            Notification.show("The Prod Qty column has not been set in the configuration!", 3000,
+                    Notification.Position.MIDDLE);
             return;
         }
 
@@ -2515,7 +2517,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         Object currentQtyProdObj = targetRow.get(qtyProdCol);
         if (currentQtyProdObj == null) {
-            Notification.show("Qty Prod baris ini kosong!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Qty Prod row is empty!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
@@ -2547,7 +2549,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         editDialog.setHeaderTitle("Edit Qty Prod");
 
         com.vaadin.flow.component.textfield.NumberField qtyField = new com.vaadin.flow.component.textfield.NumberField(
-                "Qty Prod Baru");
+                "New Qty Prod");
         qtyField.setMin(0.001); // greater than 0
         qtyField.setMax(finalMaxLimit);
         qtyField.setValue(currentQtyProd);
@@ -2556,10 +2558,10 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         final Map<String, Object> finalTargetRow = targetRow;
 
-        Button btnSave = new com.vaadinerp.components.SafeButton("Simpan", VaadinIcon.CHECK.create(), e -> {
+        Button btnSave = new com.vaadinerp.components.SafeButton("Save", VaadinIcon.CHECK.create(), e -> {
             Double newQty = qtyField.getValue();
             if (newQty == null || newQty <= 0 || newQty > finalMaxLimit) {
-                Notification.show("Qty tidak valid!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Qty not valid!", 3000, Notification.Position.MIDDLE);
                 return;
             }
             editDialog.close();
@@ -2574,15 +2576,15 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     Object actualPkVal = finalTargetRow.get(pkCol);
                     jdbcTemplate.update("UPDATE " + tableName + " SET " + qtyProdCol + " = ? WHERE " + pkCol + " = ?",
                             newQty, actualPkVal);
-                    Notification.show("Qty Prod berhasil diupdate.", 3000, Notification.Position.BOTTOM_END)
+                    Notification.show("Qty Prod updated successfully.", 3000, Notification.Position.BOTTOM_END)
                             .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
                     refreshData();
                 } catch (Exception ex) {
-                    Notification.show("Gagal update Qty: " + ex.getMessage(), 5000, Notification.Position.MIDDLE)
+                    Notification.show("Failed to update Qty: " + ex.getMessage(), 5000, Notification.Position.MIDDLE)
                             .addThemeVariants(NotificationVariant.LUMO_ERROR);
                 }
             } else {
-                Notification.show("Update table belum dikonfigurasi!", 4000, Notification.Position.MIDDLE)
+                Notification.show("Update table not configured!", 4000, Notification.Position.MIDDLE)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
             }
         });
@@ -2606,7 +2608,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         String pkCol = schedulerConfig.getColPrimaryKey();
         String qtyCol = schedulerConfig.getColQty();
         if (qtyCol == null) {
-            Notification.show("Kolom Qty belum disetting di Config!", 3000, Notification.Position.MIDDLE);
+            Notification.show("The Qty column has not been set in the Config!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
@@ -2623,7 +2625,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
         Object currentQtyObj = targetRow.get(qtyCol);
         if (currentQtyObj == null) {
-            Notification.show("Qty baris ini kosong!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Qty row is empty!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
@@ -2633,28 +2635,28 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         splitDialog.setHeaderTitle("Split Task");
 
         com.vaadin.flow.component.textfield.IntegerField splitField = new com.vaadin.flow.component.textfield.IntegerField(
-                "Qty Baru (yang dipisah)");
+                "New Qty (split)");
         splitField.setMin(1);
         splitField.setMax((int) currentQty - 1);
         splitField.setValue((int) currentQty / 2); // Default to half
         splitField.setStep(1);
         splitField.setWidthFull();
-        splitField.setHelperText("Qty Awal: " + currentQty);
+        splitField.setHelperText("Initial Qty: " + currentQty);
 
         final Map<String, Object> finalTargetRow = targetRow;
         final double finalCurrentQty = currentQty;
 
-        Button btnSave = new com.vaadinerp.components.SafeButton("Proses Split", VaadinIcon.SCISSORS.create(), e -> {
+        Button btnSave = new com.vaadinerp.components.SafeButton("Process Split", VaadinIcon.SCISSORS.create(), e -> {
             Integer splitQty = splitField.getValue();
             if (splitQty == null || splitQty <= 0 || splitQty >= finalCurrentQty) {
-                Notification.show("Qty split tidak valid!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Qty split not valid!", 3000, Notification.Position.MIDDLE);
                 return;
             }
             splitDialog.close();
             executeSplit(finalTargetRow, (double) splitQty, finalCurrentQty);
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        Button btnCancel = new com.vaadinerp.components.SafeButton("Batal", e -> splitDialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> splitDialog.close());
 
         HorizontalLayout actions = new HorizontalLayout(btnCancel, btnSave);
         splitDialog.add(new VerticalLayout(splitField, actions));
@@ -2673,7 +2675,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         String pcsPerBoxCol = schedulerConfig.getColPcsPerBox();
 
         if (updateTable == null || pkCol == null || qtyCol == null) {
-            Notification.show("Config Update Table/PK/Qty belum lengkap!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Config Update Table/PK/Qty not complete!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
@@ -2968,12 +2970,12 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     Long poId = Long.parseLong(rowsToSplit.get(0).get("tsproductionorderid").toString());
                     jdbcTemplate.update("CALL dynamic.sp_allocate_schedule_byorderid(?)", poId);
                 } catch (Exception ex) {
-                    System.err.println("Gagal memanggil sp_allocate_schedule_byorderid untuk PO");
+                    System.err.println("Failed Call sp_allocate_schedule_byorderid for PO");
                     ex.printStackTrace();
                 }
             }
 
-            Notification.show("Berhasil memecah " + rowsToSplit.size() + " task secara berantai (Cascading Split)!",
+            Notification.show("Successfully split " + rowsToSplit.size() + " tasks in a chain (Cascading Split)!",
                     4000, Notification.Position.MIDDLE);
             refreshData();
         } catch (Exception e) {
@@ -2994,12 +2996,12 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         String qtyProdCol = schedulerConfig.getColQtyProd();
 
         if (updateTable == null || pkCol == null || qtyCol == null) {
-            Notification.show("Config Update Table/PK/Qty belum lengkap!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Config Update Table/PK/Qty not complete!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
         if (selectedRows.size() < 2) {
-            Notification.show("Pilih minimal 2 baris untuk digabung!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Select at least 2 rows to merge!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
@@ -3023,7 +3025,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 if (!java.util.Objects.equals(firstGroupId, rowGroupId)
                         || !java.util.Objects.equals(firstResource, rowResource)) {
                     Notification.show(
-                            "Gagal! Merge hanya bisa dilakukan jika Dependency ID dan Mesin/Resource sama pada titik awal",
+                            "Failed! Merge can only be done if Dependency ID and Machine/Resource are the same at the initial point",
                             4000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_ERROR);
                     return;
                 }
@@ -3202,18 +3204,18 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     Long poId = Long.parseLong(allRowsToMerge.get(0).get("tsproductionorderid").toString());
                     jdbcTemplate.update("CALL dynamic.sp_allocate_schedule_byorderid(?)", poId);
                 } catch (Exception ex) {
-                    System.err.println("Gagal memanggil sp_allocate_schedule_byorderid untuk PO");
+                    System.err.println("Failed Call sp_allocate_schedule_byorderid for PO");
                     ex.printStackTrace();
                 }
             }
 
             Notification
-                    .show("Berhasil merge " + allRowsToMerge.size()
-                            + " pecahan task secara berantai (Cascading Merge)!", 4000, Notification.Position.MIDDLE)
+                    .show("Successfully merge " + allRowsToMerge.size()
+                            + " task pecahan secara berantai (Cascading Merge)!", 4000, Notification.Position.MIDDLE)
                     .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             refreshData();
         } catch (Exception ex) {
-            Notification.show("Gagal menggabung data: " + ex.getMessage(), 5000, Notification.Position.MIDDLE)
+            Notification.show("Failed to merge data: " + ex.getMessage(), 5000, Notification.Position.MIDDLE)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
             ex.printStackTrace();
         }
@@ -3281,7 +3283,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
                 if (targetGroup != null && !sourceGroup.equals(targetGroup)) {
                     Notification n = Notification
-                            .show("Tidak bisa memindahkan jadwal ke departemen/grup mesin yang berbeda (" + targetGroup
+                            .show("Cannot move schedule to different department/machine group (" + targetGroup
                                     + ")!", 5000, Notification.Position.MIDDLE);
                     n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                     refreshData(); // Revert
@@ -3323,13 +3325,13 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     // Show confirm dialog
                     String capacityLabel = "QTYBOX".equals(currentCapacityMode1) ? "Qty Box" : "Weight (kg)";
                     ConfirmDialog confirmDlg = new ConfirmDialog();
-                    confirmDlg.setHeader("⚠️ Peringatan Kapasitas");
+                    confirmDlg.setHeader("⚠️ Capacity Warning");
                     confirmDlg.setText(String.format(
-                            "Mesin: %s\nTanggal: %s\nTotal %s: %.0f / %.0f (MELEBIHI KAPASITAS)\n\nApakah Anda yakin ingin melanjutkan?",
+                            "Machine: %s\nDate: %s\nTotal %s: %.0f / %.0f (OVER CAPACITY)\n\nAre you sure you want to continue?",
                             resource, newDateStr, capacityLabel, newTotal, maxCapacity));
                     confirmDlg.setCancelable(true);
-                    confirmDlg.setCancelText("Batalkan");
-                    confirmDlg.setConfirmText("Ya, Lanjutkan");
+                    confirmDlg.setCancelText("Cancel");
+                    confirmDlg.setConfirmText("Yes, Continue");
                     confirmDlg.setConfirmButtonTheme("error primary");
 
                     confirmDlg.addConfirmListener(event -> {
@@ -3350,13 +3352,13 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             // --- SUNDAY / HOLIDAY CHECK ---
             if (isHolidayOrSunday(newDate)) {
                 ConfirmDialog holidayDlg = new ConfirmDialog();
-                holidayDlg.setHeader("⚠️ Hari Libur / Minggu");
+                holidayDlg.setHeader("⚠️ Holiday / Sunday");
                 holidayDlg.setText(String.format(
-                        "Tanggal %s adalah hari libur atau hari Minggu.\n\nApakah Anda yakin ingin menjadwalkan lembur pada hari ini?",
+                        "Date %s is a holiday or Sunday.\n\nAre you sure you want to schedule overtime on this day?",
                         newDateStr));
                 holidayDlg.setCancelable(true);
-                holidayDlg.setCancelText("Batalkan");
-                holidayDlg.setConfirmText("Ya, Lanjutkan");
+                holidayDlg.setCancelText("Cancel");
+                holidayDlg.setConfirmText("Yes, Continue");
                 holidayDlg.setConfirmButtonTheme("warning primary");
 
                 holidayDlg.addConfirmListener(event -> checkCapacityAndExecute.run());
@@ -3519,14 +3521,16 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                     }
 
                     if (!relatedTasks.isEmpty()) {
-                        Notification.show("✅ Jadwal digeser " + daysShifted + " hari beserta " + relatedTasks.size()
-                                + " task terkait", 3000, Notification.Position.BOTTOM_END);
+                        Notification.show(
+                                "✅ Task schedule shifted " + daysShifted + " days along with " + relatedTasks.size()
+                                        + " related tasks",
+                                3000, Notification.Position.BOTTOM_END);
                     }
                 }
             }
 
             if (currentData.stream().noneMatch(r -> false)) { // always show
-                Notification.show("✅ Jadwal task " + itemId + " diperbarui ke " + newDate,
+                Notification.show("✅ Task schedule " + itemId + " updated to " + newDate,
                         3000, Notification.Position.BOTTOM_END);
             }
 
