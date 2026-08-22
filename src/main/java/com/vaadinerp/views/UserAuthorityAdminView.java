@@ -36,6 +36,10 @@ import com.vaadinerp.security.repository.AppUserFavoriteMenuRepository;
 import com.vaadinerp.security.repository.RoleMenuPermissionRepository;
 import com.vaadinerp.security.service.SessionSecurityService;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +56,8 @@ import java.util.function.Function;
 @SuppressWarnings({ "null", "unused" })
 public class UserAuthorityAdminView extends VerticalLayout {
 
+    private static final Logger log = LoggerFactory.getLogger(UserAuthorityAdminView.class);
+
     private final AppUserRepository userRepository;
     private final AppRoleRepository roleRepository;
     private final AppMenuRepository menuRepository;
@@ -63,7 +69,8 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
     private final Grid<AppUser> userGrid = new Grid<>(AppUser.class, false);
     private final Grid<AppRole> roleGrid = new Grid<>(AppRole.class, false);
-    private final Grid<RoleMenuPermission> matrixGrid = new Grid<>(RoleMenuPermission.class, false);
+    private final TreeGrid<AppMenu> matrixTreeGrid = new TreeGrid<>();
+    private final Map<String, RoleMenuPermission> currentRolePermissions = new java.util.concurrent.ConcurrentHashMap<>();
     private final TreeGrid<AppMenu> menuTreeGrid = new TreeGrid<>();
 
     private Runnable userFilterRefresher;
@@ -146,7 +153,8 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 .setAutoWidth(true);
         var colName = userGrid.addColumn(AppUser::getFullName).setHeader("Full Name").setSortable(true)
                 .setAutoWidth(true);
-        var colRole = userGrid.addColumn(AppUser::getRoleCode).setHeader("Role").setSortable(true).setAutoWidth(true);
+        var colRole = userGrid.addColumn(u -> u.getRoles() != null ? String.join(", ", u.getRoles()) : "")
+                .setHeader("Role(s)").setSortable(false).setAutoWidth(true);
         var colStatus = userGrid.addColumn(u -> Boolean.TRUE.equals(u.getIsActive()) ? "✅ Active" : "❌ Inactive")
                 .setHeader("Status").setAutoWidth(true);
 
@@ -157,9 +165,23 @@ public class UserAuthorityAdminView extends VerticalLayout {
             editBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
             editBtn.getElement().setAttribute("title", "Edit User");
             Button deleteBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create(), e -> {
-                userRepository.delete(u);
-                Notification.show("User '" + u.getUsername() + "' deleted!", 2000, Notification.Position.BOTTOM_END);
-                refreshUserGrid();
+                ConfirmDialog confirmDlg = new ConfirmDialog();
+                confirmDlg.setHeader("Confirm Delete");
+                confirmDlg.setText("Are you sure you want to delete user '" + u.getUsername() + "'?");
+                confirmDlg.setCancelable(true);
+                confirmDlg.setConfirmText("Delete");
+                confirmDlg.setConfirmButtonTheme("error primary");
+                confirmDlg.addConfirmListener(ev -> {
+                    userRepository.delete(u);
+                    log.info("[AUDIT] User '{}' deleted user '{}'",
+                            securityService.getCurrentUser() != null ? securityService.getCurrentUser().getUsername()
+                                    : "SYSTEM",
+                            u.getUsername());
+                    Notification.show("User '" + u.getUsername() + "' deleted!", 2000,
+                            Notification.Position.BOTTOM_END);
+                    refreshUserGrid();
+                });
+                confirmDlg.open();
             });
             deleteBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
             deleteBtn.getElement().setAttribute("title", "Delete User");
@@ -173,7 +195,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         Map<Grid.Column<AppUser>, Function<AppUser, String>> getterMap = Map.of(
                 colUser, u -> u.getUsername() != null ? u.getUsername() : "",
                 colName, u -> u.getFullName() != null ? u.getFullName() : "",
-                colRole, u -> u.getRoleCode() != null ? u.getRoleCode() : "",
+                colRole, u -> u.getRoles() != null ? String.join(", ", u.getRoles()) : "",
                 colStatus, u -> Boolean.TRUE.equals(u.getIsActive()) ? "Active" : "Inactive");
         userFilterRefresher = StandardGridUtils.attachGridFilters(userGrid, getterMap, userRepository::findAll);
         toolbar.add(StandardGridUtils.createExportExcelButton(userGrid, "users_export", getterMap));
@@ -203,9 +225,16 @@ public class UserAuthorityAdminView extends VerticalLayout {
         if (isNew)
             passwordField.setRequired(true);
 
-        ComboBox<String> roleSelect = new ComboBox<>("Role");
+        com.vaadin.flow.component.combobox.MultiSelectComboBox<String> roleSelect = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(
+                "Role(s)");
         roleSelect.setWidthFull();
-        roleSelect.setItems(roleRepository.findAll().stream().map(AppRole::getRoleCode).toList());
+        roleSelect.setItems(query -> {
+            String filter = query.getFilter().orElse("");
+            org.springframework.data.domain.PageRequest pageRequest = org.springframework.data.domain.PageRequest
+                    .of(query.getPage(), query.getPageSize());
+            return roleRepository.findByRoleCodeContainingIgnoreCase(filter, pageRequest).stream()
+                    .map(com.vaadinerp.security.entity.AppRole::getRoleCode);
+        });
         roleSelect.setRequired(true);
 
         Checkbox activeCheckbox = new Checkbox("Active");
@@ -215,7 +244,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
             usernameField.setValue(existing.getUsername());
             usernameField.setReadOnly(true);
             fullNameField.setValue(existing.getFullName() != null ? existing.getFullName() : "");
-            roleSelect.setValue(existing.getRoleCode());
+            roleSelect.setValue(existing.getRoles() != null ? existing.getRoles() : java.util.Collections.emptySet());
             activeCheckbox.setValue(Boolean.TRUE.equals(existing.getIsActive()));
         }
 
@@ -223,14 +252,15 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         Button saveBtn = new com.vaadinerp.components.SafeButton("Save", VaadinIcon.CHECK.create(), e -> {
             String username = usernameField.getValue();
-            String role = roleSelect.getValue();
             if (username == null || username.isBlank()) {
                 Notification n = Notification.show("Username is required!", 3000, Notification.Position.TOP_CENTER);
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
-            if (role == null || role.isBlank()) {
-                Notification n = Notification.show("Role must be selected!", 3000, Notification.Position.TOP_CENTER);
+            java.util.Set<String> roles = roleSelect.getValue();
+            if (roles == null || roles.isEmpty()) {
+                Notification n = Notification.show("At least one role must be selected!", 3000,
+                        Notification.Position.TOP_CENTER);
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
@@ -248,11 +278,10 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 return;
             }
 
-            AppUser user = (existing == null) ? new AppUser() : existing;
-            if (existing == null)
-                user.setUsername(username.trim());
+            AppUser user = isNew ? new AppUser() : existing;
+            user.setUsername(username.trim());
             user.setFullName(fullNameField.getValue());
-            user.setRoleCode(role);
+            user.setRoles(new java.util.HashSet<>(roles));
             user.setIsActive(activeCheckbox.getValue());
 
             String pwd = passwordField.getValue();
@@ -261,9 +290,13 @@ public class UserAuthorityAdminView extends VerticalLayout {
             }
 
             userRepository.save(user);
+            log.info("[AUDIT] User '{}' {} user '{}'",
+                    securityService.getCurrentUser() != null ? securityService.getCurrentUser().getUsername()
+                            : "SYSTEM",
+                    (isNew ? "created" : "updated"), user.getUsername());
             dialog.close();
             refreshUserGrid();
-            Notification.show("User '" + username + "' berhasil " + (isNew ? "created" : "updated") + "!", 2000,
+            Notification.show("User '" + username + "' successfully " + (isNew ? "created" : "updated") + "!", 2000,
                     Notification.Position.BOTTOM_END);
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
@@ -300,9 +333,31 @@ public class UserAuthorityAdminView extends VerticalLayout {
             Button editBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.EDIT.create(), e -> openRoleDialog(r));
             editBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
             Button deleteBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create(), e -> {
-                roleRepository.delete(r);
-                refreshRoleGrid();
-                Notification.show("Role '" + r.getRoleCode() + "' deleted!", 2000, Notification.Position.BOTTOM_END);
+                if (userRepository.existsByRoleCode(r.getRoleCode())) {
+                    Notification n = Notification.show(
+                            "Cannot delete role '" + r.getRoleCode()
+                                    + "' because it is still assigned to one or more users!",
+                            4000, Notification.Position.TOP_CENTER);
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                    return;
+                }
+                ConfirmDialog confirmDlg = new ConfirmDialog();
+                confirmDlg.setHeader("Confirm Delete");
+                confirmDlg.setText("Are you sure you want to delete role '" + r.getRoleCode() + "'?");
+                confirmDlg.setCancelable(true);
+                confirmDlg.setConfirmText("Delete");
+                confirmDlg.setConfirmButtonTheme("error primary");
+                confirmDlg.addConfirmListener(ev -> {
+                    roleRepository.delete(r);
+                    log.info("[AUDIT] User '{}' deleted role '{}'",
+                            securityService.getCurrentUser() != null ? securityService.getCurrentUser().getUsername()
+                                    : "SYSTEM",
+                            r.getRoleCode());
+                    refreshRoleGrid();
+                    Notification.show("Role '" + r.getRoleCode() + "' deleted!", 2000,
+                            Notification.Position.BOTTOM_END);
+                });
+                confirmDlg.open();
             });
             deleteBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
             actions.add(editBtn, deleteBtn);
@@ -353,7 +408,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         Button saveBtn = new com.vaadinerp.components.SafeButton("Save", e -> {
             if (codeField.getValue() == null || codeField.getValue().isBlank()) {
-                Notification.show("Kode Role is required!", 3000, Notification.Position.TOP_CENTER);
+                Notification.show("Role Code is required!", 3000, Notification.Position.TOP_CENTER);
                 return;
             }
             AppRole role = (existing == null) ? new AppRole() : existing;
@@ -362,9 +417,13 @@ public class UserAuthorityAdminView extends VerticalLayout {
             role.setRoleName(nameField.getValue());
             role.setDescription(descField.getValue());
             roleRepository.save(role);
+            log.info("[AUDIT] User '{}' {} role '{}'",
+                    securityService.getCurrentUser() != null ? securityService.getCurrentUser().getUsername()
+                            : "SYSTEM",
+                    (isNew ? "created" : "updated"), role.getRoleCode());
             dialog.close();
             refreshRoleGrid();
-            Notification.show("Role berhasil " + (isNew ? "created" : "updated") + "!", 2000,
+            Notification.show("Role successfully " + (isNew ? "created" : "updated") + "!", 2000,
                     Notification.Position.BOTTOM_END);
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
@@ -432,14 +491,30 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 actions.add(addChildBtn);
             }
 
-            Button editBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.EDIT.create(), e -> openMenuDialog(m, m.getParentMenuCode()));
+            Button editBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.EDIT.create(),
+                    e -> openMenuDialog(m, m.getParentMenuCode()));
             editBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
             editBtn.getElement().setAttribute("title", "Edit Menu");
 
             Button deleteBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create(), e -> {
-                deleteMenuAndDependencies(m);
-                refreshMenuTreeGrid();
-                Notification.show("Menu '" + m.getMenuCode() + "' deleted!", 2000, Notification.Position.BOTTOM_END);
+                ConfirmDialog confirmDlg = new ConfirmDialog();
+                confirmDlg.setHeader("Confirm Delete");
+                confirmDlg.setText("Are you sure you want to delete menu '" + m.getMenuCode()
+                        + "' and all its submenus/permissions?");
+                confirmDlg.setCancelable(true);
+                confirmDlg.setConfirmText("Delete");
+                confirmDlg.setConfirmButtonTheme("error primary");
+                confirmDlg.addConfirmListener(ev -> {
+                    deleteMenuAndDependencies(m);
+                    log.info("[AUDIT] User '{}' deleted menu '{}'",
+                            securityService.getCurrentUser() != null ? securityService.getCurrentUser().getUsername()
+                                    : "SYSTEM",
+                            m.getMenuCode());
+                    refreshMenuTreeGrid();
+                    Notification.show("Menu '" + m.getMenuCode() + "' deleted!", 2000,
+                            Notification.Position.BOTTOM_END);
+                });
+                confirmDlg.open();
             });
             deleteBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
             deleteBtn.getElement().setAttribute("title", "Delete Menu");
@@ -459,7 +534,14 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 colTitle, m -> m.getMenuTitle() != null ? m.getMenuTitle() : "",
                 colCode, m -> m.getMenuCode() != null ? m.getMenuCode() : "",
                 colType, m -> m.getMenuType() != null ? m.getMenuType() : "");
-        menuFilterRefresher = attachMenuTreeGridFilters(getterMap);
+        menuFilterRefresher = StandardGridUtils.attachTreeGridFilters(
+                menuTreeGrid,
+                getterMap,
+                menuRepository::findAllByOrderByDisplayOrderAsc,
+                AppMenu::getMenuCode,
+                m -> m.getParentMenuCode() != null ? m.getParentMenuCode() : "",
+                java.util.Comparator.comparing(AppMenu::getDisplayOrder,
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
         toolbar.add(StandardGridUtils.createExportExcelButton(menuTreeGrid, "menus_export", getterMap));
 
         l.add(toolbar, hint, menuTreeGrid);
@@ -494,7 +576,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         ComboBox<String> typeSelect = new ComboBox<>("Menu Type");
         typeSelect.setWidthFull();
-        typeSelect.setItems("GROUP", "ITEM");
+        typeSelect.setItems("GROUP", "ITEM", "FORM");
         typeSelect.setRequired(true);
 
         ComboBox<String> parentSelect = new ComboBox<>("Parent Menu (Group)");
@@ -637,7 +719,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         Button saveBtn = new com.vaadinerp.components.SafeButton("Save", VaadinIcon.CHECK.create(), e -> {
             if (codeField.getValue() == null || codeField.getValue().isBlank() || titleField.getValue() == null
                     || titleField.getValue().isBlank()) {
-                Notification.show("Kode dan Judul Menu is required!", 3000, Notification.Position.TOP_CENTER);
+                Notification.show("Menu Code and Title are required!", 3000, Notification.Position.TOP_CENTER);
                 return;
             }
 
@@ -661,6 +743,10 @@ public class UserAuthorityAdminView extends VerticalLayout {
             }
 
             menuRepository.save(menu);
+            log.info("[AUDIT] User '{}' {} menu '{}'",
+                    securityService.getCurrentUser() != null ? securityService.getCurrentUser().getUsername()
+                            : "SYSTEM",
+                    (existing == null ? "created" : "updated"), menu.getMenuCode());
 
             if (codeChanged) {
                 // Migrate children to new parent code
@@ -732,193 +818,219 @@ public class UserAuthorityAdminView extends VerticalLayout {
         l.setPadding(false);
 
         StandardActionToolbar toolbar = new StandardActionToolbar()
-                .onNew(this::openPermissionDialog)
                 .onRefresh(this::refreshMatrixGrid);
 
-        Button btnCopy = new com.vaadinerp.components.SafeButton("Copy Akses", VaadinIcon.COPY.create(), e -> openCopyAccessDialog());
+        Button btnCopy = new com.vaadinerp.components.SafeButton("Copy Akses", VaadinIcon.COPY.create(),
+                e -> openCopyAccessDialog());
         btnCopy.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         toolbar.add(btnCopy);
 
-        var colRole = matrixGrid.addColumn(RoleMenuPermission::getRoleCode).setHeader("Role").setSortable(true)
+        var colTitle = matrixTreeGrid.addColumn(m -> m.getMenuTitle() != null ? m.getMenuTitle() : "")
+                .setHeader("Menu Title").setSortable(true).setAutoWidth(true);
+        var colCode = matrixTreeGrid.addColumn(AppMenu::getMenuCode).setHeader("Menu Code").setSortable(true)
                 .setAutoWidth(true);
-        var colMenu = matrixGrid.addColumn(RoleMenuPermission::getMenuCode).setHeader("Menu Code").setSortable(true)
-                .setAutoWidth(true);
-        var colMenuDesc = matrixGrid.addColumn(p -> getMenuTitleByCode(p.getMenuCode())).setHeader("Menu Description")
-                .setSortable(true).setAutoWidth(true);
 
-        matrixGrid.addComponentColumn(p -> {
-            Checkbox cb = new Checkbox();
-            cb.setValue(Boolean.TRUE.equals(p.getCanView()));
-            cb.addValueChangeListener(ev -> {
-                p.setCanView(ev.getValue());
-                permissionRepository.save(p);
-            });
-            return cb;
-        }).setHeader("Can View");
+        HorizontalLayout topBar = new HorizontalLayout();
+        topBar.setWidthFull();
+        topBar.setDefaultVerticalComponentAlignment(
+                com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.BASELINE);
 
-        matrixGrid.addComponentColumn(p -> {
-            Checkbox cb = new Checkbox();
-            cb.setValue(Boolean.TRUE.equals(p.getCanAdd()));
-            cb.addValueChangeListener(ev -> {
-                p.setCanAdd(ev.getValue());
-                permissionRepository.save(p);
-            });
-            return cb;
-        }).setHeader("Can Add");
+        ComboBox<String> roleSelect = new ComboBox<>("Select Role to Edit");
+        roleSelect.setItems(roleRepository.findAll().stream().map(AppRole::getRoleCode).toList());
+        roleSelect.setWidth("300px");
+        roleSelect.setClearButtonVisible(true);
 
-        matrixGrid.addComponentColumn(p -> {
-            Checkbox cb = new Checkbox();
-            cb.setValue(Boolean.TRUE.equals(p.getCanEdit()));
-            cb.addValueChangeListener(ev -> {
-                p.setCanEdit(ev.getValue());
-                permissionRepository.save(p);
-            });
-            return cb;
-        }).setHeader("Can Edit");
+        Button btnCheckAll = new com.vaadinerp.components.SafeButton("Grant All Access (Blank)",
+                VaadinIcon.CHECK_SQUARE_O.create(), e -> {
+                    if (roleSelect.getValue() == null)
+                        return;
+                    String role = roleSelect.getValue();
+                    List<AppMenu> menus = menuRepository.findAll();
+                    for (AppMenu m : menus) {
+                        if ("GROUP".equalsIgnoreCase(m.getMenuType())) {
+                            continue; // Skip folders
+                        }
+                        RoleMenuPermission perm = permissionRepository.findByRoleCodeAndMenuCode(role, m.getMenuCode())
+                                .orElse(new RoleMenuPermission());
+                        perm.setRoleCode(role);
+                        perm.setMenuCode(m.getMenuCode());
+                        if (perm.getId() == null) {
+                            perm.setCanView(false);
+                            perm.setCanAdd(false);
+                            perm.setCanEdit(false);
+                            perm.setCanDelete(false);
+                            perm.setCanPrint(false);
+                        }
+                        permissionRepository.save(perm);
+                    }
+                    refreshMatrixGrid(role);
+                    Notification.show("All menus have been granted screen access rights", 2000,
+                            Notification.Position.BOTTOM_END);
+                });
+        btnCheckAll.addThemeVariants(ButtonVariant.LUMO_SMALL);
 
-        matrixGrid.addComponentColumn(p -> {
-            Checkbox cb = new Checkbox();
-            cb.setValue(Boolean.TRUE.equals(p.getCanDelete()));
-            cb.addValueChangeListener(ev -> {
-                p.setCanDelete(ev.getValue());
-                permissionRepository.save(p);
-            });
-            return cb;
-        }).setHeader("Can Delete");
+        Button btnUncheckAll = new com.vaadinerp.components.SafeButton("Uncheck All",
+                VaadinIcon.CLOSE_CIRCLE_O.create(), e -> {
+                    if (roleSelect.getValue() == null)
+                        return;
+                    String role = roleSelect.getValue();
+                    List<RoleMenuPermission> existing = permissionRepository.findByRoleCode(role);
+                    permissionRepository.deleteAll(existing);
+                    refreshMatrixGrid();
+                    Notification.show("All access rights have been revoked", 2000, Notification.Position.BOTTOM_END);
+                });
+        btnUncheckAll.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
 
-        matrixGrid.addComponentColumn(p -> {
-            Checkbox cb = new Checkbox();
-            cb.setValue(Boolean.TRUE.equals(p.getCanPrint()));
-            cb.addValueChangeListener(ev -> {
-                p.setCanPrint(ev.getValue());
-                permissionRepository.save(p);
-            });
-            return cb;
-        }).setHeader("Can Print");
+        HorizontalLayout actions = new HorizontalLayout(btnCheckAll, btnUncheckAll, btnCopy);
+        actions.setVisible(false);
 
-        matrixGrid.addComponentColumn(p -> {
-            Button deleteBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create(), e -> {
-                permissionRepository.delete(p);
-                refreshMatrixGrid();
-                Notification.show("Permission deleted!", 1500, Notification.Position.BOTTOM_END);
-            });
-            deleteBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
-            return deleteBtn;
-        }).setHeader("Delete").setAutoWidth(true);
+        topBar.add(roleSelect, actions);
 
-        matrixGrid.setHeight("100%");
-        matrixGrid.getStyle().set("border-radius", "8px").set("box-shadow", "0 1px 3px rgba(0,0,0,0.1)");
+        matrixTreeGrid.addComponentColumn(m -> createMasterAccessCheckbox(m, roleSelect)).setHeader("Access Screen");
+        matrixTreeGrid.addComponentColumn(m -> createPermissionCheckbox(m, roleSelect, "VIEW")).setHeader("View");
+        matrixTreeGrid.addComponentColumn(m -> createPermissionCheckbox(m, roleSelect, "ADD")).setHeader("Add");
+        matrixTreeGrid.addComponentColumn(m -> createPermissionCheckbox(m, roleSelect, "EDIT")).setHeader("Edit");
+        matrixTreeGrid.addComponentColumn(m -> createPermissionCheckbox(m, roleSelect, "DELETE")).setHeader("Delete");
+        matrixTreeGrid.addComponentColumn(m -> createPermissionCheckbox(m, roleSelect, "PRINT")).setHeader("Print");
+
+        matrixTreeGrid.setHeight("100%");
+        matrixTreeGrid.getStyle().set("border-radius", "8px").set("box-shadow", "0 1px 3px rgba(0,0,0,0.1)");
+        matrixTreeGrid.setVisible(false);
+
+        roleSelect.addValueChangeListener(e -> {
+            boolean hasRole = e.getValue() != null;
+            matrixTreeGrid.setVisible(hasRole);
+            actions.setVisible(hasRole);
+            if (hasRole) {
+                refreshMatrixGrid(e.getValue());
+            } else {
+                currentRolePermissions.clear();
+            }
+        });
 
         Paragraph hint = new Paragraph(
-                "💡 Setiap role harus memiliki record izin menu agar menu tersebut muncul di sidebar user. SUPER_ADMIN otomatis mendapat akses seluruh menu.");
+                "💡 Please select a Role first. Check the box to instantly grant access.");
         hint.getStyle().set("font-size", "0.8rem").set("color", "#64748b").set("margin", "0");
 
-        Map<Grid.Column<RoleMenuPermission>, Function<RoleMenuPermission, String>> getterMap = Map.of(
-                colRole, p -> p.getRoleCode() != null ? p.getRoleCode() : "",
-                colMenu, p -> p.getMenuCode() != null ? p.getMenuCode() : "",
-                colMenuDesc, p -> getMenuTitleByCode(p.getMenuCode()));
-        matrixFilterRefresher = StandardGridUtils.attachGridFilters(matrixGrid, getterMap,
-                permissionRepository::findAll);
-        toolbar.add(StandardGridUtils.createExportExcelButton(matrixGrid, "matrix_export", getterMap));
+        Map<Grid.Column<AppMenu>, Function<AppMenu, String>> getterMap = Map.of(
+                colTitle, m -> m.getMenuTitle() != null ? m.getMenuTitle() : "",
+                colCode, m -> m.getMenuCode() != null ? m.getMenuCode() : "");
+        matrixFilterRefresher = StandardGridUtils.attachTreeGridFilters(
+                matrixTreeGrid,
+                getterMap,
+                menuRepository::findAllByOrderByDisplayOrderAsc,
+                AppMenu::getMenuCode,
+                m -> m.getParentMenuCode() != null ? m.getParentMenuCode() : "",
+                java.util.Comparator.comparing(AppMenu::getDisplayOrder,
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
+        toolbar.add(StandardGridUtils.createExportExcelButton(matrixTreeGrid, "matrix_export", getterMap));
 
-        l.add(toolbar, hint, matrixGrid);
-        l.setFlexGrow(1, matrixGrid);
+        l.add(topBar, hint, matrixTreeGrid);
+        l.setFlexGrow(1, matrixTreeGrid);
         return l;
     }
 
-    private void openPermissionDialog() {
-        Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Add Menu Access Permission for Role");
-        dialog.setWidth("440px");
+    private Checkbox createMasterAccessCheckbox(AppMenu m, ComboBox<String> roleSelect) {
+        if ("GROUP".equalsIgnoreCase(m.getMenuType())) {
+            Checkbox cb = new Checkbox();
+            cb.setVisible(false);
+            return cb;
+        }
 
-        FormLayout form = new FormLayout();
+        String role = roleSelect.getValue();
+        if (role == null) {
+            Checkbox cb = new Checkbox();
+            cb.setEnabled(false);
+            return cb;
+        }
 
-        ComboBox<String> roleSelect = new ComboBox<>("Role");
-        roleSelect.setWidthFull();
-        roleSelect.setItems(roleRepository.findAll().stream().map(AppRole::getRoleCode).toList());
-        roleSelect.setRequired(true);
+        RoleMenuPermission perm = currentRolePermissions.get(m.getMenuCode());
+        Checkbox cb = new Checkbox();
+        cb.setValue(perm != null);
 
-        ComboBox<AppMenu> menuSelect = new ComboBox<>("Menu");
-        menuSelect.setWidthFull();
-        menuSelect.setItems(menuRepository.findAllByOrderByDisplayOrderAsc().stream()
-                .filter(m -> !"GROUP".equalsIgnoreCase(m.getMenuType()))
-                .toList());
-        menuSelect.setItemLabelGenerator(
-                m -> m.getMenuCode() + (m.getMenuTitle() != null ? " (" + m.getMenuTitle() + ")" : ""));
-        menuSelect.setRequired(true);
+        cb.addValueChangeListener(ev -> {
+            if (ev.isFromClient()) {
+                if (ev.getValue()) {
+                    // Beri Akses (Insert Record)
+                    RoleMenuPermission newPerm = permissionRepository.findByRoleCodeAndMenuCode(role, m.getMenuCode())
+                            .orElse(new RoleMenuPermission());
+                    newPerm.setRoleCode(role);
+                    newPerm.setMenuCode(m.getMenuCode());
+                    newPerm.setCanView(false);
+                    newPerm.setCanAdd(false);
+                    newPerm.setCanEdit(false);
+                    newPerm.setCanDelete(false);
+                    newPerm.setCanPrint(false);
+                    newPerm = permissionRepository.save(newPerm);
+                    currentRolePermissions.put(m.getMenuCode(), newPerm);
+                } else {
+                    // Cabut Akses (Delete Record)
+                    permissionRepository.findByRoleCodeAndMenuCode(role, m.getMenuCode()).ifPresent(p -> {
+                        permissionRepository.delete(p);
+                    });
+                    currentRolePermissions.remove(m.getMenuCode());
+                }
+                matrixTreeGrid.getDataProvider().refreshItem(m); // Refresh to update other checkboxes
+            }
+        });
+        return cb;
+    }
 
-        com.vaadin.flow.component.textfield.TextField descField = new com.vaadin.flow.component.textfield.TextField(
-                "Menu Description");
-        descField.setWidthFull();
-        descField.setReadOnly(true);
-        descField.setPlaceholder("Select menu to view description...");
+    private Checkbox createPermissionCheckbox(AppMenu m, ComboBox<String> roleSelect, String actionType) {
+        if ("GROUP".equalsIgnoreCase(m.getMenuType())) {
+            Checkbox cb = new Checkbox();
+            cb.setVisible(false);
+            return cb;
+        }
 
-        menuSelect.addValueChangeListener(e -> {
-            if (e.getValue() != null) {
-                descField.setValue(e.getValue().getMenuTitle() != null ? e.getValue().getMenuTitle() : "-");
-            } else {
-                descField.clear();
+        String role = roleSelect.getValue();
+        if (role == null) {
+            Checkbox cb = new Checkbox();
+            cb.setEnabled(false);
+            return cb;
+        }
+
+        RoleMenuPermission perm = currentRolePermissions.get(m.getMenuCode());
+        Checkbox cb = new Checkbox();
+
+        if (perm != null) {
+            cb.setEnabled(true);
+            switch (actionType) {
+                case "VIEW" -> cb.setValue(Boolean.TRUE.equals(perm.getCanView()));
+                case "ADD" -> cb.setValue(Boolean.TRUE.equals(perm.getCanAdd()));
+                case "EDIT" -> cb.setValue(Boolean.TRUE.equals(perm.getCanEdit()));
+                case "DELETE" -> cb.setValue(Boolean.TRUE.equals(perm.getCanDelete()));
+                case "PRINT" -> cb.setValue(Boolean.TRUE.equals(perm.getCanPrint()));
+            }
+        } else {
+            cb.setValue(false);
+            cb.setEnabled(false);
+        }
+
+        cb.addValueChangeListener(ev -> {
+            if (ev.isFromClient()) {
+                RoleMenuPermission latest = permissionRepository.findByRoleCodeAndMenuCode(role, m.getMenuCode())
+                        .orElse(null);
+                if (latest != null) {
+                    switch (actionType) {
+                        case "VIEW" -> latest.setCanView(ev.getValue());
+                        case "ADD" -> latest.setCanAdd(ev.getValue());
+                        case "EDIT" -> latest.setCanEdit(ev.getValue());
+                        case "DELETE" -> latest.setCanDelete(ev.getValue());
+                        case "PRINT" -> latest.setCanPrint(ev.getValue());
+                    }
+                    latest = permissionRepository.save(latest);
+                    currentRolePermissions.put(m.getMenuCode(), latest);
+                }
             }
         });
 
-        Checkbox cbView = new Checkbox("Can View");
-        cbView.setValue(true);
-        Checkbox cbAdd = new Checkbox("Can Add");
-        cbAdd.setValue(true);
-        Checkbox cbEdit = new Checkbox("Can Edit");
-        cbEdit.setValue(true);
-        Checkbox cbDelete = new Checkbox("Can Delete");
-        cbDelete.setValue(true);
-        Checkbox cbPrint = new Checkbox("Can Print");
-        cbPrint.setValue(true);
-
-        HorizontalLayout cbLayout = new HorizontalLayout(cbView, cbAdd, cbEdit, cbDelete, cbPrint);
-        cbLayout.setWidthFull();
-
-        form.add(roleSelect, menuSelect, descField);
-        form.setColspan(roleSelect, 2);
-        form.setColspan(menuSelect, 2);
-        form.setColspan(descField, 2);
-
-        Button saveBtn = new com.vaadinerp.components.SafeButton("Save", e -> {
-            if (roleSelect.getValue() == null || menuSelect.getValue() == null) {
-                Notification.show("Role dan Menu must be selected!", 3000, Notification.Position.TOP_CENTER);
-                return;
-            }
-            String selectedMenuCode = menuSelect.getValue().getMenuCode();
-            var existing = permissionRepository.findByRoleCodeAndMenuCode(roleSelect.getValue(), selectedMenuCode);
-            if (existing.isPresent()) {
-                Notification n = Notification.show("Permission for this Role & Menu combination already exists!", 3000,
-                        Notification.Position.TOP_CENTER);
-                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                return;
-            }
-
-            RoleMenuPermission perm = new RoleMenuPermission();
-            perm.setRoleCode(roleSelect.getValue());
-            perm.setMenuCode(selectedMenuCode);
-            perm.setCanView(cbView.getValue());
-            perm.setCanAdd(cbAdd.getValue());
-            perm.setCanEdit(cbEdit.getValue());
-            perm.setCanDelete(cbDelete.getValue());
-            perm.setCanPrint(cbPrint.getValue());
-            permissionRepository.save(perm);
-            dialog.close();
-            refreshMatrixGrid();
-            Notification.show("Menu access permission successfully added!", 2000, Notification.Position.BOTTOM_END);
-        });
-        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-
-        Button cancelBtn = new com.vaadinerp.components.SafeButton("Cancel", e -> dialog.close());
-
-        dialog.getFooter().add(cancelBtn, saveBtn);
-        dialog.add(form, cbLayout);
-        dialog.open();
+        return cb;
     }
 
     private void openCopyAccessDialog() {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Copy Akses Menu Antar Role");
+        dialog.setHeaderTitle("Copy Access Rights Between Roles");
         dialog.setWidth("400px");
 
         FormLayout form = new FormLayout();
@@ -942,7 +1054,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
             String target = targetRoleSelect.getValue();
 
             if (source == null || target == null) {
-                Notification.show("Role Sumber dan Tujuan must be selected!", 3000, Notification.Position.TOP_CENTER);
+                Notification.show("Source and Target Role must be selected!", 3000, Notification.Position.TOP_CENTER);
                 return;
             }
             if (source.equals(target)) {
@@ -1008,220 +1120,6 @@ public class UserAuthorityAdminView extends VerticalLayout {
             menuFilterRefresher.run();
     }
 
-    private Runnable attachMenuTreeGridFilters(Map<Grid.Column<AppMenu>, Function<AppMenu, String>> colGetterMap) {
-        com.vaadin.flow.component.grid.HeaderRow filterRow = menuTreeGrid.appendHeaderRow();
-        Map<Grid.Column<AppMenu>, com.vaadinerp.components.StandardGridUtils.FilterCriteria> filterValues = new java.util.LinkedHashMap<>();
-
-        Runnable applyFilters = () -> {
-            List<AppMenu> allMenus = menuRepository.findAllByOrderByDisplayOrderAsc();
-            boolean hasActiveFilter = filterValues.values().stream().anyMatch(criteria -> {
-                if ("Blank".equals(criteria.operator) || "Not blank".equals(criteria.operator))
-                    return true;
-                return criteria.value != null && !criteria.value.trim().isEmpty();
-            });
-
-            com.vaadin.flow.data.provider.hierarchy.TreeData<AppMenu> treeData = new com.vaadin.flow.data.provider.hierarchy.TreeData<>();
-
-            if (!hasActiveFilter) {
-                Map<String, List<AppMenu>> childrenMap = new java.util.HashMap<>();
-                List<AppMenu> roots = new ArrayList<>();
-                for (AppMenu m : allMenus) {
-                    if (m.getParentMenuCode() == null || m.getParentMenuCode().isEmpty()) {
-                        roots.add(m);
-                    } else {
-                        childrenMap.computeIfAbsent(m.getParentMenuCode(), k -> new ArrayList<>()).add(m);
-                    }
-                }
-                treeData.addItems(null, roots);
-                java.util.function.Consumer<List<AppMenu>> addChildren = new java.util.function.Consumer<List<AppMenu>>() {
-                    @Override
-                    public void accept(List<AppMenu> parents) {
-                        for (AppMenu p : parents) {
-                            List<AppMenu> kids = childrenMap.get(p.getMenuCode());
-                            if (kids != null && !kids.isEmpty()) {
-                                treeData.addItems(p, kids);
-                                this.accept(kids);
-                            }
-                        }
-                    }
-                };
-                addChildren.accept(roots);
-                menuTreeGrid.setDataProvider(new com.vaadin.flow.data.provider.hierarchy.TreeDataProvider<>(treeData));
-                menuTreeGrid.expand(roots);
-            } else {
-                java.util.Set<AppMenu> matchedAndParents = new java.util.HashSet<>();
-                Map<String, AppMenu> menuMap = new java.util.HashMap<>();
-                for (AppMenu m : allMenus)
-                    menuMap.put(m.getMenuCode(), m);
-
-                for (AppMenu item : allMenus) {
-                    boolean matchesAll = true;
-                    for (Map.Entry<Grid.Column<AppMenu>, com.vaadinerp.components.StandardGridUtils.FilterCriteria> entry : filterValues
-                            .entrySet()) {
-                        Grid.Column<AppMenu> col = entry.getKey();
-                        com.vaadinerp.components.StandardGridUtils.FilterCriteria criteria = entry.getValue();
-                        String op = criteria.operator;
-                        String query = criteria.value != null ? criteria.value.trim().toLowerCase() : "";
-                        Function<AppMenu, String> getter = colGetterMap.get(col);
-                        if (getter == null)
-                            continue;
-                        String rawVal = getter.apply(item);
-                        String strVal = rawVal != null ? rawVal.toLowerCase() : "";
-
-                        if ("Blank".equals(op)) {
-                            if (!strVal.isEmpty()) {
-                                matchesAll = false;
-                                break;
-                            }
-                            continue;
-                        }
-                        if ("Not blank".equals(op)) {
-                            if (strVal.isEmpty()) {
-                                matchesAll = false;
-                                break;
-                            }
-                            continue;
-                        }
-                        if (query.isEmpty())
-                            continue;
-
-                        switch (op) {
-                            case "Contains":
-                                if (!strVal.contains(query))
-                                    matchesAll = false;
-                                break;
-                            case "Not contains":
-                                if (strVal.contains(query))
-                                    matchesAll = false;
-                                break;
-                            case "Equals":
-                                if (!strVal.equals(query))
-                                    matchesAll = false;
-                                break;
-                            case "Not equal":
-                                if (strVal.equals(query))
-                                    matchesAll = false;
-                                break;
-                            case "Starts with":
-                                if (!strVal.startsWith(query))
-                                    matchesAll = false;
-                                break;
-                            case "Ends with":
-                                if (!strVal.endsWith(query))
-                                    matchesAll = false;
-                                break;
-                        }
-                        if (!matchesAll)
-                            break;
-                    }
-                    if (matchesAll) {
-                        AppMenu curr = item;
-                        while (curr != null) {
-                            matchedAndParents.add(curr);
-                            if (curr.getParentMenuCode() != null && !curr.getParentMenuCode().isEmpty()) {
-                                curr = menuMap.get(curr.getParentMenuCode());
-                            } else {
-                                curr = null;
-                            }
-                        }
-                    }
-                }
-
-                List<AppMenu> matchedList = new ArrayList<>(matchedAndParents);
-                matchedList.sort(java.util.Comparator.comparing(AppMenu::getDisplayOrder,
-                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
-
-                Map<String, List<AppMenu>> childrenMap = new java.util.HashMap<>();
-                List<AppMenu> roots = new ArrayList<>();
-                for (AppMenu m : matchedList) {
-                    if (m.getParentMenuCode() == null || m.getParentMenuCode().isEmpty()
-                            || !matchedAndParents.contains(menuMap.get(m.getParentMenuCode()))) {
-                        roots.add(m);
-                    } else {
-                        childrenMap.computeIfAbsent(m.getParentMenuCode(), k -> new ArrayList<>()).add(m);
-                    }
-                }
-                treeData.addItems(null, roots);
-                java.util.function.Consumer<List<AppMenu>> addChildren = new java.util.function.Consumer<List<AppMenu>>() {
-                    @Override
-                    public void accept(List<AppMenu> parents) {
-                        for (AppMenu p : parents) {
-                            List<AppMenu> kids = childrenMap.get(p.getMenuCode());
-                            if (kids != null && !kids.isEmpty()) {
-                                treeData.addItems(p, kids);
-                                this.accept(kids);
-                            }
-                        }
-                    }
-                };
-                addChildren.accept(roots);
-                menuTreeGrid.setDataProvider(new com.vaadin.flow.data.provider.hierarchy.TreeDataProvider<>(treeData));
-                menuTreeGrid.expand(matchedList);
-            }
-        };
-
-        colGetterMap.keySet().forEach(col -> {
-            com.vaadinerp.components.StandardGridUtils.FilterCriteria criteria = new com.vaadinerp.components.StandardGridUtils.FilterCriteria();
-            filterValues.put(col, criteria);
-
-            TextField filterField = new TextField();
-            filterField.setPlaceholder("Filter...");
-            filterField.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.EAGER);
-            filterField.setWidthFull();
-            filterField.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
-
-            Button filterButton = new Button(VaadinIcon.FILTER.create());
-            filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
-            filterButton.getStyle().set("cursor", "pointer");
-            filterButton.getElement().setProperty("title", "Contains");
-            filterField.setPrefixComponent(filterButton);
-
-            com.vaadin.flow.component.contextmenu.ContextMenu contextMenu = new com.vaadin.flow.component.contextmenu.ContextMenu(
-                    filterButton);
-            contextMenu.setOpenOnClick(true);
-
-            Runnable applyOperatorUI = () -> {
-                String op = criteria.operator;
-                filterButton.getElement().setProperty("title", op);
-                boolean needsInput = !("Blank".equals(op) || "Not blank".equals(op));
-                if (!needsInput) {
-                    filterField.setValue("");
-                    filterField.setPlaceholder(op);
-                    filterField.setReadOnly(true);
-                } else {
-                    filterField.setPlaceholder("Filter...");
-                    filterField.setReadOnly(false);
-                }
-            };
-
-            com.vaadin.flow.component.ComponentEventListener<com.vaadin.flow.component.ClickEvent<com.vaadin.flow.component.contextmenu.MenuItem>> listener = event -> {
-                if (event.getSource().getText() != null) {
-                    criteria.operator = event.getSource().getText();
-                    applyOperatorUI.run();
-                    applyFilters.run();
-                }
-            };
-
-            contextMenu.addItem("Contains", listener);
-            contextMenu.addItem("Not contains", listener);
-            contextMenu.addItem("Equals", listener);
-            contextMenu.addItem("Not equal", listener);
-            contextMenu.addItem("Starts with", listener);
-            contextMenu.addItem("Ends with", listener);
-            contextMenu.addItem("Blank", listener);
-            contextMenu.addItem("Not blank", listener);
-
-            filterField.addValueChangeListener(e -> {
-                criteria.value = e.getValue();
-                applyFilters.run();
-            });
-
-            filterRow.getCell(col).setComponent(filterField);
-        });
-
-        return applyFilters;
-    }
-
     private final Map<String, String> menuTitleCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     private String getMenuTitleByCode(String menuCode) {
@@ -1231,8 +1129,18 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 code -> menuRepository.findById(code).map(AppMenu::getMenuTitle).orElse(""));
     }
 
-    private void refreshMatrixGrid() {
+    private void refreshMatrixGrid(String roleCode) {
         menuTitleCache.clear();
+        currentRolePermissions.clear();
+        if (roleCode != null) {
+            permissionRepository.findByRoleCode(roleCode)
+                    .forEach(p -> currentRolePermissions.put(p.getMenuCode(), p));
+        }
+        if (matrixFilterRefresher != null)
+            matrixFilterRefresher.run();
+    }
+
+    private void refreshMatrixGrid() {
         if (matrixFilterRefresher != null)
             matrixFilterRefresher.run();
     }
