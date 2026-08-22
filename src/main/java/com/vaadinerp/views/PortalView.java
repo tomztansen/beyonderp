@@ -174,7 +174,7 @@ public class PortalView extends AppLayout {
         // 2. User Info
         AppUser curr = securityService.getCurrentUser();
         String uName = curr != null ? curr.getFullName() : "Admin Demo";
-        String uRole = curr != null ? curr.getRoleCode() : "SUPER_ADMIN";
+        String uRole = curr != null && curr.getRoles() != null ? String.join(", ", curr.getRoles()) : "SUPER_ADMIN";
 
         Div avatar = new Div();
         avatar.getStyle()
@@ -370,10 +370,14 @@ public class PortalView extends AppLayout {
 
     private boolean matchesSearchOrFav(AppMenu menu, Set<String> favMenuCodes,
             Map<String, List<AppMenu>> menuChildrenMap, Set<String> allowedMenus) {
+        if ("FORM".equalsIgnoreCase(menu.getMenuType())) {
+            return false;
+        }
+
         List<AppMenu> children = menuChildrenMap.getOrDefault(menu.getMenuCode(), java.util.Collections.emptyList());
         List<AppMenu> accessibleChildren = children.stream()
-                .filter(c -> "GROUP".equalsIgnoreCase(c.getMenuType())
-                        || allowedMenus.contains(c.getMenuCode()))
+                .filter(c -> !"FORM".equalsIgnoreCase(c.getMenuType()) && 
+                        ("GROUP".equalsIgnoreCase(c.getMenuType()) || allowedMenus.contains(c.getMenuCode())))
                 .toList();
 
         boolean isGroup = "GROUP".equalsIgnoreCase(menu.getMenuType());
@@ -416,6 +420,10 @@ public class PortalView extends AppLayout {
         List<AppMenu> menus = menuChildrenMap.getOrDefault(parentCode, java.util.Collections.emptyList());
 
         for (AppMenu menu : menus) {
+            if ("FORM".equalsIgnoreCase(menu.getMenuType())) {
+                continue;
+            }
+
             if (!matchesSearchOrFav(menu, favMenuCodes, menuChildrenMap, allowedMenus)) {
                 continue;
             }
@@ -423,8 +431,8 @@ public class PortalView extends AppLayout {
             List<AppMenu> children = menuChildrenMap.getOrDefault(menu.getMenuCode(),
                     java.util.Collections.emptyList());
             List<AppMenu> accessibleChildren = children.stream()
-                    .filter(c -> "GROUP".equalsIgnoreCase(c.getMenuType())
-                            || allowedMenus.contains(c.getMenuCode()))
+                    .filter(c -> !"FORM".equalsIgnoreCase(c.getMenuType()) && 
+                            ("GROUP".equalsIgnoreCase(c.getMenuType()) || allowedMenus.contains(c.getMenuCode())))
                     .toList();
 
             boolean isGroup = "GROUP".equalsIgnoreCase(menu.getMenuType());
@@ -1107,13 +1115,15 @@ public class PortalView extends AppLayout {
 
         AppUser currentUser = securityService.getCurrentUser();
         Set<String> allowedMenus = new java.util.HashSet<>();
-        if (currentUser != null) {
-            if ("SUPER_ADMIN".equalsIgnoreCase(currentUser.getRoleCode())) {
+        if (currentUser != null && currentUser.getRoles() != null) {
+            if (currentUser.getRoles().contains("SUPER_ADMIN")) {
                 allowedMenus.addAll(allMenus.stream().map(m -> m.getMenuCode()).collect(Collectors.toSet()));
             } else {
-                List<RoleMenuPermission> perms = roleMenuPermissionRepository.findByRoleCode(currentUser.getRoleCode());
-                for (RoleMenuPermission p : perms) {
-                    allowedMenus.add(p.getMenuCode());
+                for (String role : currentUser.getRoles()) {
+                    List<RoleMenuPermission> perms = roleMenuPermissionRepository.findByRoleCode(role);
+                    for (RoleMenuPermission p : perms) {
+                        allowedMenus.add(p.getMenuCode());
+                    }
                 }
             }
         }

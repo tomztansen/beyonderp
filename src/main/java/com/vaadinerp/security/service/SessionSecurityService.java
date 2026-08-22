@@ -129,38 +129,53 @@ public class SessionSecurityService {
 
     public boolean isSuperAdmin() {
         AppUser user = getCurrentUser();
-        return user != null && "SUPER_ADMIN".equalsIgnoreCase(user.getRoleCode());
+        return user != null && user.getRoles() != null && user.getRoles().contains("SUPER_ADMIN");
     }
 
     public boolean hasMenuAccess(String menuCode) {
         AppUser user = getCurrentUser();
-        if (user == null)
+        if (user == null || user.getRoles() == null || user.getRoles().isEmpty())
             return false;
-        if ("SUPER_ADMIN".equalsIgnoreCase(user.getRoleCode()))
+        if (user.getRoles().contains("SUPER_ADMIN"))
             return true;
-        return permissionRepository.findByRoleCodeAndMenuCode(user.getRoleCode(), menuCode).isPresent();
+        for (String role : user.getRoles()) {
+            if (permissionRepository.findByRoleCodeAndMenuCode(role, menuCode).isPresent()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public MenuAccessAuthority getAuthorityForMenu(String menuCode) {
         AppUser user = getCurrentUser();
-        if (user == null) {
+        if (user == null || user.getRoles() == null || user.getRoles().isEmpty()) {
             return MenuAccessAuthority.readOnly();
         }
-        if ("SUPER_ADMIN".equalsIgnoreCase(user.getRoleCode())) {
+        if (user.getRoles().contains("SUPER_ADMIN")) {
             return MenuAccessAuthority.fullAccess();
         }
-        Optional<RoleMenuPermission> perm = permissionRepository.findByRoleCodeAndMenuCode(user.getRoleCode(),
-                menuCode);
-        if (perm.isPresent()) {
-            RoleMenuPermission p = perm.get();
-            MenuAccessAuthority auth = new MenuAccessAuthority();
-            auth.canAdd = Boolean.TRUE.equals(p.getCanAdd());
-            auth.canEdit = Boolean.TRUE.equals(p.getCanEdit());
-            auth.canDelete = Boolean.TRUE.equals(p.getCanDelete());
-            auth.canPrint = Boolean.TRUE.equals(p.getCanPrint());
-            auth.canView = Boolean.TRUE.equals(p.getCanView());
-            return auth;
+        
+        MenuAccessAuthority auth = new MenuAccessAuthority();
+        auth.canAccessScreen = false;
+        auth.canAdd = false;
+        auth.canEdit = false;
+        auth.canDelete = false;
+        auth.canPrint = false;
+        auth.canView = false;
+        
+        for (String role : user.getRoles()) {
+            Optional<RoleMenuPermission> perm = permissionRepository.findByRoleCodeAndMenuCode(role, menuCode);
+            if (perm.isPresent()) {
+                auth.canAccessScreen = true; // Karcis masuk tersedia
+                RoleMenuPermission p = perm.get();
+                if (Boolean.TRUE.equals(p.getCanAdd())) auth.canAdd = true;
+                if (Boolean.TRUE.equals(p.getCanEdit())) auth.canEdit = true;
+                if (Boolean.TRUE.equals(p.getCanDelete())) auth.canDelete = true;
+                if (Boolean.TRUE.equals(p.getCanPrint())) auth.canPrint = true;
+                if (Boolean.TRUE.equals(p.getCanView())) auth.canView = true;
+            }
         }
-        return MenuAccessAuthority.readOnly();
+        
+        return auth;
     }
 }

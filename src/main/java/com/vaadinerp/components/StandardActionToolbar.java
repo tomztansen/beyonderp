@@ -21,6 +21,7 @@ public class StandardActionToolbar extends HorizontalLayout {
      * sedang login.
      */
     public static class MenuAccessAuthority {
+        public boolean canAccessScreen = true;
         public boolean canAdd = true;
         public boolean canEdit = true;
         public boolean canDelete = true;
@@ -33,6 +34,7 @@ public class StandardActionToolbar extends HorizontalLayout {
 
         public static MenuAccessAuthority readOnly() {
             MenuAccessAuthority auth = new MenuAccessAuthority();
+            auth.canAccessScreen = false;
             auth.canAdd = false;
             auth.canEdit = false;
             auth.canDelete = false;

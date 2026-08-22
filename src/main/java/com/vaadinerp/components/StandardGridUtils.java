@@ -731,4 +731,208 @@ public class StandardGridUtils {
                         "}, true);");
     }
 
+    public static <T> Runnable attachTreeGridFilters(
+            com.vaadin.flow.component.treegrid.TreeGrid<T> treeGrid,
+            Map<Grid.Column<T>, Function<T, String>> colGetterMap,
+            Supplier<List<T>> dataSupplier,
+            Function<T, String> idGetter,
+            Function<T, String> parentIdGetter,
+            java.util.Comparator<T> sortComparator) {
+
+        if (treeGrid == null || colGetterMap == null || colGetterMap.isEmpty()) {
+            return () -> {};
+        }
+
+        enableCellClipboardCopy(treeGrid);
+        
+        HeaderRow filterRow = safeAppendHeaderRow(treeGrid);
+        Map<Grid.Column<T>, FilterCriteria> filterValues = new LinkedHashMap<>();
+
+        Runnable applyFilters = () -> {
+            List<T> allItems = dataSupplier.get();
+            if (allItems == null) {
+                treeGrid.setDataProvider(new com.vaadin.flow.data.provider.hierarchy.TreeDataProvider<>(new com.vaadin.flow.data.provider.hierarchy.TreeData<>()));
+                return;
+            }
+
+            boolean hasActiveFilter = filterValues.values().stream().anyMatch(criteria -> {
+                if ("Blank".equals(criteria.operator) || "Not blank".equals(criteria.operator)) return true;
+                return criteria.value != null && !criteria.value.trim().isEmpty();
+            });
+
+            com.vaadin.flow.data.provider.hierarchy.TreeData<T> treeData = new com.vaadin.flow.data.provider.hierarchy.TreeData<>();
+
+            if (!hasActiveFilter) {
+                Map<String, List<T>> childrenMap = new HashMap<>();
+                List<T> roots = new ArrayList<>();
+                for (T item : allItems) {
+                    String parentId = parentIdGetter.apply(item);
+                    if (parentId == null || parentId.isEmpty()) {
+                        roots.add(item);
+                    } else {
+                        childrenMap.computeIfAbsent(parentId, k -> new ArrayList<>()).add(item);
+                    }
+                }
+                treeData.addItems(null, roots);
+                java.util.function.Consumer<List<T>> addChildren = new java.util.function.Consumer<List<T>>() {
+                    @Override
+                    public void accept(List<T> parents) {
+                        for (T p : parents) {
+                            List<T> kids = childrenMap.get(idGetter.apply(p));
+                            if (kids != null && !kids.isEmpty()) {
+                                treeData.addItems(p, kids);
+                                this.accept(kids);
+                            }
+                        }
+                    }
+                };
+                addChildren.accept(roots);
+                treeGrid.setDataProvider(new com.vaadin.flow.data.provider.hierarchy.TreeDataProvider<>(treeData));
+                treeGrid.expand(roots);
+            } else {
+                Set<T> matchedAndParents = new HashSet<>();
+                Map<String, T> itemMap = new HashMap<>();
+                for (T m : allItems) itemMap.put(idGetter.apply(m), m);
+
+                for (T item : allItems) {
+                    boolean matchesAll = true;
+                    for (Map.Entry<Grid.Column<T>, FilterCriteria> entry : filterValues.entrySet()) {
+                        Grid.Column<T> col = entry.getKey();
+                        FilterCriteria criteria = entry.getValue();
+                        String op = criteria.operator;
+                        String query = criteria.value != null ? criteria.value.trim().toLowerCase() : "";
+                        Function<T, String> getter = colGetterMap.get(col);
+                        if (getter == null) continue;
+                        String rawVal = getter.apply(item);
+                        String strVal = rawVal != null ? rawVal.toLowerCase() : "";
+
+                        if ("Blank".equals(op)) {
+                            if (!strVal.isEmpty()) { matchesAll = false; break; }
+                            continue;
+                        }
+                        if ("Not blank".equals(op)) {
+                            if (strVal.isEmpty()) { matchesAll = false; break; }
+                            continue;
+                        }
+                        if (query.isEmpty()) continue;
+
+                        switch (op) {
+                            case "Contains": if (!strVal.contains(query)) matchesAll = false; break;
+                            case "Not contains": if (strVal.contains(query)) matchesAll = false; break;
+                            case "Equals": if (!strVal.equals(query)) matchesAll = false; break;
+                            case "Not equal": if (strVal.equals(query)) matchesAll = false; break;
+                            case "Starts with": if (!strVal.startsWith(query)) matchesAll = false; break;
+                            case "Ends with": if (!strVal.endsWith(query)) matchesAll = false; break;
+                        }
+                        if (!matchesAll) break;
+                    }
+                    if (matchesAll) {
+                        T curr = item;
+                        while (curr != null) {
+                            matchedAndParents.add(curr);
+                            String parentId = parentIdGetter.apply(curr);
+                            if (parentId != null && !parentId.isEmpty()) {
+                                curr = itemMap.get(parentId);
+                            } else {
+                                curr = null;
+                            }
+                        }
+                    }
+                }
+
+                List<T> matchedList = new ArrayList<>(matchedAndParents);
+                if (sortComparator != null) {
+                    matchedList.sort(sortComparator);
+                }
+
+                Map<String, List<T>> childrenMap = new HashMap<>();
+                List<T> roots = new ArrayList<>();
+                for (T m : matchedList) {
+                    String parentId = parentIdGetter.apply(m);
+                    if (parentId == null || parentId.isEmpty() || !matchedAndParents.contains(itemMap.get(parentId))) {
+                        roots.add(m);
+                    } else {
+                        childrenMap.computeIfAbsent(parentId, k -> new ArrayList<>()).add(m);
+                    }
+                }
+                treeData.addItems(null, roots);
+                java.util.function.Consumer<List<T>> addChildren = new java.util.function.Consumer<List<T>>() {
+                    @Override
+                    public void accept(List<T> parents) {
+                        for (T p : parents) {
+                            List<T> kids = childrenMap.get(idGetter.apply(p));
+                            if (kids != null && !kids.isEmpty()) {
+                                treeData.addItems(p, kids);
+                                this.accept(kids);
+                            }
+                        }
+                    }
+                };
+                addChildren.accept(roots);
+                treeGrid.setDataProvider(new com.vaadin.flow.data.provider.hierarchy.TreeDataProvider<>(treeData));
+                treeGrid.expand(matchedList);
+            }
+        };
+
+        colGetterMap.keySet().forEach(col -> {
+            FilterCriteria criteria = new FilterCriteria();
+            filterValues.put(col, criteria);
+
+            TextField filterField = new TextField();
+            filterField.setPlaceholder("Filter...");
+            filterField.setValueChangeMode(ValueChangeMode.EAGER);
+            filterField.setWidthFull();
+            filterField.addThemeVariants(TextFieldVariant.LUMO_SMALL);
+
+            Button filterButton = new Button(VaadinIcon.FILTER.create());
+            filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+            filterButton.getStyle().set("cursor", "pointer");
+            filterButton.getElement().setProperty("title", "Contains");
+            filterField.setPrefixComponent(filterButton);
+
+            ContextMenu contextMenu = new ContextMenu(filterButton);
+            contextMenu.setOpenOnClick(true);
+
+            Runnable applyOperatorUI = () -> {
+                String op = criteria.operator;
+                filterButton.getElement().setProperty("title", op);
+                boolean needsInput = !("Blank".equals(op) || "Not blank".equals(op));
+                if (!needsInput) {
+                    filterField.setValue("");
+                    filterField.setPlaceholder(op);
+                    filterField.setReadOnly(true);
+                } else {
+                    filterField.setPlaceholder("Filter...");
+                    filterField.setReadOnly(false);
+                }
+            };
+
+            com.vaadin.flow.component.ComponentEventListener<com.vaadin.flow.component.ClickEvent<com.vaadin.flow.component.contextmenu.MenuItem>> listener = event -> {
+                if (event.getSource().getText() != null) {
+                    criteria.operator = event.getSource().getText();
+                    applyOperatorUI.run();
+                    applyFilters.run();
+                }
+            };
+
+            contextMenu.addItem("Contains", listener);
+            contextMenu.addItem("Not contains", listener);
+            contextMenu.addItem("Equals", listener);
+            contextMenu.addItem("Not equal", listener);
+            contextMenu.addItem("Starts with", listener);
+            contextMenu.addItem("Ends with", listener);
+            contextMenu.addItem("Blank", listener);
+            contextMenu.addItem("Not blank", listener);
+
+            filterField.addValueChangeListener(e -> {
+                criteria.value = e.getValue();
+                applyFilters.run();
+            });
+
+            filterRow.getCell(col).setComponent(filterField);
+        });
+
+        return applyFilters;
+    }
+
 }

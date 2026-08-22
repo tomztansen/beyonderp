@@ -19,9 +19,10 @@ public class AppUser extends com.vaadinerp.meta.BaseAuditableEntity {
     @Column(name = "full_name", length = 100)
     private String fullName;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "app_user_roles", joinColumns = @JoinColumn(name = "username"))
     @Column(name = "role_code", length = 50)
-    private String roleCode;
-
+    private java.util.Set<String> roles = new java.util.HashSet<>();
     @Column(name = "is_active")
     private Boolean isActive = true;
 }

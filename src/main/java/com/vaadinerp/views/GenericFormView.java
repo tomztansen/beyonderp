@@ -675,6 +675,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         ? securityService.getAuthorityForMenu(currentFormCode)
                         : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
 
+        if (!auth.canAccessScreen) {
+            com.vaadin.flow.component.html.Span noAccess = new com.vaadin.flow.component.html.Span("Akses Ditolak. Anda tidak memiliki izin untuk melihat layar ini.");
+            noAccess.getStyle().set("color", "var(--lumo-error-color)");
+            add(noAccess);
+            return;
+        }
+
         if (!auth.canView) {
             btnView.setVisible(false);
             btnView.setEnabled(false);
@@ -703,7 +710,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             btnCancel.setEnabled(false);
         }
 
-        if (!auth.canView && !auth.canAdd && !auth.canEdit) {
+        if (!auth.canAccessScreen && !auth.canAdd && !auth.canEdit) {
             transaksiTab.setVisible(false);
         }
 
@@ -1639,7 +1646,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         grid.addItemDoubleClickListener(event -> {
             if (auth.canEdit) {
                 loadAndEditData(event.getItem());
-            } else if (auth.canView) {
+            } else if (auth.canAccessScreen) {
                 loadAndViewData(event.getItem());
             } else {
                 Notification.show("Anda tidak memiliki akses untuk membuka data ini", 3000,
@@ -1840,78 +1847,178 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             FilterCriteria criteria = new FilterCriteria();
             filterValues.put(fieldName, criteria);
 
-            TextField filterField = new TextField();
-            filterField.setPlaceholder("Filter...");
-            filterField.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.EAGER);
-            filterField.setWidthFull();
-            filterField.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
+            com.vaadinerp.meta.FieldMeta field = formDef.getFields().stream().filter(f -> f.getFieldName().equals(fieldName)).findFirst().orElse(null);
+            boolean isBoolean = field != null && ("CHECKBOX".equalsIgnoreCase(field.getComponentType()) 
+                    || "YN".equalsIgnoreCase(field.getLovCode()) || "Y/N".equalsIgnoreCase(field.getLovCode()));
+            String compType = field != null && field.getComponentType() != null ? field.getComponentType().toUpperCase() : "";
+            boolean isDate = "DATEBOX".equals(compType) || "DATETIMEBOX".equals(compType);
 
-            // Buat icon filter sebagai prefix di TextField
-            Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
-            filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
-            filterButton.getStyle().set("cursor", "pointer");
-            filterButton.getElement().setProperty("title", "Contains"); // tooltip default
-            filterField.setPrefixComponent(filterButton);
+            if (isBoolean) {
+                com.vaadin.flow.component.combobox.ComboBox<String> filterCombo = new com.vaadin.flow.component.combobox.ComboBox<>();
+                filterCombo.setItems("Y", "N");
+                filterCombo.setClearButtonVisible(true);
+                filterCombo.setPlaceholder("Filter...");
+                filterCombo.setWidthFull();
+                filterCombo.getElement().getThemeList().add("small");
 
-            // Menu popup ketika icon diklik
-            com.vaadin.flow.component.contextmenu.ContextMenu contextMenu = new com.vaadin.flow.component.contextmenu.ContextMenu(
-                    filterButton);
-            contextMenu.setOpenOnClick(true);
+                Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
+                filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
+                filterButton.getStyle().set("cursor", "pointer");
+                filterButton.getElement().setProperty("title", "Equals");
+                filterCombo.setPrefixComponent(filterButton);
 
-            Runnable applyOperatorUI = () -> {
-                String op = criteria.operator;
-                filterButton.getElement().setProperty("title", op); // Update tooltip
-                boolean needsInput = !("Blank".equals(op) || "Not blank".equals(op));
-                if (!needsInput) {
-                    filterField.setValue("");
-                    filterField.setPlaceholder(op); // Tampilkan info Blank/Not blank
-                    filterField.setReadOnly(true);
-                } else {
-                    filterField.setPlaceholder("Filter...");
-                    filterField.setReadOnly(false);
-                }
-            };
+                criteria.operator = "Equals";
 
-            com.vaadin.flow.component.ComponentEventListener<com.vaadin.flow.component.ClickEvent<com.vaadin.flow.component.contextmenu.MenuItem>> listener = event -> {
-                if (event.getSource().getText() != null) {
-                    criteria.operator = event.getSource().getText();
-                    applyOperatorUI.run();
-                    if (paginationBar != null)
-                        paginationBar.resetPage();
-                    applyFilters();
-                }
-            };
+                filterCombo.addValueChangeListener(e -> {
+                    if (e.isFromClient()) {
+                        if ("Y".equals(e.getValue())) {
+                            criteria.value = "true";
+                        } else if ("N".equals(e.getValue())) {
+                            criteria.value = "false";
+                        } else {
+                            criteria.value = "";
+                        }
+                        if (paginationBar != null)
+                            paginationBar.resetPage();
+                        applyFilters();
+                    }
+                });
 
-            contextMenu.addItem("Contains", listener);
-            contextMenu.addItem("Not contains", listener);
-            contextMenu.addItem("Equals", listener);
-            contextMenu.addItem("Not equal", listener);
-            contextMenu.addItem("Starts with", listener);
-            contextMenu.addItem("Ends with", listener);
-            contextMenu.addItem("Blank", listener);
-            contextMenu.addItem("Not blank", listener);
+                filterRow.getCell(col).setComponent(filterCombo);
+            } else if (isDate) {
+                com.vaadin.flow.component.datepicker.DatePicker filterDatePicker = new com.vaadin.flow.component.datepicker.DatePicker();
+                filterDatePicker.setPlaceholder("Filter...");
+                filterDatePicker.setClearButtonVisible(true);
+                filterDatePicker.setWidthFull();
+                filterDatePicker.getElement().getThemeList().add("small");
+                filterDatePicker.setLocale(new java.util.Locale("id", "ID"));
 
-            contextMenu.addItem(new com.vaadin.flow.component.html.Hr(), e -> {
-            });
-            contextMenu.addItem(col.isFrozen() ? "Unfreeze Column" : "Freeze Column", event -> {
-                boolean nextFrozen = !col.isFrozen();
-                col.setFrozen(nextFrozen);
-                event.getSource().setText(nextFrozen ? "Unfreeze Column" : "Freeze Column");
-                com.vaadin.flow.component.notification.Notification.show(
-                        nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000,
-                        com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
-            });
+                Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
+                filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
+                filterButton.getStyle().set("cursor", "pointer");
+                filterButton.getElement().setProperty("title", "Equals");
+                filterDatePicker.setPrefixComponent(filterButton);
 
-            filterField.addValueChangeListener(e -> {
-                if (e.isFromClient()) {
-                    criteria.value = e.getValue();
-                    if (paginationBar != null)
-                        paginationBar.resetPage();
-                    applyFilters();
-                }
-            });
+                criteria.operator = "Equals";
 
-            filterRow.getCell(col).setComponent(filterField);
+                com.vaadin.flow.component.contextmenu.ContextMenu dateCtx = new com.vaadin.flow.component.contextmenu.ContextMenu(filterButton);
+                dateCtx.setOpenOnClick(true);
+
+                Runnable applyDateOperatorUI = () -> {
+                    String op = criteria.operator;
+                    filterButton.getElement().setProperty("title", op);
+                    boolean needsInput = !("Blank".equals(op) || "Not blank".equals(op));
+                    if (!needsInput) {
+                        filterDatePicker.clear();
+                        filterDatePicker.setPlaceholder(op);
+                        filterDatePicker.setReadOnly(true);
+                    } else {
+                        filterDatePicker.setPlaceholder("Filter...");
+                        filterDatePicker.setReadOnly(false);
+                    }
+                };
+
+                com.vaadin.flow.component.ComponentEventListener<com.vaadin.flow.component.ClickEvent<com.vaadin.flow.component.contextmenu.MenuItem>> dateListener = event -> {
+                    if (event.getSource().getText() != null) {
+                        criteria.operator = event.getSource().getText();
+                        applyDateOperatorUI.run();
+                        if (paginationBar != null)
+                            paginationBar.resetPage();
+                        applyFilters();
+                    }
+                };
+
+                dateCtx.addItem("Equals", dateListener);
+                dateCtx.addItem("\u2265 Dari tanggal", dateListener);
+                dateCtx.addItem("\u2264 Sampai tanggal", dateListener);
+                dateCtx.addItem("Blank", dateListener);
+                dateCtx.addItem("Not blank", dateListener);
+
+                filterDatePicker.addValueChangeListener(e -> {
+                    if (e.isFromClient()) {
+                        java.time.LocalDate picked = e.getValue();
+                        criteria.value = picked != null ? picked.toString() : "";
+                        if (paginationBar != null)
+                            paginationBar.resetPage();
+                        applyFilters();
+                    }
+                });
+
+                filterRow.getCell(col).setComponent(filterDatePicker);
+            } else {
+                TextField filterField = new TextField();
+                filterField.setPlaceholder("Filter...");
+                filterField.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.EAGER);
+                filterField.setWidthFull();
+                filterField.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
+
+                // Buat icon filter sebagai prefix di TextField
+                Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
+                filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
+                filterButton.getStyle().set("cursor", "pointer");
+                filterButton.getElement().setProperty("title", "Contains"); // tooltip default
+                filterField.setPrefixComponent(filterButton);
+
+                // Menu popup ketika icon diklik
+                com.vaadin.flow.component.contextmenu.ContextMenu contextMenu = new com.vaadin.flow.component.contextmenu.ContextMenu(
+                        filterButton);
+                contextMenu.setOpenOnClick(true);
+
+                Runnable applyOperatorUI = () -> {
+                    String op = criteria.operator;
+                    filterButton.getElement().setProperty("title", op); // Update tooltip
+                    boolean needsInput = !("Blank".equals(op) || "Not blank".equals(op));
+                    if (!needsInput) {
+                        filterField.setValue("");
+                        filterField.setPlaceholder(op); // Tampilkan info Blank/Not blank
+                        filterField.setReadOnly(true);
+                    } else {
+                        filterField.setPlaceholder("Filter...");
+                        filterField.setReadOnly(false);
+                    }
+                };
+
+                com.vaadin.flow.component.ComponentEventListener<com.vaadin.flow.component.ClickEvent<com.vaadin.flow.component.contextmenu.MenuItem>> listener = event -> {
+                    if (event.getSource().getText() != null) {
+                        criteria.operator = event.getSource().getText();
+                        applyOperatorUI.run();
+                        if (paginationBar != null)
+                            paginationBar.resetPage();
+                        applyFilters();
+                    }
+                };
+
+                contextMenu.addItem("Contains", listener);
+                contextMenu.addItem("Not contains", listener);
+                contextMenu.addItem("Equals", listener);
+                contextMenu.addItem("Not equal", listener);
+                contextMenu.addItem("Starts with", listener);
+                contextMenu.addItem("Ends with", listener);
+                contextMenu.addItem("Blank", listener);
+                contextMenu.addItem("Not blank", listener);
+
+                contextMenu.addItem(new com.vaadin.flow.component.html.Hr(), e -> {
+                });
+                contextMenu.addItem(col.isFrozen() ? "Unfreeze Column" : "Freeze Column", event -> {
+                    boolean nextFrozen = !col.isFrozen();
+                    col.setFrozen(nextFrozen);
+                    event.getSource().setText(nextFrozen ? "Unfreeze Column" : "Freeze Column");
+                    com.vaadin.flow.component.notification.Notification.show(
+                            nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000,
+                            com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
+                });
+
+                filterField.addValueChangeListener(e -> {
+                    if (e.isFromClient()) {
+                        criteria.value = e.getValue();
+                        if (paginationBar != null)
+                            paginationBar.resetPage();
+                        applyFilters();
+                    }
+                });
+
+                filterRow.getCell(col).setComponent(filterField);
+            }
         });
 
         // 3. Konfigurasi Drag and Drop untuk Row Reordering

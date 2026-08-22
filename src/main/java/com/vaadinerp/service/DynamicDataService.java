@@ -2424,7 +2424,7 @@ public class DynamicDataService {
                         .getAttribute(com.vaadinerp.security.service.SessionSecurityService.SESSION_USER_KEY);
                 if (obj instanceof com.vaadinerp.security.entity.AppUser) {
                     com.vaadinerp.security.entity.AppUser user = (com.vaadinerp.security.entity.AppUser) obj;
-                    return "SUPER_ADMIN".equalsIgnoreCase(user.getRoleCode());
+                    return user.getRoles() != null && user.getRoles().contains("SUPER_ADMIN");
                 }
             }
         } catch (Exception ex) {
@@ -3189,7 +3189,28 @@ public class DynamicDataService {
                 where.append(" AND (" + colName + " IS NOT NULL AND TRIM(CAST(" + colName + " AS TEXT)) != '') ");
             } else if (val != null && !val.trim().isEmpty()) {
                 val = val.trim();
-                appendConditionWithLov(where, args, colName, op, val, formMeta);
+                // Deteksi filter tanggal (format ISO yyyy-MM-dd dari DatePicker)
+                if (val.matches("\\d{4}-\\d{2}-\\d{2}") && (op.startsWith("\u2265") || op.startsWith("\u2264") || "Equals".equals(op))) {
+                    try {
+                        java.time.LocalDate filterDate = java.time.LocalDate.parse(val);
+                        if (op.startsWith("\u2265")) {
+                            where.append(" AND CAST(").append(colName).append(" AS DATE) >= ? ");
+                            args.add(java.sql.Date.valueOf(filterDate));
+                        } else if (op.startsWith("\u2264")) {
+                            where.append(" AND CAST(").append(colName).append(" AS DATE) <= ? ");
+                            args.add(java.sql.Date.valueOf(filterDate));
+                        } else {
+                            // Equals: untuk DATETIMEBOX, cari di rentang satu hari penuh
+                            where.append(" AND CAST(").append(colName).append(" AS DATE) = ? ");
+                            args.add(java.sql.Date.valueOf(filterDate));
+                        }
+                    } catch (Exception dateEx) {
+                        // Fallback ke pencarian teks biasa jika parsing gagal
+                        appendConditionWithLov(where, args, colName, op, val, formMeta);
+                    }
+                } else {
+                    appendConditionWithLov(where, args, colName, op, val, formMeta);
+                }
             }
         }
     }
@@ -3255,8 +3276,6 @@ public class DynamicDataService {
                 : lblCol;
 
         java.util.Set<String> lovSearchCols = new java.util.LinkedHashSet<>();
-        if (valCol.matches("^[a-zA-Z0-9_]+$"))
-            lovSearchCols.add(valCol);
         if (lblCol.matches("^[a-zA-Z0-9_]+$"))
             lovSearchCols.add(lblCol);
         for (String sc : searchCol.split(",")) {
@@ -3322,19 +3341,18 @@ public class DynamicDataService {
         }
 
         if (isNegative) {
-            where.append(" AND (CAST(").append(colName).append(" AS TEXT) ").append(directOp).append(" ? AND CAST(")
-                    .append(colName)
+            // Untuk "Not contains" / "Not equal": ambil data yang ID-nya TIDAK ADA di hasil pencarian LOV
+            where.append(" AND CAST(").append(colName)
                     .append(" AS TEXT) NOT IN (SELECT CAST(").append(valCol).append(" AS TEXT) FROM ")
                     .append(lovTableSql)
-                    .append(" WHERE ").append(lovWhere).append(")) ");
+                    .append(" WHERE ").append(lovWhere).append(") ");
         } else {
-            where.append(" AND (CAST(").append(colName).append(" AS TEXT) ").append(directOp).append(" ? OR CAST(")
-                    .append(colName)
+            // Untuk "Contains" / "Equals" / "Starts with" / "Ends with": hanya cari via label LOV
+            where.append(" AND CAST(").append(colName)
                     .append(" AS TEXT) IN (SELECT CAST(").append(valCol).append(" AS TEXT) FROM ").append(lovTableSql)
-                    .append(" WHERE ").append(lovWhere).append(")) ");
+                    .append(" WHERE ").append(lovWhere).append(") ");
         }
 
-        args.add(sqlVal);
         for (int i = 0; i < lovSearchCols.size(); i++) {
             args.add(sqlVal);
         }

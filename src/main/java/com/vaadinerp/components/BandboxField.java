@@ -135,7 +135,7 @@ public class BandboxField<T, V> extends CustomField<V> {
         popup.setModal(false); // Modeless agar terasa seperti dropdown
 
         // Search field
-        searchField.setPlaceholder("Cari data...");
+        searchField.setPlaceholder("Find data...");
         searchField.setWidthFull();
         searchField.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
         searchField.setValueChangeMode(ValueChangeMode.EAGER);
