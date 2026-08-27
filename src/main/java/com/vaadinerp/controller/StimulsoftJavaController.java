@@ -31,12 +31,18 @@ public class StimulsoftJavaController {
 
     @GetMapping("/stimulsoft-java/viewer")
     public String viewerAction(
-            @RequestParam String code, 
-            @RequestParam(required = false) Long id, 
+            @RequestParam String code,
+            @RequestParam(required = false) Long id,
             @RequestParam(required = false) String param,
             jakarta.servlet.http.HttpServletRequest request,
             Model model) throws Exception {
-        
+
+        if (!isValidReportCode(code)) {
+            model.addAttribute("errorTitle", "Invalid Report Code");
+            model.addAttribute("errorMessage", "Kode laporan mengandung karakter yang tidak diizinkan: " + code);
+            return "stimulsoft-error";
+        }
+
         File file = new File(uploadDir, code + ".mrt");
         if (!file.exists()) {
             model.addAttribute("errorTitle", "Report Template Missing");
@@ -47,24 +53,24 @@ public class StimulsoftJavaController {
 
         try {
             com.vaadinerp.meta.ReportMeta meta = reportMetaRepository.findById(code).orElse(null);
-            String source = code;
-            if (meta != null) {
-                source = (meta.getDataQuery() != null && !meta.getDataQuery().trim().isEmpty()) ? meta.getDataQuery() : meta.getTableName();
-            }
-            
+
+            java.util.Map<String, Object> params = new java.util.HashMap<>();
+            if (id != null) params.put("id", id);
+            if (param != null) params.put("param", param);
+
             java.util.List<java.util.Map<String, Object>> rawData;
-            try {
-                rawData = dynamicDataService.fetchTableData(source);
-                if (rawData == null) rawData = new java.util.ArrayList<>();
-            } catch (Exception ex) {
-                model.addAttribute("errorTitle", "Kesalahan SQL Query");
-                model.addAttribute("errorMessage", "Query laporan Anda gagal dieksekusi oleh database:\n\n" + ex.getMessage());
-                return "stimulsoft-error";
+            if (meta != null) {
+                // Menggunakan fetchReportData agar parameter (:id, :param) tersubstitusi ke query laporan
+                rawData = dynamicDataService.fetchReportData(meta, params, false);
+            } else {
+                rawData = dynamicDataService.fetchTableData(code);
             }
+            if (rawData == null) rawData = new java.util.ArrayList<>();
+
             java.util.Map<String, Object> dataRoot = new java.util.HashMap<>();
             dataRoot.put("DynamicData", rawData);
             String jsonData = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(dataRoot);
-            
+
             report.getDictionary().getDatabases().clear();
             com.stimulsoft.report.dictionary.databases.StiJsonDatabase jsonDb = new com.stimulsoft.report.dictionary.databases.StiJsonDatabase("DynamicData", "");
             jsonDb.setJsonData(jsonData);
@@ -73,7 +79,7 @@ public class StimulsoftJavaController {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        
+
         report.render();
 
         StiWebViewerOptions options = new StiWebViewerOptions();
@@ -90,21 +96,22 @@ public class StimulsoftJavaController {
 
     @GetMapping("/stimulsoft-java/designer")
     public String designerAction(@RequestParam String code, Model model, jakarta.servlet.http.HttpServletRequest request) throws Exception {
-        com.vaadinerp.meta.ReportMeta metaTest = reportMetaRepository.findById(code).orElse(null);
-        String sourceTest = code;
-        if (metaTest != null) {
-            sourceTest = (metaTest.getDataQuery() != null && !metaTest.getDataQuery().trim().isEmpty()) ? metaTest.getDataQuery() : metaTest.getTableName();
-        }
-        
-        java.util.List<java.util.Map<String, Object>> tempRawData;
-        try {
-            tempRawData = dynamicDataService.fetchTableData(sourceTest);
-            if (tempRawData == null) tempRawData = new java.util.ArrayList<>();
-        } catch (Exception ex) {
-            model.addAttribute("errorTitle", "Kesalahan SQL Query");
-            model.addAttribute("errorMessage", "Query sumber data untuk designer ini gagal:\n\n" + ex.getMessage());
+        if (!isValidReportCode(code)) {
+            model.addAttribute("errorTitle", "Invalid Report Code");
+            model.addAttribute("errorMessage", "Kode laporan mengandung karakter yang tidak diizinkan: " + code);
             return "stimulsoft-error";
         }
+
+        com.vaadinerp.meta.ReportMeta metaTest = reportMetaRepository.findById(code).orElse(null);
+
+        // Data contoh terbatas (LIMIT 50) untuk preview di designer, bukan seluruh tabel
+        java.util.List<java.util.Map<String, Object>> tempRawData;
+        if (metaTest != null) {
+            tempRawData = dynamicDataService.fetchReportData(metaTest, new java.util.HashMap<>(), true);
+        } else {
+            tempRawData = dynamicDataService.fetchTableData(code);
+        }
+        if (tempRawData == null) tempRawData = new java.util.ArrayList<>();
         final java.util.List<java.util.Map<String, Object>> rawData = tempRawData;
         
         StiWebDesignerOptions options = new StiWebDesignerOptions();
@@ -126,11 +133,6 @@ public class StimulsoftJavaController {
                         page.setName(com.stimulsoft.report.StiNameCreation.createName(report, com.stimulsoft.report.StiNameCreation.generateName(page)));
                     }
                     
-                    com.vaadinerp.meta.ReportMeta meta = reportMetaRepository.findById(code).orElse(null);
-                    String source = code;
-                    if (meta != null) {
-                        source = (meta.getDataQuery() != null && !meta.getDataQuery().trim().isEmpty()) ? meta.getDataQuery() : meta.getTableName();
-                    }
                     java.util.Map<String, Object> dataRoot = new java.util.HashMap<>();
                     dataRoot.put("DynamicData", rawData);
                     String jsonData = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(dataRoot);
@@ -179,5 +181,13 @@ public class StimulsoftJavaController {
         model.addAttribute("handler", handler);
         model.addAttribute("options", options);
         return "designer";
+    }
+
+    /**
+     * Mencegah path traversal: kode laporan dipakai langsung sebagai nama file (.mrt),
+     * jadi hanya boleh huruf, angka, underscore, dan strip.
+     */
+    private boolean isValidReportCode(String code) {
+        return code != null && code.matches("^[A-Za-z0-9_-]+$");
     }
 }

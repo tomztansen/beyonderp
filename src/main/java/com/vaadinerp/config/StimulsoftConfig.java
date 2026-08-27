@@ -47,7 +47,16 @@ public class StimulsoftConfig {
     public ServletRegistrationBean<HttpServlet> stiWebViewerServlet() {
         ServletRegistrationBean<HttpServlet> bean = new ServletRegistrationBean<>();
         bean.setServlet(new StiWebViewerActionServletJk());
-        bean.addUrlMappings("/stimulsoft_webviewer_action", "/stimulsoft_webviewer_action/*");
+        bean.addUrlMappings(
+                "/stimulsoft_webviewer_action", "/stimulsoft_webviewer_action/*",
+                // Preview di dalam Web Designer mewarisi controller designer sebagai base
+                // lalu menambahkan "/stimulsoft_webviewer_action", menghasilkan path ganda
+                // "/stimulsoft_webdesigner_action/stimulsoft_webviewer_action". Tanpa mapping ini,
+                // path tersebut jatuh ke servlet designer (balas kosong) sehingga StiJsViewer
+                // tidak terdefinisi dan Preview memutar tanpa henti. Prefix yang lebih panjang
+                // ini menang atas "/stimulsoft_webdesigner_action/*" milik servlet designer.
+                "/stimulsoft_webdesigner_action/stimulsoft_webviewer_action",
+                "/stimulsoft_webdesigner_action/stimulsoft_webviewer_action/*");
         bean.setLoadOnStartup(1);
         return bean;
     }
