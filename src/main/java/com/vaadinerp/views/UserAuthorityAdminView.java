@@ -825,7 +825,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         btnCopy.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         toolbar.add(btnCopy);
 
-        var colTitle = matrixTreeGrid.addColumn(m -> m.getMenuTitle() != null ? m.getMenuTitle() : "")
+        var colTitle = matrixTreeGrid.addHierarchyColumn(m -> m.getMenuTitle() != null ? m.getMenuTitle() : "")
                 .setHeader("Menu Title").setSortable(true).setAutoWidth(true);
         var colCode = matrixTreeGrid.addColumn(AppMenu::getMenuCode).setHeader("Menu Code").setSortable(true)
                 .setAutoWidth(true);
@@ -884,7 +884,18 @@ public class UserAuthorityAdminView extends VerticalLayout {
         HorizontalLayout actions = new HorizontalLayout(btnCheckAll, btnUncheckAll, btnCopy);
         actions.setVisible(false);
 
-        topBar.add(roleSelect, actions);
+        Button btnRefreshRole = new com.vaadinerp.components.SafeButton(VaadinIcon.REFRESH.create(), e -> {
+            String current = roleSelect.getValue();
+            roleSelect.setItems(roleRepository.findAll().stream().map(AppRole::getRoleCode).toList());
+            if (current != null) {
+                roleSelect.setValue(current);
+            }
+            Notification.show("Role list refreshed", 1500, Notification.Position.BOTTOM_END);
+        });
+        btnRefreshRole.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        btnRefreshRole.setTooltipText("Refresh Role List");
+
+        topBar.add(roleSelect, btnRefreshRole, actions);
 
         matrixTreeGrid.addComponentColumn(m -> createMasterAccessCheckbox(m, roleSelect)).setHeader("Access Screen");
         matrixTreeGrid.addComponentColumn(m -> createPermissionCheckbox(m, roleSelect, "VIEW")).setHeader("View");

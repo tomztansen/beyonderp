@@ -37,9 +37,11 @@ public class ReportBuilderView extends VerticalLayout {
     private final ComboBox<ReportMeta> loadReportCombo = new ComboBox<>("Load Existing Report");
     private final TextField reportCodeField = new TextField("Report Code (Unique)");
     private final TextField reportTitleField = new TextField("Report Title");
-    private final ComboBox<FormMeta> tableCombo = new ComboBox<>("Source Table / Form");
+    private final ComboBox<FormMeta> tableCombo = new ComboBox<>("Source Table / Form (Optional)");
+    private final com.vaadin.flow.component.textfield.TextArea dataQueryArea = new com.vaadin.flow.component.textfield.TextArea("Custom SQL Query (Overrides Table)");
     private final Select<String> pageSizeSelect = new Select<>();
     private final Select<String> orientationSelect = new Select<>();
+    private final Select<String> engineTypeSelect = new Select<>();
 
     // State
     private ReportElementMetaTemp selectedElement = null;
@@ -47,7 +49,9 @@ public class ReportBuilderView extends VerticalLayout {
     private final List<ReportElementMetaTemp> elementsList = new ArrayList<>();
 
     // UI layouts
+    private final VerticalLayout canvasPanel = new VerticalLayout();
     private final Div pageCanvas = new Div(); // Simulated paper
+    private final com.vaadin.flow.component.html.IFrame stimulsoftIFrame = new com.vaadin.flow.component.html.IFrame(); // Stimulsoft Designer
     
     // Properties Panel
     private final VerticalLayout propertiesPanel = new VerticalLayout();
@@ -108,11 +112,15 @@ public class ReportBuilderView extends VerticalLayout {
             reportCodeField.setReadOnly(false);
             reportTitleField.clear();
             tableCombo.clear();
+            dataQueryArea.clear();
             pageSizeSelect.setValue("A4");
             orientationSelect.setValue("PORTRAIT");
+            engineTypeSelect.setValue("STANDARD");
             elementsList.clear();
             selectElement(null);
             rebuildCanvas();
+            stimulsoftIFrame.setSrc("");
+            stimulsoftIFrame.setVisible(false);
             Notification.show("Report Designer di-reset.", 3000, Notification.Position.TOP_CENTER);
         });
 
@@ -124,14 +132,18 @@ public class ReportBuilderView extends VerticalLayout {
                 reportCodeField.setValue(selectedReport.getReportCode() != null ? selectedReport.getReportCode() : "");
                 reportCodeField.setReadOnly(true);
                 reportTitleField.setValue(selectedReport.getReportTitle() != null ? selectedReport.getReportTitle() : "");
+                tableCombo.clear();
+                if (selectedReport.getTableName() != null && !selectedReport.getTableName().isEmpty()) {
+                    FormMeta form = formMetaRepository.findById(selectedReport.getTableName()).orElse(null);
+                    if (form != null) {
+                        tableCombo.setValue(form);
+                    }
+                }
+                dataQueryArea.setValue(selectedReport.getDataQuery() != null ? selectedReport.getDataQuery() : "");
+                
                 pageSizeSelect.setValue(selectedReport.getPageSize() != null ? selectedReport.getPageSize() : "A4");
                 orientationSelect.setValue(selectedReport.getOrientation() != null ? selectedReport.getOrientation() : "PORTRAIT");
-
-                // Find FormMeta corresponding to table
-                FormMeta matchedForm = formMetaRepository.findAll().stream()
-                        .filter(f -> f.getTableName() != null && f.getTableName().equalsIgnoreCase(selectedReport.getTableName()))
-                        .findFirst().orElse(null);
-                tableCombo.setValue(matchedForm);
+                engineTypeSelect.setValue(selectedReport.getEngineType() != null ? selectedReport.getEngineType() : "STANDARD");
 
                 // Load elements
                 elementsList.clear();
@@ -152,17 +164,21 @@ public class ReportBuilderView extends VerticalLayout {
                 }
                 selectElement(null);
                 rebuildCanvas();
+                
+                boolean isStimulsoft = "STIMULSOFT".equalsIgnoreCase(selectedReport.getEngineType());
+                if (isStimulsoft && selectedReport.getReportCode() != null) {
+                    stimulsoftIFrame.setSrc("/stimulsoft-java/designer?code=" + selectedReport.getReportCode());
+                } else {
+                    stimulsoftIFrame.setSrc("");
+                }
+                
                 Notification.show("Report loaded: " + selectedReport.getReportCode(), 3000, Notification.Position.TOP_CENTER);
             }
         });
 
         // 2. Report General Metadata Form
         FormLayout reportMetaLayout = new FormLayout();
-        reportMetaLayout.setResponsiveSteps(
-                new FormLayout.ResponsiveStep("0", 1),
-                new FormLayout.ResponsiveStep("600px", 3),
-                new FormLayout.ResponsiveStep("900px", 5)
-        );
+        reportTitleField.setWidthFull();
 
         tableCombo.setItems(formMetaRepository.findAll());
         tableCombo.setItemLabelGenerator(f -> f.getFormTitle() + " (dynamic." + f.getTableName() + ")");
@@ -173,6 +189,11 @@ public class ReportBuilderView extends VerticalLayout {
                 rebuildCanvas();
             }
         });
+        tableCombo.setWidthFull();
+
+        dataQueryArea.setWidthFull();
+        dataQueryArea.setPlaceholder("SELECT * FROM meta_form WHERE ...");
+        dataQueryArea.setMinHeight("100px");
 
         pageSizeSelect.setLabel("Page Size");
         pageSizeSelect.setItems("A4", "LETTER");
@@ -181,17 +202,29 @@ public class ReportBuilderView extends VerticalLayout {
         orientationSelect.setLabel("Orientation");
         orientationSelect.setItems("PORTRAIT", "LANDSCAPE");
         orientationSelect.setValue("PORTRAIT");
-        orientationSelect.addValueChangeListener(e -> updateCanvasOrientation());
+        engineTypeSelect.setLabel("Engine Type");
+        engineTypeSelect.setItems("STANDARD", "STIMULSOFT", "JASPER");
+        engineTypeSelect.setValue("STANDARD");
+        engineTypeSelect.setWidthFull();
 
-        reportMetaLayout.add(reportCodeField, reportTitleField, tableCombo, pageSizeSelect, orientationSelect);
+        reportMetaLayout.add(reportCodeField, reportTitleField, tableCombo, dataQueryArea, pageSizeSelect, orientationSelect, engineTypeSelect);
+        reportMetaLayout.setResponsiveSteps(
+                new FormLayout.ResponsiveStep("0", 1),
+                new FormLayout.ResponsiveStep("600px", 2),
+                new FormLayout.ResponsiveStep("900px", 4)
+        );
+        reportMetaLayout.setColspan(dataQueryArea, 2);
 
         // 3. Workspace Layout
         HorizontalLayout workspace = new HorizontalLayout();
         workspace.setSizeFull();
         workspace.getStyle().set("margin-top", "15px");
+        
+        stimulsoftIFrame.setSizeFull();
+        stimulsoftIFrame.getStyle().set("border", "none").set("background-color", "#fff");
+        stimulsoftIFrame.setVisible(false);
 
         // COLUMN B: WYSIWYG Print Canvas
-        VerticalLayout canvasPanel = new VerticalLayout();
         canvasPanel.setHeightFull();
         canvasPanel.getStyle().set("flex-grow", "1")
                 .set("background-color", "#f1f5f9")
@@ -236,17 +269,57 @@ public class ReportBuilderView extends VerticalLayout {
 
         setupPropertiesForm();
         propertiesPanel.add(propertiesForm);
+        propertiesForm.setVisible(false);
 
-        workspace.add(canvasPanel, propertiesPanel);
+        workspace.add(canvasPanel, propertiesPanel, stimulsoftIFrame);
         workspace.setFlexGrow(1, canvasPanel);
+        workspace.setFlexGrow(1, stimulsoftIFrame);
+
+        // Toggle visibility based on engine type
+        engineTypeSelect.addValueChangeListener(e -> {
+            boolean isStimulsoft = "STIMULSOFT".equalsIgnoreCase(e.getValue());
+            canvasPanel.setVisible(!isStimulsoft);
+            propertiesPanel.setVisible(!isStimulsoft);
+            stimulsoftIFrame.setVisible(isStimulsoft);
+            
+            if (isStimulsoft) {
+                // Hanya memuat IFrame jika report sudah ada di database (bukan ngetik baru)
+                String code = reportCodeField.getValue();
+                boolean exists = code != null && !code.isEmpty() && reportMetaRepository.findAll().stream().anyMatch(r -> r.getReportCode().equalsIgnoreCase(code));
+                if (exists) {
+                    stimulsoftIFrame.setSrc("/stimulsoft-java/designer?code=" + code);
+                } else {
+                    stimulsoftIFrame.setSrc("");
+                }
+            }
+        });
 
         // Save Button
-        Button btnSaveReport = new com.vaadinerp.components.SafeButton("Save Report & Generate Printable Template", VaadinIcon.DATABASE.create());
+        Button btnSaveReport = new com.vaadinerp.components.SafeButton("Save Report Definition", VaadinIcon.DATABASE.create());
         btnSaveReport.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
-        btnSaveReport.setWidthFull();
+        btnSaveReport.setWidth("50%");
         btnSaveReport.addClickListener(e -> saveReportDefinition());
 
-        add(title, loadLayout, reportMetaLayout, workspace, btnSaveReport);
+        Button btnOpenStimulsoft = new com.vaadinerp.components.SafeButton("Open Stimulsoft Designer (Fullscreen)", VaadinIcon.EXTERNAL_LINK.create());
+        btnOpenStimulsoft.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_CONTRAST);
+        btnOpenStimulsoft.setWidth("50%");
+        btnOpenStimulsoft.addClickListener(e -> {
+            String code = reportCodeField.getValue();
+            if (code == null || code.trim().isEmpty()) {
+                Notification.show("Harap simpan laporan terlebih dahulu sebelum membuka Designer.", 3000, Notification.Position.MIDDLE);
+                return;
+            }
+            if (!"STIMULSOFT".equalsIgnoreCase(engineTypeSelect.getValue())) {
+                Notification.show("Pilih Engine Type: STIMULSOFT terlebih dahulu.", 3000, Notification.Position.MIDDLE);
+                return;
+            }
+            com.vaadin.flow.component.UI.getCurrent().getPage().open("/stimulsoft-java/designer?code=" + code, "_blank");
+        });
+
+        HorizontalLayout actionLayout = new HorizontalLayout(btnSaveReport, btnOpenStimulsoft);
+        actionLayout.setWidthFull();
+
+        add(title, loadLayout, reportMetaLayout, workspace, actionLayout);
         setFlexGrow(1, workspace);
 
         rebuildCanvas();
@@ -762,15 +835,21 @@ public class ReportBuilderView extends VerticalLayout {
         String reportCode = reportCodeField.getValue().trim();
         String reportTitle = reportTitleField.getValue().trim();
         FormMeta sourceForm = tableCombo.getValue();
+        String dataQuery = dataQueryArea.getValue().trim();
         String pageSize = pageSizeSelect.getValue();
         String orientation = orientationSelect.getValue();
 
-        if (reportCode.isEmpty() || reportTitle.isEmpty() || sourceForm == null) {
-            Notification.show("Report Code, Title, and Source Table cannot be empty!", 3000, Notification.Position.MIDDLE);
+        if (reportCode.isEmpty() || reportTitle.isEmpty()) {
+            Notification.show("Report Code and Title cannot be empty!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
-        if (elementsList.isEmpty()) {
+        if (sourceForm == null && dataQuery.isEmpty()) {
+            Notification.show("Please select a Source Table OR input a Custom SQL Query!", 3000, Notification.Position.MIDDLE);
+            return;
+        }
+
+        if (elementsList.isEmpty() && !"STIMULSOFT".equalsIgnoreCase(engineTypeSelect.getValue())) {
             Notification.show("Please add at least 1 element to this report!", 3000, Notification.Position.MIDDLE);
             return;
         }
@@ -783,9 +862,11 @@ public class ReportBuilderView extends VerticalLayout {
         ReportMeta repMeta = new ReportMeta();
         repMeta.setReportCode(reportCode);
         repMeta.setReportTitle(reportTitle);
-        repMeta.setTableName(sourceForm.getTableName());
+        repMeta.setTableName(sourceForm != null ? sourceForm.getTableName() : "");
+        repMeta.setDataQuery(dataQuery.isEmpty() ? null : dataQuery);
         repMeta.setPageSize(pageSize);
         repMeta.setOrientation(orientation);
+        repMeta.setEngineType(engineTypeSelect.getValue());
         repMeta.setElements(new ArrayList<>());
 
         for (int i = 0; i < elementsList.size(); i++) {
@@ -805,22 +886,33 @@ public class ReportBuilderView extends VerticalLayout {
 
         try {
             reportMetaRepository.save(repMeta);
-            Notification.show("Report " + reportTitle + " saved successfully!", 4000, Notification.Position.TOP_CENTER);
             
-            // Clear inputs
-            loadReportCombo.clear();
-            reportCodeField.clear();
-            reportCodeField.setReadOnly(false);
-            reportTitleField.clear();
-            tableCombo.clear();
-            pageSizeSelect.setValue("A4");
-            orientationSelect.setValue("PORTRAIT");
-            elementsList.clear();
-            selectElement(null);
-            rebuildCanvas();
-
             // Refresh loaded items list
             loadReportCombo.setItems(reportMetaRepository.findAll());
+            loadReportCombo.setValue(repMeta);
+
+            if ("STIMULSOFT".equalsIgnoreCase(repMeta.getEngineType())) {
+                // Jangan bersihkan layar, langsung buka IFrame
+                stimulsoftIFrame.setSrc("/stimulsoft-java/designer?code=" + repMeta.getReportCode());
+                stimulsoftIFrame.setVisible(true);
+                canvasPanel.setVisible(false);
+                propertiesPanel.setVisible(false);
+                Notification.show("Report tersimpan! Silakan desain laporan di kanvas Stimulsoft di bawah.", 4000, Notification.Position.MIDDLE);
+            } else {
+                Notification.show("Report " + reportTitle + " saved successfully!", 4000, Notification.Position.TOP_CENTER);
+                // Clear inputs
+                loadReportCombo.clear();
+                reportCodeField.clear();
+                reportCodeField.setReadOnly(false);
+                reportTitleField.clear();
+                tableCombo.clear();
+                dataQueryArea.clear();
+                pageSizeSelect.setValue("A4");
+                orientationSelect.setValue("PORTRAIT");
+                elementsList.clear();
+                selectElement(null);
+                rebuildCanvas();
+            }
 
             if (onReportSavedListener != null) {
                 onReportSavedListener.run();

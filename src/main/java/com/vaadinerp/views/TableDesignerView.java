@@ -16,6 +16,8 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.grid.dnd.GridDropLocation;
+import com.vaadin.flow.component.grid.dnd.GridDropMode;
 
 import com.vaadinerp.service.DynamicDataService;
 import com.vaadinerp.service.DynamicDataService.ColumnDefinition;
@@ -50,6 +52,7 @@ public class TableDesignerView extends VerticalLayout {
     private final Grid<ColumnDefinition> columnsGrid = new Grid<>();
     private final List<ColumnDefinition> columnsList = new ArrayList<>();
     private Runnable columnsGridRefresher;
+    private ColumnDefinition draggedItem;
 
     // Trigger Inputs
     private final Checkbox enableTriggerCheckbox = new Checkbox("Enable PL/pgSQL Database Trigger");
@@ -67,7 +70,6 @@ public class TableDesignerView extends VerticalLayout {
         this.dynamicDataService = dynamicDataService;
         this.onTableCreatedListener = onTableCreatedListener;
 
-        setSizeFull();
         setPadding(true);
         setSpacing(true);
 
@@ -168,8 +170,35 @@ public class TableDesignerView extends VerticalLayout {
     }
 
     private void setupGrid() {
-        columnsGrid.setHeight("400px");
+        columnsGrid.setHeight("600px");
+        columnsGrid.setMinHeight("600px");
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(columnsGrid);
+
+        columnsGrid.setRowsDraggable(true);
+        columnsGrid.setDropMode(GridDropMode.BETWEEN);
+        columnsGrid.addDragStartListener(e -> {
+            if (!e.getDraggedItems().isEmpty()) {
+                draggedItem = e.getDraggedItems().get(0);
+            }
+        });
+        columnsGrid.addDropListener(e -> {
+            ColumnDefinition dropOverItem = e.getDropTargetItem().orElse(null);
+            if (draggedItem != null && dropOverItem != null && !draggedItem.equals(dropOverItem)) {
+                if ("id".equalsIgnoreCase(draggedItem.getColumnName()) || "id".equalsIgnoreCase(dropOverItem.getColumnName())) {
+                    Notification.show("Kolom 'id' sebaiknya tidak dipindah urutannya.", 2000, Notification.Position.MIDDLE);
+                    return;
+                }
+                columnsList.remove(draggedItem);
+                int targetIndex = columnsList.indexOf(dropOverItem);
+                if (e.getDropLocation() == GridDropLocation.BELOW) {
+                    targetIndex++;
+                }
+                columnsList.add(targetIndex, draggedItem);
+                if (columnsGridRefresher != null) columnsGridRefresher.run();
+                draggedItem = null;
+            }
+        });
+
         Grid.Column<ColumnDefinition> c1 = columnsGrid.addColumn(ColumnDefinition::getColumnName).setHeader("Column Name");
         Grid.Column<ColumnDefinition> c2 = columnsGrid.addColumn(ColumnDefinition::getDataType).setHeader("Data Type");
         Grid.Column<ColumnDefinition> c3 = columnsGrid.addColumn(col -> col.isPrimaryKey() ? "YES" : "NO").setHeader("PK");

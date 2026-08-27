@@ -1477,9 +1477,7 @@ public class FormBuilderView extends VerticalLayout {
             canvas.add(headerTitle);
 
             if (masterFields.isEmpty()) {
-                Span emptyMaster = new Span("[Seret/tambah field untuk Header Master di sini]");
-                emptyMaster.getStyle().set("color", "#94a3b8").set("font-style", "italic").set("font-size", "0.9rem");
-                canvas.add(emptyMaster);
+                canvas.add(createPlaceholderButton(false, 1, 1));
             } else {
                 renderGroupedFields(masterFields);
             }
@@ -1494,10 +1492,7 @@ public class FormBuilderView extends VerticalLayout {
             canvas.add(detailTitle);
 
             if (detailFields.isEmpty()) {
-                Span emptyDetail = new Span(
-                        "[Tandai 'Is Detail Grid Column' pada properti field untuk memindahkan ke kolom Grid detail]");
-                emptyDetail.getStyle().set("color", "#94a3b8").set("font-style", "italic").set("font-size", "0.9rem");
-                canvas.add(emptyDetail);
+                canvas.add(createPlaceholderButton(true, 1, 1));
             } else {
                 FormLayout detailRowLayout = new FormLayout();
                 detailRowLayout.setWidthFull();
@@ -1517,10 +1512,15 @@ public class FormBuilderView extends VerticalLayout {
                     }
                 }
                 canvas.add(detailRowLayout);
+                canvas.add(createPlaceholderButton(true, getNextRowGroup(detailFields), 1));
             }
         } else {
             // Standard SINGLE Form
-            renderGroupedFields(fieldsList);
+            if (fieldsList.isEmpty()) {
+                canvas.add(createPlaceholderButton(false, 1, 1));
+            } else {
+                renderGroupedFields(fieldsList);
+            }
         }
     }
 
@@ -1750,6 +1750,91 @@ public class FormBuilderView extends VerticalLayout {
         refreshListCanvas(null, null, null);
     }
 
+    private int getNextRowGroup(List<FieldMetaTemp> fields) {
+        if (fields == null || fields.isEmpty()) return 1;
+        return fields.stream().mapToInt(f -> f.rowGroup).max().orElse(0) + 1;
+    }
+
+    private Button createPlaceholderButton(boolean isDetail, int targetRowGroup, int targetColIndex) {
+        Button btn = new Button("[ ➕ ] Drag a component here or click to add", VaadinIcon.PLUS.create());
+        btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btn.getStyle()
+                .set("border", "2px dashed #cbd5e1")
+                .set("border-radius", "8px")
+                .set("background-color", "rgba(255,255,255,0.5)")
+                .set("width", "100%")
+                .set("font-size", "0.9rem")
+                .set("font-style", "italic")
+                .set("color", "#94a3b8")
+                .set("white-space", "normal")
+                .set("margin-top", "15px")
+                .set("margin-bottom", "15px");
+
+        DropTarget<Button> dropTarget = DropTarget.create(btn);
+        dropTarget.setActive(true);
+        btn.getElement().addEventListener("dragenter", e -> {
+            btn.getStyle().set("border-color", "#6366f1").set("color", "#4f46e5").set("background-color", "#e0e7ff");
+        });
+        btn.getElement().addEventListener("dragleave", e -> {
+            btn.getStyle().remove("border-color");
+            btn.getStyle().remove("background-color");
+            btn.getStyle().set("color", "#94a3b8");
+        });
+        dropTarget.addDropListener(e -> {
+            if (draggedPaletteType != null) {
+                FieldMetaTemp temp = createFieldMetaTemp(draggedPaletteType);
+                temp.isDetail = isDetail;
+                temp.rowGroup = targetRowGroup;
+                temp.colIndex = targetColIndex;
+                fieldsList.add(temp);
+                draggedPaletteType = null;
+                normalizeRowGroups();
+                rebuildCanvas();
+                selectField(temp, false);
+            }
+        });
+
+        btn.addClickListener(e -> showComponentSelectorDialog(isDetail, targetRowGroup, targetColIndex));
+        return btn;
+    }
+
+    private void showComponentSelectorDialog(boolean isDetail, int targetRowGroup, int targetColIndex) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Pilih Tipe Komponen");
+        dialog.setWidth("300px");
+
+        VerticalLayout layout = new VerticalLayout();
+        layout.setPadding(false);
+        layout.setSpacing(true);
+        layout.getStyle().set("max-height", "400px").set("overflow-y", "auto");
+
+        String[] components = {"TEXTBOX", "INTBOX", "DECIMALBOX", "DATEBOX", "DATETIMEBOX", "TIMEBOX", "CHECKBOX",
+                "TEXTAREA", "COMBOBOX", "LISTBOX", "BANDBOX", "CHOSENBOX", "SUBFORM_GRID", "FILE_UPLOAD",
+                "IMAGE_UPLOAD"};
+
+        for (String type : components) {
+            Button btn = new Button(type, VaadinIcon.PLUS.create());
+            btn.setWidthFull();
+            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            btn.getStyle().set("justify-content", "flex-start");
+            btn.addClickListener(e -> {
+                FieldMetaTemp temp = createFieldMetaTemp(type);
+                temp.isDetail = isDetail;
+                temp.rowGroup = targetRowGroup;
+                temp.colIndex = targetColIndex;
+                fieldsList.add(temp);
+                normalizeRowGroups();
+                rebuildCanvas();
+                selectField(temp, false);
+                dialog.close();
+            });
+            layout.add(btn);
+        }
+
+        dialog.add(layout);
+        dialog.open();
+    }
+
     private void renderGroupedFields(List<FieldMetaTemp> targetFields) {
         normalizeRowGroups();
 
@@ -1816,7 +1901,7 @@ public class FormBuilderView extends VerticalLayout {
 
     private Component buildEmptyColumnPlaceholder(int targetRowGroup, int targetColIndex) {
         VerticalLayout placeholder = new VerticalLayout();
-        Span text = new Span("+ Tarik Field ke Sini");
+        Span text = new Span("[ ➕ ] Drag a component here or click to add");
         placeholder.add(text);
 
         placeholder.getStyle()
@@ -1824,6 +1909,7 @@ public class FormBuilderView extends VerticalLayout {
                 .set("border-radius", "8px")
                 .set("background-color", "rgba(255,255,255,0.5)")
                 .set("color", "#94a3b8")
+                .set("font-style", "italic")
                 .set("font-weight", "600")
                 .set("font-size", "0.85rem")
                 .set("display", "flex")
@@ -1833,7 +1919,7 @@ public class FormBuilderView extends VerticalLayout {
                 .set("height", "118px")
                 .set("box-sizing", "border-box")
                 .set("transition", "all 0.2s ease")
-                .set("cursor", "crosshair")
+                .set("cursor", "pointer")
                 .set("margin-top", "0")
                 .set("align-self", "flex-start")
                 .set("padding", "0");
@@ -1892,6 +1978,8 @@ public class FormBuilderView extends VerticalLayout {
             }
             draggedFields.clear();
         });
+
+        placeholder.addClickListener(e -> showComponentSelectorDialog(false, targetRowGroup, targetColIndex));
 
         return placeholder;
     }
@@ -2901,7 +2989,7 @@ public class FormBuilderView extends VerticalLayout {
         logicalOpField.setWidth("80px");
 
         ComboBox<String> comparisonOpField = new ComboBox<>("Operator");
-        comparisonOpField.setItems("=", ">", "<", ">=", "<=", "LIKE", "ILIKE", "!=", "IS NULL", "IS NOT NULL");
+        comparisonOpField.setItems("=", ">", "<", ">=", "<=", "LIKE", "ILIKE", "!=", "IS NULL", "IS NOT NULL", "= ANY");
         comparisonOpField.setValue("=");
         comparisonOpField.setWidth("110px");
 

@@ -31,6 +31,9 @@ public class LovBuilderView extends VerticalLayout {
     private final TextField searchColumnField = new TextField("Search Column(s)");
     private final TextArea gridColumnsField = new TextArea("Grid Columns Configuration");
 
+    private final TextField searchGridField = new TextField();
+    private java.util.List<LovMeta> allLovsList = new java.util.ArrayList<>();
+
     private LovMeta currentLovMeta;
 
     public LovBuilderView(LovMetaRepository lovMetaRepository, com.vaadinerp.service.DynamicDataService dataService) {
@@ -62,6 +65,13 @@ public class LovBuilderView extends VerticalLayout {
     private HorizontalLayout buildToolbar() {
         HorizontalLayout toolbar = new HorizontalLayout();
         toolbar.setWidthFull();
+        
+        searchGridField.setPlaceholder("Search LOV...");
+        searchGridField.setWidth("250px");
+        searchGridField.setClearButtonVisible(true);
+        searchGridField.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.LAZY);
+        searchGridField.addValueChangeListener(e -> filterGrid());
+
         toolbar.addClassName("sticky-toolbar");
         toolbar.getStyle()
                 .set("background-color", "#f3f4f6")
@@ -93,7 +103,7 @@ public class LovBuilderView extends VerticalLayout {
         btnCopy.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnCopy.getStyle().set("color", "#f59e0b");
 
-        toolbar.add(btnNew, btnSave, btnDelete, btnCopy);
+        toolbar.add(searchGridField, btnNew, btnSave, btnDelete, btnCopy);
         return toolbar;
     }
 
@@ -170,7 +180,23 @@ public class LovBuilderView extends VerticalLayout {
     }
 
     private void refreshGrid() {
-        grid.setItems(lovMetaRepository.findAll());
+        allLovsList = lovMetaRepository.findAll();
+        filterGrid();
+    }
+
+    private void filterGrid() {
+        String query = searchGridField.getValue() != null ? searchGridField.getValue().trim().toLowerCase() : "";
+        if (query.isEmpty()) {
+            grid.setItems(allLovsList);
+        } else {
+            java.util.List<LovMeta> filtered = allLovsList.stream().filter(lov -> {
+                String code = lov.getLovCode() != null ? lov.getLovCode().toLowerCase() : "";
+                String name = lov.getLovName() != null ? lov.getLovName().toLowerCase() : "";
+                String table = lov.getTableName() != null ? lov.getTableName().toLowerCase() : "";
+                return code.contains(query) || name.contains(query) || table.contains(query);
+            }).collect(java.util.stream.Collectors.toList());
+            grid.setItems(filtered);
+        }
     }
 
     private void clearForm() {
