@@ -430,6 +430,56 @@ public class DynamicDataService {
         return formActionMetaRepository;
     }
 
+    /**
+     * Resolve kata kunci khusus pada nilai filter, misalnya $CURRENT_USER.
+     * Aman dipanggil dari mana saja. Jika nilai bukan kata kunci, dikembalikan apa adanya.
+     */
+    public Object resolveFilterKeyword(Object value) {
+        if (value == null) return null;
+        String strVal = value.toString().trim();
+        if ("$CURRENT_USER".equalsIgnoreCase(strVal)) {
+            if (securityService != null && securityService.getCurrentUser() != null) {
+                return securityService.getCurrentUser().getUsername();
+            }
+            return null;
+        } else if ("$CURRENT_ROLE".equalsIgnoreCase(strVal)) {
+            if (securityService != null && securityService.getCurrentUser() != null) {
+                java.util.Set<String> roles = securityService.getCurrentUser().getRoles();
+                if (roles != null && !roles.isEmpty()) {
+                    return roles.stream().map(r -> "'" + r + "'").collect(java.util.stream.Collectors.joining(","));
+                }
+            }
+            return null;
+        }
+        return value;
+    }
+
+    /**
+     * Mengganti keyword khusus ($CURRENT_USER, $CURRENT_ROLE) di dalam string SQL (LOV, View Table, dll).
+     */
+    public String resolveSqlKeywords(String sql) {
+        if (sql == null || sql.trim().isEmpty()) return sql;
+        String resolved = sql;
+        if (resolved.contains("$CURRENT_USER")) {
+            String currentUser = "";
+            if (securityService != null && securityService.getCurrentUser() != null) {
+                currentUser = securityService.getCurrentUser().getUsername();
+            }
+            resolved = resolved.replace("$CURRENT_USER", currentUser);
+        }
+        if (resolved.contains("$CURRENT_ROLE")) {
+            String currentRole = "''";
+            if (securityService != null && securityService.getCurrentUser() != null) {
+                java.util.Set<String> roles = securityService.getCurrentUser().getRoles();
+                if (roles != null && !roles.isEmpty()) {
+                    currentRole = roles.stream().map(r -> "'" + r + "'").collect(java.util.stream.Collectors.joining(","));
+                }
+            }
+            resolved = resolved.replace("$CURRENT_ROLE", currentRole);
+        }
+        return resolved;
+    }
+
     public static void validateSqlIdentifier(String identifier, String type) {
         if (identifier == null || identifier.trim().isEmpty())
             return;
@@ -561,7 +611,7 @@ public class DynamicDataService {
      * (whitelist).
      */
     private static final java.util.Set<String> ALLOWED_COMPARISON_OPS = java.util.Set.of(
-            "=", "!=", "<>", "<", ">", "<=", ">=", "LIKE", "ILIKE", "NOT LIKE", "NOT ILIKE", "IS NULL", "IS NOT NULL");
+            "=", "!=", "<>", "<", ">", "<=", ">=", "LIKE", "ILIKE", "NOT LIKE", "NOT ILIKE", "IS NULL", "IS NOT NULL", "= ANY");
 
     public static String validateComparisonOperator(String op) {
         if (op == null || op.trim().isEmpty())
@@ -2680,9 +2730,11 @@ public class DynamicDataService {
             StringBuilder filterBuilder = new StringBuilder();
             boolean isFirst = true;
             for (com.vaadinerp.components.FilterCondition condition : filters) {
+                // Resolve kata kunci khusus ($CURRENT_USER, dll) sebelum dipakai
+                Object resolvedValue = resolveFilterKeyword(condition.getValue());
                 boolean isNullOp = "IS NULL".equalsIgnoreCase(condition.getComparisonOperator())
                         || "IS NOT NULL".equalsIgnoreCase(condition.getComparisonOperator());
-                if (isNullOp || (condition.getValue() != null && !condition.getValue().toString().trim().isEmpty())) {
+                if (isNullOp || (resolvedValue != null && !resolvedValue.toString().trim().isEmpty())) {
                     if (!isFirst) {
                         String logOp = validateLogicalOperator(condition.getLogicalOperator());
                         filterBuilder.append(" ").append(logOp).append(" ");
@@ -2699,9 +2751,12 @@ public class DynamicDataService {
                     } else if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
                         filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp)
                                 .append(" ?");
-                        params.add("%" + condition.getValue() + "%");
+                        params.add("%" + resolvedValue + "%");
+                    } else if ("= ANY".equals(compOp)) {
+                        filterBuilder.append("? = ANY(").append(safeFilterCol).append(")");
+                        params.add(resolvedValue != null ? resolvedValue.toString().trim() : "");
                     } else {
-                        String valStr = condition.getValue() != null ? condition.getValue().toString().trim() : "";
+                        String valStr = resolvedValue != null ? resolvedValue.toString().trim() : "";
                         boolean isBoolTrue = "true".equalsIgnoreCase(valStr) || "1".equals(valStr)
                                 || "t".equalsIgnoreCase(valStr);
                         boolean isBoolFalse = "false".equalsIgnoreCase(valStr) || "0".equals(valStr)
@@ -2796,9 +2851,11 @@ public class DynamicDataService {
             StringBuilder filterBuilder = new StringBuilder();
             boolean isFirst = true;
             for (com.vaadinerp.components.FilterCondition condition : filters) {
+                // Resolve kata kunci khusus ($CURRENT_USER, dll) sebelum dipakai
+                Object resolvedValue = resolveFilterKeyword(condition.getValue());
                 boolean isNullOp = "IS NULL".equalsIgnoreCase(condition.getComparisonOperator())
                         || "IS NOT NULL".equalsIgnoreCase(condition.getComparisonOperator());
-                if (isNullOp || (condition.getValue() != null && !condition.getValue().toString().trim().isEmpty())) {
+                if (isNullOp || (resolvedValue != null && !resolvedValue.toString().trim().isEmpty())) {
                     if (!isFirst) {
                         String logOp = validateLogicalOperator(condition.getLogicalOperator());
                         filterBuilder.append(" ").append(logOp).append(" ");
@@ -2815,9 +2872,12 @@ public class DynamicDataService {
                     } else if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
                         filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp)
                                 .append(" ?");
-                        params.add("%" + condition.getValue() + "%");
+                        params.add("%" + resolvedValue + "%");
+                    } else if ("= ANY".equals(compOp)) {
+                        filterBuilder.append("? = ANY(").append(safeFilterCol).append(")");
+                        params.add(resolvedValue != null ? resolvedValue.toString().trim() : "");
                     } else {
-                        String valStr = condition.getValue() != null ? condition.getValue().toString().trim() : "";
+                        String valStr = resolvedValue != null ? resolvedValue.toString().trim() : "";
                         boolean isBoolTrue = "true".equalsIgnoreCase(valStr) || "1".equals(valStr)
                                 || "t".equalsIgnoreCase(valStr);
                         boolean isBoolFalse = "false".equalsIgnoreCase(valStr) || "0".equals(valStr)
@@ -2914,7 +2974,7 @@ public class DynamicDataService {
         StringBuilder sql = new StringBuilder();
         String trimmed = tableName.trim();
         if (isCustomSelectQuery(trimmed)) {
-            sql.append("SELECT COUNT(*) FROM ( ").append(validateAndSanitizeSelectQuery(trimmed))
+            sql.append("SELECT COUNT(*) FROM ( ").append(validateAndSanitizeSelectQuery(resolveSqlKeywords(trimmed)))
                     .append(" ) AS subquery");
         } else {
             sql.append("SELECT COUNT(*) FROM ").append(getLovQualifiedTableName(trimmed));
@@ -2927,9 +2987,11 @@ public class DynamicDataService {
             StringBuilder filterBuilder = new StringBuilder();
             boolean isFirst = true;
             for (com.vaadinerp.components.FilterCondition condition : filters) {
+                // Resolve kata kunci khusus ($CURRENT_USER, dll) sebelum dipakai
+                Object resolvedValue = resolveFilterKeyword(condition.getValue());
                 boolean isNullOp = "IS NULL".equalsIgnoreCase(condition.getComparisonOperator())
                         || "IS NOT NULL".equalsIgnoreCase(condition.getComparisonOperator());
-                if (isNullOp || (condition.getValue() != null && !condition.getValue().toString().trim().isEmpty())) {
+                if (isNullOp || (resolvedValue != null && !resolvedValue.toString().trim().isEmpty())) {
                     if (!isFirst) {
                         String logOp = validateLogicalOperator(condition.getLogicalOperator());
                         filterBuilder.append(" ").append(logOp).append(" ");
@@ -2946,9 +3008,12 @@ public class DynamicDataService {
                     } else if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
                         filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp)
                                 .append(" ?");
-                        params.add("%" + condition.getValue() + "%");
+                        params.add("%" + resolvedValue + "%");
+                    } else if ("= ANY".equals(compOp)) {
+                        filterBuilder.append("? = ANY(").append(safeFilterCol).append(")");
+                        params.add(resolvedValue != null ? resolvedValue.toString().trim() : "");
                     } else {
-                        String valStr = condition.getValue() != null ? condition.getValue().toString().trim() : "";
+                        String valStr = resolvedValue != null ? resolvedValue.toString().trim() : "";
                         boolean isBoolTrue = "true".equalsIgnoreCase(valStr) || "1".equals(valStr)
                                 || "t".equalsIgnoreCase(valStr);
                         boolean isBoolFalse = "false".equalsIgnoreCase(valStr) || "0".equals(valStr)
@@ -3070,7 +3135,7 @@ public class DynamicDataService {
         String orderBy = getLovDefaultOrderByClause(lovMeta.getLovCode() != null ? lovMeta.getLovCode() : trimmed);
         String sql;
         if (isCustomSelectQuery(trimmed)) {
-            sql = "SELECT * FROM ( " + validateAndSanitizeSelectQuery(trimmed) + " ) AS subquery" + orderBy
+            sql = "SELECT * FROM ( " + validateAndSanitizeSelectQuery(resolveSqlKeywords(trimmed)) + " ) AS subquery" + orderBy
                     + " LIMIT 3000";
         } else {
             sql = "SELECT * FROM " + getLovQualifiedTableName(trimmed) + orderBy + " LIMIT 3000";
@@ -3089,7 +3154,7 @@ public class DynamicDataService {
         String trimmed = tableName.trim();
         if (isCustomSelectQuery(trimmed)) {
             try {
-                return jdbcTemplate.queryForList(validateAndSanitizeSelectQuery(trimmed));
+                return jdbcTemplate.queryForList(validateAndSanitizeSelectQuery(resolveSqlKeywords(trimmed)));
             } catch (Exception e) {
                 return new ArrayList<>();
             }
@@ -3112,7 +3177,7 @@ public class DynamicDataService {
             String trimmed = viewTable.trim();
             if (isCustomSelectQuery(trimmed)) {
                 try {
-                    return jdbcTemplate.queryForList(validateAndSanitizeSelectQuery(trimmed));
+                    return jdbcTemplate.queryForList(validateAndSanitizeSelectQuery(resolveSqlKeywords(trimmed)));
                 } catch (Exception e) {
                     e.printStackTrace();
                     return new ArrayList<>();
@@ -3130,6 +3195,98 @@ public class DynamicDataService {
         return fetchTableData(formMeta.getTableName());
     }
 
+    public List<Map<String, Object>> fetchReportData(com.vaadinerp.meta.ReportMeta reportMeta, Map<String, Object> params, boolean isSample) {
+        if (reportMeta == null) return new ArrayList<>();
+        
+        String query = reportMeta.getDataQuery();
+        if (query == null || query.trim().isEmpty()) {
+            // Fallback to form viewTable or tableName
+            FormMeta formMeta = formMetaRepository.findByTableName(reportMeta.getTableName()).orElse(null);
+            if (formMeta != null && formMeta.getViewTable() != null && !formMeta.getViewTable().trim().isEmpty()) {
+                query = formMeta.getViewTable();
+            } else if (reportMeta.getTableName() != null && !reportMeta.getTableName().trim().isEmpty()) {
+                query = "SELECT * FROM " + getQualifiedTableName(reportMeta.getTableName().trim());
+            } else {
+                return new ArrayList<>();
+            }
+        }
+        
+        // Parameter replacement
+        if (params != null && !params.isEmpty()) {
+            for (Map.Entry<String, Object> entry : params.entrySet()) {
+                String paramName = entry.getKey();
+                if (!paramName.startsWith(":")) {
+                    paramName = ":" + paramName;
+                }
+                // Secure parameter replacement should ideally use NamedParameterJdbcTemplate
+                // For simplicity here, we replace strings, but in production use Spring's MapSqlParameterSource
+                // If it's a number/boolean, replace directly, if string, escape it. (Basic implementation for now)
+                Object value = entry.getValue();
+                String replacement = "";
+                if (value != null) {
+                    if (value instanceof Number) {
+                        replacement = value.toString();
+                    } else {
+                        replacement = "'" + value.toString().replace("'", "''") + "'";
+                    }
+                } else {
+                    replacement = "NULL";
+                }
+                query = query.replace(paramName, replacement);
+            }
+        }
+
+        // Limit for designer preview
+        if (isSample) {
+            query = query.trim();
+            if (!query.toLowerCase().contains("limit ")) {
+                query += " LIMIT 50";
+            }
+        }
+
+        try {
+            List<Map<String, Object>> rawData = jdbcTemplate.queryForList(validateAndSanitizeSelectQuery(resolveSqlKeywords(query)));
+            
+            // Format LOV values
+            if (rawData.isEmpty()) return rawData;
+            
+            // Collect LOV fields
+            FormMeta formMeta = formMetaRepository.findByTableName(reportMeta.getTableName()).orElse(null);
+            List<com.vaadinerp.meta.FieldMeta> lovFields = new ArrayList<>();
+            if (formMeta != null && formMeta.getFields() != null) {
+                for (com.vaadinerp.meta.FieldMeta field : formMeta.getFields()) {
+                    if (field.getLovCode() != null && !field.getLovCode().trim().isEmpty()) {
+                        lovFields.add(field);
+                    }
+                }
+            }
+            
+            if (lovFields.isEmpty()) return rawData;
+            
+            // Create a new list to avoid modifying the unmodifiable map from JdbcTemplate
+            List<Map<String, Object>> processedData = new ArrayList<>();
+            for (Map<String, Object> row : rawData) {
+                Map<String, Object> newRow = new java.util.HashMap<>(row);
+                for (com.vaadinerp.meta.FieldMeta field : lovFields) {
+                    String fieldName = field.getFieldName().toLowerCase();
+                    if (newRow.containsKey(fieldName)) {
+                        Object val = newRow.get(fieldName);
+                        if (val != null) {
+                            String formatted = com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(field, val, this);
+                            newRow.put(fieldName + "_label", formatted);
+                        }
+                    }
+                }
+                processedData.add(newRow);
+            }
+            
+            return processedData;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
     private String getBaseFromClause(FormMeta formMeta) {
         if (formMeta == null)
             return "FROM (SELECT 1) AS dummy_t ";
@@ -3138,7 +3295,7 @@ public class DynamicDataService {
             String trimmed = viewTable.trim();
             if (isCustomSelectQuery(trimmed)) {
                 try {
-                    return "FROM (" + validateAndSanitizeSelectQuery(trimmed) + ") AS subquery ";
+                    return "FROM (" + validateAndSanitizeSelectQuery(resolveSqlKeywords(trimmed)) + ") AS subquery ";
                 } catch (Exception e) {
                     return "FROM (SELECT 1) AS dummy_t ";
                 }
@@ -3276,6 +3433,10 @@ public class DynamicDataService {
                 : lblCol;
 
         java.util.Set<String> lovSearchCols = new java.util.LinkedHashSet<>();
+        if ("Equals".equals(op) || "Not equal".equals(op)) {
+            if (valCol.matches("^[a-zA-Z0-9_]+$"))
+                lovSearchCols.add(valCol);
+        }
         if (lblCol.matches("^[a-zA-Z0-9_]+$"))
             lovSearchCols.add(lblCol);
         for (String sc : searchCol.split(",")) {
@@ -3505,7 +3666,7 @@ public class DynamicDataService {
         List<Object> args = new ArrayList<>();
         buildWhereClause(where, args, filterValues, null);
         String fromSql = isCustomSelectQuery(trimmed)
-                ? " (" + validateAndSanitizeSelectQuery(trimmed) + ") AS subquery "
+                ? " (" + validateAndSanitizeSelectQuery(resolveSqlKeywords(trimmed)) + ") AS subquery "
                 : getQualifiedTableName(trimmed);
         String sql = "SELECT COUNT(*) FROM " + fromSql + where.toString();
         try {
@@ -3526,7 +3687,7 @@ public class DynamicDataService {
         buildWhereClause(where, args, filterValues, null);
 
         String fromSql = isCustomSelectQuery(trimmed)
-                ? " (" + validateAndSanitizeSelectQuery(trimmed) + ") AS subquery "
+                ? " (" + validateAndSanitizeSelectQuery(resolveSqlKeywords(trimmed)) + ") AS subquery "
                 : getQualifiedTableName(trimmed);
         StringBuilder sql = new StringBuilder("SELECT * FROM " + fromSql + where.toString());
         if (sortField != null && !sortField.trim().isEmpty() && sortField.matches("^[a-zA-Z0-9_]+$")) {

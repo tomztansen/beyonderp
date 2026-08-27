@@ -371,6 +371,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                                     items.add(newRow);
                                 }
                                 grid.getDataProvider().refreshAll();
+                                updateValue();
                                 
                                 // Eksekusi post-action script jika ada
                                 if (act.getScriptContent() != null && !act.getScriptContent().isBlank()) {
@@ -444,6 +445,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                                                 items.add(newRow);
                                             }
                                             grid.getDataProvider().refreshAll();
+                                            updateValue();
                                             
                                             // Eksekusi post-action script jika ada
                                             if (act.getScriptContent() != null && !act.getScriptContent().isBlank()) {
@@ -837,7 +839,13 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
                         Object staticVal = filter.getSourceName();
                         String lookupKey = staticVal != null ? staticVal.toString() : "";
-                        if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")
+                        // Resolve kata kunci khusus terlebih dahulu ($CURRENT_USER, dll)
+                        if (dataService != null) {
+                            staticVal = dataService.resolveFilterKeyword(staticVal);
+                        }
+                        if (staticVal != null && !staticVal.equals(filter.getSourceName())) {
+                            // sudah di-resolve ke nilai khusus, langsung pakai
+                        } else if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")
                                 || lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail.")) {
                             if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")) {
                                 lookupKey = lookupKey.replaceAll("[\"']", "")
@@ -1008,7 +1016,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 filterDatePicker.setClearButtonVisible(true);
                 filterDatePicker.setWidthFull();
                 filterDatePicker.getElement().getThemeList().add("small");
-                filterDatePicker.setLocale(new java.util.Locale("id", "ID"));
+                filterDatePicker.setLocale(java.util.Locale.forLanguageTag("id-ID"));
 
                 Button filterButton = new Button(VaadinIcon.FILTER.create());
                 filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
@@ -1371,6 +1379,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             ((LovComboBox) editorComp).setFilterValue(condition);
         } else if (editorComp instanceof LovSelect) {
             ((LovSelect) editorComp).setFilterValue(condition);
+        } else if (editorComp instanceof LovChosenBox) {
+            ((LovChosenBox) editorComp).setFilterValue(condition);
         }
     }
 

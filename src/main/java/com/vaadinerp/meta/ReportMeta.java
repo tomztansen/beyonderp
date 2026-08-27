@@ -26,6 +26,19 @@ public class ReportMeta extends BaseAuditableEntity {
 
     @Column(name = "orientation", length = 20)
     private String orientation; // PORTRAIT, LANDSCAPE
+    @Column(name = "engine_type", length = 20)
+    private String engineType; // STANDARD, STIMULSOFT, JASPER
+
+    @Column(name = "template_path", length = 255)
+    private String templatePath; // Path for .mrt or .jrxml files
+
+    @Column(name = "data_query", columnDefinition = "TEXT")
+    @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.LONGVARCHAR)
+    private String dataQuery;
+
+    @OneToMany(mappedBy = "reportMeta", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
+    @OrderBy("colOrder ASC")
+    private List<ReportParamMeta> params;
 
     @OneToMany(mappedBy = "reportMeta", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @OrderBy("colOrder ASC")

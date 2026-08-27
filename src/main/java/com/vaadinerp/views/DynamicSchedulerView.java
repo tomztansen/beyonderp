@@ -1,5 +1,20 @@
 package com.vaadinerp.views;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -24,19 +39,14 @@ import com.vaadinerp.meta.FormMeta;
 import com.vaadinerp.meta.FormMetaRepository;
 import com.vaadinerp.meta.SchedulerConfig;
 import com.vaadinerp.meta.SchedulerConfigRepository;
-import com.vaadinerp.service.DynamicDataService;
 import com.vaadinerp.security.entity.AppUser;
 import com.vaadinerp.security.service.SessionSecurityService;
+import com.vaadinerp.service.DynamicDataService;
+
 import elemental.json.Json;
 import elemental.json.JsonArray;
 import elemental.json.JsonObject;
 import jakarta.annotation.security.PermitAll;
-import org.springframework.jdbc.core.JdbcTemplate;
-
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Route("scheduler")
 @PermitAll
@@ -769,6 +779,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 lovCombo.setFilterValue(cond);
             } else if (comp instanceof com.vaadinerp.components.LovSelect lovSelect) {
                 lovSelect.setFilterValue(cond);
+            } else if (comp instanceof com.vaadinerp.components.LovChosenBox lovChosen) {
+                lovChosen.setFilterValue(cond);
             } else if (comp instanceof com.vaadinerp.components.BandboxField bandbox) {
                 ((com.vaadinerp.components.BandboxField<?, ?>) bandbox).setFilterValue(cond);
             }
@@ -779,6 +791,8 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 lovCombo.clear();
             } else if (comp instanceof com.vaadinerp.components.LovSelect lovSelect) {
                 lovSelect.clear();
+            } else if (comp instanceof com.vaadinerp.components.LovChosenBox lovChosen) {
+                lovChosen.clear();
             } else if (comp instanceof com.vaadinerp.components.BandboxField bandbox) {
                 ((com.vaadinerp.components.BandboxField<?, ?>) bandbox).clear();
             }
@@ -1847,6 +1861,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 double qtyVal = 0;
                 double qtyBookVal = 0;
                 double weight = 0;
+                double pcsperbox = 0;
                 try {
                     qtyVal = Double.parseDouble(row.get(qtyCol).toString().trim());
                 } catch (Exception e) {
@@ -1859,8 +1874,15 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 }
 
                 try {
+                    if (row.get("pcsperbox") != null) {
+                        pcsperbox = Double.parseDouble(row.get("pcsperbox").toString().trim());
+                    }
+                } catch (Exception e) {
+                }
+
+                try {
                     if (row.get("weight") != null) {
-                        weight = Double.parseDouble(row.get("weight").toString().trim());
+                        weight = Double.parseDouble(row.get("weight").toString().trim()) * pcsperbox;
                     }
                 } catch (Exception e) {
                 }
@@ -1869,7 +1891,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
 
                 java.text.DecimalFormat dfWeight = new java.text.DecimalFormat("#,##0.00");
                 content += " ( " + (row.get("abmengineermaterialid") != null ? row.get("abmengineermaterialid") : "")
-                        + " ) GW: " + dfWeight.format(weight) + " kg <br>";
+                        + " ) GW: " + dfWeight.format(weight) + " kg/box <br>";
                 content += " Qty: " + (int) qtyVal + " box ( Bal: " + balance + " box )";
             }
             itemObj.put("content", content);
@@ -2898,7 +2920,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
                 Object originalPkVal = dbRow.get(actualPkKey);
                 if (originalPkVal instanceof Number) {
                     // Jika tipe datanya Number (misal int/bigint) yang menggunakan SEQUENCE,
-                    // lebih aman membuang kolom PK dari query insert agar DB otomatis 
+                    // lebih aman membuang kolom PK dari query insert agar DB otomatis
                     // mengisi ID menggunakan nextval() atau AUTO_INCREMENT.
                     // Ini menghindari masalah bentrok/duplicate key dengan sequence di masa depan.
                     dbRow.remove(actualPkKey);

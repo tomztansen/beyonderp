@@ -58,6 +58,9 @@ public class SessionSecurityService {
                 }
             }
             session.setAttribute(SESSION_USER_KEY, u);
+            if (VaadinService.getCurrentRequest() != null) {
+                VaadinService.getCurrentRequest().getWrappedSession().setAttribute("SPRING_MVC_USER", u);
+            }
         }
         return true;
     }
@@ -109,6 +112,9 @@ public class SessionSecurityService {
         VaadinSession session = VaadinSession.getCurrent();
         if (session != null) {
             session.setAttribute(SESSION_USER_KEY, null);
+            if (VaadinService.getCurrentRequest() != null) {
+                VaadinService.getCurrentRequest().getWrappedSession().setAttribute("SPRING_MVC_USER", null);
+            }
             session.close();
         }
     }

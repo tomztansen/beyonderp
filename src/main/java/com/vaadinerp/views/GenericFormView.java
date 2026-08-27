@@ -611,8 +611,52 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnPrint.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
         btnPrint.getStyle().set("font-weight", "500").set("color", "#374151");
         btnPrint.addClickListener(e -> {
-            Notification.show("The Print feature has not been implemented yet.", 3000,
-                    Notification.Position.TOP_CENTER);
+            try {
+                com.vaadinerp.meta.ReportMetaRepository reportRepo = com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.meta.ReportMetaRepository.class);
+                java.util.List<com.vaadinerp.meta.ReportMeta> availableReports = reportRepo.findAll().stream()
+                    .filter(r -> r.getTableName() != null && r.getTableName().equalsIgnoreCase(currentFormDef.getTableName()))
+                    .toList();
+
+                if (availableReports.isEmpty()) {
+                    Notification.show("Belum ada laporan (Report) yang dikonfigurasi untuk form ini.", 3000, Notification.Position.MIDDLE);
+                    return;
+                }
+                
+                com.vaadin.flow.component.dialog.Dialog reportDialog = new com.vaadin.flow.component.dialog.Dialog();
+                reportDialog.setHeaderTitle("Pilih Laporan");
+                
+                com.vaadin.flow.component.orderedlayout.VerticalLayout layout = new com.vaadin.flow.component.orderedlayout.VerticalLayout();
+                for (com.vaadinerp.meta.ReportMeta rep : availableReports) {
+                    com.vaadin.flow.component.button.Button btnRep = new com.vaadin.flow.component.button.Button(rep.getReportTitle() + " (" + (rep.getEngineType() != null ? rep.getEngineType() : "STANDARD") + ")");
+                    btnRep.setWidthFull();
+                    btnRep.addClickListener(ev -> {
+                        String engineType = rep.getEngineType() != null ? rep.getEngineType() : "STANDARD";
+                        Object pkValue = null;
+                        if (formBinder != null && formBinder.getBean() != null && currentFormDef.getPrimaryKey() != null) {
+                            pkValue = formBinder.getBean().get(currentFormDef.getPrimaryKey());
+                        }
+                        
+                        if ("STANDARD".equals(engineType)) {
+                            // Standard Vaadin renderer
+                            com.vaadin.flow.component.UI.getCurrent().navigate("report-viewer");
+                            Notification.show("Silakan pilih laporan " + rep.getReportCode() + " di layar viewer.", 3000, Notification.Position.TOP_CENTER);
+                        } else {
+                            // External Engine (Stimulsoft/Jasper)
+                            String url = "/api/report/engine/view/" + rep.getReportCode();
+                            if (pkValue != null) url += "?id=" + pkValue;
+                            com.vaadin.flow.component.UI.getCurrent().getPage().open(url, "_blank");
+                        }
+                        reportDialog.close();
+                    });
+                    layout.add(btnRep);
+                }
+                
+                reportDialog.add(layout);
+                reportDialog.open();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                Notification.show("Gagal memuat daftar laporan.", 3000, Notification.Position.MIDDLE);
+            }
         });
 
         // 6. REFRESH BUTTON
@@ -1044,6 +1088,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             if (!isLoadingExistingData) {
                 select.clear();
             }
+        } else if (targetComponent instanceof com.vaadinerp.components.LovChosenBox) {
+            com.vaadinerp.components.LovChosenBox chosen = (com.vaadinerp.components.LovChosenBox) targetComponent;
+            chosen.setFilterValue(condition);
+            if (!isLoadingExistingData) {
+                chosen.clear();
+            }
         } else if (targetComponent instanceof BandboxField) {
             BandboxField<?, ?> bandbox = (BandboxField<?, ?>) targetComponent;
             bandbox.setFilterValue(condition);
@@ -1448,7 +1498,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     } else if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
                         Object staticVal = filter.getSourceName();
                         String lookupKey = staticVal != null ? staticVal.toString() : "";
-                        if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")) {
+                        // Resolve kata kunci khusus terlebih dahulu
+                        staticVal = dynamicDataService.resolveFilterKeyword(staticVal);
+                        if (staticVal != null && staticVal != filter.getSourceName()
+                                && !staticVal.equals(filter.getSourceName())) {
+                            // sudah di-resolve ke nilai khusus, langsung pakai
+                        } else if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")) {
                             lookupKey = lookupKey.replaceAll("[\"']", "")
                                     .substring(lookupKey.indexOf("header.") + "header.".length()).trim();
                             Component sc = formComponents.get(lookupKey);
@@ -1469,6 +1524,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                                 String.valueOf(filter.getId()), filter.getFilterColumn(), staticVal,
                                 filter.getLogicalOperator(), filter.getComparisonOperator());
                         applyFilterToComponent(targetComponent, condition);
+
                     } else if ("QUERY".equalsIgnoreCase(filter.getSourceType())) {
                         String paramName = filter.getSourceName();
                         if (queryParameters != null && queryParameters.getParameters().containsKey(paramName)) {
@@ -1891,7 +1947,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 filterDatePicker.setClearButtonVisible(true);
                 filterDatePicker.setWidthFull();
                 filterDatePicker.getElement().getThemeList().add("small");
-                filterDatePicker.setLocale(new java.util.Locale("id", "ID"));
+                filterDatePicker.setLocale(java.util.Locale.forLanguageTag("id-ID"));
 
                 Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
                 filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);

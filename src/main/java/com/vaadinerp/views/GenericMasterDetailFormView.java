@@ -2147,7 +2147,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 filterDatePicker.setClearButtonVisible(true);
                 filterDatePicker.setWidthFull();
                 filterDatePicker.getElement().getThemeList().add("small");
-                filterDatePicker.setLocale(new java.util.Locale("id", "ID"));
+                filterDatePicker.setLocale(java.util.Locale.forLanguageTag("id-ID"));
 
                 Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
                 filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
@@ -2658,7 +2658,12 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     } else if ("STATIC".equalsIgnoreCase(filter.getSourceType())) {
                         Object staticVal = filter.getSourceName();
                         String lookupKey = staticVal != null ? staticVal.toString() : "";
-                        if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")
+                        // Resolve kata kunci khusus terlebih dahulu
+                        staticVal = dynamicDataService.resolveFilterKeyword(staticVal);
+                        if (staticVal != null && staticVal != filter.getSourceName()
+                                && !staticVal.equals(filter.getSourceName())) {
+                            // sudah di-resolve ke nilai khusus, langsung pakai
+                        } else if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")
                                 || lookupKey.startsWith("detail.") || lookupKey.startsWith("\"detail.")) {
                             if (lookupKey.startsWith("header.") || lookupKey.startsWith("\"header.")) {
                                 lookupKey = lookupKey.replaceAll("[\"']", "")
@@ -3438,6 +3443,12 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             select.setFilterValue(condition);
             if (!isLoadingExistingData) {
                 select.clear();
+            }
+        } else if (targetComponent instanceof com.vaadinerp.components.LovChosenBox) {
+            com.vaadinerp.components.LovChosenBox chosen = (com.vaadinerp.components.LovChosenBox) targetComponent;
+            chosen.setFilterValue(condition);
+            if (!isLoadingExistingData) {
+                chosen.clear();
             }
         } else if (targetComponent instanceof BandboxField) {
             BandboxField<?, ?> bandbox = (BandboxField<?, ?>) targetComponent;
