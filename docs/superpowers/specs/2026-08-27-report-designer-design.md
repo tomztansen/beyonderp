@@ -188,6 +188,23 @@ disabled dengan hint *"Simpan laporan dulu untuk mulai mendesain."*
 - **Cache:** deserialize `.mrt` / compiled `.jrxml` di-cache by mtime; `.jasper` precompiled.
 - **Query:** filter di DB (params → WHERE), bukan load-semua-lalu-filter; tanpa fetch ganda
   (fetch ganda di designer sudah dibuang).
+- **Query timeout bertingkat (WAJIB):** `ReportDataService` menyetel batas waktu eksekusi query
+  (via `setQueryTimeout(N)` atau, lebih andal, Postgres `statement_timeout` per koneksi):
+  - **Preview** = pendek (mis. 30s; data sample + LIMIT 50).
+  - **Full run** = lebih longgar & configurable (mis. `app.report.query-timeout-seconds:30` untuk
+    interaktif; nilai lebih besar khusus full-run bila perlu).
+  Query runaway dibunuh → koneksi HikariCP (pool=25) cepat kembali → melindungi user lain. Saat
+  timeout, `QueryTimeoutException` ditangkap → pesan ramah *"The report query took too long and was
+  stopped. Please narrow your filter/parameters."* (bukan hang/stacktrace). Ini proteksi lintas-user
+  terpenting. Report yang memang berat → jalur batch (lihat §14), **bukan** menaikkan timeout global.
+- **Eksekusi async (opsional untuk report berat):** Preview/run Standard & Jasper dijalankan
+  off UI thread (background executor + `UI.access()` untuk push hasil) dengan `ProgressBar`,
+  supaya UI user tidak freeze. Async + query timeout + LIMIT adalah satu paket.
+- **Titik ekstensi before/after (no-op sekarang):** `ReportRunService.run()` memanggil
+  `beforeRun(report, params, user)` dan `afterRun(report, params, rowCount, user)` yang
+  saat ini no-op. Wiring Groovy opsional (sandbox `ScriptExecutorService`) ditambahkan nanti
+  bila ada kebutuhan konkret (audit/param-prep), tanpa membongkar — belum ada field script /
+  kolom DB sekarang (YAGNI).
 
 ## 11. Error handling & UX state
 
@@ -230,3 +247,10 @@ disabled dengan hint *"Simpan laporan dulu untuk mulai mendesain."*
 - "Cetak sesuai filter grid aktif".
 - Mapping LOV per-kolom untuk custom query murni.
 - Tabel tracking `report_user_template` (bila butuh listing/audit versi user).
+- **Jalur batch/async untuk report berat**: submit job → jalan di background dengan timeout longgar
+  di **pool koneksi khusus report (kecil, mis. 3–5)** → hasil disimpan ke file (PDF/Excel) →
+  user dinotifikasi + unduh. Memanfaatkan infra `@Route("scheduler")` yang sudah ada. Dibangun
+  saat ada report yang benar-benar butuh > timeout interaktif — bukan dengan menaikkan timeout global.
+- Perbaikan akar report berat berulang: **materialized view** (refresh berkala), index kolom
+  filter/join, read-replica untuk reporting, atau scheduled+cached.
+- Tombol **Cancel** manual saat async run (lacak statement → `cancel()`).
