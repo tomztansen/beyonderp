@@ -6,10 +6,13 @@ import com.vaadinerp.meta.FormMeta;
 import com.vaadinerp.meta.FormMetaRepository;
 import com.vaadinerp.meta.ReportMeta;
 import com.vaadinerp.service.DynamicDataService;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import javax.sql.DataSource;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,10 +29,15 @@ public class ReportDataService {
     private final FormMetaRepository formMetaRepository;
     private final DynamicDataService dynamicDataService;
 
-    public ReportDataService(NamedParameterJdbcTemplate npjt,
+    public ReportDataService(DataSource dataSource,
+                             @Value("${app.report.query-timeout-seconds:30}") int queryTimeoutSeconds,
                              FormMetaRepository formMetaRepository,
                              DynamicDataService dynamicDataService) {
-        this.npjt = npjt;
+        // JdbcTemplate khusus report dengan query timeout — TIDAK memengaruhi JdbcTemplate app global.
+        // Query runaway dibunuh di ~timeout → koneksi HikariCP cepat kembali → lindungi user lain.
+        JdbcTemplate reportJt = new JdbcTemplate(dataSource);
+        reportJt.setQueryTimeout(queryTimeoutSeconds);
+        this.npjt = new NamedParameterJdbcTemplate(reportJt);
         this.formMetaRepository = formMetaRepository;
         this.dynamicDataService = dynamicDataService;
     }
