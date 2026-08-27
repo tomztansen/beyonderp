@@ -10,17 +10,17 @@ public class ReportParamMeta {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "report_code", nullable = false, length = 100)
+    @Column(name = "report_code", nullable = false, length = 50)
     private String reportCode;
 
-    @Column(name = "param_name", nullable = false, length = 100)
+    @Column(name = "param_name", nullable = false, length = 50)
     private String paramName;
 
-    @Column(name = "label", length = 200)
+    @Column(name = "param_label", length = 100)
     private String label;
 
     /** TEXT | NUMBER | DATE | BOOLEAN | LOV */
-    @Column(name = "data_type", length = 20)
+    @Column(name = "param_type", length = 20)
     private String dataType = "TEXT";
 
     @Column(name = "lov_code", length = 100)
@@ -34,7 +34,7 @@ public class ReportParamMeta {
     @Column(name = "source_key", length = 200)
     private String sourceKey;
 
-    @Column(name = "default_value", length = 500)
+    @Column(name = "default_value", length = 255)
     private String defaultValue;
 
     @Column(name = "required")
