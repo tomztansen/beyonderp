@@ -18,6 +18,6 @@ public class ReportRendererRegistry {
         return renderers.stream()
                 .filter(r -> r.engine().equalsIgnoreCase(e))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Engine tidak didukung: " + engineType));
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported engine: " + engineType));
     }
 }

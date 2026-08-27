@@ -59,7 +59,7 @@ public class JasperRenderer implements ReportRenderer {
             byte[] pdf = JasperExportManager.exportReportToPdf(print);
             return ReportOutput.pdf(pdf);
         } catch (JRException e) {
-            throw new RuntimeException("Gagal render Jasper: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to render Jasper report: " + e.getMessage(), e);
         }
     }
 }

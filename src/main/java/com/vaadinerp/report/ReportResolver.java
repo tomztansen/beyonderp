@@ -52,7 +52,7 @@ public class ReportResolver {
         }
         String ext = masterExtension(engineType, templatePath);
         if (ext == null) {
-            throw new IllegalStateException("Engine " + engineType + " tidak punya file template");
+            throw new IllegalStateException("Engine " + engineType + " has no template file");
         }
         File dir = new File(new File(uploadDir, "report_templates"), "master");
         return new File(dir, code + "." + ext);
