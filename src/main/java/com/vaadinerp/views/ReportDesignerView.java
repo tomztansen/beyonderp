@@ -5,13 +5,18 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.tabs.TabSheet;
 import com.vaadin.flow.router.Route;
+import com.vaadinerp.components.StandardGridUtils;
 import com.vaadinerp.meta.ReportMeta;
 import com.vaadinerp.meta.ReportMetaRepository;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.Function;
+
 /**
- * Report Designer: daftar report (grid + toolbar) + tab editor. Meniru pola
- * GenericFormView. Editor metadata/parameter, engine-adaptive surface, dan preview
- * dilengkapi di task berikutnya.
+ * Report Designer: daftar report (grid berfilter + toolbar, pola sama seperti grid standar) +
+ * tab editor. Editor metadata/parameter, engine-adaptive surface, dan preview dilengkapi di
+ * task berikutnya.
  */
 @Route("report-designer")
 public class ReportDesignerView extends VerticalLayout {
@@ -20,16 +25,27 @@ public class ReportDesignerView extends VerticalLayout {
     private final Grid<ReportMeta> grid = new Grid<>(ReportMeta.class, false);
     private final TabSheet tabs = new TabSheet();
     private final VerticalLayout editorTab = new VerticalLayout();
+    private Runnable reapplyFilters = () -> {};
 
     public ReportDesignerView(ReportMetaRepository reportMetaRepository) {
         this.reportMetaRepository = reportMetaRepository;
         setSizeFull();
 
-        grid.addColumn(ReportMeta::getReportCode).setHeader("Code");
-        grid.addColumn(ReportMeta::getReportTitle).setHeader("Title");
-        grid.addColumn(r -> r.getEngineType() != null ? r.getEngineType() : "STANDARD").setHeader("Engine");
-        grid.addColumn(ReportMeta::getTableName).setHeader("Source");
+        Grid.Column<ReportMeta> colCode = grid.addColumn(ReportMeta::getReportCode).setHeader("Code");
+        Grid.Column<ReportMeta> colTitle = grid.addColumn(ReportMeta::getReportTitle).setHeader("Title");
+        Grid.Column<ReportMeta> colEngine = grid.addColumn(this::engineOf).setHeader("Engine");
+        Grid.Column<ReportMeta> colSource = grid.addColumn(ReportMeta::getTableName).setHeader("Source");
         grid.setSelectionMode(Grid.SelectionMode.SINGLE);
+        grid.setSizeFull();
+
+        // Filter header per-kolom + sort + resize + clipboard (helper standar aplikasi)
+        Map<Grid.Column<ReportMeta>, Function<ReportMeta, String>> colGetters = new LinkedHashMap<>();
+        colGetters.put(colCode, r -> nz(r.getReportCode()));
+        colGetters.put(colTitle, r -> nz(r.getReportTitle()));
+        colGetters.put(colEngine, this::engineOf);
+        colGetters.put(colSource, r -> nz(r.getTableName()));
+        this.reapplyFilters = StandardGridUtils.attachGridFilters(grid, colGetters, reportMetaRepository::findAll);
+        StandardGridUtils.enableRowClickSelection(grid);
         refreshGrid();
 
         HorizontalLayout toolbar = new HorizontalLayout(
@@ -38,7 +54,8 @@ public class ReportDesignerView extends VerticalLayout {
             new com.vaadinerp.components.SafeButton("Design", e -> withSelected(this::openDesigner)),
             new com.vaadinerp.components.SafeButton("Delete", e -> withSelected(this::deleteReport)),
             new com.vaadinerp.components.SafeButton("Preview", e -> withSelected(this::preview)),
-            new com.vaadinerp.components.SafeButton("Refresh", e -> refreshGrid())
+            new com.vaadinerp.components.SafeButton("Refresh", e -> refreshGrid()),
+            StandardGridUtils.createExportExcelButton(grid, "report_list")
         );
 
         VerticalLayout listTab = new VerticalLayout(toolbar, grid);
@@ -49,8 +66,16 @@ public class ReportDesignerView extends VerticalLayout {
         add(tabs);
     }
 
+    private String engineOf(ReportMeta r) {
+        return r.getEngineType() != null ? r.getEngineType() : "STANDARD";
+    }
+
+    private String nz(String s) {
+        return s != null ? s : "";
+    }
+
     private void refreshGrid() {
-        grid.setItems(reportMetaRepository.findAll());
+        reapplyFilters.run();
     }
 
     private void withSelected(java.util.function.Consumer<ReportMeta> action) {
