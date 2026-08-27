@@ -67,15 +67,7 @@ public class StimulsoftJavaController {
             }
             if (rawData == null) rawData = new java.util.ArrayList<>();
 
-            java.util.Map<String, Object> dataRoot = new java.util.HashMap<>();
-            dataRoot.put("DynamicData", rawData);
-            String jsonData = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(dataRoot);
-
-            report.getDictionary().getDatabases().clear();
-            com.stimulsoft.report.dictionary.databases.StiJsonDatabase jsonDb = new com.stimulsoft.report.dictionary.databases.StiJsonDatabase("DynamicData", "");
-            jsonDb.setJsonData(jsonData);
-            report.getDictionary().getDatabases().add(jsonDb);
-            report.getDictionary().synchronize();
+            com.vaadinerp.report.render.StimulsoftRenderer.bindData(report, rawData);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -133,15 +125,7 @@ public class StimulsoftJavaController {
                         page.setName(com.stimulsoft.report.StiNameCreation.createName(report, com.stimulsoft.report.StiNameCreation.generateName(page)));
                     }
                     
-                    java.util.Map<String, Object> dataRoot = new java.util.HashMap<>();
-                    dataRoot.put("DynamicData", rawData);
-                    String jsonData = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(dataRoot);
-                    
-                    report.getDictionary().getDatabases().clear();
-                    com.stimulsoft.report.dictionary.databases.StiJsonDatabase jsonDb = new com.stimulsoft.report.dictionary.databases.StiJsonDatabase("DynamicData", "");
-                    jsonDb.setJsonData(jsonData);
-                    report.getDictionary().getDatabases().add(jsonDb);
-                    report.getDictionary().synchronize();
+                    com.vaadinerp.report.render.StimulsoftRenderer.bindData(report, rawData);
                 } catch (Exception e) {
                     System.err.println("GET EDITED REPORT ERROR: " + e.getMessage());
                     e.printStackTrace();
