@@ -15,10 +15,10 @@ public final class ReportParamAdapter {
     public static FieldMeta toFieldMeta(ReportParamMeta p) {
         FieldMeta f = new FieldMeta();
         f.setFieldName(p.getParamName());
-        f.setFieldLabel(p.getLabel() != null ? p.getLabel() : p.getParamName());
+        f.setFieldLabel(p.getParamLabel() != null ? p.getParamLabel() : p.getParamName());
         f.setRequired(p.isRequired());
         f.setLovCode(p.getLovCode());
-        f.setComponentType(resolveComponentType(p.getDataType(), p.getLovCode()));
+        f.setComponentType(resolveComponentType(p.getParamType(), p.getLovCode()));
         return f;
     }
 
@@ -35,6 +35,8 @@ public final class ReportParamAdapter {
             case "DATE":    return "DATE";
             case "NUMBER":  return "NUMERIC";
             case "BOOLEAN": return "CHECKBOX";
+            case "STRING":  // alias lama untuk teks
+            case "TEXT":    return "TEXT";
             default:        return "TEXT";
         }
     }
