@@ -23,21 +23,18 @@ public final class ReportParamAdapter {
     }
 
     /**
-     * Petakan dataType parameter → componentType yang dikenali ComponentFactory.
-     * LOV (atau adanya lovCode) → COMBOBOX; ComponentFactory memakai lovCode untuk
-     * membangun combo LOV.
+     * paramType diteruskan apa adanya sebagai componentType (mendukung TEXTBOX/COMBOBOX/BANDBOX/
+     * CHOSENBOX/LISTBOX/DATE/NUMERIC/CHECKBOX/… penuh yang dikenal ComponentFactory).
+     * Alias {@code STRING}/kosong → {@code TEXT}; kosong + ada lovCode → {@code COMBOBOX}.
+     * Komponen LOV-driven memakai lovCode yang di-set di FieldMeta.
      */
-    public static String resolveComponentType(String dataType, String lovCode) {
-        if (lovCode != null && !lovCode.trim().isEmpty()) return "COMBOBOX";
-        if (dataType == null) return "TEXT";
-        switch (dataType.trim().toUpperCase()) {
-            case "LOV":     return "COMBOBOX";
-            case "DATE":    return "DATE";
-            case "NUMBER":  return "NUMERIC";
-            case "BOOLEAN": return "CHECKBOX";
-            case "STRING":  // alias lama untuk teks
-            case "TEXT":    return "TEXT";
-            default:        return "TEXT";
+    public static String resolveComponentType(String paramType, String lovCode) {
+        if (paramType != null && !paramType.trim().isEmpty()) {
+            String t = paramType.trim().toUpperCase();
+            if (t.equals("STRING")) return "TEXT";
+            return t;
         }
+        if (lovCode != null && !lovCode.trim().isEmpty()) return "COMBOBOX";
+        return "TEXT";
     }
 }
