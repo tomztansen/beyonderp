@@ -41,11 +41,11 @@ public class StimulsoftRenderer implements ReportRenderer {
     @Override
     public ReportOutput render(ReportContext ctx) {
         throw new UnsupportedOperationException(
-                "Stimulsoft dirender via web viewer (lihat StimulsoftJavaController)");
+                "Stimulsoft is rendered via the web viewer (see StimulsoftJavaController)");
     }
 
     @Override
     public ReportOutput export(ReportContext ctx, String format) {
-        throw new UnsupportedOperationException("Export Stimulsoft via toolbar viewer");
+        throw new UnsupportedOperationException("Export Stimulsoft via the viewer toolbar");
     }
 }
