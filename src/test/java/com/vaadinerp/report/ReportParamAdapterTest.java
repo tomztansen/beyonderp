@@ -11,8 +11,8 @@ class ReportParamAdapterTest {
     void mapsLovParamToComboboxWithLovCode() {
         ReportParamMeta p = new ReportParamMeta();
         p.setParamName("branch");
-        p.setLabel("Cabang");
-        p.setDataType("LOV");
+        p.setParamLabel("Cabang");
+        p.setParamType("LOV");
         p.setLovCode("BRANCH");
         p.setRequired(true);
 
