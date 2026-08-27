@@ -8,11 +8,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ReportParamAdapterTest {
 
     @Test
-    void mapsLovParamToComboboxWithLovCode() {
+    void mapsLovComboParamWithLovCode() {
         ReportParamMeta p = new ReportParamMeta();
         p.setParamName("branch");
         p.setParamLabel("Cabang");
-        p.setParamType("LOV");
+        p.setParamType("COMBOBOX");
         p.setLovCode("BRANCH");
         p.setRequired(true);
 
@@ -26,17 +26,15 @@ class ReportParamAdapterTest {
     }
 
     @Test
-    void resolvesComponentTypePerDataType() {
+    void passesComponentTypeThrough() {
+        assertThat(ReportParamAdapter.resolveComponentType("BANDBOX", "BR")).isEqualTo("BANDBOX");
+        assertThat(ReportParamAdapter.resolveComponentType("CHOSENBOX", "BR")).isEqualTo("CHOSENBOX");
+        assertThat(ReportParamAdapter.resolveComponentType("LISTBOX", "BR")).isEqualTo("LISTBOX");
         assertThat(ReportParamAdapter.resolveComponentType("DATE", null)).isEqualTo("DATE");
-        assertThat(ReportParamAdapter.resolveComponentType("NUMBER", null)).isEqualTo("NUMERIC");
-        assertThat(ReportParamAdapter.resolveComponentType("BOOLEAN", null)).isEqualTo("CHECKBOX");
-        assertThat(ReportParamAdapter.resolveComponentType("TEXT", null)).isEqualTo("TEXT");
+        assertThat(ReportParamAdapter.resolveComponentType("STRING", null)).isEqualTo("TEXT");
+        assertThat(ReportParamAdapter.resolveComponentType(null, "BR")).isEqualTo("COMBOBOX");
         assertThat(ReportParamAdapter.resolveComponentType(null, null)).isEqualTo("TEXT");
-    }
-
-    @Test
-    void lovCodePresenceForcesCombobox() {
-        assertThat(ReportParamAdapter.resolveComponentType("TEXT", "BRANCH")).isEqualTo("COMBOBOX");
+        assertThat(ReportParamAdapter.resolveComponentType("  ", null)).isEqualTo("TEXT");
     }
 
     @Test
