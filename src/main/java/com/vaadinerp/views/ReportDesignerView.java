@@ -112,6 +112,7 @@ public class ReportDesignerView extends VerticalLayout {
         colGetters.put(colEngine, this::engineOf);
         colGetters.put(colSource, r -> nz(r.getTableName()));
         this.reapplyFilters = StandardGridUtils.attachGridFilters(grid, colGetters, reportMetaRepository::findAll);
+        StandardGridUtils.enableRowClickSelection(grid); // klik sel → row terselect (seperti grid form)
         refreshGrid();
     }
 
@@ -225,13 +226,18 @@ public class ReportDesignerView extends VerticalLayout {
             })
         );
 
-        SafeButton saveBtn = new SafeButton("Save", e -> saveReport());
-        SafeButton backBtn = new SafeButton("Back to List", e -> { refreshGrid(); tabs.setSelectedIndex(0); });
+        HorizontalLayout editorToolbar = new HorizontalLayout(
+            tbBtn("Save", com.vaadin.flow.component.icon.VaadinIcon.DOWNLOAD, e -> saveReport()),
+            tbBtn("Back to List", com.vaadin.flow.component.icon.VaadinIcon.ARROW_LEFT,
+                    e -> { refreshGrid(); tabs.setSelectedIndex(0); })
+        );
+        editorToolbar.setWidthFull();
+        editorToolbar.setPadding(true);
+        editorToolbar.setSpacing(false);
 
         editorForm.setPadding(false);
-        editorForm.add(new com.vaadin.flow.component.html.H4("Report Definition"), meta,
-                new com.vaadin.flow.component.html.H4("Parameters"), paramToolbar, paramGrid,
-                new HorizontalLayout(saveBtn, backBtn));
+        editorForm.add(editorToolbar, new com.vaadin.flow.component.html.H4("Report Definition"), meta,
+                new com.vaadin.flow.component.html.H4("Parameters"), paramToolbar, paramGrid);
     }
 
     private void showForm() {
