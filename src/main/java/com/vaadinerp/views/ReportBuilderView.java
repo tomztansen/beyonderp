@@ -864,12 +864,9 @@ public class ReportBuilderView extends VerticalLayout {
             return;
         }
 
-        // Delete existing report definition (cascade cleans up meta_report_element)
-        if (reportMetaRepository.existsById(reportCode)) {
-            reportMetaRepository.deleteById(reportCode);
-        }
-
-        ReportMeta repMeta = new ReportMeta();
+        // Load existing (PRESERVE parameters) or create new; update fields + elements.
+        // NB: jangan deleteById lalu recreate — itu ikut menghapus parameter (meta_report_param).
+        ReportMeta repMeta = reportMetaRepository.findById(reportCode).orElseGet(ReportMeta::new);
         repMeta.setReportCode(reportCode);
         repMeta.setReportTitle(reportTitle);
         repMeta.setTableName(sourceForm != null ? sourceForm.getTableName() : "");
@@ -877,7 +874,8 @@ public class ReportBuilderView extends VerticalLayout {
         repMeta.setPageSize(pageSize);
         repMeta.setOrientation(orientation);
         repMeta.setEngineType(engineTypeSelect.getValue());
-        repMeta.setElements(new ArrayList<>());
+        if (repMeta.getElements() == null) repMeta.setElements(new ArrayList<>());
+        repMeta.getElements().clear(); // orphanRemoval hapus elemen lama; parameter tidak disentuh
 
         for (int i = 0; i < elementsList.size(); i++) {
             ReportElementMetaTemp temp = elementsList.get(i);
