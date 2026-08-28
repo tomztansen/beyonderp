@@ -336,6 +336,16 @@ public class ReportDesignerView extends VerticalLayout {
                 .setHeader("Operator").setEditorComponent(edOperator);
         pBinder.forField(edOperator).bind(ReportParamMeta::getOperator, ReportParamMeta::setOperator);
 
+        TextField edLovFilterCol = new TextField();
+        Grid.Column<ReportParamMeta> pColLovFCol = paramGrid.addColumn(ReportParamMeta::getLovFilterColumn)
+                .setHeader("LOV Filter Col").setEditorComponent(edLovFilterCol);
+        pBinder.forField(edLovFilterCol).bind(ReportParamMeta::getLovFilterColumn, ReportParamMeta::setLovFilterColumn);
+
+        TextField edLovFilterVal = new TextField();
+        Grid.Column<ReportParamMeta> pColLovFVal = paramGrid.addColumn(ReportParamMeta::getLovFilterValue)
+                .setHeader("LOV Filter Val").setEditorComponent(edLovFilterVal);
+        pBinder.forField(edLovFilterVal).bind(ReportParamMeta::getLovFilterValue, ReportParamMeta::setLovFilterValue);
+
         // Same treatment as report list grid: filter header, sort, resize, clipboard, row-click select
         Map<Grid.Column<ReportParamMeta>, Function<ReportParamMeta, String>> pGetters = new LinkedHashMap<>();
         pGetters.put(pColName, p -> nz(p.getParamName()));
@@ -348,6 +358,8 @@ public class ReportDesignerView extends VerticalLayout {
         pGetters.put(pColReq, p -> p.isRequired() ? "Yes" : "No");
         pGetters.put(pColFilter, p -> nz(p.getFilterColumn()));
         pGetters.put(pColOp, p -> nz(p.getOperator()));
+        pGetters.put(pColLovFCol, p -> nz(p.getLovFilterColumn()));
+        pGetters.put(pColLovFVal, p -> nz(p.getLovFilterValue()));
         this.paramReapply = StandardGridUtils.attachGridFilters(paramGrid, pGetters, () -> new ArrayList<>(paramState));
         StandardGridUtils.enableRowClickSelection(paramGrid);
 
@@ -452,6 +464,9 @@ public class ReportDesignerView extends VerticalLayout {
         c.setColOrder(s.getColOrder());
         c.setFilterColumn(s.getFilterColumn());
         c.setOperator(s.getOperator());
+        c.setLovFilterColumn(s.getLovFilterColumn());
+        c.setLovFilterValue(s.getLovFilterValue());
+        c.setLovFilterOperator(s.getLovFilterOperator());
         return c;
     }
 
