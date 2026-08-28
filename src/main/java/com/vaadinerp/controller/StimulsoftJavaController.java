@@ -96,12 +96,18 @@ public class StimulsoftJavaController {
 
         com.vaadinerp.meta.ReportMeta metaTest = reportMetaRepository.findById(code).orElse(null);
 
-        // Data contoh terbatas (LIMIT 50) untuk preview di designer, bukan seluruh tabel
+        // Data contoh terbatas (LIMIT 50) untuk preview di designer, bukan seluruh tabel.
+        // Report tanpa sumber data / query error tetap boleh dibuka designernya (data kosong).
         java.util.List<java.util.Map<String, Object>> tempRawData;
-        if (metaTest != null) {
-            tempRawData = dynamicDataService.fetchReportData(metaTest, new java.util.HashMap<>(), true);
-        } else {
-            tempRawData = dynamicDataService.fetchTableData(code);
+        try {
+            if (metaTest != null) {
+                tempRawData = dynamicDataService.fetchReportData(metaTest, new java.util.HashMap<>(), true);
+            } else {
+                tempRawData = dynamicDataService.fetchTableData(code);
+            }
+        } catch (Exception e) {
+            System.err.println("DESIGNER SAMPLE DATA ERROR (" + code + "): " + e.getMessage());
+            tempRawData = new java.util.ArrayList<>();
         }
         if (tempRawData == null) tempRawData = new java.util.ArrayList<>();
         final java.util.List<java.util.Map<String, Object>> rawData = tempRawData;
