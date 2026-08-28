@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Route("report-builder")
+// No @Route: this is now an embedded component (used by ReportDesignerView for STANDARD band design).
 public class ReportBuilderView extends VerticalLayout {
 
     private final ReportMetaRepository reportMetaRepository;

@@ -671,7 +671,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
                         "report-viewer/" + code, "PRINT", "Report", "GRP_REPORTS"));
             }
         }
-        availableList.add(new AvailableMenuItem("REPORT_BUILDER", "Report Designer", "report-designer", "EDIT", "System",
+        availableList.add(new AvailableMenuItem("REPORT_DESIGNER", "Report Designer", "report-designer", "EDIT", "System",
                 "GRP_REPORTS"));
         availableList.add(new AvailableMenuItem("REPORT_VIEWER", "Report Viewer", "REPORT_VIEWER", "PRINT", "System",
                 "GRP_REPORTS"));
