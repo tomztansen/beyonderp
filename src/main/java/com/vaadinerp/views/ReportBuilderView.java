@@ -277,6 +277,7 @@ public class ReportBuilderView extends VerticalLayout {
         actionLayout.setWidthFull();
 
         add(title, loadLayout, reportMetaLayout, workspace, actionLayout);
+        this.editingChrome = new com.vaadin.flow.component.Component[]{ title, loadLayout, reportMetaLayout, actionLayout };
         setFlexGrow(1, workspace);
 
         rebuildCanvas();
@@ -334,6 +335,37 @@ public class ReportBuilderView extends VerticalLayout {
         }
 
         Notification.show("Report loaded: " + selectedReport.getReportCode(), 3000, Notification.Position.TOP_CENTER);
+    }
+
+    /** Komponen "chrome" editing (judul, load combo, form metadata, tombol aksi) yang disembunyikan saat embedded. */
+    private com.vaadin.flow.component.Component[] editingChrome;
+
+    /** Mode embedded: hanya kanvas band yang tampil (chrome disembunyikan). Save ditangani parent. */
+    public void setEmbeddedMode(boolean embedded) {
+        if (editingChrome != null) {
+            for (com.vaadin.flow.component.Component c : editingChrome) {
+                if (c != null) c.setVisible(!embedded);
+            }
+        }
+    }
+
+    /** Elemen band terkini sebagai daftar ReportElementMeta (belum ter-attach ke ReportMeta). */
+    public java.util.List<ReportElementMeta> collectElements() {
+        java.util.List<ReportElementMeta> out = new ArrayList<>();
+        for (int i = 0; i < elementsList.size(); i++) {
+            ReportElementMetaTemp t = elementsList.get(i);
+            ReportElementMeta el = new ReportElementMeta();
+            el.setBandType(t.bandType);
+            el.setElementType(t.elementType);
+            el.setElementValue(t.elementValue);
+            el.setColumnWidth(t.columnWidth);
+            el.setAlignment(t.alignment);
+            el.setFontWeight(t.fontWeight);
+            el.setFormatPattern(t.formatPattern);
+            el.setColOrder(i + 1);
+            out.add(el);
+        }
+        return out;
     }
 
     private void updateCanvasOrientation() {
