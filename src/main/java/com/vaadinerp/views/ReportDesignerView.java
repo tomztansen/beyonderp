@@ -3,7 +3,6 @@ package com.vaadinerp.views;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
-import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.IFrame;
@@ -203,28 +202,71 @@ public class ReportDesignerView extends VerticalLayout {
         meta.setColspan(sourceCombo, 2);
         meta.setColspan(queryArea, 2);
 
-        paramGrid.addColumn(ReportParamMeta::getParamName).setHeader("Name");
-        paramGrid.addColumn(ReportParamMeta::getParamLabel).setHeader("Label");
-        paramGrid.addColumn(ReportParamMeta::getParamType).setHeader("Type");
-        paramGrid.addColumn(ReportParamMeta::getSource).setHeader("Source");
-        paramGrid.addColumn(p -> p.isRequired() ? "Yes" : "No").setHeader("Required");
+        // Inline-editable parameter grid (add row, edit cells, delete) — subform-like UX
         paramGrid.setSelectionMode(Grid.SelectionMode.SINGLE);
         paramGrid.setAllRowsVisible(true);
+        com.vaadin.flow.data.binder.Binder<ReportParamMeta> pBinder =
+                new com.vaadin.flow.data.binder.Binder<>(ReportParamMeta.class);
+        paramGrid.getEditor().setBinder(pBinder);
+        paramGrid.getEditor().setBuffered(false);
+
+        TextField edName = new TextField();
+        paramGrid.addColumn(ReportParamMeta::getParamName).setHeader("Name").setEditorComponent(edName);
+        pBinder.forField(edName).bind(ReportParamMeta::getParamName, ReportParamMeta::setParamName);
+
+        TextField edLabel = new TextField();
+        paramGrid.addColumn(ReportParamMeta::getParamLabel).setHeader("Label").setEditorComponent(edLabel);
+        pBinder.forField(edLabel).bind(ReportParamMeta::getParamLabel, ReportParamMeta::setParamLabel);
+
+        Select<String> edType = new Select<>();
+        edType.setItems(COMPONENT_TYPES);
+        paramGrid.addColumn(ReportParamMeta::getParamType).setHeader("Type").setEditorComponent(edType);
+        pBinder.forField(edType).bind(ReportParamMeta::getParamType, ReportParamMeta::setParamType);
+
+        TextField edLov = new TextField();
+        paramGrid.addColumn(ReportParamMeta::getLovCode).setHeader("LOV Code").setEditorComponent(edLov);
+        pBinder.forField(edLov).bind(ReportParamMeta::getLovCode, ReportParamMeta::setLovCode);
+
+        Select<String> edSource = new Select<>();
+        edSource.setItems(PARAM_SOURCES);
+        paramGrid.addColumn(ReportParamMeta::getSource).setHeader("Source").setEditorComponent(edSource);
+        pBinder.forField(edSource).bind(ReportParamMeta::getSource, ReportParamMeta::setSource);
+
+        TextField edSourceKey = new TextField();
+        paramGrid.addColumn(ReportParamMeta::getSourceKey).setHeader("Source Key").setEditorComponent(edSourceKey);
+        pBinder.forField(edSourceKey).bind(ReportParamMeta::getSourceKey, ReportParamMeta::setSourceKey);
+
+        TextField edDefault = new TextField();
+        paramGrid.addColumn(ReportParamMeta::getDefaultValue).setHeader("Default").setEditorComponent(edDefault);
+        pBinder.forField(edDefault).bind(ReportParamMeta::getDefaultValue, ReportParamMeta::setDefaultValue);
+
+        Checkbox edRequired = new Checkbox();
+        paramGrid.addColumn(p -> p.isRequired() ? "Yes" : "No").setHeader("Required").setEditorComponent(edRequired);
+        pBinder.forField(edRequired).bind(ReportParamMeta::isRequired, ReportParamMeta::setRequired);
+
+        // Double-click a row to edit; editor writes back live (unbuffered)
+        paramGrid.addItemDoubleClickListener(e -> paramGrid.getEditor().editItem(e.getItem()));
+        paramGrid.getEditor().addCloseListener(e -> paramGrid.getDataProvider().refreshItem(e.getItem()));
 
         HorizontalLayout paramToolbar = new HorizontalLayout(
-            new SafeButton("Add Parameter", e -> openParamDialog(null)),
-            new SafeButton("Edit Parameter", e -> {
-                ReportParamMeta sel = paramGrid.asSingleSelect().getValue();
-                if (sel == null) { Notification.show("Please select a parameter."); return; }
-                openParamDialog(sel);
+            tbBtn("Add Parameter", com.vaadin.flow.component.icon.VaadinIcon.PLUS_CIRCLE, e -> {
+                ReportParamMeta np = new ReportParamMeta();
+                np.setParamName("param" + (paramState.size() + 1));
+                np.setParamType("TEXTBOX");
+                np.setSource("USER_INPUT");
+                paramState.add(np);
+                paramGrid.setItems(paramState);
+                paramGrid.getEditor().editItem(np);
             }),
-            new SafeButton("Remove Parameter", e -> {
+            tbBtn("Remove Parameter", com.vaadin.flow.component.icon.VaadinIcon.TRASH, e -> {
                 ReportParamMeta sel = paramGrid.asSingleSelect().getValue();
                 if (sel == null) { Notification.show("Please select a parameter."); return; }
+                if (paramGrid.getEditor().isOpen()) paramGrid.getEditor().cancel();
                 paramState.remove(sel);
                 paramGrid.setItems(paramState);
             })
         );
+        paramToolbar.setPadding(false);
 
         HorizontalLayout editorToolbar = new HorizontalLayout(
             tbBtn("Save", com.vaadin.flow.component.icon.VaadinIcon.DOWNLOAD, e -> saveReport()),
@@ -289,65 +331,6 @@ public class ReportDesignerView extends VerticalLayout {
         c.setRequired(s.isRequired());
         c.setColOrder(s.getColOrder());
         return c;
-    }
-
-    private void openParamDialog(ReportParamMeta existing) {
-        Dialog dlg = new Dialog();
-        dlg.setHeaderTitle(existing == null ? "Add Parameter" : "Edit Parameter");
-        dlg.setWidth("460px");
-
-        TextField name = new TextField("Parameter Name");
-        name.setHelperText("Used as :name in the query");
-        TextField label = new TextField("Label");
-        Select<String> type = new Select<>();
-        type.setLabel("Component Type");
-        type.setItems(COMPONENT_TYPES);
-        type.setValue("TEXTBOX");
-        TextField lovCode = new TextField("LOV Code (for COMBOBOX/LISTBOX/CHOSENBOX/BANDBOX)");
-        Select<String> source = new Select<>();
-        source.setLabel("Source");
-        source.setItems(PARAM_SOURCES);
-        source.setValue("USER_INPUT");
-        TextField sourceKey = new TextField("Source Key (form field, or $CURRENT_USER / CURRENT_DATE)");
-        TextField defaultValue = new TextField("Default Value");
-        Checkbox required = new Checkbox("Required");
-
-        if (existing != null) {
-            name.setValue(nz(existing.getParamName()));
-            label.setValue(nz(existing.getParamLabel()));
-            type.setValue(existing.getParamType() != null ? existing.getParamType() : "TEXTBOX");
-            lovCode.setValue(nz(existing.getLovCode()));
-            source.setValue(existing.getSource() != null ? existing.getSource() : "USER_INPUT");
-            sourceKey.setValue(nz(existing.getSourceKey()));
-            defaultValue.setValue(nz(existing.getDefaultValue()));
-            required.setValue(existing.isRequired());
-        }
-
-        FormLayout form = new FormLayout(name, label, type, lovCode, source, sourceKey, defaultValue, required);
-        form.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
-        dlg.add(form);
-
-        SafeButton ok = new SafeButton(existing == null ? "Add" : "Update", e -> {
-            if (name.getValue() == null || name.getValue().trim().isEmpty()) {
-                Notification.show("Parameter name is required.");
-                return;
-            }
-            ReportParamMeta p = existing != null ? existing : new ReportParamMeta();
-            p.setParamName(name.getValue().trim());
-            p.setParamLabel(label.getValue());
-            p.setParamType(type.getValue());
-            p.setLovCode(lovCode.getValue() == null || lovCode.getValue().isBlank() ? null : lovCode.getValue().trim());
-            p.setSource(source.getValue());
-            p.setSourceKey(sourceKey.getValue() == null || sourceKey.getValue().isBlank() ? null : sourceKey.getValue().trim());
-            p.setDefaultValue(defaultValue.getValue());
-            p.setRequired(required.getValue());
-            if (existing == null) paramState.add(p);
-            paramGrid.setItems(paramState);
-            dlg.close();
-        });
-        SafeButton cancel = new SafeButton("Cancel", e -> dlg.close());
-        dlg.getFooter().add(cancel, ok);
-        dlg.open();
     }
 
     private void saveReport() {
