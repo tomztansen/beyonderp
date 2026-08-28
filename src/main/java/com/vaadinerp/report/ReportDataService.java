@@ -42,6 +42,14 @@ public class ReportDataService {
         this.dynamicDataService = dynamicDataService;
     }
 
+    /** Cari FormMeta by tableName tanpa mengasumsikan unik (findByTableName melempar bila >1 row). */
+    private FormMeta findFormByTableName(String tableName) {
+        if (tableName == null || tableName.trim().isEmpty()) return null;
+        return formMetaRepository.findAll().stream()
+                .filter(f -> tableName.equalsIgnoreCase(f.getTableName()))
+                .findFirst().orElse(null);
+    }
+
     /** Urutan datasource: dataQuery → form.viewTable → SELECT * FROM {qualified tableName}. Pure. */
     public static String resolveBaseQuery(ReportMeta report, FormMeta form, DynamicDataService dyn) {
         if (report.getDataQuery() != null && !report.getDataQuery().trim().isEmpty()) {
@@ -57,9 +65,7 @@ public class ReportDataService {
     }
 
     public List<Map<String, Object>> fetchData(ReportMeta report, Map<String, Object> params) {
-        FormMeta form = (report.getTableName() != null)
-                ? formMetaRepository.findByTableName(report.getTableName()).orElse(null)
-                : null;
+        FormMeta form = findFormByTableName(report.getTableName());
 
         String sql = resolveBaseQuery(report, form, dynamicDataService);
         if (sql == null) return new ArrayList<>();
