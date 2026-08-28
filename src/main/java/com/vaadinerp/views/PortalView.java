@@ -693,7 +693,6 @@ public class PortalView extends AppLayout {
                     com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportAccessService.class),
                     com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportRunService.class),
                     dynamicDataService, securityService);
-            case "REPORT_VIEWER" -> new ReportViewerView(reportMetaRepository, dynamicDataService);
             case "LOV_BUILDER" -> new LovBuilderView(lovMetaRepository, dynamicDataService);
             case "FORM_ACTION_BUILDER" -> new FormActionBuilderView(dynamicDataService.getFormActionMetaRepository(),
                     formMetaRepository, lovMetaRepository, dynamicDataService);
@@ -1092,8 +1091,6 @@ public class PortalView extends AppLayout {
                     mdView.cleanup();
                 } else if (content instanceof VisualQueryBuilderView vqbView) {
                     vqbView.cleanup();
-                } else if (content instanceof ReportViewerView reportView) {
-                    reportView.cleanup();
                 } else if (content instanceof DynamicSchedulerView schedulerView) {
                     schedulerView.cleanup();
                 }
