@@ -19,7 +19,24 @@ public final class ReportParamAdapter {
         f.setRequired(p.isRequired());
         f.setLovCode(p.getLovCode());
         f.setComponentType(resolveComponentType(p.getParamType(), p.getLovCode()));
-        if (p.getLovFilterColumn() != null && !p.getLovFilterColumn().isBlank()
+        java.util.List<com.vaadinerp.meta.FieldFilterMeta> flts = new java.util.ArrayList<>();
+        // Model baru: daftar filter (STATIC + FIELD/cascading)
+        if (p.getFilters() != null) {
+            for (com.vaadinerp.meta.ReportParamFilterMeta pf : p.getFilters()) {
+                if (pf.getFilterColumn() == null || pf.getFilterColumn().isBlank()) continue;
+                com.vaadinerp.meta.FieldFilterMeta flt = new com.vaadinerp.meta.FieldFilterMeta();
+                flt.setFilterColumn(pf.getFilterColumn().trim());
+                flt.setSourceType(pf.getSourceType() != null ? pf.getSourceType().trim() : "STATIC");
+                flt.setSourceName(pf.getSourceName() != null ? pf.getSourceName().trim() : "");
+                flt.setComparisonOperator((pf.getComparisonOperator() != null && !pf.getComparisonOperator().isBlank())
+                        ? pf.getComparisonOperator().trim() : "=");
+                flt.setLogicalOperator((pf.getLogicalOperator() != null && !pf.getLogicalOperator().isBlank())
+                        ? pf.getLogicalOperator().trim() : "AND");
+                flts.add(flt);
+            }
+        }
+        // Fallback lama: kolom lov_filter_* datar (kalau belum dimigrasi)
+        if (flts.isEmpty() && p.getLovFilterColumn() != null && !p.getLovFilterColumn().isBlank()
                 && p.getLovFilterValue() != null && !p.getLovFilterValue().isBlank()) {
             com.vaadinerp.meta.FieldFilterMeta flt = new com.vaadinerp.meta.FieldFilterMeta();
             flt.setFilterColumn(p.getLovFilterColumn().trim());
@@ -28,8 +45,9 @@ public final class ReportParamAdapter {
             flt.setComparisonOperator((p.getLovFilterOperator() != null && !p.getLovFilterOperator().isBlank())
                     ? p.getLovFilterOperator().trim() : "=");
             flt.setLogicalOperator("AND");
-            f.setFilters(new java.util.ArrayList<>(java.util.List.of(flt)));
+            flts.add(flt);
         }
+        if (!flts.isEmpty()) f.setFilters(flts);
         return f;
     }
 

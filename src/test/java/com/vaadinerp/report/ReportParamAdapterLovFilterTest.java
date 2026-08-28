@@ -27,6 +27,38 @@ class ReportParamAdapterLovFilterTest {
     }
 
     @Test
+    void mapsFilterListStaticAndField() {
+        ReportParamMeta p = new ReportParamMeta();
+        p.setParamName("cust");
+        p.setParamType("COMBOBOX");
+        p.setLovCode("MST_CST");
+
+        com.vaadinerp.meta.ReportParamFilterMeta s = new com.vaadinerp.meta.ReportParamFilterMeta();
+        s.setFilterColumn("custgroup");
+        s.setSourceType("STATIC");
+        s.setSourceName("Exp_3rd");
+        s.setComparisonOperator("=");
+        s.setLogicalOperator("AND");
+
+        com.vaadinerp.meta.ReportParamFilterMeta fld = new com.vaadinerp.meta.ReportParamFilterMeta();
+        fld.setFilterColumn("customerregion");
+        fld.setSourceType("FIELD");
+        fld.setSourceName("grup");
+        fld.setComparisonOperator("=");
+        fld.setLogicalOperator("AND");
+
+        p.getFilters().add(s);
+        p.getFilters().add(fld);
+
+        FieldMeta f = ReportParamAdapter.toFieldMeta(p);
+        assertThat(f.getFilters()).hasSize(2);
+        assertThat(f.getFilters().get(0).getSourceType()).isEqualTo("STATIC");
+        assertThat(f.getFilters().get(0).getSourceName()).isEqualTo("Exp_3rd");
+        assertThat(f.getFilters().get(1).getSourceType()).isEqualTo("FIELD");
+        assertThat(f.getFilters().get(1).getFilterColumn()).isEqualTo("customerregion");
+    }
+
+    @Test
     void noFilterWhenEmpty() {
         ReportParamMeta p = new ReportParamMeta();
         p.setParamName("x");

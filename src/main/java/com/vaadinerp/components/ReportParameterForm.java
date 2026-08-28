@@ -43,7 +43,40 @@ public class ReportParameterForm extends VerticalLayout {
             inputs.put(p.getParamName(), input);
             layout.add(input);
         }
+        // Terapkan filter LOV tiap parameter (STATIC + FIELD/cascading)
+        for (int i = 0; i < userParams.size(); i++) {
+            applyFilters(userParams.get(i), fields.get(i), dyn);
+        }
         add(layout);
+    }
+
+    /** Terapkan FieldFilterMeta ke komponen LOV parameter (meniru GenericFormView). */
+    private void applyFilters(ReportParamMeta p, FieldMeta f, DynamicDataService dyn) {
+        if (f.getFilters() == null || f.getFilters().isEmpty()) return;
+        Component target = inputs.get(p.getParamName());
+        if (!(target instanceof LovComboBox combo)) return;
+        int idx = 0;
+        for (com.vaadinerp.meta.FieldFilterMeta flt : f.getFilters()) {
+            String filterId = "pf_" + p.getParamName() + "_" + (idx++);
+            if ("FIELD".equalsIgnoreCase(flt.getSourceType())) {
+                Component src = inputs.get(flt.getSourceName());
+                if (src instanceof HasValue<?, ?> hv) {
+                    applyOne(combo, filterId, flt, hv.getValue());
+                    hv.addValueChangeListener(e -> {
+                        combo.clear();
+                        applyOne(combo, filterId, flt, hv.getValue());
+                    });
+                }
+            } else { // STATIC (default)
+                Object val = dyn != null ? dyn.resolveFilterKeyword(flt.getSourceName()) : flt.getSourceName();
+                applyOne(combo, filterId, flt, val);
+            }
+        }
+    }
+
+    private void applyOne(LovComboBox combo, String filterId, com.vaadinerp.meta.FieldFilterMeta flt, Object value) {
+        combo.setFilterValue(new FilterCondition(filterId, flt.getFilterColumn(), value,
+                flt.getLogicalOperator(), flt.getComparisonOperator()));
     }
 
     /** Kumpulkan nilai tiap input by paramName. */

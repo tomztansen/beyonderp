@@ -81,6 +81,15 @@ public class ReportDesignerView extends VerticalLayout {
             "CHECKBOX", "COMBOBOX", "LISTBOX", "CHOSENBOX", "BANDBOX");
     private static final List<String> PARAM_SOURCES = List.of("USER_INPUT", "FORM_FIELD", "SYSTEM");
 
+    // Shared, bounded, daemon pool for off-UI preview rendering (replaces per-click raw threads:
+    // won't delay JVM shutdown, rapid clicks queue instead of spawning unbounded threads).
+    private static final java.util.concurrent.ExecutorService PREVIEW_EXECUTOR =
+            java.util.concurrent.Executors.newFixedThreadPool(4, r -> {
+                Thread t = new Thread(r, "report-preview");
+                t.setDaemon(true);
+                return t;
+            });
+
     public ReportDesignerView(ReportMetaRepository reportMetaRepository,
                               FormMetaRepository formMetaRepository,
                               ReportResolver reportResolver,
@@ -336,15 +345,25 @@ public class ReportDesignerView extends VerticalLayout {
                 .setHeader("Operator").setEditorComponent(edOperator);
         pBinder.forField(edOperator).bind(ReportParamMeta::getOperator, ReportParamMeta::setOperator);
 
-        TextField edLovFilterCol = new TextField();
-        Grid.Column<ReportParamMeta> pColLovFCol = paramGrid.addColumn(ReportParamMeta::getLovFilterColumn)
-                .setHeader("LOV Filter Col").setEditorComponent(edLovFilterCol);
-        pBinder.forField(edLovFilterCol).bind(ReportParamMeta::getLovFilterColumn, ReportParamMeta::setLovFilterColumn);
+        // LOV Filter: expand-row (inline sub-grid) — dukung banyak filter STATIC/FIELD per parameter
+        paramGrid.addComponentColumn(p -> {
+            com.vaadin.flow.component.button.Button b =
+                    new com.vaadin.flow.component.button.Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
+            b.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE,
+                    com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
+            int n = (p.getFilters() != null) ? p.getFilters().size() : 0;
+            b.getElement().setAttribute("title", "LOV Filters" + (n > 0 ? " (" + n + ")" : ""));
+            if (n > 0) b.setText(String.valueOf(n));
+            b.addClickListener(e -> paramGrid.setDetailsVisible(p, !paramGrid.isDetailsVisible(p)));
+            return b;
+        }).setHeader("Filters").setWidth("90px").setFlexGrow(0);
 
-        TextField edLovFilterVal = new TextField();
-        Grid.Column<ReportParamMeta> pColLovFVal = paramGrid.addColumn(ReportParamMeta::getLovFilterValue)
-                .setHeader("LOV Filter Val").setEditorComponent(edLovFilterVal);
-        pBinder.forField(edLovFilterVal).bind(ReportParamMeta::getLovFilterValue, ReportParamMeta::setLovFilterValue);
+        paramGrid.setDetailsVisibleOnClick(false);
+        paramGrid.setItemDetailsRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(p ->
+                new com.vaadinerp.components.ParamFilterEditor(p, () ->
+                        paramState.stream().map(ReportParamMeta::getParamName)
+                                .filter(nm -> nm != null && !nm.equals(p.getParamName()))
+                                .collect(java.util.stream.Collectors.toList()))));
 
         // Same treatment as report list grid: filter header, sort, resize, clipboard, row-click select
         Map<Grid.Column<ReportParamMeta>, Function<ReportParamMeta, String>> pGetters = new LinkedHashMap<>();
@@ -358,8 +377,6 @@ public class ReportDesignerView extends VerticalLayout {
         pGetters.put(pColReq, p -> p.isRequired() ? "Yes" : "No");
         pGetters.put(pColFilter, p -> nz(p.getFilterColumn()));
         pGetters.put(pColOp, p -> nz(p.getOperator()));
-        pGetters.put(pColLovFCol, p -> nz(p.getLovFilterColumn()));
-        pGetters.put(pColLovFVal, p -> nz(p.getLovFilterValue()));
         this.paramReapply = StandardGridUtils.attachGridFilters(paramGrid, pGetters, () -> new ArrayList<>(paramState));
         StandardGridUtils.enableRowClickSelection(paramGrid);
 
@@ -467,6 +484,18 @@ public class ReportDesignerView extends VerticalLayout {
         c.setLovFilterColumn(s.getLovFilterColumn());
         c.setLovFilterValue(s.getLovFilterValue());
         c.setLovFilterOperator(s.getLovFilterOperator());
+        if (s.getFilters() != null) {
+            for (com.vaadinerp.meta.ReportParamFilterMeta sf : s.getFilters()) {
+                com.vaadinerp.meta.ReportParamFilterMeta cf = new com.vaadinerp.meta.ReportParamFilterMeta();
+                cf.setFilterColumn(sf.getFilterColumn());
+                cf.setSourceType(sf.getSourceType());
+                cf.setSourceName(sf.getSourceName());
+                cf.setComparisonOperator(sf.getComparisonOperator());
+                cf.setLogicalOperator(sf.getLogicalOperator());
+                cf.setParamMeta(c);
+                c.getFilters().add(cf);
+            }
+        }
         return c;
     }
 
@@ -504,6 +533,11 @@ public class ReportDesignerView extends VerticalLayout {
             ReportParamMeta p = paramState.get(i);
             p.setReportMeta(rep);
             p.setColOrder(i + 1);
+            if (p.getFilters() != null) {
+                p.getFilters().removeIf(fl -> fl.getFilterColumn() == null || fl.getFilterColumn().isBlank()
+                        || fl.getSourceName() == null || fl.getSourceName().isBlank());
+                for (com.vaadinerp.meta.ReportParamFilterMeta fl : p.getFilters()) fl.setParamMeta(p);
+            }
             rep.getParams().add(p);
         }
 
@@ -631,7 +665,7 @@ public class ReportDesignerView extends VerticalLayout {
         d.add(pb);
         d.open();
 
-        new Thread(() -> {
+        PREVIEW_EXECUTOR.submit(() -> {
             try {
                 com.vaadinerp.report.ReportRunResult res = reportRunService.run(report, params, true);
                 ui.access(() -> {
@@ -661,6 +695,6 @@ public class ReportDesignerView extends VerticalLayout {
                             "Failed to render report: " + (ex.getMessage() != null ? ex.getMessage() : ex)));
                 });
             }
-        }).start();
+        });
     }
 }

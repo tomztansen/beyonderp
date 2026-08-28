@@ -28,11 +28,14 @@ public class ReportDataService {
     private final NamedParameterJdbcTemplate npjt;
     private final FormMetaRepository formMetaRepository;
     private final DynamicDataService dynamicDataService;
+    private final int previewRows;
 
     public ReportDataService(DataSource dataSource,
                              @Value("${app.report.query-timeout-seconds:30}") int queryTimeoutSeconds,
+                             @Value("${app.report.preview-rows:500}") int previewRows,
                              FormMetaRepository formMetaRepository,
                              DynamicDataService dynamicDataService) {
+        this.previewRows = previewRows;
         // JdbcTemplate khusus report dengan query timeout — TIDAK memengaruhi JdbcTemplate app global.
         // Query runaway dibunuh di ~timeout → koneksi HikariCP cepat kembali → lindungi user lain.
         JdbcTemplate reportJt = new JdbcTemplate(dataSource);
@@ -100,7 +103,7 @@ public class ReportDataService {
         return null;
     }
 
-    public List<Map<String, Object>> fetchData(ReportMeta report, Map<String, Object> params) {
+    public List<Map<String, Object>> fetchData(ReportMeta report, Map<String, Object> params, boolean sample) {
         FormMeta form = findFormByTableName(report.getTableName());
 
         String sql = resolveBaseQuery(report, form, dynamicDataService);
@@ -116,6 +119,10 @@ public class ReportDataService {
         String whereB = buildModelBWhere(report.getParams(), params, bind);
         if (!whereB.isEmpty()) {
             sql = "SELECT * FROM ( " + sql + " ) AS _rpt" + whereB;
+        }
+        // Preview: batasi baris agar tidak menarik dataset penuh ke heap (previewRows dari config, bukan input user).
+        if (sample && previewRows > 0) {
+            sql = "SELECT * FROM ( " + sql + " ) AS _rpt_sample LIMIT " + previewRows;
         }
         // NamedParameterJdbcTemplate menangani cast PostgreSQL '::type' dengan benar (bukan parameter).
         MapSqlParameterSource src = new MapSqlParameterSource();
