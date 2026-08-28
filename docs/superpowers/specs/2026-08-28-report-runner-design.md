@@ -56,6 +56,13 @@ Unit kecil, dependency di-inject, bisa diuji terpisah.
 - **`ReportParamMeta`** (existing) + kolom baru untuk Model B:
   - `filter_column` VARCHAR — kolom DB yang difilter.
   - `operator` VARCHAR — `=`, `!=`, `LIKE`, `ILIKE`, `>=`, `<=`, `>`, `<`, `IN` (whitelist).
+- **`ReportParamMeta` — LOV Filter (reusable LOV):** agar satu LOV generik (mis. `MSCUSTOMER`)
+  bisa dipakai berbagai parameter dgn batasan berbeda, tambah:
+  - `lov_filter_column` VARCHAR — kolom LOV yang dibatasi (mis. `custgroup`).
+  - `lov_filter_value` VARCHAR — nilai STATIC (mis. `Exp_3rd`).
+  - `lov_filter_operator` VARCHAR — default `=` (whitelist).
+  Adapter (`ReportParamAdapter`) menerjemahkan ini ke `FieldMeta.filters` (`FieldFilterMeta`
+  sourceType=STATIC) sehingga ComboBox LOV hanya menampilkan baris yang cocok. Kosong = LOV penuh.
 - **Inferensi model:** param dengan `filterColumn` + `operator` terisi = **Model B** (bangun WHERE);
   selain itu = **Model A** (bind `:paramName` ke `dataQuery`). Range (Between) = **2 param** pada
   kolom sama (mis. `>=` dan `<=`).
@@ -73,9 +80,11 @@ Unit kecil, dependency di-inject, bisa diuji terpisah.
 - **Allowed Roles** — `MultiSelectComboBox<String>` items = daftar role (`app_role`). Kosong = hanya
   SUPER_ADMIN yang melihat report di runner.
 
-**Grid parameter** — 2 kolom inline-editable baru:
-- **Filter Column** — `TextField` (nama kolom DB).
-- **Operator** — `Select` (whitelist operator).
+**Grid parameter** — kolom inline-editable baru:
+- **Filter Column** — `TextField` (nama kolom DB, Model B).
+- **Operator** — `Select` (whitelist operator, Model B).
+- **LOV Filter Column** / **LOV Filter Value** — `TextField` (batasi LOV generik, mis.
+  `custgroup` = `Exp_3rd`). Reuse `FieldFilterMeta` (STATIC) via adapter.
 
 Save (single Save yang sudah ada) mem-persist field baru + `allowedRoles` (cascade/@ElementCollection).
 
