@@ -129,50 +129,7 @@ public class ReportBuilderView extends VerticalLayout {
         loadReportCombo.addValueChangeListener(event -> {
             ReportMeta selectedReport = event.getValue();
             if (selectedReport != null) {
-                reportCodeField.setValue(selectedReport.getReportCode() != null ? selectedReport.getReportCode() : "");
-                reportCodeField.setReadOnly(true);
-                reportTitleField.setValue(selectedReport.getReportTitle() != null ? selectedReport.getReportTitle() : "");
-                tableCombo.clear();
-                if (selectedReport.getTableName() != null && !selectedReport.getTableName().isEmpty()) {
-                    FormMeta form = formMetaRepository.findById(selectedReport.getTableName()).orElse(null);
-                    if (form != null) {
-                        tableCombo.setValue(form);
-                    }
-                }
-                dataQueryArea.setValue(selectedReport.getDataQuery() != null ? selectedReport.getDataQuery() : "");
-                
-                pageSizeSelect.setValue(selectedReport.getPageSize() != null ? selectedReport.getPageSize() : "A4");
-                orientationSelect.setValue(selectedReport.getOrientation() != null ? selectedReport.getOrientation() : "PORTRAIT");
-                engineTypeSelect.setValue(selectedReport.getEngineType() != null ? selectedReport.getEngineType() : "STANDARD");
-
-                // Load elements
-                elementsList.clear();
-                if (selectedReport.getElements() != null) {
-                    for (ReportElementMeta el : selectedReport.getElements()) {
-                        ReportElementMetaTemp temp = new ReportElementMetaTemp();
-                        temp.id = el.getId();
-                        temp.bandType = el.getBandType();
-                        temp.elementType = el.getElementType();
-                        temp.elementValue = el.getElementValue();
-                        temp.columnWidth = el.getColumnWidth() != null ? el.getColumnWidth() : "120px";
-                        temp.alignment = el.getAlignment() != null ? el.getAlignment() : "LEFT";
-                        temp.fontWeight = el.getFontWeight() != null ? el.getFontWeight() : "NORMAL";
-                        temp.formatPattern = el.getFormatPattern();
-                        temp.colOrder = el.getColOrder() != null ? el.getColOrder() : 0;
-                        elementsList.add(temp);
-                    }
-                }
-                selectElement(null);
-                rebuildCanvas();
-                
-                boolean isStimulsoft = "STIMULSOFT".equalsIgnoreCase(selectedReport.getEngineType());
-                if (isStimulsoft && selectedReport.getReportCode() != null) {
-                    stimulsoftIFrame.setSrc("/stimulsoft-java/designer?code=" + selectedReport.getReportCode());
-                } else {
-                    stimulsoftIFrame.setSrc("");
-                }
-                
-                Notification.show("Report loaded: " + selectedReport.getReportCode(), 3000, Notification.Position.TOP_CENTER);
+                applyReportToForm(selectedReport);
             }
         });
 
@@ -324,6 +281,59 @@ public class ReportBuilderView extends VerticalLayout {
 
         rebuildCanvas();
         selectElement(null);
+    }
+
+    /** Muat report tertentu ke dalam builder (dipakai saat di-embed dari Report Designer). */
+    public void loadReport(String code) {
+        if (code == null || code.trim().isEmpty()) return;
+        reportMetaRepository.findById(code).ifPresent(this::applyReportToForm);
+    }
+
+    /** Isi form + kanvas dari sebuah ReportMeta (dipakai listener combo dan loadReport). */
+    private void applyReportToForm(ReportMeta selectedReport) {
+        reportCodeField.setValue(selectedReport.getReportCode() != null ? selectedReport.getReportCode() : "");
+        reportCodeField.setReadOnly(true);
+        reportTitleField.setValue(selectedReport.getReportTitle() != null ? selectedReport.getReportTitle() : "");
+        tableCombo.clear();
+        if (selectedReport.getTableName() != null && !selectedReport.getTableName().isEmpty()) {
+            FormMeta form = formMetaRepository.findById(selectedReport.getTableName()).orElse(null);
+            if (form != null) {
+                tableCombo.setValue(form);
+            }
+        }
+        dataQueryArea.setValue(selectedReport.getDataQuery() != null ? selectedReport.getDataQuery() : "");
+
+        pageSizeSelect.setValue(selectedReport.getPageSize() != null ? selectedReport.getPageSize() : "A4");
+        orientationSelect.setValue(selectedReport.getOrientation() != null ? selectedReport.getOrientation() : "PORTRAIT");
+        engineTypeSelect.setValue(selectedReport.getEngineType() != null ? selectedReport.getEngineType() : "STANDARD");
+
+        elementsList.clear();
+        if (selectedReport.getElements() != null) {
+            for (ReportElementMeta el : selectedReport.getElements()) {
+                ReportElementMetaTemp temp = new ReportElementMetaTemp();
+                temp.id = el.getId();
+                temp.bandType = el.getBandType();
+                temp.elementType = el.getElementType();
+                temp.elementValue = el.getElementValue();
+                temp.columnWidth = el.getColumnWidth() != null ? el.getColumnWidth() : "120px";
+                temp.alignment = el.getAlignment() != null ? el.getAlignment() : "LEFT";
+                temp.fontWeight = el.getFontWeight() != null ? el.getFontWeight() : "NORMAL";
+                temp.formatPattern = el.getFormatPattern();
+                temp.colOrder = el.getColOrder() != null ? el.getColOrder() : 0;
+                elementsList.add(temp);
+            }
+        }
+        selectElement(null);
+        rebuildCanvas();
+
+        boolean isStimulsoft = "STIMULSOFT".equalsIgnoreCase(selectedReport.getEngineType());
+        if (isStimulsoft && selectedReport.getReportCode() != null) {
+            stimulsoftIFrame.setSrc("/stimulsoft-java/designer?code=" + selectedReport.getReportCode());
+        } else {
+            stimulsoftIFrame.setSrc("");
+        }
+
+        Notification.show("Report loaded: " + selectedReport.getReportCode(), 3000, Notification.Position.TOP_CENTER);
     }
 
     private void updateCanvasOrientation() {

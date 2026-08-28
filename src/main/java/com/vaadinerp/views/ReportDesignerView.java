@@ -459,9 +459,12 @@ public class ReportDesignerView extends VerticalLayout {
             designSurface.setFlexGrow(1, ifr);
         } else if ("JASPER".equalsIgnoreCase(engine)) {
             designSurface.add(new com.vaadin.flow.component.html.Span("Jasper upload is added in the next step."));
-        } else {
-            designSurface.add(new com.vaadin.flow.component.html.Span(
-                    "Standard reports are designed with band elements (Report Builder)."));
+        } else { // STANDARD — embed the band designer (Report Builder), pre-loaded
+            ReportBuilderView rb = new ReportBuilderView(reportMetaRepository, formMetaRepository, this::refreshGrid);
+            rb.setSizeFull();
+            rb.loadReport(report.getReportCode());
+            designSurface.add(rb);
+            designSurface.setFlexGrow(1, rb);
         }
         tabs.setSelectedIndex(1);
     }
