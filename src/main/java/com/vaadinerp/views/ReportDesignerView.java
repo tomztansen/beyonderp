@@ -50,6 +50,7 @@ public class ReportDesignerView extends VerticalLayout {
     private final VerticalLayout designSurface = new VerticalLayout();
 
     private Runnable reapplyFilters = () -> {};
+    private Runnable paramReapply = () -> {};
 
     // Editor state
     private String editingCode = null;
@@ -202,8 +203,8 @@ public class ReportDesignerView extends VerticalLayout {
         meta.setColspan(sourceCombo, 2);
         meta.setColspan(queryArea, 2);
 
-        // Inline-editable parameter grid (add row, edit cells, delete) — subform-like UX
-        paramGrid.setSelectionMode(Grid.SelectionMode.SINGLE);
+        // Inline-editable parameter grid with the SAME look/feel as the report list grid
+        paramGrid.setSelectionMode(Grid.SelectionMode.MULTI);
         paramGrid.setAllRowsVisible(true);
         com.vaadin.flow.data.binder.Binder<ReportParamMeta> pBinder =
                 new com.vaadin.flow.data.binder.Binder<>(ReportParamMeta.class);
@@ -211,38 +212,59 @@ public class ReportDesignerView extends VerticalLayout {
         paramGrid.getEditor().setBuffered(false);
 
         TextField edName = new TextField();
-        paramGrid.addColumn(ReportParamMeta::getParamName).setHeader("Name").setEditorComponent(edName);
+        Grid.Column<ReportParamMeta> pColName = paramGrid.addColumn(ReportParamMeta::getParamName)
+                .setHeader("Name").setEditorComponent(edName);
         pBinder.forField(edName).bind(ReportParamMeta::getParamName, ReportParamMeta::setParamName);
 
         TextField edLabel = new TextField();
-        paramGrid.addColumn(ReportParamMeta::getParamLabel).setHeader("Label").setEditorComponent(edLabel);
+        Grid.Column<ReportParamMeta> pColLabel = paramGrid.addColumn(ReportParamMeta::getParamLabel)
+                .setHeader("Label").setEditorComponent(edLabel);
         pBinder.forField(edLabel).bind(ReportParamMeta::getParamLabel, ReportParamMeta::setParamLabel);
 
         Select<String> edType = new Select<>();
         edType.setItems(COMPONENT_TYPES);
-        paramGrid.addColumn(ReportParamMeta::getParamType).setHeader("Type").setEditorComponent(edType);
+        Grid.Column<ReportParamMeta> pColType = paramGrid.addColumn(ReportParamMeta::getParamType)
+                .setHeader("Type").setEditorComponent(edType);
         pBinder.forField(edType).bind(ReportParamMeta::getParamType, ReportParamMeta::setParamType);
 
         TextField edLov = new TextField();
-        paramGrid.addColumn(ReportParamMeta::getLovCode).setHeader("LOV Code").setEditorComponent(edLov);
+        Grid.Column<ReportParamMeta> pColLov = paramGrid.addColumn(ReportParamMeta::getLovCode)
+                .setHeader("LOV Code").setEditorComponent(edLov);
         pBinder.forField(edLov).bind(ReportParamMeta::getLovCode, ReportParamMeta::setLovCode);
 
         Select<String> edSource = new Select<>();
         edSource.setItems(PARAM_SOURCES);
-        paramGrid.addColumn(ReportParamMeta::getSource).setHeader("Source").setEditorComponent(edSource);
+        Grid.Column<ReportParamMeta> pColSource = paramGrid.addColumn(ReportParamMeta::getSource)
+                .setHeader("Source").setEditorComponent(edSource);
         pBinder.forField(edSource).bind(ReportParamMeta::getSource, ReportParamMeta::setSource);
 
         TextField edSourceKey = new TextField();
-        paramGrid.addColumn(ReportParamMeta::getSourceKey).setHeader("Source Key").setEditorComponent(edSourceKey);
+        Grid.Column<ReportParamMeta> pColKey = paramGrid.addColumn(ReportParamMeta::getSourceKey)
+                .setHeader("Source Key").setEditorComponent(edSourceKey);
         pBinder.forField(edSourceKey).bind(ReportParamMeta::getSourceKey, ReportParamMeta::setSourceKey);
 
         TextField edDefault = new TextField();
-        paramGrid.addColumn(ReportParamMeta::getDefaultValue).setHeader("Default").setEditorComponent(edDefault);
+        Grid.Column<ReportParamMeta> pColDef = paramGrid.addColumn(ReportParamMeta::getDefaultValue)
+                .setHeader("Default").setEditorComponent(edDefault);
         pBinder.forField(edDefault).bind(ReportParamMeta::getDefaultValue, ReportParamMeta::setDefaultValue);
 
         Checkbox edRequired = new Checkbox();
-        paramGrid.addColumn(p -> p.isRequired() ? "Yes" : "No").setHeader("Required").setEditorComponent(edRequired);
+        Grid.Column<ReportParamMeta> pColReq = paramGrid.addColumn(p -> p.isRequired() ? "Yes" : "No")
+                .setHeader("Required").setEditorComponent(edRequired);
         pBinder.forField(edRequired).bind(ReportParamMeta::isRequired, ReportParamMeta::setRequired);
+
+        // Same treatment as report list grid: filter header, sort, resize, clipboard, row-click select
+        Map<Grid.Column<ReportParamMeta>, Function<ReportParamMeta, String>> pGetters = new LinkedHashMap<>();
+        pGetters.put(pColName, p -> nz(p.getParamName()));
+        pGetters.put(pColLabel, p -> nz(p.getParamLabel()));
+        pGetters.put(pColType, p -> nz(p.getParamType()));
+        pGetters.put(pColLov, p -> nz(p.getLovCode()));
+        pGetters.put(pColSource, p -> nz(p.getSource()));
+        pGetters.put(pColKey, p -> nz(p.getSourceKey()));
+        pGetters.put(pColDef, p -> nz(p.getDefaultValue()));
+        pGetters.put(pColReq, p -> p.isRequired() ? "Yes" : "No");
+        this.paramReapply = StandardGridUtils.attachGridFilters(paramGrid, pGetters, () -> new ArrayList<>(paramState));
+        StandardGridUtils.enableRowClickSelection(paramGrid);
 
         // Double-click a row to edit; editor writes back live (unbuffered)
         paramGrid.addItemDoubleClickListener(e -> paramGrid.getEditor().editItem(e.getItem()));
@@ -255,21 +277,23 @@ public class ReportDesignerView extends VerticalLayout {
                 np.setParamType("TEXTBOX");
                 np.setSource("USER_INPUT");
                 paramState.add(np);
-                paramGrid.setItems(paramState);
+                paramReapply.run();
                 paramGrid.getEditor().editItem(np);
             }),
             tbBtn("Remove Parameter", com.vaadin.flow.component.icon.VaadinIcon.TRASH, e -> {
-                ReportParamMeta sel = paramGrid.asSingleSelect().getValue();
-                if (sel == null) { Notification.show("Please select a parameter."); return; }
+                java.util.Set<ReportParamMeta> sel = paramGrid.getSelectedItems();
+                if (sel.isEmpty()) { Notification.show("Please select a parameter."); return; }
                 if (paramGrid.getEditor().isOpen()) paramGrid.getEditor().cancel();
-                paramState.remove(sel);
-                paramGrid.setItems(paramState);
-            })
+                paramState.removeAll(sel);
+                paramReapply.run();
+            }),
+            StandardGridUtils.createExportExcelButton(paramGrid, "report_parameters")
         );
         paramToolbar.setPadding(false);
 
         HorizontalLayout editorToolbar = new HorizontalLayout(
             tbBtn("Save", com.vaadin.flow.component.icon.VaadinIcon.DOWNLOAD, e -> saveReport()),
+            tbBtn("Cancel", com.vaadin.flow.component.icon.VaadinIcon.BAN, e -> cancelEdit()),
             tbBtn("Back to List", com.vaadin.flow.component.icon.VaadinIcon.ARROW_LEFT,
                     e -> { refreshGrid(); tabs.setSelectedIndex(0); })
         );
@@ -315,8 +339,17 @@ public class ReportDesignerView extends VerticalLayout {
                 for (ReportParamMeta p : report.getParams()) paramState.add(cloneParam(p));
             }
         }
-        paramGrid.setItems(paramState);
+        paramReapply.run();
         tabs.setSelectedIndex(1);
+    }
+
+    private void cancelEdit() {
+        if (editingCode != null) {
+            reportMetaRepository.findById(editingCode).ifPresent(this::openEditor);
+        } else {
+            openEditor(null);
+        }
+        Notification.show("Unsaved changes discarded.");
     }
 
     private ReportParamMeta cloneParam(ReportParamMeta s) {
