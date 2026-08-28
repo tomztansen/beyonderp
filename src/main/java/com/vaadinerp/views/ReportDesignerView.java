@@ -41,6 +41,9 @@ public class ReportDesignerView extends VerticalLayout {
     private final ReportMetaRepository reportMetaRepository;
     private final FormMetaRepository formMetaRepository;
     private final ReportResolver reportResolver;
+    private final com.vaadinerp.report.ReportRunService reportRunService;
+    private final com.vaadinerp.report.JasperUploadService jasperUploadService;
+    private final com.vaadinerp.security.service.SessionSecurityService securityService;
 
     private final Grid<ReportMeta> grid = new Grid<>(ReportMeta.class, false);
     private final TabSheet tabs = new TabSheet();
@@ -76,10 +79,16 @@ public class ReportDesignerView extends VerticalLayout {
 
     public ReportDesignerView(ReportMetaRepository reportMetaRepository,
                               FormMetaRepository formMetaRepository,
-                              ReportResolver reportResolver) {
+                              ReportResolver reportResolver,
+                              com.vaadinerp.report.ReportRunService reportRunService,
+                              com.vaadinerp.report.JasperUploadService jasperUploadService,
+                              com.vaadinerp.security.service.SessionSecurityService securityService) {
         this.reportMetaRepository = reportMetaRepository;
         this.formMetaRepository = formMetaRepository;
         this.reportResolver = reportResolver;
+        this.reportRunService = reportRunService;
+        this.jasperUploadService = jasperUploadService;
+        this.securityService = securityService;
         setSizeFull();
 
         setupGrid();
@@ -476,7 +485,7 @@ public class ReportDesignerView extends VerticalLayout {
             designSurface.add(ifr);
             designSurface.setFlexGrow(1, ifr);
         } else if ("JASPER".equalsIgnoreCase(engine)) {
-            designSurface.add(new com.vaadin.flow.component.html.Span("Jasper upload is added in the next step."));
+            designSurface.add(buildJasperUpload(report.getReportCode()));
         } else { // STANDARD — embed band designer (canvas only); the single top toolbar Save persists it
             ReportBuilderView rb = new ReportBuilderView(reportMetaRepository, formMetaRepository, this::refreshGrid);
             rb.setEmbeddedMode(true);
@@ -489,5 +498,89 @@ public class ReportDesignerView extends VerticalLayout {
         tabs.setSelectedIndex(1);
     }
 
-    private void preview(ReportMeta report) { /* Task 6 */ }
+    private com.vaadin.flow.component.Component buildJasperUpload(String code) {
+        com.vaadin.flow.component.upload.receivers.MemoryBuffer buffer =
+                new com.vaadin.flow.component.upload.receivers.MemoryBuffer();
+        com.vaadin.flow.component.upload.Upload upload = new com.vaadin.flow.component.upload.Upload(buffer);
+        upload.setAcceptedFileTypes(".jasper", ".jrxml");
+        upload.setMaxFiles(1);
+        upload.addSucceededListener(e -> {
+            try {
+                byte[] bytes = buffer.getInputStream().readAllBytes();
+                jasperUploadService.saveUpload(code, e.getFileName(), bytes);
+                Notification.show("Template uploaded: " + e.getFileName());
+            } catch (Exception ex) {
+                Notification.show(ex.getMessage() != null ? ex.getMessage() : "Upload failed");
+            }
+        });
+        VerticalLayout box = new VerticalLayout(
+                new com.vaadin.flow.component.html.H4("Jasper Template Upload"),
+                new com.vaadin.flow.component.html.Span(
+                        "Upload a .jasper (compiled) or .jrxml (source, validated on upload), authored in "
+                        + "JasperSoft Studio matching the runtime JasperReports version."),
+                upload);
+        box.setPadding(false);
+        return box;
+    }
+
+    private void preview(ReportMeta report) {
+        String user = (securityService != null && securityService.getCurrentUser() != null)
+                ? securityService.getCurrentUser().getUsername() : null;
+        Map<String, Object> params = new java.util.HashMap<>(
+                ReportParamResolver.resolveAuto(report.getParams(), java.util.Map.of(), user));
+        if (report.getParams() != null) {
+            for (ReportParamMeta p : report.getParams()) {
+                params.putIfAbsent(p.getParamName(), p.getDefaultValue()); // ensure all :params bound for preview
+            }
+        }
+
+        if ("STIMULSOFT".equalsIgnoreCase(engineOf(report))) {
+            com.vaadinerp.report.ReportRunResult res = reportRunService.run(report, params, true);
+            getUI().ifPresent(ui -> ui.getPage().open(res.viewerUrl(), "_blank"));
+            return;
+        }
+
+        // Standard / Jasper: render off the UI thread, show in a dialog when ready
+        UI ui = UI.getCurrent();
+        com.vaadin.flow.component.dialog.Dialog d = new com.vaadin.flow.component.dialog.Dialog();
+        d.setHeaderTitle("Preview: " + report.getReportCode());
+        d.setWidth("80vw");
+        d.setHeight("80vh");
+        com.vaadin.flow.component.progressbar.ProgressBar pb = new com.vaadin.flow.component.progressbar.ProgressBar();
+        pb.setIndeterminate(true);
+        d.add(pb);
+        d.open();
+
+        new Thread(() -> {
+            try {
+                com.vaadinerp.report.ReportRunResult res = reportRunService.run(report, params, true);
+                ui.access(() -> {
+                    d.removeAll();
+                    com.vaadinerp.report.render.ReportOutput out = res.output();
+                    if (out.contentType().startsWith("text/html")) {
+                        d.add(new com.vaadin.flow.component.html.Html("<div style=\"overflow:auto\">"
+                                + new String(out.bytes(), java.nio.charset.StandardCharsets.UTF_8) + "</div>"));
+                    } else {
+                        String b64 = java.util.Base64.getEncoder().encodeToString(out.bytes());
+                        IFrame ifr = new IFrame("data:" + out.contentType() + ";base64," + b64);
+                        ifr.setSizeFull();
+                        d.add(ifr);
+                        d.setFlexGrow(1, ifr);
+                    }
+                });
+            } catch (org.springframework.dao.QueryTimeoutException te) {
+                ui.access(() -> {
+                    d.removeAll();
+                    d.add(new com.vaadin.flow.component.html.Span(
+                            "The report query took too long and was stopped. Please narrow your filter/parameters."));
+                });
+            } catch (Exception ex) {
+                ui.access(() -> {
+                    d.removeAll();
+                    d.add(new com.vaadin.flow.component.html.Span(
+                            "Failed to render report: " + (ex.getMessage() != null ? ex.getMessage() : ex)));
+                });
+            }
+        }).start();
+    }
 }
