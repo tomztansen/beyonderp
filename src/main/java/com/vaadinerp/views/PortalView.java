@@ -1072,6 +1072,25 @@ public class PortalView extends AppLayout {
         return copyNum;
     }
 
+    /** Buka Component arbitrer (mis. output report) sebagai tab tertutup. Re-open dengan id sama = refresh. */
+    public void openComponentTab(String tabId, String title, Component content) {
+        if (openTabs.containsKey(tabId)) {
+            closeTabById(tabId); // refresh isi
+        }
+        Div header = new Div();
+        header.getStyle().set("display", "flex").set("align-items", "center").set("gap", "6px");
+        Span titleSpan = new Span(title);
+        titleSpan.getStyle().set("font-size", "0.9rem").set("margin-right", "6px");
+        Icon closeIcon = VaadinIcon.CLOSE_SMALL.create();
+        closeIcon.setSize("14px");
+        closeIcon.getStyle().set("cursor", "pointer").set("color", "#64748b");
+        header.add(titleSpan, closeIcon);
+        Tab tab = tabSheet.add(header, content);
+        openTabs.put(tabId, tab);
+        closeIcon.addClickListener(e -> closeTabById(tabId));
+        tabSheet.setSelectedTab(tab);
+    }
+
     public void closeTabById(String tabId) {
         Tab tab = openTabs.remove(tabId);
         if (tab != null) {

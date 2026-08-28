@@ -1,16 +1,18 @@
 package com.vaadinerp.views;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.accordion.Accordion;
+import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H4;
+import com.vaadin.flow.component.html.IFrame;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.server.StreamRegistration;
-import com.vaadin.flow.server.StreamResource;
 import com.vaadinerp.components.ReportParameterForm;
 import com.vaadinerp.components.SafeButton;
 import com.vaadinerp.meta.ReportMeta;
@@ -21,13 +23,13 @@ import com.vaadinerp.report.render.ReportOutput;
 import com.vaadinerp.service.DynamicDataService;
 import com.vaadinerp.security.service.SessionSecurityService;
 
-import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/** Layar end-user menjalankan report: katalog (kiri) + selection (kanan). Output dibuka di tab baru. */
+/** Layar end-user menjalankan report: katalog (kiri) + selection (kanan). Output dibuka sebagai tab di aplikasi. */
 @Route("report-runner")
-public class ReportRunnerView extends HorizontalLayout {
+public class ReportRunnerView extends VerticalLayout {
 
     private final ReportMetaRepository reportMetaRepository;
     private final ReportAccessService reportAccessService;
@@ -53,6 +55,7 @@ public class ReportRunnerView extends HorizontalLayout {
         this.securityService = securityService;
         setSizeFull();
         setPadding(false);
+        setSpacing(false);
 
         searchField.setPlaceholder("Search report...");
         searchField.setWidthFull();
@@ -62,17 +65,18 @@ public class ReportRunnerView extends HorizontalLayout {
         catalog.setPadding(false);
         catalog.setSpacing(false);
         VerticalLayout left = new VerticalLayout(new H4("Reports"), searchField, catalog);
-        left.setWidth("320px");
-        left.setHeightFull();
-        left.getStyle().set("overflow", "auto").set("border-right", "1px solid #e2e8f0");
+        left.setSizeFull();
+        left.getStyle().set("overflow", "auto");
 
         selectionPanel.setPadding(true);
-        selectionPanel.setHeightFull();
+        selectionPanel.setSizeFull();
         selectionPanel.getStyle().set("overflow", "auto");
         selectionPanel.add(new Span("Select a report from the catalog."));
 
-        add(left, selectionPanel);
-        setFlexGrow(1, selectionPanel);
+        SplitLayout split = new SplitLayout(left, selectionPanel);
+        split.setSizeFull();
+        split.setSplitterPosition(24);
+        add(split);
         rebuildCatalog("");
     }
 
@@ -124,9 +128,10 @@ public class ReportRunnerView extends HorizontalLayout {
             selectionPanel.add(d);
         }
         paramForm = new ReportParameterForm(report.getParams(), dynamicDataService);
+        paramForm.setMaxWidth("520px");
         selectionPanel.add(paramForm);
 
-        SafeButton run = new SafeButton("Run (open in new tab)", e -> runReport(report));
+        SafeButton run = new SafeButton("Run", e -> runReport(report));
         run.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
         SafeButton reset = new SafeButton("Reset", e -> selectReport(report));
         selectionPanel.add(new HorizontalLayout(run, reset));
@@ -151,26 +156,68 @@ public class ReportRunnerView extends HorizontalLayout {
             }
         }
 
-        UI ui = UI.getCurrent();
         try {
             ReportRunResult res = reportRunService.run(report, values, false);
-            if (res.stimulsoftViewer()) {
-                ui.getPage().open(res.viewerUrl(), "_blank");
+            Component content = buildOutput(res);
+            PortalView portal = findPortal();
+            if (portal == null) {
+                Notification.show("Cannot find app shell to open output tab.");
                 return;
             }
-            // Standard/Jasper: serve the rendered output and open it in a new tab
-            ReportOutput out = res.output();
-            String ext = out.contentType().startsWith("application/pdf") ? ".pdf" : ".html";
-            StreamResource sr = new StreamResource(report.getReportCode() + ext,
-                    () -> new ByteArrayInputStream(out.bytes()));
-            sr.setContentType(out.contentType());
-            sr.setCacheTime(0);
-            StreamRegistration reg = ui.getSession().getResourceRegistry().registerResource(sr);
-            ui.getPage().open(reg.getResourceUri().toString(), "_blank");
+            String title = report.getReportTitle() != null ? report.getReportTitle() : report.getReportCode();
+            portal.openComponentTab("RPT_OUT_" + report.getReportCode(), title, content);
         } catch (org.springframework.dao.QueryTimeoutException te) {
             Notification.show("The report query took too long and was stopped. Please narrow your filter/parameters.");
         } catch (Exception ex) {
             Notification.show("Failed to run report: " + (ex.getMessage() != null ? ex.getMessage() : ex.toString()));
         }
+    }
+
+    private Component buildOutput(ReportRunResult res) {
+        VerticalLayout box = new VerticalLayout();
+        box.setSizeFull();
+        box.setPadding(false);
+        box.setSpacing(false);
+        if (res.stimulsoftViewer()) {
+            IFrame ifr = new IFrame(res.viewerUrl());
+            ifr.setSizeFull();
+            ifr.getStyle().set("border", "none");
+            box.add(ifr);
+            box.setFlexGrow(1, ifr);
+            return box;
+        }
+        ReportOutput out = res.output();
+        if (out.contentType().startsWith("text/html")) {
+            Div d = new Div();
+            d.getElement().setProperty("innerHTML", new String(out.bytes(), StandardCharsets.UTF_8));
+            d.setSizeFull();
+            d.getStyle().set("overflow", "auto");
+            box.add(d);
+            box.setFlexGrow(1, d);
+        } else {
+            String b64 = Base64.getEncoder().encodeToString(out.bytes());
+            IFrame ifr = new IFrame("data:" + out.contentType() + ";base64," + b64);
+            ifr.setSizeFull();
+            ifr.getStyle().set("border", "none");
+            box.add(ifr);
+            box.setFlexGrow(1, ifr);
+        }
+        return box;
+    }
+
+    /** Cari PortalView (app shell) untuk membuka tab: naik parent, fallback ke children UI. */
+    private PortalView findPortal() {
+        Component c = this;
+        while (c != null) {
+            if (c instanceof PortalView pv) return pv;
+            c = c.getParent().orElse(null);
+        }
+        UI ui = UI.getCurrent();
+        if (ui != null) {
+            for (Component child : ui.getChildren().toList()) {
+                if (child instanceof PortalView pv) return pv;
+            }
+        }
+        return null;
     }
 }
