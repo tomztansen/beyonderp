@@ -18,6 +18,7 @@ import com.vaadinerp.components.SafeButton;
 import com.vaadinerp.components.StandardGridUtils;
 import com.vaadinerp.meta.FormMeta;
 import com.vaadinerp.meta.FormMetaRepository;
+import com.vaadinerp.meta.ReportElementMeta;
 import com.vaadinerp.meta.ReportMeta;
 import com.vaadinerp.meta.ReportMetaRepository;
 import com.vaadinerp.meta.ReportParamMeta;
@@ -56,6 +57,7 @@ public class ReportDesignerView extends VerticalLayout {
     // Editor state
     private String editingCode = null;
     private final List<ReportParamMeta> paramState = new ArrayList<>();
+    private ReportBuilderView embeddedBuilder = null; // active only during STANDARD design
 
     // Metadata inputs
     private final TextField codeField = new TextField("Report Code");
@@ -317,13 +319,20 @@ public class ReportDesignerView extends VerticalLayout {
     }
 
     private void showForm() {
+        embeddedBuilder = null;
         designSurface.setVisible(false);
         designSurface.removeAll();
         editorForm.setVisible(true);
     }
 
     private void openEditor(ReportMeta report) {
+        loadReportState(report);
         showForm();
+        tabs.setSelectedIndex(1);
+    }
+
+    /** Load metadata + parameters into the editor state (shared by Edit and Design). */
+    private void loadReportState(ReportMeta report) {
         paramState.clear();
         if (report == null) {
             editingCode = null;
@@ -350,7 +359,6 @@ public class ReportDesignerView extends VerticalLayout {
             }
         }
         paramReapply.run();
-        tabs.setSelectedIndex(1);
     }
 
     private void cancelEdit() {
@@ -410,6 +418,17 @@ public class ReportDesignerView extends VerticalLayout {
             rep.getParams().add(p);
         }
 
+        // Band elements from the embedded STANDARD designer (single Save covers everything).
+        // When not designing (embeddedBuilder == null), existing elements are left untouched.
+        if (embeddedBuilder != null) {
+            if (rep.getElements() == null) rep.setElements(new ArrayList<>());
+            rep.getElements().clear();
+            for (ReportElementMeta el : embeddedBuilder.collectElements()) {
+                el.setReportMeta(rep);
+                rep.getElements().add(el);
+            }
+        }
+
         try {
             reportMetaRepository.save(rep);
             editingCode = rep.getReportCode();
@@ -443,12 +462,11 @@ public class ReportDesignerView extends VerticalLayout {
     }
 
     private void openDesigner(ReportMeta report) {
+        loadReportState(report);     // load metadata+params so the single top Save persists everything
+        embeddedBuilder = null;
         editorForm.setVisible(false);
         designSurface.removeAll();
         designSurface.setVisible(true);
-
-        designSurface.add(new HorizontalLayout(
-            new SafeButton("Back to List", e -> { showForm(); refreshGrid(); tabs.setSelectedIndex(0); })));
 
         String engine = engineOf(report);
         if ("STIMULSOFT".equalsIgnoreCase(engine)) {
@@ -459,10 +477,12 @@ public class ReportDesignerView extends VerticalLayout {
             designSurface.setFlexGrow(1, ifr);
         } else if ("JASPER".equalsIgnoreCase(engine)) {
             designSurface.add(new com.vaadin.flow.component.html.Span("Jasper upload is added in the next step."));
-        } else { // STANDARD — embed the band designer (Report Builder), pre-loaded
+        } else { // STANDARD — embed band designer (canvas only); the single top toolbar Save persists it
             ReportBuilderView rb = new ReportBuilderView(reportMetaRepository, formMetaRepository, this::refreshGrid);
-            rb.setSizeFull();
+            rb.setEmbeddedMode(true);
             rb.loadReport(report.getReportCode());
+            rb.setSizeFull();
+            embeddedBuilder = rb;
             designSurface.add(rb);
             designSurface.setFlexGrow(1, rb);
         }
