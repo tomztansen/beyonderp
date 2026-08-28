@@ -70,6 +70,10 @@ public class ReportDesignerView extends VerticalLayout {
     private final Select<String> pageSelect = new Select<>();
     private final Select<String> orientSelect = new Select<>();
     private final Select<String> engineSelect = new Select<>();
+    private final ComboBox<String> categoryCombo = new ComboBox<>("Category");
+    private final TextArea descriptionArea = new TextArea("Description");
+    private final com.vaadin.flow.component.combobox.MultiSelectComboBox<String> rolesSelect =
+            new com.vaadin.flow.component.combobox.MultiSelectComboBox<>("Allowed Roles");
     private final Grid<ReportParamMeta> paramGrid = new Grid<>(ReportParamMeta.class, false);
 
     private static final List<String> COMPONENT_TYPES = List.of(
@@ -224,8 +228,21 @@ public class ReportDesignerView extends VerticalLayout {
         engineSelect.setItems("STANDARD", "STIMULSOFT", "JASPER");
         engineSelect.setValue("STANDARD");
 
-        FormLayout meta = new FormLayout(codeField, titleField, sourceCombo, queryArea,
-                pageSelect, orientSelect, engineSelect);
+        categoryCombo.setAllowCustomValue(true);
+        categoryCombo.setItems(reportMetaRepository.findAll().stream()
+                .map(ReportMeta::getCategory).filter(c -> c != null && !c.isBlank()).distinct().sorted().toList());
+        categoryCombo.addCustomValueSetListener(e -> categoryCombo.setValue(e.getDetail()));
+        descriptionArea.setMinHeight("60px");
+        try {
+            rolesSelect.setItems(com.vaadinerp.config.SpringContextHolder
+                    .getBean(com.vaadinerp.security.repository.AppRoleRepository.class)
+                    .findAll().stream().map(com.vaadinerp.security.entity.AppRole::getRoleCode)
+                    .filter(java.util.Objects::nonNull).sorted().toList());
+        } catch (Exception ignored) {}
+        rolesSelect.setHelperText("Empty = only SUPER_ADMIN can run this report");
+
+        FormLayout meta = new FormLayout(codeField, titleField, categoryCombo, sourceCombo, queryArea,
+                descriptionArea, rolesSelect, pageSelect, orientSelect, engineSelect);
         meta.setResponsiveSteps(
                 new FormLayout.ResponsiveStep("0", 1),
                 new FormLayout.ResponsiveStep("600px", 2),
@@ -233,6 +250,8 @@ public class ReportDesignerView extends VerticalLayout {
         meta.setColspan(titleField, 3);
         meta.setColspan(sourceCombo, 2);
         meta.setColspan(queryArea, 2);
+        meta.setColspan(descriptionArea, 2);
+        meta.setColspan(rolesSelect, 2);
 
         // Inline-editable parameter grid with the SAME look/feel as the report list grid
         paramGrid.setSelectionMode(Grid.SelectionMode.MULTI);
@@ -284,6 +303,17 @@ public class ReportDesignerView extends VerticalLayout {
                 .setHeader("Required").setEditorComponent(edRequired);
         pBinder.forField(edRequired).bind(ReportParamMeta::isRequired, ReportParamMeta::setRequired);
 
+        TextField edFilterCol = new TextField();
+        Grid.Column<ReportParamMeta> pColFilter = paramGrid.addColumn(ReportParamMeta::getFilterColumn)
+                .setHeader("Filter Column").setEditorComponent(edFilterCol);
+        pBinder.forField(edFilterCol).bind(ReportParamMeta::getFilterColumn, ReportParamMeta::setFilterColumn);
+
+        Select<String> edOperator = new Select<>();
+        edOperator.setItems("", "=", "!=", "LIKE", "ILIKE", ">=", "<=", ">", "<", "IN");
+        Grid.Column<ReportParamMeta> pColOp = paramGrid.addColumn(ReportParamMeta::getOperator)
+                .setHeader("Operator").setEditorComponent(edOperator);
+        pBinder.forField(edOperator).bind(ReportParamMeta::getOperator, ReportParamMeta::setOperator);
+
         // Same treatment as report list grid: filter header, sort, resize, clipboard, row-click select
         Map<Grid.Column<ReportParamMeta>, Function<ReportParamMeta, String>> pGetters = new LinkedHashMap<>();
         pGetters.put(pColName, p -> nz(p.getParamName()));
@@ -294,6 +324,8 @@ public class ReportDesignerView extends VerticalLayout {
         pGetters.put(pColKey, p -> nz(p.getSourceKey()));
         pGetters.put(pColDef, p -> nz(p.getDefaultValue()));
         pGetters.put(pColReq, p -> p.isRequired() ? "Yes" : "No");
+        pGetters.put(pColFilter, p -> nz(p.getFilterColumn()));
+        pGetters.put(pColOp, p -> nz(p.getOperator()));
         this.paramReapply = StandardGridUtils.attachGridFilters(paramGrid, pGetters, () -> new ArrayList<>(paramState));
         StandardGridUtils.enableRowClickSelection(paramGrid);
 
@@ -353,6 +385,9 @@ public class ReportDesignerView extends VerticalLayout {
             pageSelect.setValue("A4");
             orientSelect.setValue("PORTRAIT");
             engineSelect.setValue("STANDARD");
+            categoryCombo.clear();
+            descriptionArea.clear();
+            rolesSelect.clear();
         } else {
             editingCode = report.getReportCode();
             codeField.setValue(nz(report.getReportCode()));
@@ -363,6 +398,9 @@ public class ReportDesignerView extends VerticalLayout {
             pageSelect.setValue(report.getPageSize() != null ? report.getPageSize() : "A4");
             orientSelect.setValue(report.getOrientation() != null ? report.getOrientation() : "PORTRAIT");
             engineSelect.setValue(engineOf(report));
+            categoryCombo.setValue(report.getCategory());
+            descriptionArea.setValue(nz(report.getDescription()));
+            rolesSelect.setValue(report.getAllowedRoles() != null ? report.getAllowedRoles() : java.util.Set.of());
             if (report.getParams() != null) {
                 for (ReportParamMeta p : report.getParams()) paramState.add(cloneParam(p));
             }
@@ -390,6 +428,8 @@ public class ReportDesignerView extends VerticalLayout {
         c.setDefaultValue(s.getDefaultValue());
         c.setRequired(s.isRequired());
         c.setColOrder(s.getColOrder());
+        c.setFilterColumn(s.getFilterColumn());
+        c.setOperator(s.getOperator());
         return c;
     }
 
@@ -417,6 +457,9 @@ public class ReportDesignerView extends VerticalLayout {
         rep.setPageSize(pageSelect.getValue());
         rep.setOrientation(orientSelect.getValue());
         rep.setEngineType(engineSelect.getValue());
+        rep.setCategory(categoryCombo.getValue() == null || categoryCombo.getValue().isBlank() ? null : categoryCombo.getValue().trim());
+        rep.setDescription(descriptionArea.getValue() == null || descriptionArea.getValue().isBlank() ? null : descriptionArea.getValue());
+        rep.setAllowedRoles(new java.util.HashSet<>(rolesSelect.getValue()));
 
         if (rep.getParams() == null) rep.setParams(new ArrayList<>());
         rep.getParams().clear(); // orphanRemoval deletes the old ones
