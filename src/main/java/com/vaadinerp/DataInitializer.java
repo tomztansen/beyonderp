@@ -1145,7 +1145,7 @@ public class DataInitializer implements CommandLineRunner {
                             "('STANDARD_FORMAT', 'Konfigurasi Format Standar', 'standard-format', 'SLIDERS', 'GRP_DEV_TOOLS', 40, 'ITEM'), "
                             +
                             // === Report children ===
-                            "('REPORT_BUILDER', 'Report Designer', 'report-builder', 'EDIT', 'GRP_REPORTS', 10, 'ITEM'), "
+                            "('REPORT_DESIGNER', 'Report Designer', 'report-designer', 'EDIT', 'GRP_REPORTS', 10, 'ITEM'), "
                             +
                             "('REPORT_VIEWER', 'Report Viewer', 'report-viewer', 'PRINT', 'GRP_REPORTS', 20, 'ITEM'), "
                             +

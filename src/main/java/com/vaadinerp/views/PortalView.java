@@ -684,7 +684,11 @@ public class PortalView extends AppLayout {
                 yield fb;
             }
             case "DB_EXPLORER" -> new DbExplorerView(dynamicDataService, securityService);
-            case "REPORT_BUILDER" -> new ReportBuilderView(reportMetaRepository, formMetaRepository);
+            case "REPORT_DESIGNER" -> new ReportDesignerView(reportMetaRepository, formMetaRepository,
+                    com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportResolver.class),
+                    com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportRunService.class),
+                    com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.JasperUploadService.class),
+                    securityService);
             case "REPORT_VIEWER" -> new ReportViewerView(reportMetaRepository, dynamicDataService);
             case "LOV_BUILDER" -> new LovBuilderView(lovMetaRepository, dynamicDataService);
             case "FORM_ACTION_BUILDER" -> new FormActionBuilderView(dynamicDataService.getFormActionMetaRepository(),
