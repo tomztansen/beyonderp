@@ -50,6 +50,42 @@ public class ReportDataService {
                 .findFirst().orElse(null);
     }
 
+    /**
+     * Bangun WHERE dari parameter Model B (filterColumn + operator + nilai). Param tanpa
+     * filterColumn/operator (=Model A) atau tanpa nilai dilewati. Nilai di-bind ke outBind
+     * (LIKE/ILIKE dibungkus %..%; IN → = ANY). Operator & kolom divalidasi.
+     */
+    public static String buildModelBWhere(List<com.vaadinerp.meta.ReportParamMeta> params,
+                                          Map<String, Object> values, Map<String, Object> outBind) {
+        if (params == null || params.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        for (com.vaadinerp.meta.ReportParamMeta p : params) {
+            String col = p.getFilterColumn();
+            String opRaw = p.getOperator();
+            if (col == null || col.isBlank() || opRaw == null || opRaw.isBlank()) continue;
+            Object val = values != null ? values.get(p.getParamName()) : null;
+            if (val == null || (val instanceof String s && s.isBlank())) continue;
+
+            DynamicDataService.validateSqlIdentifier(col, "filter column");
+            String name = p.getParamName();
+            sb.append(sb.length() == 0 ? " WHERE " : " AND ");
+            if ("IN".equalsIgnoreCase(opRaw.trim())) {
+                sb.append(col).append(" = ANY(:").append(name).append(")");
+                outBind.put(name, val);
+            } else {
+                String op = DynamicDataService.validateComparisonOperator(opRaw);
+                sb.append(col).append(" ").append(op).append(" :").append(name);
+                if ("LIKE".equals(op) || "ILIKE".equals(op)) {
+                    String s = val.toString();
+                    outBind.put(name, s.contains("%") ? s : "%" + s + "%");
+                } else {
+                    outBind.put(name, val);
+                }
+            }
+        }
+        return sb.toString();
+    }
+
     /** Urutan datasource: dataQuery → form.viewTable → SELECT * FROM {qualified tableName}. Pure. */
     public static String resolveBaseQuery(ReportMeta report, FormMeta form, DynamicDataService dyn) {
         if (report.getDataQuery() != null && !report.getDataQuery().trim().isEmpty()) {
@@ -74,9 +110,16 @@ public class ReportDataService {
         sql = DynamicDataService.validateAndSanitizeSelectQuery(
                 dynamicDataService.resolveSqlKeywords(sql));
 
+        // Bind Model A (:param di query) + Model B (WHERE dari filterColumn/operator).
+        Map<String, Object> bind = new HashMap<>();
+        if (params != null) params.forEach(bind::put);
+        String whereB = buildModelBWhere(report.getParams(), params, bind);
+        if (!whereB.isEmpty()) {
+            sql = "SELECT * FROM ( " + sql + " ) AS _rpt" + whereB;
+        }
         // NamedParameterJdbcTemplate menangani cast PostgreSQL '::type' dengan benar (bukan parameter).
         MapSqlParameterSource src = new MapSqlParameterSource();
-        if (params != null) params.forEach(src::addValue);
+        bind.forEach(src::addValue);
 
         List<Map<String, Object>> rows = npjt.queryForList(sql, src);
         return enrichLov(form, rows);
