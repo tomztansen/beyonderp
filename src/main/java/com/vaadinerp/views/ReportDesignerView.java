@@ -102,8 +102,9 @@ public class ReportDesignerView extends VerticalLayout {
         Grid.Column<ReportMeta> colTitle = grid.addColumn(ReportMeta::getReportTitle).setHeader("Title");
         Grid.Column<ReportMeta> colEngine = grid.addColumn(this::engineOf).setHeader("Engine");
         Grid.Column<ReportMeta> colSource = grid.addColumn(ReportMeta::getTableName).setHeader("Source");
-        grid.setSelectionMode(Grid.SelectionMode.SINGLE);
+        grid.setSelectionMode(Grid.SelectionMode.MULTI); // kolom centang seperti grid form
         grid.setSizeFull();
+        grid.addItemDoubleClickListener(e -> openEditor(e.getItem())); // double-click = edit
 
         Map<Grid.Column<ReportMeta>, Function<ReportMeta, String>> colGetters = new LinkedHashMap<>();
         colGetters.put(colCode, r -> nz(r.getReportCode()));
@@ -111,20 +112,29 @@ public class ReportDesignerView extends VerticalLayout {
         colGetters.put(colEngine, this::engineOf);
         colGetters.put(colSource, r -> nz(r.getTableName()));
         this.reapplyFilters = StandardGridUtils.attachGridFilters(grid, colGetters, reportMetaRepository::findAll);
-        StandardGridUtils.enableRowClickSelection(grid);
         refreshGrid();
+    }
+
+    private SafeButton tbBtn(String text, com.vaadin.flow.component.icon.VaadinIcon icon,
+                            com.vaadin.flow.component.ComponentEventListener<
+                                    com.vaadin.flow.component.ClickEvent<com.vaadin.flow.component.button.Button>> listener) {
+        SafeButton b = new SafeButton(text, listener);
+        b.setIcon(icon.create());
+        b.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
+        return b;
     }
 
     private VerticalLayout buildListLayout() {
         HorizontalLayout toolbar = new HorizontalLayout(
-            new SafeButton("New", e -> openEditor(null)),
-            new SafeButton("Edit", e -> withSelected(this::openEditor)),
-            new SafeButton("Design", e -> withSelected(this::openDesigner)),
-            new SafeButton("Delete", e -> withSelected(this::deleteReport)),
-            new SafeButton("Preview", e -> withSelected(this::preview)),
-            new SafeButton("Refresh", e -> refreshGrid()),
+            tbBtn("New", com.vaadin.flow.component.icon.VaadinIcon.PLUS_CIRCLE, e -> openEditor(null)),
+            tbBtn("Edit", com.vaadin.flow.component.icon.VaadinIcon.EDIT, e -> withSelected(this::openEditor)),
+            tbBtn("Design", com.vaadin.flow.component.icon.VaadinIcon.MAGIC, e -> withSelected(this::openDesigner)),
+            tbBtn("Delete", com.vaadin.flow.component.icon.VaadinIcon.CLOSE_CIRCLE, e -> withSelected(this::deleteReport)),
+            tbBtn("Preview", com.vaadin.flow.component.icon.VaadinIcon.EYE, e -> withSelected(this::preview)),
+            tbBtn("Refresh", com.vaadin.flow.component.icon.VaadinIcon.REFRESH, e -> refreshGrid()),
             StandardGridUtils.createExportExcelButton(grid, "report_list")
         );
+        toolbar.setPadding(true);
         VerticalLayout listLayout = new VerticalLayout(toolbar, grid);
         listLayout.setSizeFull();
         return listLayout;
@@ -151,12 +161,12 @@ public class ReportDesignerView extends VerticalLayout {
     }
 
     private void withSelected(java.util.function.Consumer<ReportMeta> action) {
-        ReportMeta sel = grid.asSingleSelect().getValue();
-        if (sel == null) {
+        java.util.Set<ReportMeta> sel = grid.getSelectedItems();
+        if (sel.isEmpty()) {
             Notification.show("Please select a report first.");
             return;
         }
-        action.accept(sel);
+        action.accept(sel.iterator().next());
     }
 
     // ---------- Editor form (built once) ----------
