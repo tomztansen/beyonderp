@@ -43,6 +43,7 @@ public class ReportDesignerView extends VerticalLayout {
 
     private final Grid<ReportMeta> grid = new Grid<>(ReportMeta.class, false);
     private final TabSheet tabs = new TabSheet();
+    private final HorizontalLayout mainToolbar = new HorizontalLayout();
 
     // Editor tab has two toggled containers: the definition form and the design surface.
     private final VerticalLayout editorTab = new VerticalLayout();
@@ -89,10 +90,45 @@ public class ReportDesignerView extends VerticalLayout {
         designSurface.setVisible(false);
         editorTab.add(editorForm, designSurface);
 
-        tabs.add("Report List", buildListLayout());
+        VerticalLayout listLayout = new VerticalLayout(grid);
+        listLayout.setSizeFull();
+        listLayout.setPadding(false);
+        tabs.add("Report List", listLayout);
         tabs.add("Editor", editorTab);
         tabs.setSizeFull();
-        add(tabs);
+
+        mainToolbar.setWidthFull();
+        mainToolbar.setPadding(true);
+        mainToolbar.setSpacing(true);
+        tabs.addSelectedChangeListener(e -> updateToolbar());
+        updateToolbar();
+
+        setPadding(false);
+        add(mainToolbar, tabs);
+        setFlexGrow(1, tabs);
+    }
+
+    /** One toolbar above the tabs (like GenericFormView), contents depend on the active tab. */
+    private void updateToolbar() {
+        mainToolbar.removeAll();
+        if (tabs.getSelectedIndex() == 1) { // Editor tab
+            mainToolbar.add(
+                tbBtn("Save", com.vaadin.flow.component.icon.VaadinIcon.DOWNLOAD, e -> saveReport()),
+                tbBtn("Cancel", com.vaadin.flow.component.icon.VaadinIcon.BAN, e -> cancelEdit()),
+                tbBtn("Back to List", com.vaadin.flow.component.icon.VaadinIcon.ARROW_LEFT,
+                        e -> { showForm(); refreshGrid(); tabs.setSelectedIndex(0); })
+            );
+        } else { // Report List tab
+            mainToolbar.add(
+                tbBtn("New", com.vaadin.flow.component.icon.VaadinIcon.PLUS_CIRCLE, e -> openEditor(null)),
+                tbBtn("Edit", com.vaadin.flow.component.icon.VaadinIcon.EDIT, e -> withSelected(this::openEditor)),
+                tbBtn("Design", com.vaadin.flow.component.icon.VaadinIcon.MAGIC, e -> withSelected(this::openDesigner)),
+                tbBtn("Delete", com.vaadin.flow.component.icon.VaadinIcon.CLOSE_CIRCLE, e -> withSelected(this::deleteReport)),
+                tbBtn("Preview", com.vaadin.flow.component.icon.VaadinIcon.EYE, e -> withSelected(this::preview)),
+                tbBtn("Refresh", com.vaadin.flow.component.icon.VaadinIcon.REFRESH, e -> refreshGrid()),
+                StandardGridUtils.createExportExcelButton(grid, "report_list")
+            );
+        }
     }
 
     // ---------- Report list ----------
@@ -123,22 +159,6 @@ public class ReportDesignerView extends VerticalLayout {
         b.setIcon(icon.create());
         b.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
         return b;
-    }
-
-    private VerticalLayout buildListLayout() {
-        HorizontalLayout toolbar = new HorizontalLayout(
-            tbBtn("New", com.vaadin.flow.component.icon.VaadinIcon.PLUS_CIRCLE, e -> openEditor(null)),
-            tbBtn("Edit", com.vaadin.flow.component.icon.VaadinIcon.EDIT, e -> withSelected(this::openEditor)),
-            tbBtn("Design", com.vaadin.flow.component.icon.VaadinIcon.MAGIC, e -> withSelected(this::openDesigner)),
-            tbBtn("Delete", com.vaadin.flow.component.icon.VaadinIcon.CLOSE_CIRCLE, e -> withSelected(this::deleteReport)),
-            tbBtn("Preview", com.vaadin.flow.component.icon.VaadinIcon.EYE, e -> withSelected(this::preview)),
-            tbBtn("Refresh", com.vaadin.flow.component.icon.VaadinIcon.REFRESH, e -> refreshGrid()),
-            StandardGridUtils.createExportExcelButton(grid, "report_list")
-        );
-        toolbar.setPadding(true);
-        VerticalLayout listLayout = new VerticalLayout(toolbar, grid);
-        listLayout.setSizeFull();
-        return listLayout;
     }
 
     private String engineOf(ReportMeta r) {
@@ -291,18 +311,8 @@ public class ReportDesignerView extends VerticalLayout {
         );
         paramToolbar.setPadding(false);
 
-        HorizontalLayout editorToolbar = new HorizontalLayout(
-            tbBtn("Save", com.vaadin.flow.component.icon.VaadinIcon.DOWNLOAD, e -> saveReport()),
-            tbBtn("Cancel", com.vaadin.flow.component.icon.VaadinIcon.BAN, e -> cancelEdit()),
-            tbBtn("Back to List", com.vaadin.flow.component.icon.VaadinIcon.ARROW_LEFT,
-                    e -> { refreshGrid(); tabs.setSelectedIndex(0); })
-        );
-        editorToolbar.setWidthFull();
-        editorToolbar.setPadding(true);
-        editorToolbar.setSpacing(false);
-
         editorForm.setPadding(false);
-        editorForm.add(editorToolbar, new com.vaadin.flow.component.html.H4("Report Definition"), meta,
+        editorForm.add(new com.vaadin.flow.component.html.H4("Report Definition"), meta,
                 new com.vaadin.flow.component.html.H4("Parameters"), paramToolbar, paramGrid);
     }
 
