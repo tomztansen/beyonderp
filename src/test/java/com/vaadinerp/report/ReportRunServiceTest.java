@@ -34,7 +34,7 @@ class ReportRunServiceTest {
         r.setReportCode("PO");
         r.setEngineType("STANDARD");
 
-        when(data.fetchData(eq(r), anyMap())).thenReturn(List.<Map<String, Object>>of());
+        when(data.fetchData(eq(r), anyMap(), anyBoolean())).thenReturn(List.<Map<String, Object>>of());
         ReportRenderer standard = new ReportRenderer() {
             public String engine() { return "STANDARD"; }
             public ReportOutput render(ReportContext c) { return ReportOutput.html("<p>ok</p>"); }

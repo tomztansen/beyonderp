@@ -43,7 +43,7 @@ public class ReportRunService {
             return ReportRunResult.stimulsoft(url.toString());
         }
 
-        List<Map<String, Object>> data = dataService.fetchData(report, params);
+        List<Map<String, Object>> data = dataService.fetchData(report, params, sample);
         File template = "STANDARD".equalsIgnoreCase(engine)
                 ? null
                 : resolver.resolveMasterTemplate(report.getReportCode(), engine, report.getTemplatePath());

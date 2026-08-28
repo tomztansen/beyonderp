@@ -67,4 +67,9 @@ public class ReportParamMeta extends BaseAuditableEntity {
 
     @Column(name = "lov_filter_operator", length = 10)
     private String lovFilterOperator;
+
+    /** Filter LOV multi (STATIC + FIELD/cascading). Menggantikan lov_filter_* datar. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @OneToMany(mappedBy = "paramMeta", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
+    private java.util.List<ReportParamFilterMeta> filters = new java.util.ArrayList<>();
 }
