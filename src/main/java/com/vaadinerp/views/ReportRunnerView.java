@@ -4,14 +4,13 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.accordion.Accordion;
 import com.vaadin.flow.component.html.H4;
 import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.html.IFrame;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.progressbar.ProgressBar;
-import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.StreamRegistration;
+import com.vaadin.flow.server.StreamResource;
 import com.vaadinerp.components.ReportParameterForm;
 import com.vaadinerp.components.SafeButton;
 import com.vaadinerp.meta.ReportMeta;
@@ -22,11 +21,11 @@ import com.vaadinerp.report.render.ReportOutput;
 import com.vaadinerp.service.DynamicDataService;
 import com.vaadinerp.security.service.SessionSecurityService;
 
-import java.nio.charset.StandardCharsets;
+import java.io.ByteArrayInputStream;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/** Layar end-user menjalankan report: katalog (kiri) + selection + output (kanan). */
+/** Layar end-user menjalankan report: katalog (kiri) + selection (kanan). Output dibuka di tab baru. */
 @Route("report-runner")
 public class ReportRunnerView extends HorizontalLayout {
 
@@ -39,7 +38,6 @@ public class ReportRunnerView extends HorizontalLayout {
     private final VerticalLayout catalog = new VerticalLayout();
     private final TextField searchField = new TextField();
     private final VerticalLayout selectionPanel = new VerticalLayout();
-    private final VerticalLayout outputPanel = new VerticalLayout();
 
     private ReportParameterForm paramForm;
 
@@ -56,7 +54,6 @@ public class ReportRunnerView extends HorizontalLayout {
         setSizeFull();
         setPadding(false);
 
-        // Left: search + catalog
         searchField.setPlaceholder("Search report...");
         searchField.setWidthFull();
         searchField.setClearButtonVisible(true);
@@ -69,17 +66,13 @@ public class ReportRunnerView extends HorizontalLayout {
         left.setHeightFull();
         left.getStyle().set("overflow", "auto").set("border-right", "1px solid #e2e8f0");
 
-        // Right: selection + output
         selectionPanel.setPadding(true);
-        outputPanel.setPadding(true);
-        outputPanel.setSizeFull();
-        SplitLayout right = new SplitLayout(selectionPanel, outputPanel);
-        right.setOrientation(SplitLayout.Orientation.VERTICAL);
-        right.setSplitterPosition(30);
-        right.setSizeFull();
+        selectionPanel.setHeightFull();
+        selectionPanel.getStyle().set("overflow", "auto");
+        selectionPanel.add(new Span("Select a report from the catalog."));
 
-        add(left, right);
-        setFlexGrow(1, right);
+        add(left, selectionPanel);
+        setFlexGrow(1, selectionPanel);
         rebuildCatalog("");
     }
 
@@ -124,7 +117,6 @@ public class ReportRunnerView extends HorizontalLayout {
 
     private void selectReport(ReportMeta report) {
         selectionPanel.removeAll();
-        outputPanel.removeAll();
         selectionPanel.add(new H4(report.getReportTitle() != null ? report.getReportTitle() : report.getReportCode()));
         if (report.getDescription() != null && !report.getDescription().isBlank()) {
             Span d = new Span(report.getDescription());
@@ -134,7 +126,7 @@ public class ReportRunnerView extends HorizontalLayout {
         paramForm = new ReportParameterForm(report.getParams(), dynamicDataService);
         selectionPanel.add(paramForm);
 
-        SafeButton run = new SafeButton("Run", e -> runReport(report));
+        SafeButton run = new SafeButton("Run (open in new tab)", e -> runReport(report));
         run.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
         SafeButton reset = new SafeButton("Reset", e -> selectReport(report));
         selectionPanel.add(new HorizontalLayout(run, reset));
@@ -159,54 +151,26 @@ public class ReportRunnerView extends HorizontalLayout {
             }
         }
 
-        outputPanel.removeAll();
-        if ("STIMULSOFT".equalsIgnoreCase(report.getEngineType() != null ? report.getEngineType() : "STANDARD")) {
-            ReportRunResult res = reportRunService.run(report, values, false);
-            IFrame ifr = new IFrame(res.viewerUrl());
-            ifr.setSizeFull();
-            ifr.getStyle().set("border", "none");
-            outputPanel.add(ifr);
-            outputPanel.setFlexGrow(1, ifr);
-            return;
-        }
-
-        ProgressBar pb = new ProgressBar();
-        pb.setIndeterminate(true);
-        outputPanel.add(pb);
         UI ui = UI.getCurrent();
-        new Thread(() -> {
-            try {
-                ReportRunResult res = reportRunService.run(report, values, false);
-                ReportOutput out = res.output();
-                ui.access(() -> {
-                    outputPanel.removeAll();
-                    HorizontalLayout bar = new HorizontalLayout(
-                            new SafeButton("Print", e -> ui.getPage().executeJs("window.print()")));
-                    outputPanel.add(bar);
-                    if (out.contentType().startsWith("text/html")) {
-                        outputPanel.add(new com.vaadin.flow.component.Html("<div style=\"overflow:auto;width:100%\">"
-                                + new String(out.bytes(), StandardCharsets.UTF_8) + "</div>"));
-                    } else {
-                        String b64 = Base64.getEncoder().encodeToString(out.bytes());
-                        IFrame ifr = new IFrame("data:" + out.contentType() + ";base64," + b64);
-                        ifr.setSizeFull();
-                        ifr.setHeight("70vh");
-                        outputPanel.add(ifr);
-                    }
-                });
-            } catch (org.springframework.dao.QueryTimeoutException te) {
-                ui.access(() -> {
-                    outputPanel.removeAll();
-                    outputPanel.add(new Span("The report query took too long and was stopped. "
-                            + "Please narrow your filter/parameters."));
-                });
-            } catch (Exception ex) {
-                ui.access(() -> {
-                    outputPanel.removeAll();
-                    outputPanel.add(new Span("Failed to run report: "
-                            + (ex.getMessage() != null ? ex.getMessage() : ex.toString())));
-                });
+        try {
+            ReportRunResult res = reportRunService.run(report, values, false);
+            if (res.stimulsoftViewer()) {
+                ui.getPage().open(res.viewerUrl(), "_blank");
+                return;
             }
-        }).start();
+            // Standard/Jasper: serve the rendered output and open it in a new tab
+            ReportOutput out = res.output();
+            String ext = out.contentType().startsWith("application/pdf") ? ".pdf" : ".html";
+            StreamResource sr = new StreamResource(report.getReportCode() + ext,
+                    () -> new ByteArrayInputStream(out.bytes()));
+            sr.setContentType(out.contentType());
+            sr.setCacheTime(0);
+            StreamRegistration reg = ui.getSession().getResourceRegistry().registerResource(sr);
+            ui.getPage().open(reg.getResourceUri().toString(), "_blank");
+        } catch (org.springframework.dao.QueryTimeoutException te) {
+            Notification.show("The report query took too long and was stopped. Please narrow your filter/parameters.");
+        } catch (Exception ex) {
+            Notification.show("Failed to run report: " + (ex.getMessage() != null ? ex.getMessage() : ex.toString()));
+        }
     }
 }

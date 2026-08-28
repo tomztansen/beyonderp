@@ -1147,7 +1147,7 @@ public class DataInitializer implements CommandLineRunner {
                             // === Report children ===
                             "('REPORT_DESIGNER', 'Report Designer', 'report-designer', 'EDIT', 'GRP_REPORTS', 10, 'ITEM'), "
                             +
-                            "('REPORT_VIEWER', 'Report Viewer', 'report-viewer', 'PRINT', 'GRP_REPORTS', 20, 'ITEM'), "
+                            "('REPORT_RUNNER', 'Run Report', 'report-runner', 'PLAY', 'GRP_REPORTS', 20, 'ITEM'), "
                             +
                             // === Sistem & Keamanan children ===
                             "('SECURITY_ADMIN', 'Security & Authority Admin', 'security-admin', 'SHIELD', 'GRP_SYSTEM', 10, 'ITEM'), "
@@ -1246,7 +1246,7 @@ public class DataInitializer implements CommandLineRunner {
                     "INSERT INTO public.app_role_menu_permissions (role_code, menu_code, can_add, can_edit, can_delete, can_print) VALUES "
                             +
                             "('STAFF', 'DB_EXPLORER', FALSE, FALSE, FALSE, TRUE), " +
-                            "('STAFF', 'REPORT_VIEWER', FALSE, FALSE, FALSE, TRUE), " +
+                            "('STAFF', 'REPORT_RUNNER', FALSE, FALSE, FALSE, TRUE), " +
                             "('STAFF', 'FIELD_AUDIT_LOG', FALSE, FALSE, FALSE, TRUE)");
         }
         try {
