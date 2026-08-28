@@ -527,7 +527,7 @@ public class ReportDesignerView extends VerticalLayout {
         String user = (securityService != null && securityService.getCurrentUser() != null)
                 ? securityService.getCurrentUser().getUsername() : null;
         Map<String, Object> params = new java.util.HashMap<>(
-                ReportParamResolver.resolveAuto(report.getParams(), java.util.Map.of(), user));
+                com.vaadinerp.report.ReportParamResolver.resolveAuto(report.getParams(), java.util.Map.of(), user));
         if (report.getParams() != null) {
             for (ReportParamMeta p : report.getParams()) {
                 params.putIfAbsent(p.getParamName(), p.getDefaultValue()); // ensure all :params bound for preview
@@ -541,7 +541,7 @@ public class ReportDesignerView extends VerticalLayout {
         }
 
         // Standard / Jasper: render off the UI thread, show in a dialog when ready
-        UI ui = UI.getCurrent();
+        com.vaadin.flow.component.UI ui = com.vaadin.flow.component.UI.getCurrent();
         com.vaadin.flow.component.dialog.Dialog d = new com.vaadin.flow.component.dialog.Dialog();
         d.setHeaderTitle("Preview: " + report.getReportCode());
         d.setWidth("80vw");
@@ -558,14 +558,14 @@ public class ReportDesignerView extends VerticalLayout {
                     d.removeAll();
                     com.vaadinerp.report.render.ReportOutput out = res.output();
                     if (out.contentType().startsWith("text/html")) {
-                        d.add(new com.vaadin.flow.component.html.Html("<div style=\"overflow:auto\">"
+                        d.add(new com.vaadin.flow.component.Html("<div style=\"overflow:auto\">"
                                 + new String(out.bytes(), java.nio.charset.StandardCharsets.UTF_8) + "</div>"));
                     } else {
                         String b64 = java.util.Base64.getEncoder().encodeToString(out.bytes());
                         IFrame ifr = new IFrame("data:" + out.contentType() + ";base64," + b64);
                         ifr.setSizeFull();
+                        ifr.setHeight("70vh");
                         d.add(ifr);
-                        d.setFlexGrow(1, ifr);
                     }
                 });
             } catch (org.springframework.dao.QueryTimeoutException te) {
