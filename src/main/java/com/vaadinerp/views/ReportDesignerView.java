@@ -138,6 +138,14 @@ public class ReportDesignerView extends VerticalLayout {
         return s != null ? s : "";
     }
 
+    /** Cari FormMeta by tableName tanpa mengasumsikan unik (findByTableName melempar bila >1). */
+    private FormMeta findFormByTableName(String tableName) {
+        if (tableName == null || tableName.isBlank()) return null;
+        return formMetaRepository.findAll().stream()
+                .filter(f -> tableName.equalsIgnoreCase(f.getTableName()))
+                .findFirst().orElse(null);
+    }
+
     private void refreshGrid() {
         reapplyFilters.run();
     }
@@ -240,8 +248,7 @@ public class ReportDesignerView extends VerticalLayout {
             codeField.setValue(nz(report.getReportCode()));
             codeField.setReadOnly(true);
             titleField.setValue(nz(report.getReportTitle()));
-            sourceCombo.setValue(report.getTableName() != null
-                    ? formMetaRepository.findByTableName(report.getTableName()).orElse(null) : null);
+            sourceCombo.setValue(findFormByTableName(report.getTableName()));
             queryArea.setValue(nz(report.getDataQuery()));
             pageSelect.setValue(report.getPageSize() != null ? report.getPageSize() : "A4");
             orientSelect.setValue(report.getOrientation() != null ? report.getOrientation() : "PORTRAIT");
