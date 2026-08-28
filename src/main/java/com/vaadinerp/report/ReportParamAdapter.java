@@ -19,6 +19,17 @@ public final class ReportParamAdapter {
         f.setRequired(p.isRequired());
         f.setLovCode(p.getLovCode());
         f.setComponentType(resolveComponentType(p.getParamType(), p.getLovCode()));
+        if (p.getLovFilterColumn() != null && !p.getLovFilterColumn().isBlank()
+                && p.getLovFilterValue() != null && !p.getLovFilterValue().isBlank()) {
+            com.vaadinerp.meta.FieldFilterMeta flt = new com.vaadinerp.meta.FieldFilterMeta();
+            flt.setFilterColumn(p.getLovFilterColumn().trim());
+            flt.setSourceType("STATIC");
+            flt.setSourceName(p.getLovFilterValue().trim());
+            flt.setComparisonOperator((p.getLovFilterOperator() != null && !p.getLovFilterOperator().isBlank())
+                    ? p.getLovFilterOperator().trim() : "=");
+            flt.setLogicalOperator("AND");
+            f.setFilters(new java.util.ArrayList<>(java.util.List.of(flt)));
+        }
         return f;
     }
 
