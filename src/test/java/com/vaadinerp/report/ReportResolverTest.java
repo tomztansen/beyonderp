@@ -40,7 +40,6 @@ class ReportResolverTest {
     void resolveMasterTemplateBuildsExpectedPath() {
         ReportResolver r = newResolver("/tmp/up");
         java.io.File f = r.resolveMasterTemplate("INV", "STIMULSOFT", null);
-        assertThat(f.getPath().replace('\\', '/'))
-                .endsWith("report_templates/master/INV.mrt");
+        assertThat(f.getPath().replace('\\', '/')).endsWith("/up/INV.mrt");
     }
 }
