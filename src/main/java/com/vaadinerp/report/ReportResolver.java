@@ -54,7 +54,8 @@ public class ReportResolver {
         if (ext == null) {
             throw new IllegalStateException("Engine " + engineType + " has no template file");
         }
-        File dir = new File(new File(uploadDir, "report_templates"), "master");
-        return new File(dir, code + "." + ext);
+        // Flat path uploads/{code}.{ext} — konsisten dengan lokasi .mrt yang dipakai
+        // StimulsoftJavaController, sehingga Stimulsoft + Jasper + delete memakai lokasi sama.
+        return new File(uploadDir, code + "." + ext);
     }
 }
