@@ -36,6 +36,18 @@ public class ReportMeta extends BaseAuditableEntity {
     @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.LONGVARCHAR)
     private String dataQuery;
 
+    @Column(name = "category", length = 50)
+    private String category;
+
+    @Column(name = "description", length = 500)
+    private String description;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "meta_report_role", schema = "public",
+            joinColumns = @JoinColumn(name = "report_code"))
+    @Column(name = "role_code")
+    private java.util.Set<String> allowedRoles = new java.util.HashSet<>();
+
     @OneToMany(mappedBy = "reportMeta", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @OrderBy("colOrder ASC")
     private List<ReportParamMeta> params;

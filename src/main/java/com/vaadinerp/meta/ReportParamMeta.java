@@ -49,4 +49,12 @@ public class ReportParamMeta extends BaseAuditableEntity {
 
     @Column(name = "required")
     private boolean required = false;
+
+    /** Model B: kolom DB yang difilter. */
+    @Column(name = "filter_column", length = 100)
+    private String filterColumn;
+
+    /** Model B: operator perbandingan (=, LIKE, ILIKE, IN, >=, <=, ...). */
+    @Column(name = "operator", length = 20)
+    private String operator;
 }
