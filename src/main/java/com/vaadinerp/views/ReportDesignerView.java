@@ -149,10 +149,15 @@ public class ReportDesignerView extends VerticalLayout {
     // ---------- Report list ----------
 
     private void setupGrid() {
-        Grid.Column<ReportMeta> colCode = grid.addColumn(ReportMeta::getReportCode).setHeader("Code");
-        Grid.Column<ReportMeta> colTitle = grid.addColumn(ReportMeta::getReportTitle).setHeader("Title");
-        Grid.Column<ReportMeta> colEngine = grid.addColumn(this::engineOf).setHeader("Engine");
-        Grid.Column<ReportMeta> colSource = grid.addColumn(ReportMeta::getTableName).setHeader("Source");
+        Grid.Column<ReportMeta> colCode = grid.addColumn(ReportMeta::getReportCode).setHeader("Code").setAutoWidth(true);
+        Grid.Column<ReportMeta> colTitle = grid.addColumn(ReportMeta::getReportTitle).setHeader("Title").setAutoWidth(true);
+        Grid.Column<ReportMeta> colEngine = grid.addColumn(this::engineOf).setHeader("Engine").setAutoWidth(true);
+        Grid.Column<ReportMeta> colSource = grid.addColumn(ReportMeta::getTableName).setHeader("Source").setAutoWidth(true);
+        Grid.Column<ReportMeta> colCategory = grid.addColumn(ReportMeta::getCategory).setHeader("Category").setAutoWidth(true);
+        Grid.Column<ReportMeta> colPage = grid.addColumn(ReportMeta::getPageSize).setHeader("Page Size").setAutoWidth(true);
+        Grid.Column<ReportMeta> colOrient = grid.addColumn(ReportMeta::getOrientation).setHeader("Orientation").setAutoWidth(true);
+        Grid.Column<ReportMeta> colRoles = grid.addColumn(this::rolesText).setHeader("Roles").setAutoWidth(true);
+        Grid.Column<ReportMeta> colDesc = grid.addColumn(ReportMeta::getDescription).setHeader("Description").setAutoWidth(true);
         grid.setSelectionMode(Grid.SelectionMode.MULTI); // kolom centang seperti grid form
         grid.setSizeFull();
         grid.addItemDoubleClickListener(e -> openEditor(e.getItem())); // double-click = edit
@@ -162,6 +167,11 @@ public class ReportDesignerView extends VerticalLayout {
         colGetters.put(colTitle, r -> nz(r.getReportTitle()));
         colGetters.put(colEngine, this::engineOf);
         colGetters.put(colSource, r -> nz(r.getTableName()));
+        colGetters.put(colCategory, r -> nz(r.getCategory()));
+        colGetters.put(colPage, r -> nz(r.getPageSize()));
+        colGetters.put(colOrient, r -> nz(r.getOrientation()));
+        colGetters.put(colRoles, this::rolesText);
+        colGetters.put(colDesc, r -> nz(r.getDescription()));
         this.reapplyFilters = StandardGridUtils.attachGridFilters(grid, colGetters, reportMetaRepository::findAll);
         StandardGridUtils.enableRowClickSelection(grid); // klik sel → row terselect (seperti grid form)
         refreshGrid();
@@ -182,6 +192,11 @@ public class ReportDesignerView extends VerticalLayout {
 
     private String nz(String s) {
         return s != null ? s : "";
+    }
+
+    private String rolesText(ReportMeta r) {
+        return r.getAllowedRoles() == null || r.getAllowedRoles().isEmpty()
+                ? "" : String.join(", ", r.getAllowedRoles());
     }
 
     /** Cari FormMeta by tableName tanpa mengasumsikan unik (findByTableName melempar bila >1). */
@@ -277,7 +292,14 @@ public class ReportDesignerView extends VerticalLayout {
                 .setHeader("Type").setEditorComponent(edType);
         pBinder.forField(edType).bind(ReportParamMeta::getParamType, ReportParamMeta::setParamType);
 
-        TextField edLov = new TextField();
+        ComboBox<String> edLov = new ComboBox<>();
+        edLov.setClearButtonVisible(true);
+        try {
+            edLov.setItems(com.vaadinerp.config.SpringContextHolder
+                    .getBean(com.vaadinerp.meta.LovMetaRepository.class)
+                    .findAll().stream().map(com.vaadinerp.meta.LovMeta::getLovCode)
+                    .filter(java.util.Objects::nonNull).sorted().toList());
+        } catch (Exception ignored) {}
         Grid.Column<ReportParamMeta> pColLov = paramGrid.addColumn(ReportParamMeta::getLovCode)
                 .setHeader("LOV Code").setEditorComponent(edLov);
         pBinder.forField(edLov).bind(ReportParamMeta::getLovCode, ReportParamMeta::setLovCode);

@@ -390,6 +390,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
         HorizontalLayout actionLayout = new HorizontalLayout(btnExecute, btnCopy);
         
         resultGrid.setSizeFull();
+        resultGrid.setMinHeight("400px");
         resultGrid.getStyle().set("border-radius", "8px");
         StandardGridUtils.enableCellClipboardCopy(resultGrid);
 
@@ -397,6 +398,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
         gridHeader.setAlignItems(Alignment.CENTER);
 
         add(topLayout, joinSection, midLayout, sqlEditor, actionLayout, gridHeader, resultGrid);
+        setFlexGrow(1, resultGrid);
     }
 
     // ===================== SQL GENERATION =====================
