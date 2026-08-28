@@ -57,4 +57,14 @@ public class ReportParamMeta extends BaseAuditableEntity {
     /** Model B: operator perbandingan (=, LIKE, ILIKE, IN, >=, <=, ...). */
     @Column(name = "operator", length = 20)
     private String operator;
+
+    /** LOV filter (reusable LOV): batasi LOV generik, mis. custgroup = 'Exp_3rd'. */
+    @Column(name = "lov_filter_column", length = 50)
+    private String lovFilterColumn;
+
+    @Column(name = "lov_filter_value", length = 255)
+    private String lovFilterValue;
+
+    @Column(name = "lov_filter_operator", length = 10)
+    private String lovFilterOperator;
 }
