@@ -74,8 +74,9 @@ class StandardRendererGroupTest {
     void groupFooterAggregatesOnlyItsOwnGroup() {
         String html = StandardRenderer.renderHtml(twoGroups, null, bomElements(), "bom_id");
         // Grup 38 → 10+5 = 15; grup 42 → 7. Total keseluruhan (22) tidak boleh muncul.
+        // SUM returns a double → rendered as "15.0" / "7.0"; guard against "22.0" not ">22<".
         assertThat(html).contains("15").contains("7");
-        assertThat(html).doesNotContain(">22<");
+        assertThat(html).doesNotContain("22.0");
     }
 
     @Test
@@ -90,7 +91,10 @@ class StandardRendererGroupTest {
         String grouped = StandardRenderer.renderHtml(twoGroups, null, bomElements(), null);
         String legacy = StandardRenderer.renderHtml(twoGroups, null, bomElements());
         assertThat(grouped).isEqualTo(legacy);
-        assertThat(grouped).doesNotContain("page-break-before");
+        // Concrete assertions so this test fails independently if appendDataTable regresses,
+        // not only when the two overloads diverge.
+        assertThat(grouped).contains("<table").contains("Material").contains("PASIR").contains("SLEEVE");
+        assertThat(grouped).doesNotContain("page-break-before").doesNotContain("BOM No:");
     }
 
     @Test
