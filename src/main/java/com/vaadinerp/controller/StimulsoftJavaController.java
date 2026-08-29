@@ -100,11 +100,29 @@ public class StimulsoftJavaController {
         options.getToolbar().setViewMode(StiWebViewMode.Continuous);
 
         URL requestUrl = new URL(request.getRequestURL().toString());
-        String html = new StiWebViewerHelper().getWebViewer(
+        String rawHtml = new StiWebViewerHelper().getWebViewer(
                 options, null, requestUrl,
                 new StiHttpServletRequest(request),
                 report,
                 new StiServletContext(servletContext));
+
+        // Wrap with responsive CSS so the viewer fills the IFrame container
+        String html = "<!DOCTYPE html><html><head>"
+                + "<meta charset='UTF-8'>"
+                + "<style>"
+                + "html,body{margin:0;padding:0;width:100%;height:100%;overflow:auto;}"
+                + "</style></head><body>"
+                + rawHtml
+                + "<script>"
+                + "window.addEventListener('load',function(){"
+                + "document.querySelectorAll('div[id*=StiViewer],div[id*=sti],div.stv-viewer').forEach(function(el){"
+                + "el.style.width='100%';el.style.height='100%';el.style.minHeight='100vh';"
+                + "});"
+                + "var frame=document.querySelector('iframe[id*=StiViewer],iframe[id*=sti]');"
+                + "if(frame){frame.style.width='100%';frame.style.height='100vh';}"
+                + "});"
+                + "</script>"
+                + "</body></html>";
 
         response.setContentType("text/html;charset=UTF-8");
         response.getWriter().write(html);

@@ -116,6 +116,39 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         }
     }
 
+    public void setComponentVisible(String fieldName, boolean visible) {
+        String name = fieldName;
+        if (name != null && name.startsWith("header.")) {
+            name = name.substring(7);
+        }
+        Component comp = formComponents != null ? formComponents.get(name) : null;
+        if (comp != null) {
+            if (enableUniversalWrapperHiding && comp.getParent().isPresent()) {
+                Component parent = comp.getParent().get();
+                // Jika komponen adalah Checkbox, pembungkus utamanya (cbWrapper) berada 2 tingkat ke atas
+                if (comp instanceof com.vaadin.flow.component.checkbox.Checkbox && parent.getParent().isPresent()) {
+                    if (visible) {
+                        parent.getParent().get().getStyle().remove("visibility");
+                    } else {
+                        parent.getParent().get().getStyle().set("visibility", "hidden");
+                    }
+                } else {
+                    if (visible) {
+                        parent.getStyle().remove("visibility");
+                    } else {
+                        parent.getStyle().set("visibility", "hidden");
+                    }
+                }
+            } else {
+                if (visible) {
+                    comp.getStyle().remove("visibility");
+                } else {
+                    comp.getStyle().set("visibility", "hidden");
+                }
+            }
+        }
+    }
+
     public void setFieldValue(String fieldName, Object value) {
         String name = fieldName;
         if (name != null && name.startsWith("header.")) {
@@ -173,6 +206,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private FormMeta currentFormDef;
 
     private final Map<String, String> fieldNameToLovCodeMap = new HashMap<>();
+
+    // === TOGGLE PENGAMAN HIDE/SHOW ===
+    // Ubah menjadi false jika Anda ingin mengembalikan perilaku lama (hanya hide input-nya saja)
+    private boolean enableUniversalWrapperHiding = true;
 
     // Flag to prevent cascading filter listeners from clearing child LOV values
     // during data loading
@@ -1332,11 +1369,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 }
 
                 Component input = ComponentFactory.create(field, dynamicDataService, updateFieldValue);
-                if (field.isHideInForm()) {
-                    input.setVisible(false);
-                }
 
                 int span = rowConfig.getSpan(field);
+                
+                Component componentToAdd;
 
                 // Checkbox: bungkus dengan Div agar label muncul di ATAS (sama persis seperti
                 // TextField/ComboBox)
@@ -1377,20 +1413,28 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             .set("align-items", "flex-start")
                             .set("width", "100%");
 
-                    rowLayout.add(cbWrapper);
-                    if (span > 1) {
-                        rowLayout.setColspan(cbWrapper, Math.min(span, Math.max(1, cols - currentVisCol + 1)));
-                    }
+                    componentToAdd = cbWrapper;
                 } else {
                     com.vaadin.flow.component.html.Div wrapper = new com.vaadin.flow.component.html.Div(input);
                     wrapper.getStyle()
                             .set("width", "100%")
                             .set("display", "flex")
                             .set("align-items", "flex-start");
-                    rowLayout.add(wrapper);
-                    if (span > 1) {
-                        rowLayout.setColspan(wrapper, Math.min(span, Math.max(1, cols - currentVisCol + 1)));
+                    
+                    componentToAdd = wrapper;
+                }
+
+                if (field.isHideInForm()) {
+                    if (enableUniversalWrapperHiding) {
+                        componentToAdd.getStyle().set("visibility", "hidden");
+                    } else {
+                        input.getStyle().set("visibility", "hidden");
                     }
+                }
+
+                rowLayout.add(componentToAdd);
+                if (span > 1) {
+                    rowLayout.setColspan(componentToAdd, Math.min(span, Math.max(1, cols - currentVisCol + 1)));
                 }
 
                 currentVisCol += span;
