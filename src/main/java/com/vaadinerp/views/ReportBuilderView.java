@@ -66,7 +66,7 @@ public class ReportBuilderView extends VerticalLayout {
 
     public static class ReportElementMetaTemp {
         Long id;
-        String bandType; // TITLE, PAGE_HEADER, COLUMN_HEADER, DETAIL, PAGE_FOOTER, SUMMARY
+        String bandType; // TITLE, PAGE_HEADER, GROUP_HEADER, COLUMN_HEADER, DETAIL, GROUP_FOOTER, PAGE_FOOTER, SUMMARY
         String elementType; // LABEL, FIELD, SYSTEM
         String elementValue;
         String columnWidth = "120px";
@@ -526,7 +526,9 @@ public class ReportBuilderView extends VerticalLayout {
         pageCanvas.add(buildBandLayout("TITLE", "[TITLE BAND] - Printed once on the opening page of the report"));
         pageCanvas.add(buildBandLayout("PAGE_HEADER", "[PAGE HEADER BAND] - Printed at the top of every page"));
         pageCanvas.add(buildBandLayout("COLUMN_HEADER", "[COLUMN HEADER BAND] - Kepala kolom tabel data"));
+        pageCanvas.add(buildBandLayout("GROUP_HEADER", "[GROUP HEADER BAND] - Printed once per group value (see report Group By)"));
         pageCanvas.add(buildBandLayout("DETAIL", "[DETAIL BAND] - Repeated for each transaction data row"));
+        pageCanvas.add(buildBandLayout("GROUP_FOOTER", "[GROUP FOOTER BAND] - Printed after each group; aggregates cover that group only"));
         pageCanvas.add(buildBandLayout("PAGE_FOOTER", "[PAGE FOOTER BAND] - Printed at the bottom of every page"));
         pageCanvas.add(buildBandLayout("SUMMARY", "[SUMMARY BAND] - Dicetak sekali di akhir laporan (total/grand total)"));
     }
