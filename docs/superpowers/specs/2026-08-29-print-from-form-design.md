@@ -128,6 +128,13 @@ report-nya.
 Efek samping yang diterima: bila dua form memakai tabel yang sama, report muncul di keduanya. Itu
 perilaku yang diinginkan.
 
+**`table_name` punya dua peran yang perlu dibedakan.** `ReportDataService.resolveBaseQuery()`
+memakai urutan `dataQuery` → `FormMeta.viewTable` → `SELECT * FROM {tableName}`. Bila `data_query`
+terisi, `table_name` **tidak ikut menentukan query sama sekali** dan perannya murni sebagai kunci
+pencocokan form. Report master-detail selalu berada di kondisi ini, karena JOIN hanya bisa ditulis
+di `data_query`. Report Designer perlu menyatakan hal ini di teks bantuan agar admin tidak mengira
+mengubah Source Table akan mengubah data yang tampil.
+
 ## 5. Alur cetak
 
 1. User mencentang N baris di grid (`Grid.SelectionMode.MULTI`, sudah aktif di
@@ -227,7 +234,10 @@ Tiga report di atas form **`BOM_ALL`** ("All Bill of Material", `table_name = mh
 
 Skema: `dynamic.mdbom.mhbomid` → `dynamic.mhbom.id` (FK, ON DELETE CASCADE).
 
-**Query — identik untuk ketiganya:**
+**Query — identik untuk ketiganya**, disimpan di `meta_report.data_query` (Model A). Custom query
+wajib di sini: `table_name = mhbom` hanya menghasilkan header tanpa material, sedangkan JOIN ke
+`mdbom` hanya bisa ditulis di `data_query`. Filternya karena itu ditulis manual sebagai
+`IN (:bom_id)`, bukan lewat `filterColumn` + `operator`.
 
 ```sql
 SELECT h.id AS bom_id, h.idno, h.itemname AS product,
@@ -258,7 +268,8 @@ membawa satu `List<Map>`, dan pendekatan itu menjadi 1+N query.
 | `RPT_BOM_DOC_JSP` | `JASPER` | `FORM` | — | `RPT_BOM_DOC_JSP.jrxml` |
 | `RPT_BOM_DOC_STI` | `STIMULSOFT` | `FORM` | — | `RPT_BOM_DOC_STI.mrt` |
 
-Ketiganya `table_name = 'mhbom'`, `category = 'Production'`.
+Ketiganya `table_name = 'mhbom'` (kunci pencocokan form, bukan sumber query — lihat §4),
+`category = 'Production'`, dan `data_query` berisi query di atas.
 
 **Tata letak dokumen (sama untuk ketiga engine):**
 
