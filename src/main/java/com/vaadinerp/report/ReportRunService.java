@@ -38,11 +38,16 @@ public class ReportRunService {
             StringBuilder url = new StringBuilder("/stimulsoft-java/viewer?code=").append(report.getReportCode());
             if (params != null) {
                 for (Map.Entry<String, Object> e : params.entrySet()) {
-                    if (e.getValue() != null) {
-                        url.append("&")
-                           .append(java.net.URLEncoder.encode(e.getKey(), java.nio.charset.StandardCharsets.UTF_8))
-                           .append("=")
-                           .append(java.net.URLEncoder.encode(e.getValue().toString(), java.nio.charset.StandardCharsets.UTF_8));
+                    Object v = e.getValue();
+                    if (v == null) continue;
+                    // Parameter FORM_FIELD berisi List: ulangi key untuk tiap nilai, karena
+                    // toString sebuah List ("[38, 42]") bukan parameter query yang valid.
+                    if (v instanceof java.util.Collection<?> c) {
+                        for (Object item : c) {
+                            if (item != null) appendParam(url, e.getKey(), item);
+                        }
+                    } else {
+                        appendParam(url, e.getKey(), v);
                     }
                 }
             }
@@ -60,6 +65,13 @@ public class ReportRunService {
         ReportOutput out = renderer.render(ctx);
         afterRun(report, params, data.size()); // titik ekstensi (no-op)
         return ReportRunResult.rendered(out);
+    }
+
+    private static void appendParam(StringBuilder url, String key, Object value) {
+        url.append("&")
+           .append(java.net.URLEncoder.encode(key, java.nio.charset.StandardCharsets.UTF_8))
+           .append("=")
+           .append(java.net.URLEncoder.encode(value.toString(), java.nio.charset.StandardCharsets.UTF_8));
     }
 
     /**
