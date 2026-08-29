@@ -218,14 +218,12 @@ public class ReportDesignerView extends VerticalLayout {
                 ? "" : String.join(", ", r.getAllowedRoles());
     }
 
-    /** Cari FormMeta by tableName tanpa mengasumsikan unik (findByTableName melempar bila >1). */
-    /**
-     * What gets stored in {@code meta_report.table_name} for a form, or null when
     /** Lihat {@link FormMeta#reportSourceKey()} — definisi tunggal ada di entity. */
     private static String sourceKeyOf(FormMeta f) {
         return f.reportSourceKey();
     }
 
+    /** Cari FormMeta by tableName tanpa mengasumsikan unik (findByTableName melempar bila >1). */
     private FormMeta findFormBySourceKey(String key) {
         if (key == null || key.isBlank()) return null;
         return formMetaRepository.findByReportSourceKey(key).stream().findFirst().orElse(null);
@@ -307,18 +305,18 @@ public class ReportDesignerView extends VerticalLayout {
 
         TextField edName = new TextField();
         Grid.Column<ReportParamMeta> pColName = paramGrid.addColumn(ReportParamMeta::getParamName)
-                .setHeader("Name").setEditorComponent(edName);
+                .setHeader("Name").setEditorComponent(edName).setAutoWidth(true).setResizable(true);
         pBinder.forField(edName).bind(ReportParamMeta::getParamName, ReportParamMeta::setParamName);
 
         TextField edLabel = new TextField();
         Grid.Column<ReportParamMeta> pColLabel = paramGrid.addColumn(ReportParamMeta::getParamLabel)
-                .setHeader("Label").setEditorComponent(edLabel);
+                .setHeader("Label").setEditorComponent(edLabel).setAutoWidth(true).setResizable(true);
         pBinder.forField(edLabel).bind(ReportParamMeta::getParamLabel, ReportParamMeta::setParamLabel);
 
         Select<String> edType = new Select<>();
         edType.setItems(COMPONENT_TYPES);
         Grid.Column<ReportParamMeta> pColType = paramGrid.addColumn(ReportParamMeta::getParamType)
-                .setHeader("Type").setEditorComponent(edType);
+                .setHeader("Type").setEditorComponent(edType).setAutoWidth(true).setResizable(true);
         pBinder.forField(edType).bind(ReportParamMeta::getParamType, ReportParamMeta::setParamType);
 
         ComboBox<String> edLov = new ComboBox<>();
@@ -330,41 +328,41 @@ public class ReportDesignerView extends VerticalLayout {
                     .filter(java.util.Objects::nonNull).sorted().toList());
         } catch (Exception ignored) {}
         Grid.Column<ReportParamMeta> pColLov = paramGrid.addColumn(ReportParamMeta::getLovCode)
-                .setHeader("LOV Code").setEditorComponent(edLov);
+                .setHeader("LOV Code").setEditorComponent(edLov).setAutoWidth(true).setResizable(true);
         pBinder.forField(edLov).bind(ReportParamMeta::getLovCode, ReportParamMeta::setLovCode);
 
         Select<String> edSource = new Select<>();
         edSource.setItems(PARAM_SOURCES);
         Grid.Column<ReportParamMeta> pColSource = paramGrid.addColumn(ReportParamMeta::getSource)
-                .setHeader("Source").setEditorComponent(edSource);
+                .setHeader("Source").setEditorComponent(edSource).setAutoWidth(true).setResizable(true);
         pBinder.forField(edSource).bind(ReportParamMeta::getSource, ReportParamMeta::setSource);
 
         ComboBox<String> edSourceKey = new ComboBox<>();
         edSourceKey.setAllowCustomValue(true);
         Grid.Column<ReportParamMeta> pColKey = paramGrid.addColumn(ReportParamMeta::getSourceKey)
-                .setHeader("Source Key").setEditorComponent(edSourceKey);
+                .setHeader("Source Key").setEditorComponent(edSourceKey).setAutoWidth(true).setResizable(true);
         pBinder.forField(edSourceKey).bind(ReportParamMeta::getSourceKey, ReportParamMeta::setSourceKey);
 
         TextField edDefault = new TextField();
         Grid.Column<ReportParamMeta> pColDef = paramGrid.addColumn(ReportParamMeta::getDefaultValue)
-                .setHeader("Default").setEditorComponent(edDefault);
+                .setHeader("Default").setEditorComponent(edDefault).setAutoWidth(true).setResizable(true);
         pBinder.forField(edDefault).bind(ReportParamMeta::getDefaultValue, ReportParamMeta::setDefaultValue);
 
         Checkbox edRequired = new Checkbox();
         Grid.Column<ReportParamMeta> pColReq = paramGrid.addColumn(p -> p.isRequired() ? "Yes" : "No")
-                .setHeader("Required").setEditorComponent(edRequired);
+                .setHeader("Required").setEditorComponent(edRequired).setAutoWidth(true).setResizable(true);
         pBinder.forField(edRequired).bind(ReportParamMeta::isRequired, ReportParamMeta::setRequired);
 
         ComboBox<String> edFilterCol = new ComboBox<>();
         edFilterCol.setAllowCustomValue(true);
         Grid.Column<ReportParamMeta> pColFilter = paramGrid.addColumn(ReportParamMeta::getFilterColumn)
-                .setHeader("Filter Column").setEditorComponent(edFilterCol);
+                .setHeader("Filter Column").setEditorComponent(edFilterCol).setAutoWidth(true).setResizable(true);
         pBinder.forField(edFilterCol).bind(ReportParamMeta::getFilterColumn, ReportParamMeta::setFilterColumn);
 
         Select<String> edOperator = new Select<>();
         edOperator.setItems("", "=", "!=", "LIKE", "ILIKE", ">=", "<=", ">", "<", "IN");
         Grid.Column<ReportParamMeta> pColOp = paramGrid.addColumn(ReportParamMeta::getOperator)
-                .setHeader("Operator").setEditorComponent(edOperator);
+                .setHeader("Operator").setEditorComponent(edOperator).setAutoWidth(true).setResizable(true);
         pBinder.forField(edOperator).bind(ReportParamMeta::getOperator, ReportParamMeta::setOperator);
 
         // LOV Filter: expand-row (inline sub-grid) — dukung banyak filter STATIC/FIELD per parameter
