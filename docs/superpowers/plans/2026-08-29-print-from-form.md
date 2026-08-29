@@ -1860,7 +1860,7 @@ git commit -m "feat: form Print button runs reports over selected grid rows; dro
 
 **Files:**
 - Create: `src/main/resources/report-templates/RPT_BOM_DOC_JSP.jrxml` (sumber, ter-commit)
-- Copy to: `uploads/report_templates/master/RPT_BOM_DOC_JSP.jrxml` (runtime, **di-gitignore**)
+- Copy to: `uploads/RPT_BOM_DOC_JSP.jrxml` (runtime, **di-gitignore**, path flat — lihat Step 3)
 - Modify: `src/main/resources/db-migration.sql`
 
 > `uploads/` ada di `.gitignore:25` karena berisi berkas unggahan runtime. Template contoh adalah
@@ -2057,23 +2057,29 @@ Expected: PASS. Bila gagal, perbaiki `.jrxml` sampai lulus — pesan `JRExceptio
 
 - [ ] **Step 3: Salin template ke direktori runtime**
 
-`ReportResolver.resolveMasterTemplate` mencari template di `{app.upload.dir}/report_templates/master/`,
-dan `app.upload.dir=./uploads` (`application.properties:57`).
+> **Koreksi terhadap draf awal plan ini.** `ReportResolver.resolveMasterTemplate` menyimpan template
+> **flat** di `{app.upload.dir}`, bukan di subfolder `report_templates/master/`:
+>
+> ```java
+> return new File(uploadDir, code + "." + ext);
+> ```
+>
+> `app.upload.dir=./uploads` (`application.properties:57`), dan isi direktori itu memang flat
+> (`123.mrt`, `12345.jrxml`). Jadi lokasi yang benar adalah `uploads/RPT_BOM_DOC_JSP.jrxml`.
 
 ```bash
-mkdir -p uploads/report_templates/master
 cp src/main/resources/report-templates/RPT_BOM_DOC_JSP.jrxml \
-   uploads/report_templates/master/RPT_BOM_DOC_JSP.jrxml
+   uploads/RPT_BOM_DOC_JSP.jrxml
 ```
 
 Verifikasi:
 
 ```bash
-ls -l uploads/report_templates/master/RPT_BOM_DOC_JSP.jrxml
+ls -l uploads/RPT_BOM_DOC_JSP.jrxml
 ```
 
-Expected: berkas ada. (Direktori ini di-gitignore — langkah salin ini harus diulang di tiap
-lingkungan deploy.)
+Expected: berkas ada. (`uploads/` di-gitignore — langkah salin ini harus diulang di tiap lingkungan
+deploy.)
 
 - [ ] **Step 4: Seed ketiga report**
 
@@ -2092,19 +2098,24 @@ DELETE FROM public.meta_report_element
 DELETE FROM public.meta_report
  WHERE report_code IN ('RPT_BOM_DOC_STD','RPT_BOM_DOC_JSP','RPT_BOM_DOC_STI');
 
+-- template_path WAJIB diisi untuk JASPER: ReportResolver.masterExtension mengembalikan
+-- "jasper" kecuali template_path berakhiran ".jrxml", sehingga resolver akan mencari
+-- RPT_BOM_DOC_JSP.jasper (tidak ada) alih-alih .jrxml yang kita pasang. Report JASPER
+-- `12345` yang sudah ada di DB memperlihatkan bug ini: template_path-nya kosong padahal
+-- berkasnya 12345.jrxml, jadi report itu tidak akan pernah ketemu templatenya.
 INSERT INTO public.meta_report
     (report_code, report_title, table_name, page_size, orientation, engine_type,
-     data_query, category, description, usage_scope, group_by)
+     data_query, category, description, usage_scope, group_by, template_path)
 VALUES
     ('RPT_BOM_DOC_STD', 'Bill of Material Document (Standard)', 'mhbom', 'A4', 'PORTRAIT', 'STANDARD',
      'SELECT h.id AS bom_id, h.idno, h.itemname AS product, h.abmdrawingnumber AS drawing, h.netweight, d.itemname AS material, d.itemgroup, d.qty, d.perseries FROM dynamic.mhbom h LEFT JOIN dynamic.mdbom d ON d.mhbomid = h.id WHERE h.id IN (:bom_id) ORDER BY h.id, d.id',
-     'Production', 'Prints the selected BOM rows as documents, one page per BOM.', 'FORM', 'bom_id'),
+     'Production', 'Prints the selected BOM rows as documents, one page per BOM.', 'FORM', 'bom_id', NULL),
     ('RPT_BOM_DOC_JSP', 'Bill of Material Document (Jasper)', 'mhbom', 'A4', 'PORTRAIT', 'JASPER',
      'SELECT h.id AS bom_id, h.idno, h.itemname AS product, h.abmdrawingnumber AS drawing, h.netweight, d.itemname AS material, d.itemgroup, d.qty, d.perseries FROM dynamic.mhbom h LEFT JOIN dynamic.mdbom d ON d.mhbomid = h.id WHERE h.id IN (:bom_id) ORDER BY h.id, d.id',
-     'Production', 'Prints the selected BOM rows as documents, one page per BOM.', 'FORM', NULL),
+     'Production', 'Prints the selected BOM rows as documents, one page per BOM.', 'FORM', NULL, 'RPT_BOM_DOC_JSP.jrxml'),
     ('RPT_BOM_DOC_STI', 'Bill of Material Document (Stimulsoft)', 'mhbom', 'A4', 'PORTRAIT', 'STIMULSOFT',
      'SELECT h.id AS bom_id, h.idno, h.itemname AS product, h.abmdrawingnumber AS drawing, h.netweight, d.itemname AS material, d.itemgroup, d.qty, d.perseries FROM dynamic.mhbom h LEFT JOIN dynamic.mdbom d ON d.mhbomid = h.id WHERE h.id IN (:bom_id) ORDER BY h.id, d.id',
-     'Production', 'Prints the selected BOM rows as documents, one page per BOM.', 'FORM', NULL);
+     'Production', 'Prints the selected BOM rows as documents, one page per BOM.', 'FORM', NULL, NULL);
 
 INSERT INTO public.meta_report_param
     (report_code, param_name, param_label, param_type, source, source_key, required, col_order)
@@ -2150,6 +2161,16 @@ FROM public.meta_report r WHERE r.report_code LIKE 'RPT_BOM_DOC%' ORDER BY 1;"
 ```
 
 Expected: tiga baris; `params = 1` untuk semuanya; `elements = 15` untuk `_STD` dan `0` untuk dua lainnya.
+
+Verifikasi khusus resolusi template JASPER:
+
+```bash
+PGPASSWORD=postgres psql -h localhost -U postgres -d grp -t -c \
+  "SELECT template_path FROM public.meta_report WHERE report_code = 'RPT_BOM_DOC_JSP';"
+```
+
+Expected: `RPT_BOM_DOC_JSP.jrxml` — bukan kosong. Bila kosong, `masterExtension` akan mengembalikan
+`jasper` dan report gagal dengan "template tidak ditemukan".
 
 - [ ] **Step 6: Verifikasi query seed menghasilkan data**
 
