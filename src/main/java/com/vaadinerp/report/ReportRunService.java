@@ -37,8 +37,14 @@ public class ReportRunService {
         if ("STIMULSOFT".equalsIgnoreCase(engine)) {
             StringBuilder url = new StringBuilder("/stimulsoft-java/viewer?code=").append(report.getReportCode());
             if (params != null) {
-                Object id = params.get("id");
-                if (id != null) url.append("&id=").append(id);
+                for (Map.Entry<String, Object> e : params.entrySet()) {
+                    if (e.getValue() != null) {
+                        url.append("&")
+                           .append(java.net.URLEncoder.encode(e.getKey(), java.nio.charset.StandardCharsets.UTF_8))
+                           .append("=")
+                           .append(java.net.URLEncoder.encode(e.getValue().toString(), java.nio.charset.StandardCharsets.UTF_8));
+                    }
+                }
             }
             return ReportRunResult.stimulsoft(url.toString());
         }
@@ -48,7 +54,8 @@ public class ReportRunService {
                 ? null
                 : resolver.resolveMasterTemplate(report.getReportCode(), engine, report.getTemplatePath());
         ReportContext ctx = new ReportContext(report.getReportCode(), engine, template, data, params,
-                report.getPageSize(), report.getOrientation());
+                report.getPageSize(), report.getOrientation(),
+                report.getReportTitle(), report.getElements());
         ReportRenderer renderer = registry.forEngine(engine);
         ReportOutput out = renderer.render(ctx);
         afterRun(report, params, data.size()); // titik ekstensi (no-op)
