@@ -147,7 +147,11 @@ public class ReportDesignerView extends VerticalLayout {
                 tbBtn("New", com.vaadin.flow.component.icon.VaadinIcon.PLUS_CIRCLE, e -> openEditor(null)),
                 tbBtn("Edit", com.vaadin.flow.component.icon.VaadinIcon.EDIT, e -> withSelected(this::openEditor)),
                 tbBtn("Design", com.vaadin.flow.component.icon.VaadinIcon.MAGIC, e -> withSelected(this::openDesigner)),
-                tbBtn("Delete", com.vaadin.flow.component.icon.VaadinIcon.CLOSE_CIRCLE, e -> withSelected(this::deleteReport)),
+                tbBtn("Delete", com.vaadin.flow.component.icon.VaadinIcon.CLOSE_CIRCLE, e -> {
+                    java.util.Set<ReportMeta> sel = grid.getSelectedItems();
+                    if (sel.isEmpty()) { Notification.show("Please select a report first."); return; }
+                    deleteReports(sel);
+                }),
                 tbBtn("Preview", com.vaadin.flow.component.icon.VaadinIcon.EYE, e -> withSelected(this::preview)),
                 tbBtn("Refresh", com.vaadin.flow.component.icon.VaadinIcon.REFRESH, e -> refreshGrid()),
                 StandardGridUtils.createExportExcelButton(grid, "report_list")
@@ -181,7 +185,13 @@ public class ReportDesignerView extends VerticalLayout {
         colGetters.put(colOrient, r -> nz(r.getOrientation()));
         colGetters.put(colRoles, this::rolesText);
         colGetters.put(colDesc, r -> nz(r.getDescription()));
-        this.reapplyFilters = StandardGridUtils.attachGridFilters(grid, colGetters, reportMetaRepository::findAll);
+        this.reapplyFilters = StandardGridUtils.attachGridFilters(grid, colGetters, () -> {
+            return reportMetaRepository.findAll().stream()
+                    .sorted(java.util.Comparator.comparing((ReportMeta r) -> nz(r.getCategory()))
+                            .thenComparing(r -> nz(r.getReportTitle()))
+                            .thenComparing(r -> nz(r.getReportCode())))
+                    .collect(java.util.stream.Collectors.toList());
+        });
         StandardGridUtils.enableRowClickSelection(grid); // klik sel → row terselect (seperti grid form)
         refreshGrid();
     }
@@ -209,11 +219,30 @@ public class ReportDesignerView extends VerticalLayout {
     }
 
     /** Cari FormMeta by tableName tanpa mengasumsikan unik (findByTableName melempar bila >1). */
-    private FormMeta findFormByTableName(String tableName) {
-        if (tableName == null || tableName.isBlank()) return null;
-        return formMetaRepository.findAll().stream()
-                .filter(f -> tableName.equalsIgnoreCase(f.getTableName()))
-                .findFirst().orElse(null);
+    /**
+     * What gets stored in {@code meta_report.table_name} for a form, or null when
+     * the form can't back a report at all.
+     *
+     * <p>Prefers the base table as the stored key because that is what
+     * {@code DynamicDataService.fetchReportData} looks the form up by — and once
+     * found, it already runs the form's view in preference to the table. Forms
+     * that only have a view are stored by view name, which that same method falls
+     * back to querying directly.
+     */
+    private static String sourceKeyOf(FormMeta f) {
+        String table = f.getTableName();
+        if (table != null && !table.isBlank()) return table.trim();
+        // View-only form: store the form_code. A view may be a whole SELECT, which
+        // would never fit table_name (varchar 100) nor resolve as an identifier —
+        // the code always fits, and fetchReportData maps it back to this form's view.
+        String view = f.getViewTable();
+        if (view != null && !view.isBlank()) return f.getFormCode();
+        return null;
+    }
+
+    private FormMeta findFormBySourceKey(String key) {
+        if (key == null || key.isBlank()) return null;
+        return formMetaRepository.findByReportSourceKey(key).stream().findFirst().orElse(null);
     }
 
     private void refreshGrid() {
@@ -235,8 +264,13 @@ public class ReportDesignerView extends VerticalLayout {
         codeField.setRequiredIndicatorVisible(true);
         titleField.setRequiredIndicatorVisible(true);
 
-        sourceCombo.setItems(formMetaRepository.findAll());
-        sourceCombo.setItemLabelGenerator(f -> f.getFormTitle() + " (" + f.getTableName() + ")");
+        // A form with neither view nor table can't back a report: saving one stores
+        // a null table_name, which loads back as an empty source and runs as an
+        // empty report with no error. Don't offer them.
+        sourceCombo.setItems(formMetaRepository.findAll().stream()
+                .filter(f -> sourceKeyOf(f) != null)
+                .toList());
+        sourceCombo.setItemLabelGenerator(f -> f.getFormCode() + " - " + f.getFormTitle());
         sourceCombo.setClearButtonVisible(true);
 
         queryArea.setMinHeight("90px");
@@ -319,7 +353,8 @@ public class ReportDesignerView extends VerticalLayout {
                 .setHeader("Source").setEditorComponent(edSource);
         pBinder.forField(edSource).bind(ReportParamMeta::getSource, ReportParamMeta::setSource);
 
-        TextField edSourceKey = new TextField();
+        ComboBox<String> edSourceKey = new ComboBox<>();
+        edSourceKey.setAllowCustomValue(true);
         Grid.Column<ReportParamMeta> pColKey = paramGrid.addColumn(ReportParamMeta::getSourceKey)
                 .setHeader("Source Key").setEditorComponent(edSourceKey);
         pBinder.forField(edSourceKey).bind(ReportParamMeta::getSourceKey, ReportParamMeta::setSourceKey);
@@ -334,7 +369,8 @@ public class ReportDesignerView extends VerticalLayout {
                 .setHeader("Required").setEditorComponent(edRequired);
         pBinder.forField(edRequired).bind(ReportParamMeta::isRequired, ReportParamMeta::setRequired);
 
-        TextField edFilterCol = new TextField();
+        ComboBox<String> edFilterCol = new ComboBox<>();
+        edFilterCol.setAllowCustomValue(true);
         Grid.Column<ReportParamMeta> pColFilter = paramGrid.addColumn(ReportParamMeta::getFilterColumn)
                 .setHeader("Filter Column").setEditorComponent(edFilterCol);
         pBinder.forField(edFilterCol).bind(ReportParamMeta::getFilterColumn, ReportParamMeta::setFilterColumn);
@@ -359,6 +395,18 @@ public class ReportDesignerView extends VerticalLayout {
         }).setHeader("Filters").setWidth("90px").setFlexGrow(0);
 
         paramGrid.setDetailsVisibleOnClick(false);
+
+        sourceCombo.addValueChangeListener(e -> {
+            FormMeta fm = e.getValue();
+            List<String> cols = new ArrayList<>();
+            if (fm != null && fm.getTableName() != null) {
+                try {
+                    cols = com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.service.DynamicDataService.class).getColumnsForQueryOrTable(fm.getTableName());
+                } catch(Exception ignored) {}
+            }
+            edSourceKey.setItems(cols);
+            edFilterCol.setItems(cols);
+        });
         paramGrid.setItemDetailsRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(p ->
                 new com.vaadinerp.components.ParamFilterEditor(p, () ->
                         paramState.stream().map(ReportParamMeta::getParamName)
@@ -444,7 +492,7 @@ public class ReportDesignerView extends VerticalLayout {
             codeField.setValue(nz(report.getReportCode()));
             codeField.setReadOnly(true);
             titleField.setValue(nz(report.getReportTitle()));
-            sourceCombo.setValue(findFormByTableName(report.getTableName()));
+            sourceCombo.setValue(findFormBySourceKey(report.getTableName()));
             queryArea.setValue(nz(report.getDataQuery()));
             pageSelect.setValue(report.getPageSize() != null ? report.getPageSize() : "A4");
             orientSelect.setValue(report.getOrientation() != null ? report.getOrientation() : "PORTRAIT");
@@ -518,7 +566,7 @@ public class ReportDesignerView extends VerticalLayout {
                 : reportMetaRepository.findById(editingCode).orElse(new ReportMeta());
         rep.setReportCode(code);
         rep.setReportTitle(title);
-        rep.setTableName(src != null ? src.getTableName() : rep.getTableName());
+        rep.setTableName(src != null ? sourceKeyOf(src) : rep.getTableName());
         rep.setDataQuery(query == null || query.isBlank() ? null : query);
         rep.setPageSize(pageSelect.getValue());
         rep.setOrientation(orientSelect.getValue());
@@ -557,29 +605,42 @@ public class ReportDesignerView extends VerticalLayout {
             editingCode = rep.getReportCode();
             codeField.setReadOnly(true);
             refreshGrid();
-            Notification.show("Report saved. Select it in the list to design.");
+            tabs.setSelectedIndex(0);
+            Notification.show("Report saved.");
         } catch (Exception ex) {
             Notification.show("Failed to save report: " + ex.getMessage());
         }
     }
 
-    private void deleteReport(ReportMeta report) {
+    private void deleteReports(java.util.Set<ReportMeta> reports) {
         ConfirmDialog dlg = new ConfirmDialog();
         dlg.setHeader("Delete Report");
-        dlg.setText("Delete report " + report.getReportCode() + " including its template and parameters?");
+        String msg = reports.size() == 1
+                ? "Delete report " + reports.iterator().next().getReportCode() + " including its template and parameters?"
+                : "Delete " + reports.size() + " selected reports including their templates and parameters?";
+        dlg.setText(msg);
         dlg.setConfirmText("Delete");
         dlg.setCancelable(true);
         dlg.addConfirmListener(e -> {
-            reportMetaRepository.deleteById(report.getReportCode());
-            try {
-                if (report.getEngineType() != null && !"STANDARD".equalsIgnoreCase(report.getEngineType())) {
-                    java.io.File f = reportResolver.resolveMasterTemplate(
-                            report.getReportCode(), report.getEngineType(), report.getTemplatePath());
-                    if (f.exists()) f.delete();
-                }
-            } catch (Exception ignored) {}
+            for (ReportMeta report : reports) {
+                reportMetaRepository.deleteLegacyColumns(report.getReportCode());
+                reportMetaRepository.deleteById(report.getReportCode());
+                try {
+                    if (report.getEngineType() != null && !"STANDARD".equalsIgnoreCase(report.getEngineType())) {
+                        java.io.File f = reportResolver.resolveMasterTemplate(
+                                report.getReportCode(), report.getEngineType(), report.getTemplatePath());
+                        if (f.exists()) {
+                            java.io.File trash = new java.io.File(f.getParentFile(), "_trash");
+                            trash.mkdirs();
+                            String ts = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date());
+                            f.renameTo(new java.io.File(trash, report.getReportCode() + "_" + ts + "." +
+                                    reportResolver.masterExtension(report.getEngineType(), report.getTemplatePath())));
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
             refreshGrid();
-            Notification.show("Report deleted.");
+            Notification.show(reports.size() == 1 ? "Report deleted." : reports.size() + " reports deleted.");
         });
         dlg.open();
     }

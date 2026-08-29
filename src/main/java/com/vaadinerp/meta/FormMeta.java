@@ -31,6 +31,18 @@ public class FormMeta extends BaseAuditableEntity {
     @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.LONGVARCHAR)
     private String viewTable;
 
+    /**
+     * The table, view, or query a report actually reads for this form: the view
+     * takes precedence over the base table, matching what
+     * {@code DynamicDataService.fetchReportData} runs. Null when the form has
+     * neither, meaning it cannot back a report at all.
+     */
+    @Transient
+    public String effectiveSource() {
+        if (viewTable != null && !viewTable.isBlank()) return viewTable.trim();
+        return (tableName != null && !tableName.isBlank()) ? tableName.trim() : null;
+    }
+
     @Column(name = "primary_key", length = 50)
     private String primaryKey;
 
