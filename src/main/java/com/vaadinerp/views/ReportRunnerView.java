@@ -1,6 +1,8 @@
 package com.vaadinerp.views;
 
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.accordion.Accordion;
 import com.vaadin.flow.component.html.Div;
@@ -23,13 +25,21 @@ import com.vaadinerp.report.render.ReportOutput;
 import com.vaadinerp.service.DynamicDataService;
 import com.vaadinerp.security.service.SessionSecurityService;
 
-import java.nio.charset.StandardCharsets;
+import java.io.ByteArrayInputStream;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /** Layar end-user menjalankan report: katalog (kiri) + selection (kanan). Output dibuka sebagai tab di aplikasi. */
 @Route("report-runner")
 public class ReportRunnerView extends VerticalLayout {
+
+    private static final ExecutorService RUN_EXEC = Executors.newFixedThreadPool(4, r -> {
+        Thread t = new Thread(r, "report-run");
+        t.setDaemon(true);
+        return t;
+    });
 
     private final ReportMetaRepository reportMetaRepository;
     private final ReportAccessService reportAccessService;
@@ -64,19 +74,35 @@ public class ReportRunnerView extends VerticalLayout {
         searchField.addValueChangeListener(e -> rebuildCatalog(e.getValue()));
         catalog.setPadding(false);
         catalog.setSpacing(false);
-        VerticalLayout left = new VerticalLayout(new H4("Reports"), searchField, catalog);
+
+        H4 header = new H4("Reports");
+        header.getStyle()
+                .set("margin", "0").set("padding", "var(--lumo-space-s) var(--lumo-space-m)")
+                .set("border-bottom", "1px solid var(--lumo-contrast-10pct)").set("width", "100%");
+
+        VerticalLayout left = new VerticalLayout(header, searchField, catalog);
         left.setSizeFull();
-        left.getStyle().set("overflow", "auto");
+        left.getStyle()
+                .set("overflow", "auto")
+                .set("background", "var(--lumo-contrast-5pct)")
+                .set("border-right", "1px solid var(--lumo-contrast-10pct)");
 
         selectionPanel.setPadding(true);
         selectionPanel.setSizeFull();
         selectionPanel.getStyle().set("overflow", "auto");
-        selectionPanel.add(new Span("Select a report from the catalog."));
+        selectionPanel.add(buildEmptyState());
 
         SplitLayout split = new SplitLayout(left, selectionPanel);
         split.setSizeFull();
         split.setSplitterPosition(24);
         add(split);
+        // CSS Shadow Parts injection — targets button internals inaccessible from Java getStyle()
+        UI.getCurrent().getPage().executeJs(
+            "if(!document.getElementById('rr-styles')){" +
+            "var s=document.createElement('style');s.id='rr-styles';" +
+            "s.textContent='vaadin-button.rr-item{justify-content:flex-start!important}" +
+            "vaadin-button.rr-item::part(label){flex-grow:1;text-align:left}';" +
+            "document.head.appendChild(s)}");
         rebuildCatalog("");
     }
 
@@ -106,11 +132,11 @@ public class ReportRunnerView extends VerticalLayout {
             items.setPadding(false);
             items.setSpacing(false);
             for (ReportMeta r : e.getValue()) {
-                SafeButton b = new SafeButton(r.getReportTitle() != null ? r.getReportTitle() : r.getReportCode(),
-                        ev -> selectReport(r));
+                String label = r.getReportTitle() != null ? r.getReportTitle() : r.getReportCode();
+                SafeButton b = new SafeButton(label, VaadinIcon.FILE_TEXT.create(), ev -> selectReport(r));
                 b.setWidthFull();
                 b.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
-                b.getStyle().set("justify-content", "flex-start");
+                b.addClassName("rr-item");
                 items.add(b);
             }
             acc.add(e.getKey() + " (" + e.getValue().size() + ")", items);
@@ -156,21 +182,39 @@ public class ReportRunnerView extends VerticalLayout {
             }
         }
 
-        try {
-            ReportRunResult res = reportRunService.run(report, values, false);
-            Component content = buildOutput(res);
-            PortalView portal = findPortal();
-            if (portal == null) {
-                Notification.show("Cannot find app shell to open output tab.");
-                return;
+        // Show loading state while report runs off the UI thread
+        selectionPanel.removeAll();
+        com.vaadin.flow.component.progressbar.ProgressBar pb = new com.vaadin.flow.component.progressbar.ProgressBar();
+        pb.setIndeterminate(true);
+        selectionPanel.add(new H4("Running report…"), pb);
+
+        UI ui = UI.getCurrent();
+        String title = report.getReportTitle() != null ? report.getReportTitle() : report.getReportCode();
+        RUN_EXEC.submit(() -> {
+            try {
+                ReportRunResult res = reportRunService.run(report, values, false);
+                ui.access(() -> {
+                    Component content = buildOutput(res);
+                    PortalView portal = findPortal();
+                    if (portal == null) {
+                        Notification.show("Cannot find app shell to open output tab.");
+                    } else {
+                        portal.openComponentTab("RPT_OUT_" + report.getReportCode(), title, content);
+                    }
+                    selectReport(report);
+                });
+            } catch (org.springframework.dao.QueryTimeoutException te) {
+                ui.access(() -> {
+                    Notification.show("The report query took too long and was stopped. Please narrow your filter/parameters.");
+                    selectReport(report);
+                });
+            } catch (Exception ex) {
+                ui.access(() -> {
+                    Notification.show("Failed to run report: " + (ex.getMessage() != null ? ex.getMessage() : ex.toString()));
+                    selectReport(report);
+                });
             }
-            String title = report.getReportTitle() != null ? report.getReportTitle() : report.getReportCode();
-            portal.openComponentTab("RPT_OUT_" + report.getReportCode(), title, content);
-        } catch (org.springframework.dao.QueryTimeoutException te) {
-            Notification.show("The report query took too long and was stopped. Please narrow your filter/parameters.");
-        } catch (Exception ex) {
-            Notification.show("Failed to run report: " + (ex.getMessage() != null ? ex.getMessage() : ex.toString()));
-        }
+        });
     }
 
     private Component buildOutput(ReportRunResult res) {
@@ -186,23 +230,38 @@ public class ReportRunnerView extends VerticalLayout {
             box.setFlexGrow(1, ifr);
             return box;
         }
+        // StreamResource avoids sending bytes over WebSocket — browser fetches directly via HTTP.
         ReportOutput out = res.output();
-        if (out.contentType().startsWith("text/html")) {
-            Div d = new Div();
-            d.getElement().setProperty("innerHTML", new String(out.bytes(), StandardCharsets.UTF_8));
-            d.setSizeFull();
-            d.getStyle().set("overflow", "auto");
-            box.add(d);
-            box.setFlexGrow(1, d);
-        } else {
-            String b64 = Base64.getEncoder().encodeToString(out.bytes());
-            IFrame ifr = new IFrame("data:" + out.contentType() + ";base64," + b64);
-            ifr.setSizeFull();
-            ifr.getStyle().set("border", "none");
-            box.add(ifr);
-            box.setFlexGrow(1, ifr);
-        }
+        boolean isPdf = out.contentType().contains("pdf");
+        String filename = isPdf ? "report.pdf" : (out.contentType().startsWith("text/html") ? "report.html" : "report.bin");
+        byte[] bytes = out.bytes();
+        com.vaadin.flow.server.StreamResource sr = new com.vaadin.flow.server.StreamResource(
+                filename, () -> new ByteArrayInputStream(bytes));
+        sr.setContentType(out.contentType());
+        IFrame ifr = new IFrame();
+        ifr.getElement().setAttribute("src", sr);
+        ifr.setSizeFull();
+        ifr.getStyle().set("border", "none");
+        box.add(ifr);
+        box.setFlexGrow(1, ifr);
         return box;
+    }
+
+    private Div buildEmptyState() {
+        Icon icon = VaadinIcon.BAR_CHART.create();
+        icon.getStyle().set("width", "4rem").set("height", "4rem").set("opacity", "0.2")
+                .set("margin-bottom", "var(--lumo-space-m)");
+        Span title = new Span("Pilih laporan dari katalog");
+        title.getStyle().set("font-size", "var(--lumo-font-size-l)").set("font-weight", "500");
+        Span hint = new Span("Output akan dibuka sebagai tab baru");
+        hint.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        Div empty = new Div(icon, title, hint);
+        empty.getStyle()
+                .set("display", "flex").set("flex-direction", "column")
+                .set("align-items", "center").set("justify-content", "center")
+                .set("gap", "var(--lumo-space-s)").set("height", "100%")
+                .set("color", "var(--lumo-secondary-text-color)");
+        return empty;
     }
 
     /** Cari PortalView (app shell) untuk membuka tab: naik parent, fallback ke children UI. */

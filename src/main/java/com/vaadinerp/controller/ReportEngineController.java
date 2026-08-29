@@ -40,34 +40,31 @@ public class ReportEngineController {
         if (engineType == null) engineType = "STANDARD";
 
         if ("STIMULSOFT".equalsIgnoreCase(engineType)) {
-            String queryParams = "";
-            if (id != null) queryParams += "?id=" + id;
-            if (param != null) {
-                queryParams += (queryParams.isEmpty() ? "?" : "&") + "param=" + param;
-            }
-            // Pass all parameters to the viewer iframe
-            String viewerUrl = "/stimulsoft-java/viewer?code=" + reportCode;
-            if (!queryParams.isEmpty()) {
-                viewerUrl = "/stimulsoft-java/viewer" + queryParams + "&code=" + reportCode;
-            }
-            
+            // URL-encode user params to prevent injection in the iframe src attribute
+            StringBuilder viewerUrl = new StringBuilder("/stimulsoft-java/viewer?code=")
+                    .append(java.net.URLEncoder.encode(reportCode, java.nio.charset.StandardCharsets.UTF_8));
+            if (id != null) viewerUrl.append("&id=").append(id);
+            if (param != null) viewerUrl.append("&param=")
+                    .append(java.net.URLEncoder.encode(param, java.nio.charset.StandardCharsets.UTF_8));
+
+            // HTML-escape the URL before embedding in an attribute to prevent XSS
+            String safeUrl = org.springframework.web.util.HtmlUtils.htmlEscape(viewerUrl.toString());
             return """
                 <html>
                 <head>
                     <title>Stimulsoft Viewer</title>
                     <style>
                         body { margin: 0; padding: 0; overflow: hidden; }
-                        iframe { width: 100%; height: 100vh; border: none; }
+                        iframe { width: 100%%; height: 100vh; border: none; }
                     </style>
                 </head>
                 <body>
                     <iframe src="%s"></iframe>
                 </body>
                 </html>
-            """.formatted(viewerUrl);
+            """.formatted(safeUrl);
 
         } else if ("JASPER".equalsIgnoreCase(engineType)) {
-            // TODO: In the future, return a PDF response using JasperReports.
             return """
                 <html>
                 <head>
@@ -90,7 +87,12 @@ public class ReportEngineController {
                     </div>
                 </body>
                 </html>
-            """.formatted(reportCode, reportMeta.getTemplatePath(), id, param);
+            """.formatted(
+                org.springframework.web.util.HtmlUtils.htmlEscape(reportCode),
+                org.springframework.web.util.HtmlUtils.htmlEscape(String.valueOf(reportMeta.getTemplatePath())),
+                org.springframework.web.util.HtmlUtils.htmlEscape(String.valueOf(id)),
+                org.springframework.web.util.HtmlUtils.htmlEscape(String.valueOf(param))
+            );
         }
 
         return "<h1>Engine Type Not Supported by External Viewer</h1>";
