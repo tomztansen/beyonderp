@@ -71,11 +71,14 @@ public class ReportDesignerView extends VerticalLayout {
     private final Select<String> orientSelect = new Select<>();
     private final Select<String> engineSelect = new Select<>();
     private final ComboBox<String> categoryCombo = new ComboBox<>("Category");
+    private final Select<String> usageScopeSelect = new Select<>();
+    private final TextField groupByField = new TextField("Group By (STANDARD engine)");
     private final TextArea descriptionArea = new TextArea("Description");
     private final com.vaadin.flow.component.combobox.MultiSelectComboBox<String> rolesSelect =
             new com.vaadin.flow.component.combobox.MultiSelectComboBox<>("Allowed Roles");
     private final Grid<ReportParamMeta> paramGrid = new Grid<>(ReportParamMeta.class, false);
 
+    private static final List<String> USAGE_SCOPES = List.of("RUNNER", "FORM", "BOTH");
     private static final List<String> COMPONENT_TYPES = List.of(
             "TEXTBOX", "TEXTAREA", "INTEGERFIELD", "DECIMAL", "DATE", "DATETIME", "TIME",
             "CHECKBOX", "COMBOBOX", "LISTBOX", "CHOSENBOX", "BANDBOX");
@@ -166,6 +169,9 @@ public class ReportDesignerView extends VerticalLayout {
         Grid.Column<ReportMeta> colTitle = grid.addColumn(ReportMeta::getReportTitle).setHeader("Title").setAutoWidth(true);
         Grid.Column<ReportMeta> colEngine = grid.addColumn(this::engineOf).setHeader("Engine").setAutoWidth(true);
         Grid.Column<ReportMeta> colSource = grid.addColumn(ReportMeta::getTableName).setHeader("Source").setAutoWidth(true);
+        Grid.Column<ReportMeta> colUsage = grid.addColumn(
+                        r -> r.getUsageScope() == null ? "RUNNER" : r.getUsageScope())
+                .setHeader("Usage").setAutoWidth(true);
         Grid.Column<ReportMeta> colCategory = grid.addColumn(ReportMeta::getCategory).setHeader("Category").setAutoWidth(true);
         Grid.Column<ReportMeta> colPage = grid.addColumn(ReportMeta::getPageSize).setHeader("Page Size").setAutoWidth(true);
         Grid.Column<ReportMeta> colOrient = grid.addColumn(ReportMeta::getOrientation).setHeader("Orientation").setAutoWidth(true);
@@ -180,6 +186,7 @@ public class ReportDesignerView extends VerticalLayout {
         colGetters.put(colTitle, r -> nz(r.getReportTitle()));
         colGetters.put(colEngine, this::engineOf);
         colGetters.put(colSource, r -> nz(r.getTableName()));
+        colGetters.put(colUsage, r -> nz(r.getUsageScope() == null ? "RUNNER" : r.getUsageScope()));
         colGetters.put(colCategory, r -> nz(r.getCategory()));
         colGetters.put(colPage, r -> nz(r.getPageSize()));
         colGetters.put(colOrient, r -> nz(r.getOrientation()));
@@ -259,6 +266,9 @@ public class ReportDesignerView extends VerticalLayout {
 
         queryArea.setMinHeight("90px");
         queryArea.setPlaceholder("SELECT * FROM ... WHERE col = :param");
+        queryArea.setHelperText(
+                "Overrides Source Table. Use IN (:param) — not = :param — for parameters sourced "
+                        + "from form rows, because they always arrive as a list.");
 
         pageSelect.setLabel("Page Size");
         pageSelect.setItems("A4", "LETTER");
@@ -269,6 +279,17 @@ public class ReportDesignerView extends VerticalLayout {
         engineSelect.setLabel("Engine");
         engineSelect.setItems("STANDARD", "STIMULSOFT", "JASPER");
         engineSelect.setValue("STANDARD");
+
+        usageScopeSelect.setLabel("Usage");
+        usageScopeSelect.setItems(USAGE_SCOPES);
+        usageScopeSelect.setValue("RUNNER");
+        usageScopeSelect.setHelperText(
+                "RUNNER: Report Runner only. FORM: form Print button only. BOTH: available in both.");
+
+        groupByField.setPlaceholder("e.g. bom_id");
+        groupByField.setHelperText(
+                "Result column that starts a new document per value. STANDARD engine only — "
+                        + "JASPER and STIMULSOFT define grouping inside their own template.");
 
         categoryCombo.setAllowCustomValue(true);
         categoryCombo.setItems(reportMetaRepository.findAll().stream()
@@ -283,7 +304,8 @@ public class ReportDesignerView extends VerticalLayout {
         } catch (Exception ignored) {}
         rolesSelect.setHelperText("Empty = only SUPER_ADMIN can run this report");
 
-        FormLayout meta = new FormLayout(codeField, titleField, categoryCombo, sourceCombo, queryArea,
+        FormLayout meta = new FormLayout(codeField, titleField, categoryCombo, sourceCombo,
+                usageScopeSelect, groupByField, queryArea,
                 descriptionArea, rolesSelect, pageSelect, orientSelect, engineSelect);
         meta.setResponsiveSteps(
                 new FormLayout.ResponsiveStep("0", 1),
@@ -471,6 +493,8 @@ public class ReportDesignerView extends VerticalLayout {
             categoryCombo.clear();
             descriptionArea.clear();
             rolesSelect.clear();
+            usageScopeSelect.setValue("RUNNER");
+            groupByField.clear();
         } else {
             editingCode = report.getReportCode();
             codeField.setValue(nz(report.getReportCode()));
@@ -484,6 +508,10 @@ public class ReportDesignerView extends VerticalLayout {
             categoryCombo.setValue(report.getCategory());
             descriptionArea.setValue(nz(report.getDescription()));
             rolesSelect.setValue(report.getAllowedRoles() != null ? report.getAllowedRoles() : java.util.Set.of());
+            usageScopeSelect.setValue(
+                    report.getUsageScope() == null || report.getUsageScope().isBlank()
+                            ? "RUNNER" : report.getUsageScope().trim().toUpperCase());
+            groupByField.setValue(report.getGroupBy() == null ? "" : report.getGroupBy());
             if (report.getParams() != null) {
                 for (ReportParamMeta p : report.getParams()) paramState.add(cloneParam(p));
             }
@@ -558,6 +586,9 @@ public class ReportDesignerView extends VerticalLayout {
         rep.setCategory(categoryCombo.getValue() == null || categoryCombo.getValue().isBlank() ? null : categoryCombo.getValue().trim());
         rep.setDescription(descriptionArea.getValue() == null || descriptionArea.getValue().isBlank() ? null : descriptionArea.getValue());
         rep.setAllowedRoles(new java.util.HashSet<>(rolesSelect.getValue()));
+        rep.setUsageScope(usageScopeSelect.getValue() != null ? usageScopeSelect.getValue() : "RUNNER");
+        rep.setGroupBy(groupByField.getValue() == null || groupByField.getValue().isBlank()
+                ? null : groupByField.getValue().trim());
 
         if (rep.getParams() == null) rep.setParams(new ArrayList<>());
         rep.getParams().clear(); // orphanRemoval deletes the old ones
