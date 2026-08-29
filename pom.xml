@@ -14,6 +14,7 @@
     <groupId>com.vaadinerp</groupId>
     <artifactId>vaadinerp</artifactId>
     <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
     <name>vaadinerp</name>
     <description>Vaadin ERP Metadata Driven</description>
 
@@ -101,25 +102,20 @@
             <groupId>com.stimulsoft</groupId>
             <artifactId>stimulsoft-reports-libs</artifactId>
             <version>2026.3.2</version>
+            <exclusions>
+                <!-- JSP taglib runtime; we render viewer/designer HTML from the
+                     controller, so no JSP is ever compiled. Saves ~3.5 MB. -->
+                <exclusion>
+                    <groupId>org.glassfish.web</groupId>
+                    <artifactId>jakarta.servlet.jsp.jstl</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- JasperReports Engine -->
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
             <artifactId>jasperreports</artifactId>
-            <version>6.21.3</version>
-        </dependency>
-        <!-- For JSP Support -->
-        <dependency>
-            <groupId>org.apache.tomcat.embed</groupId>
-            <artifactId>tomcat-embed-jasper</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.servlet.jsp.jstl</groupId>
-            <artifactId>jakarta.servlet.jsp.jstl-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.glassfish.web</groupId>
-            <artifactId>jakarta.servlet.jsp.jstl</artifactId>
+            <version>7.0.7</version>
         </dependency>
     </dependencies>
 
