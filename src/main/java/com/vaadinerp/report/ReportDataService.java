@@ -58,7 +58,13 @@ public class ReportDataService {
     /**
      * Bangun WHERE dari parameter Model B (filterColumn + operator + nilai). Param tanpa
      * filterColumn/operator (=Model A) atau tanpa nilai dilewati. Nilai di-bind ke outBind
-     * (LIKE/ILIKE dibungkus %..%; IN → = ANY). Operator & kolom divalidasi.
+     * (LIKE/ILIKE dibungkus %..%). Operator & kolom divalidasi.
+     *
+     * <p>Parameter {@code FORM_FIELD} selalu berisi List (lihat
+     * {@link ReportParamResolver#resolveFromRows}), sehingga operator tersimpan diabaikan dan
+     * klausanya selalu {@code IN (:param)} — satu-satunya bentuk yang di-expand
+     * NamedParameterJdbcTemplate untuk Collection. {@code = ANY(:param)} akan gagal dengan
+     * "Can't infer the SQL type ... java.util.ArrayList".
      */
     public static String buildModelBWhere(List<com.vaadinerp.meta.ReportParamMeta> params,
                                           Map<String, Object> values, Map<String, Object> outBind) {
@@ -67,14 +73,25 @@ public class ReportDataService {
         for (com.vaadinerp.meta.ReportParamMeta p : params) {
             String col = p.getFilterColumn();
             String opRaw = p.getOperator();
-            if (col == null || col.isBlank() || opRaw == null || opRaw.isBlank()) continue;
+            boolean formField = "FORM_FIELD".equalsIgnoreCase(
+                    p.getSource() == null ? "" : p.getSource().trim());
+            // Model A (tanpa filterColumn) dilewati. Operator boleh kosong untuk FORM_FIELD
+            // karena bentuk klausanya sudah pasti IN.
+            if (col == null || col.isBlank()) continue;
+            if (!formField && (opRaw == null || opRaw.isBlank())) continue;
+
             Object val = values != null ? values.get(p.getParamName()) : null;
-            if (val == null || (val instanceof String s && s.isBlank())) continue;
+            if (val == null
+                    || (val instanceof String s && s.isBlank())
+                    || (val instanceof java.util.Collection<?> c && c.isEmpty())) continue;
 
             DynamicDataService.validateSqlIdentifier(col, "filter column");
             String name = p.getParamName();
             sb.append(sb.length() == 0 ? " WHERE " : " AND ");
-            if ("IN".equalsIgnoreCase(opRaw.trim())) {
+            if (formField) {
+                sb.append(col).append(" IN (:").append(name).append(")");
+                outBind.put(name, val);
+            } else if ("IN".equalsIgnoreCase(opRaw.trim())) {
                 sb.append(col).append(" = ANY(:").append(name).append(")");
                 outBind.put(name, val);
             } else {
