@@ -525,12 +525,12 @@ public class ReportBuilderView extends VerticalLayout {
         // RENDER STACKED BANDS
         pageCanvas.add(buildBandLayout("TITLE", "[TITLE BAND] - Printed once on the opening page of the report"));
         pageCanvas.add(buildBandLayout("PAGE_HEADER", "[PAGE HEADER BAND] - Printed at the top of every page"));
-        pageCanvas.add(buildBandLayout("COLUMN_HEADER", "[COLUMN HEADER BAND] - Kepala kolom tabel data"));
+        pageCanvas.add(buildBandLayout("COLUMN_HEADER", "[COLUMN HEADER BAND] - Column headers for the data table"));
         pageCanvas.add(buildBandLayout("GROUP_HEADER", "[GROUP HEADER BAND] - Printed once per group value (see report Group By)"));
         pageCanvas.add(buildBandLayout("DETAIL", "[DETAIL BAND] - Repeated for each transaction data row"));
         pageCanvas.add(buildBandLayout("GROUP_FOOTER", "[GROUP FOOTER BAND] - Printed after each group; aggregates cover that group only"));
         pageCanvas.add(buildBandLayout("PAGE_FOOTER", "[PAGE FOOTER BAND] - Printed at the bottom of every page"));
-        pageCanvas.add(buildBandLayout("SUMMARY", "[SUMMARY BAND] - Dicetak sekali di akhir laporan (total/grand total)"));
+        pageCanvas.add(buildBandLayout("SUMMARY", "[SUMMARY BAND] - Printed once at the end of the report (total / grand total)"));
     }
 
     private Component buildBandLayout(String bandType, String bandDescription) {
