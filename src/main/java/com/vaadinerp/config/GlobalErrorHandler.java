@@ -21,6 +21,14 @@ public class GlobalErrorHandler implements VaadinServiceInitListener {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalErrorHandler.class);
 
+    /** Walk the full cause chain; guard against cycles; null-safe. */
+    private static boolean isClientAbort(Throwable t) {
+        for (Throwable c = t; c != null; c = (c.getCause() == c) ? null : c.getCause()) {
+            if (c instanceof org.apache.catalina.connector.ClientAbortException) return true;
+        }
+        return false;
+    }
+
     @Override
     public void serviceInit(ServiceInitEvent event) {
         event.getSource().addSessionInitListener(sessionEvent -> {
@@ -28,6 +36,14 @@ public class GlobalErrorHandler implements VaadinServiceInitListener {
                 @Override
                 public void error(ErrorEvent errorEvent) {
                     Throwable throwable = errorEvent.getThrowable();
+
+                    // Browser menutup koneksi sebelum server selesai kirim (navigasi, reload, IFrame src ganti).
+                    // Ini normal — bukan bug, tidak perlu ditampilkan ke user.
+                    if (isClientAbort(throwable)) {
+                        log.debug("Client disconnected mid-stream (ignored): {}",
+                                throwable != null ? throwable.getMessage() : "null");
+                        return;
+                    }
 
                     // Log error secara detail ke server / console
                     log.error("Unhandled Vaadin UI Exception: ", throwable);
