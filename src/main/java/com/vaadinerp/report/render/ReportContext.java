@@ -6,7 +6,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 
-/** Konteks render satu report: template + data + parameter + info halaman + band. */
+/** Konteks render satu report: template + data + parameter + info halaman + band + grouping. */
 public record ReportContext(
         String reportCode,
         String engineType,
@@ -16,7 +16,8 @@ public record ReportContext(
         String pageSize,
         String orientation,
         String reportTitle,
-        List<ReportElementMeta> elements) {
+        List<ReportElementMeta> elements,
+        String groupBy) {
 
     public ReportContext {
         elements = (elements == null) ? List.of() : List.copyOf(elements);
