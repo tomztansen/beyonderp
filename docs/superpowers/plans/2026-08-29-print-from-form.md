@@ -1343,7 +1343,10 @@ public final class ReportLauncher {
         if (res.stimulsoftViewer()) {
             IFrame ifr = new IFrame(res.viewerUrl());
             ifr.setSizeFull();
-            ifr.getStyle().set("border", "none");
+            // min-height:0 wajib ikut: tanpa itu IFrame viewer Stimulsoft tidak mengecil
+            // di dalam flex container. Perbaikan ini sudah ada di ReportRunnerView (commit
+            // fc539ec) dan HARUS terbawa saat method ini dipindahkan ke sini.
+            ifr.getStyle().set("border", "none").set("min-height", "0");
             box.add(ifr);
             box.setFlexGrow(1, ifr);
             return box;
