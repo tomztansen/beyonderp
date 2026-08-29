@@ -385,3 +385,8 @@ BEGIN
         ALTER TABLE public.meta_form_action ADD COLUMN script_content TEXT;
     END IF;
 END $$;
+
+-- Print-dari-form: cakupan pemakaian report + kunci grouping engine STANDARD
+ALTER TABLE public.meta_report ADD COLUMN IF NOT EXISTS usage_scope VARCHAR(20) DEFAULT 'RUNNER';
+ALTER TABLE public.meta_report ADD COLUMN IF NOT EXISTS group_by VARCHAR(100);
+UPDATE public.meta_report SET usage_scope = 'RUNNER' WHERE usage_scope IS NULL;

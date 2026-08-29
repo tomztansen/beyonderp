@@ -43,6 +43,19 @@ public class FormMeta extends BaseAuditableEntity {
         return (tableName != null && !tableName.isBlank()) ? tableName.trim() : null;
     }
 
+    /**
+     * Kunci yang dipakai {@code meta_report.table_name} untuk menunjuk form ini:
+     * nama tabel bila ada, jika tidak kode form (untuk form yang hanya punya view —
+     * sebuah view bisa berupa SELECT utuh yang tak muat di table_name). Null bila
+     * form tidak punya tabel maupun view, sehingga tidak bisa menjadi sumber report.
+     */
+    @Transient
+    public String reportSourceKey() {
+        if (tableName != null && !tableName.isBlank()) return tableName.trim();
+        if (viewTable != null && !viewTable.isBlank()) return formCode;
+        return null;
+    }
+
     @Column(name = "primary_key", length = 50)
     private String primaryKey;
 
