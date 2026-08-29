@@ -284,6 +284,53 @@ public class ReportBuilderView extends VerticalLayout {
         selectElement(null);
     }
 
+    /** Custom SQL / source key of the report being edited, so columns still resolve
+     *  when the source is a plain table with no FormMeta behind it. */
+    private String loadedDataQuery = null;
+    private String loadedSourceKey = null;
+
+    /**
+     * Kolom yang bisa dipilih sebagai FIELD, diambil dari sumber yang benar-benar
+     * dibaca report — urutan ini menyamai DynamicDataService.fetchReportData:
+     * custom query, lalu view form, lalu tabel. Tidak bergantung pada adanya
+     * FormMeta: report boleh menunjuk tabel yang tidak punya form.
+     */
+    private List<String> sourceColumns() {
+        String query = dataQueryArea.getValue();
+        if (query == null || query.isBlank()) query = loadedDataQuery;
+
+        String source = (query != null && !query.isBlank()) ? query.trim() : null;
+        if (source == null) {
+            FormMeta formMeta = tableCombo.getValue();
+            source = formMeta != null ? formMeta.effectiveSource() : loadedSourceKey;
+        }
+        if (source == null || source.isBlank()) return new ArrayList<>();
+        List<String> cols;
+        try {
+            cols = new ArrayList<>(com.vaadinerp.config.SpringContextHolder
+                    .getBean(com.vaadinerp.service.DynamicDataService.class)
+                    .getColumnsForQueryOrTable(source));
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+        addLovLabelColumns(cols, tableCombo.getValue());
+        return cols;
+    }
+
+    /**
+     * Kolom {field}_label tidak ada di database — dihitung saat run oleh enrichLov dari
+     * konfigurasi LOV field. Tanpa ini kolom tersebut tak pernah muncul di combo, jadi
+     * label LOV mustahil dipasang ke band tanpa mengetiknya manual.
+     */
+    private static void addLovLabelColumns(List<String> cols, FormMeta form) {
+        if (form == null || form.getFields() == null) return;
+        for (com.vaadinerp.meta.FieldMeta f : form.getFields()) {
+            if (f.getFieldName() == null || f.getLovCode() == null || f.getLovCode().isBlank()) continue;
+            String label = f.getFieldName().trim().toLowerCase() + "_label";
+            if (cols.stream().noneMatch(label::equalsIgnoreCase)) cols.add(label);
+        }
+    }
+
     /** Muat report tertentu ke dalam builder (dipakai saat di-embed dari Report Designer). */
     public void loadReport(String code) {
         if (code == null || code.trim().isEmpty()) return;
@@ -296,11 +343,14 @@ public class ReportBuilderView extends VerticalLayout {
         reportCodeField.setReadOnly(true);
         reportTitleField.setValue(selectedReport.getReportTitle() != null ? selectedReport.getReportTitle() : "");
         tableCombo.clear();
-        if (selectedReport.getTableName() != null && !selectedReport.getTableName().isEmpty()) {
-            FormMeta form = formMetaRepository.findById(selectedReport.getTableName()).orElse(null);
-            if (form != null) {
-                tableCombo.setValue(form);
-            }
+        loadedSourceKey = selectedReport.getTableName();
+        loadedDataQuery = selectedReport.getDataQuery();
+        if (loadedSourceKey != null && !loadedSourceKey.isBlank()) {
+            // table_name holds the form's source key, NOT the form_code that findById
+            // would need. A report may also point straight at a table with no form —
+            // then nothing is selected and sourceColumns() falls back to the key.
+            formMetaRepository.findByReportSourceKey(loadedSourceKey)
+                    .stream().findFirst().ifPresent(tableCombo::setValue);
         }
         dataQueryArea.setValue(selectedReport.getDataQuery() != null ? selectedReport.getDataQuery() : "");
 
@@ -457,12 +507,8 @@ public class ReportBuilderView extends VerticalLayout {
                 propElementValue.setVisible(false);
                 propElementFieldCombo.setVisible(true);
 
-                // Populate with columns from table
-                FormMeta formMeta = tableCombo.getValue();
-                List<String> columns = new ArrayList<>();
-                if (formMeta != null && formMeta.getFields() != null) {
-                    columns = formMeta.getFields().stream().map(FieldMeta::getFieldName).collect(Collectors.toList());
-                }
+                List<String> columns = sourceColumns();
+                propElementFieldCombo.setAllowCustomValue(true);
                 propElementFieldCombo.setItems(columns);
                 propElementFieldCombo.setValue(temp.elementValue);
             } else {
@@ -765,11 +811,8 @@ public class ReportBuilderView extends VerticalLayout {
         valText.setPlaceholder("Enter static text...");
 
         ComboBox<String> fieldCombo = new ComboBox<>("Table Field");
-        FormMeta formMeta = tableCombo.getValue();
-        List<String> columns = new ArrayList<>();
-        if (formMeta != null && formMeta.getFields() != null) {
-            columns = formMeta.getFields().stream().map(FieldMeta::getFieldName).collect(Collectors.toList());
-        }
+        fieldCombo.setAllowCustomValue(true);
+        List<String> columns = sourceColumns();
         fieldCombo.setItems(columns);
         fieldCombo.setVisible(false);
 
@@ -780,6 +823,7 @@ public class ReportBuilderView extends VerticalLayout {
         sysSelect.setVisible(false);
 
         ComboBox<String> aggFieldCombo = new ComboBox<>("Aggregate Target Field");
+        aggFieldCombo.setAllowCustomValue(true);
         aggFieldCombo.setItems(columns);
         aggFieldCombo.setVisible(false);
         typeSelect.addValueChangeListener(e -> {

@@ -38,6 +38,23 @@ class ReportDataServiceTest {
         assertThat(sql).isEqualTo("SELECT * FROM v_inv");
     }
 
+    /** A form whose view_table is a bare view name, reached via its form_code as source key.
+     *  Regression: this used to emit "SELECT * FROM dynamic.MST_CST" (the form_code as a table). */
+    @Test
+    void wrapsBareViewNameFromFormInSelect() {
+        DynamicDataService dyn = mock(DynamicDataService.class);
+        when(dyn.getQualifiedTableName("mscustomer")).thenReturn("dynamic.mscustomer");
+
+        ReportMeta r = new ReportMeta();
+        r.setTableName("MST_CST");          // form_code, not a table
+        FormMeta form = new FormMeta();
+        form.setViewTable("mscustomer");    // bare name, not a SELECT
+
+        String sql = ReportDataService.resolveBaseQuery(r, form, dyn);
+        assertThat(sql).isEqualTo("SELECT * FROM dynamic.mscustomer");
+        assertThat(sql).doesNotContain("MST_CST");
+    }
+
     @Test
     void fallsBackToTableName() {
         ReportMeta r = new ReportMeta();

@@ -45,12 +45,14 @@ public class ReportDataService {
         this.dynamicDataService = dynamicDataService;
     }
 
-    /** Cari FormMeta by tableName tanpa mengasumsikan unik (findByTableName melempar bila >1 row). */
-    private FormMeta findFormByTableName(String tableName) {
-        if (tableName == null || tableName.trim().isEmpty()) return null;
-        return formMetaRepository.findAll().stream()
-                .filter(f -> tableName.equalsIgnoreCase(f.getTableName()))
-                .findFirst().orElse(null);
+    /**
+     * Cari FormMeta dari source key report. Key itu bisa table_name, view_table, atau
+     * form_code (dipakai untuk form yang tak punya tabel dasar) — satu-satunya definisi
+     * pencocokan ada di repository, supaya jalur run dan Stimulsoft tidak berbeda.
+     */
+    private FormMeta findFormBySourceKey(String key) {
+        if (key == null || key.trim().isEmpty()) return null;
+        return formMetaRepository.findByReportSourceKey(key.trim()).stream().findFirst().orElse(null);
     }
 
     /**
@@ -95,7 +97,13 @@ public class ReportDataService {
             return report.getDataQuery().trim();
         }
         if (form != null && form.getViewTable() != null && !form.getViewTable().trim().isEmpty()) {
-            return form.getViewTable().trim();
+            String vt = form.getViewTable().trim();
+            String lower = vt.toLowerCase();
+            // view_table may be a whole SELECT/WITH, or just a view name — a bare name
+            // is not valid SQL on its own and must be wrapped.
+            return (lower.startsWith("select") || lower.startsWith("with"))
+                    ? vt
+                    : "SELECT * FROM " + dyn.getQualifiedTableName(vt);
         }
         if (report.getTableName() != null && !report.getTableName().trim().isEmpty()) {
             return "SELECT * FROM " + dyn.getQualifiedTableName(report.getTableName().trim());
@@ -104,7 +112,7 @@ public class ReportDataService {
     }
 
     public List<Map<String, Object>> fetchData(ReportMeta report, Map<String, Object> params, boolean sample) {
-        FormMeta form = findFormByTableName(report.getTableName());
+        FormMeta form = findFormBySourceKey(report.getTableName());
 
         String sql = resolveBaseQuery(report, form, dynamicDataService);
         if (sql == null) return new ArrayList<>();

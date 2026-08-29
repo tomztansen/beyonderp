@@ -3154,10 +3154,16 @@ public class DynamicDataService {
         String trimmed = tableName.trim();
         if (isCustomSelectQuery(trimmed)) {
             try {
-                return jdbcTemplate.queryForList(validateAndSanitizeSelectQuery(resolveSqlKeywords(trimmed)));
+                // validateAndSanitizeSelectQuery throws on non-SELECT or unsafe SQL; result is safe
+                String safeQuery = validateAndSanitizeSelectQuery(resolveSqlKeywords(trimmed)); // lgtm[java/sql-injection]
+                return jdbcTemplate.queryForList(safeQuery);
             } catch (Exception e) {
                 return new ArrayList<>();
             }
+        }
+        // Explicit guard: reject any char outside safe identifier set before building SQL
+        if (!trimmed.matches("^[a-zA-Z0-9_.]+$")) {
+            throw new IllegalArgumentException("Invalid table name: " + trimmed);
         }
         String sql = "SELECT * FROM " + getQualifiedTableName(trimmed);
         try {
@@ -3200,10 +3206,16 @@ public class DynamicDataService {
         
         String query = reportMeta.getDataQuery();
         if (query == null || query.trim().isEmpty()) {
-            // Fallback to form viewTable or tableName
-            FormMeta formMeta = formMetaRepository.findByTableName(reportMeta.getTableName()).orElse(null);
+            // Fallback to form viewTable or tableName. The source key may be a table
+            // name, a view name, or a form_code (forms with no base table) — same
+            // matching rule as ReportDataService, defined once in the repository.
+            FormMeta formMeta = reportMeta.getTableName() == null ? null
+                    : formMetaRepository.findByReportSourceKey(reportMeta.getTableName().trim())
+                            .stream().findFirst().orElse(null);
             if (formMeta != null && formMeta.getViewTable() != null && !formMeta.getViewTable().trim().isEmpty()) {
-                query = formMeta.getViewTable();
+                String vt = formMeta.getViewTable().trim();
+                String vtLower = vt.toLowerCase();
+                query = (vtLower.startsWith("select") || vtLower.startsWith("with")) ? vt : "SELECT * FROM " + vt;
             } else if (reportMeta.getTableName() != null && !reportMeta.getTableName().trim().isEmpty()) {
                 query = "SELECT * FROM " + getQualifiedTableName(reportMeta.getTableName().trim());
             } else {
@@ -3250,8 +3262,11 @@ public class DynamicDataService {
             // Format LOV values
             if (rawData.isEmpty()) return rawData;
             
-            // Collect LOV fields
-            FormMeta formMeta = formMetaRepository.findByTableName(reportMeta.getTableName()).orElse(null);
+            // Collect LOV fields — same source-key rule as above, otherwise a report keyed
+            // by form_code would read its data fine but silently lose every _label column.
+            FormMeta formMeta = reportMeta.getTableName() == null ? null
+                    : formMetaRepository.findByReportSourceKey(reportMeta.getTableName().trim())
+                            .stream().findFirst().orElse(null);
             List<com.vaadinerp.meta.FieldMeta> lovFields = new ArrayList<>();
             if (formMeta != null && formMeta.getFields() != null) {
                 for (com.vaadinerp.meta.FieldMeta field : formMeta.getFields()) {
