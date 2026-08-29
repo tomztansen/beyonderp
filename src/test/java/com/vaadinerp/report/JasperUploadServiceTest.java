@@ -9,10 +9,10 @@ import static org.assertj.core.api.Assertions.*;
 
 class JasperUploadServiceTest {
 
+    // JRXML 7 carries no XML namespace — see JasperTemplateServiceTest.
     private static final String VALID_JRXML =
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-        "<jasperReport xmlns=\"http://jasperreports.sourceforge.net/jasperreports\" " +
-        "name=\"t\" pageWidth=\"595\" pageHeight=\"842\" columnWidth=\"555\" " +
+        "<jasperReport name=\"t\" pageWidth=\"595\" pageHeight=\"842\" columnWidth=\"555\" " +
         "leftMargin=\"20\" rightMargin=\"20\" topMargin=\"20\" bottomMargin=\"20\">" +
         "<detail><band height=\"20\"/></detail></jasperReport>";
 
@@ -29,11 +29,15 @@ class JasperUploadServiceTest {
         assertThat(new File(dir.toFile(), "INV.jrxml")).exists();
     }
 
+    /** .jasper is a serialized Java object; accepting one would hand an attacker a
+     *  deserialization gadget (CVE-2023-46750). It must be refused, not stored. */
     @Test
-    void savesJasperBinaryWithoutCompiling(@TempDir Path dir) {
+    void rejectsJasperBinaryUpload(@TempDir Path dir) {
         JasperUploadService s = svc(dir.toString());
-        s.saveUpload("INV", "report.jasper", new byte[]{1, 2, 3});
-        assertThat(new File(dir.toFile(), "INV.jasper")).exists();
+        assertThatThrownBy(() -> s.saveUpload("INV", "report.jasper", new byte[]{1, 2, 3}))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(".jrxml");
+        assertThat(new File(dir.toFile(), "INV.jasper")).doesNotExist();
     }
 
     @Test

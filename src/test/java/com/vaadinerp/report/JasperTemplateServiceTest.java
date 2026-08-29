@@ -9,10 +9,12 @@ import static org.assertj.core.api.Assertions.*;
 
 class JasperTemplateServiceTest {
 
+    // JRXML 7 carries no XML namespace — JasperReports 7 dropped it, and a file
+    // saved by Jaspersoft Studio 7 has a bare <jasperReport> root. Declaring the
+    // old JR6 namespace here makes the loader reject the document.
     private static final String VALID_JRXML =
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-        "<jasperReport xmlns=\"http://jasperreports.sourceforge.net/jasperreports\" " +
-        "name=\"t\" pageWidth=\"595\" pageHeight=\"842\" columnWidth=\"555\" " +
+        "<jasperReport name=\"t\" pageWidth=\"595\" pageHeight=\"842\" columnWidth=\"555\" " +
         "leftMargin=\"20\" rightMargin=\"20\" topMargin=\"20\" bottomMargin=\"20\">" +
         "<detail><band height=\"20\"/></detail></jasperReport>";
 

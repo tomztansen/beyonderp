@@ -225,7 +225,7 @@ public class ReportRunnerView extends VerticalLayout {
         if (res.stimulsoftViewer()) {
             IFrame ifr = new IFrame(res.viewerUrl());
             ifr.setSizeFull();
-            ifr.getStyle().set("border", "none");
+            ifr.getStyle().set("border", "none").set("min-height", "0");
             box.add(ifr);
             box.setFlexGrow(1, ifr);
             return box;
