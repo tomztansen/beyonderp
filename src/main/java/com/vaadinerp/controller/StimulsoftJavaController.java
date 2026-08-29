@@ -76,7 +76,10 @@ public class StimulsoftJavaController {
             com.vaadinerp.meta.ReportMeta meta = reportMetaRepository.findById(code).orElse(null);
             java.util.Map<String, Object> params = new java.util.HashMap<>();
             request.getParameterMap().forEach((k, v) -> {
-                if (!"code".equals(k) && v != null && v.length > 0) params.put(k, v[0]);
+                if ("code".equals(k) || v == null || v.length == 0) return;
+                // Satu key bisa muncul beberapa kali (baris grid terpilih); ambil semuanya,
+                // supaya ReportDataService bisa membangun IN (:param).
+                params.put(k, v.length == 1 ? v[0] : java.util.List.of((Object[]) v));
             });
             java.util.List<java.util.Map<String, Object>> rawData;
             if (meta != null) {
