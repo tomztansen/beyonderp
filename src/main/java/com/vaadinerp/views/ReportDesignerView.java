@@ -221,23 +221,9 @@ public class ReportDesignerView extends VerticalLayout {
     /** Cari FormMeta by tableName tanpa mengasumsikan unik (findByTableName melempar bila >1). */
     /**
      * What gets stored in {@code meta_report.table_name} for a form, or null when
-     * the form can't back a report at all.
-     *
-     * <p>Prefers the base table as the stored key because that is what
-     * {@code DynamicDataService.fetchReportData} looks the form up by — and once
-     * found, it already runs the form's view in preference to the table. Forms
-     * that only have a view are stored by view name, which that same method falls
-     * back to querying directly.
-     */
+    /** Lihat {@link FormMeta#reportSourceKey()} — definisi tunggal ada di entity. */
     private static String sourceKeyOf(FormMeta f) {
-        String table = f.getTableName();
-        if (table != null && !table.isBlank()) return table.trim();
-        // View-only form: store the form_code. A view may be a whole SELECT, which
-        // would never fit table_name (varchar 100) nor resolve as an identifier —
-        // the code always fits, and fetchReportData maps it back to this form's view.
-        String view = f.getViewTable();
-        if (view != null && !view.isBlank()) return f.getFormCode();
-        return null;
+        return f.reportSourceKey();
     }
 
     private FormMeta findFormBySourceKey(String key) {

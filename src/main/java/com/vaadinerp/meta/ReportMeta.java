@@ -42,6 +42,26 @@ public class ReportMeta extends BaseAuditableEntity {
     @Column(name = "description", length = 500)
     private String description;
 
+    /** FORM | RUNNER | BOTH — di mana report ini boleh dijalankan. */
+    @Column(name = "usage_scope", length = 20)
+    private String usageScope = "RUNNER";
+
+    /** Nama kolom hasil query yang menjadi kunci grouping (engine STANDARD). */
+    @Column(name = "group_by", length = 100)
+    private String groupBy;
+
+    /**
+     * Apakah report boleh dijalankan dari {@code scope} ("FORM" atau "RUNNER").
+     * {@code usageScope} kosong diperlakukan sebagai RUNNER, sehingga report lama
+     * tidak berubah perilaku.
+     */
+    @Transient
+    public boolean isUsableFrom(String scope) {
+        if (scope == null) return false;
+        String s = (usageScope == null || usageScope.isBlank()) ? "RUNNER" : usageScope.trim();
+        return s.equalsIgnoreCase("BOTH") || s.equalsIgnoreCase(scope.trim());
+    }
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "meta_report_role", schema = "public",
             joinColumns = @JoinColumn(name = "report_code"))
