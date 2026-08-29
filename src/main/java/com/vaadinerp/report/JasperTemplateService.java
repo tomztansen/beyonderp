@@ -3,7 +3,6 @@ package com.vaadinerp.report;
 import net.sf.jasperreports.engine.JRException;
 import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperReport;
-import net.sf.jasperreports.engine.util.JRLoader;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -14,8 +13,9 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
 /**
- * Muat/compile template Jasper. Menerima .jasper (load langsung) dan .jrxml
- * (compile). Hasil di-cache by path+mtime agar compile hanya sekali per versi file.
+ * Muat/compile template Jasper. Hanya .jrxml yang di-load (di-compile dulu).
+ * File .jasper ditolak untuk mencegah Java deserialization vulnerability.
+ * Hasil di-cache by path+mtime agar compile hanya sekali per versi file.
  */
 @Service
 public class JasperTemplateService {
@@ -31,16 +31,20 @@ public class JasperTemplateService {
         return JasperCompileManager.compileReport(jrxml);
     }
 
-    /** .jasper → load; .jrxml → compile. Hasil di-cache by path+mtime. */
+    /**
+     * .jrxml → compile. Hasil di-cache by path+mtime.
+     * .jasper ditolak untuk mencegah deserialization vulnerability.
+     */
     public JasperReport loadCompiled(File template) throws JRException {
+        if (!template.getName().toLowerCase().endsWith(".jrxml")) {
+            throw new JRException(
+                    "Only .jrxml files are accepted. " +
+                    ".jasper files are blocked to prevent deserialization attacks.");
+        }
         String key = template.getAbsolutePath() + "#" + template.lastModified();
         return cache.get(key, k -> {
             try {
-                if (template.getName().toLowerCase().endsWith(".jrxml")) {
-                    return JasperCompileManager.compileReport(template.getAbsolutePath());
-                } else {
-                    return (JasperReport) JRLoader.loadObject(template);
-                }
+                return JasperCompileManager.compileReport(template.getAbsolutePath());
             } catch (JRException e) {
                 throw new RuntimeException(e);
             }

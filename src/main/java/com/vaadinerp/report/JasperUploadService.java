@@ -8,8 +8,9 @@ import java.io.File;
 import java.nio.file.Files;
 
 /**
- * Menyimpan template Jasper yang di-upload. .jrxml divalidasi (compile) saat upload
- * agar file rusak ditolak dini; .jasper disimpan langsung.
+ * Menyimpan template Jasper yang di-upload. Hanya .jrxml yang diterima;
+ * .jasper ditolak untuk mencegah Java deserialization vulnerability (CVE-2023-46750).
+ * .jrxml divalidasi (compile) saat upload agar file rusak ditolak dini.
  */
 @Service
 public class JasperUploadService {
@@ -24,12 +25,15 @@ public class JasperUploadService {
 
     public void saveUpload(String code, String filename, byte[] bytes) {
         String lower = filename == null ? "" : filename.toLowerCase();
-        if (lower.endsWith(".jrxml")) {
-            try {
-                templates.compileForUpload(new ByteArrayInputStream(bytes)); // early validation
-            } catch (JRException e) {
-                throw new RuntimeException("Invalid .jrxml file: " + e.getMessage(), e);
-            }
+        if (!lower.endsWith(".jrxml")) {
+            throw new IllegalArgumentException(
+                    "Only .jrxml files are accepted. " +
+                    ".jasper files are blocked to prevent deserialization attacks (CVE-2023-46750).");
+        }
+        try {
+            templates.compileForUpload(new ByteArrayInputStream(bytes)); // early validation
+        } catch (JRException e) {
+            throw new RuntimeException("Invalid .jrxml file: " + e.getMessage(), e);
         }
         File target = resolver.resolveMasterTemplate(code, "JASPER", filename);
         try {

@@ -663,7 +663,7 @@ public class ReportDesignerView extends VerticalLayout {
         com.vaadin.flow.component.upload.receivers.MemoryBuffer buffer =
                 new com.vaadin.flow.component.upload.receivers.MemoryBuffer();
         com.vaadin.flow.component.upload.Upload upload = new com.vaadin.flow.component.upload.Upload(buffer);
-        upload.setAcceptedFileTypes(".jasper", ".jrxml");
+        upload.setAcceptedFileTypes(".jrxml");
         upload.setMaxFiles(1);
         upload.addSucceededListener(e -> {
             try {
@@ -677,8 +677,9 @@ public class ReportDesignerView extends VerticalLayout {
         VerticalLayout box = new VerticalLayout(
                 new com.vaadin.flow.component.html.H4("Jasper Template Upload"),
                 new com.vaadin.flow.component.html.Span(
-                        "Upload a .jasper (compiled) or .jrxml (source, validated on upload), authored in "
-                        + "JasperSoft Studio matching the runtime JasperReports version."),
+                        "Upload a .jrxml source file, authored in "
+                        + "JasperSoft Studio matching the runtime JasperReports version. "
+                        + "(.jasper files are blocked to prevent deserialization attacks.)"),
                 upload);
         box.setPadding(false);
         return box;
