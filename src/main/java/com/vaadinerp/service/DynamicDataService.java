@@ -11,6 +11,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -1806,49 +1807,37 @@ public class DynamicDataService {
         }
     }
 
-    private final Map<String, Map<String, String>> tableColumnTypeCache = new java.util.concurrent.ConcurrentHashMap<>();
+    /** Maksimum 200 tabel di-cache; entry yang tidak diakses >30 menit di-evict otomatis. */
+    private final com.github.benmanes.caffeine.cache.Cache<String, Map<String, String>> tableColumnTypeCache =
+            com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
+                    .maximumSize(200)
+                    .expireAfterAccess(Duration.ofMinutes(30))
+                    .build();
+
+    private Map<String, String> fetchColumnTypes(String tableName) {
+        Map<String, String> map = new java.util.HashMap<>();
+        try {
+            List<Map<String, Object>> cols = fetchTableSchemaDetails(tableName);
+            for (Map<String, Object> col : cols) {
+                Object cName = col.get("column_name");
+                Object dType = col.get("data_type");
+                if (cName != null && dType != null) {
+                    map.put(cName.toString().toLowerCase(), dType.toString().toLowerCase());
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Gagal mengambil schema kolom untuk tabel '{}': {}", tableName, ex.getMessage());
+        }
+        return map;
+    }
 
     private String getColumnDataType(String tableName, String columnName) {
         if (tableName == null || columnName == null)
             return "";
         String rawName = tableName.contains(".") ? tableName.substring(tableName.indexOf(".") + 1).toLowerCase()
                 : tableName.toLowerCase();
-        Map<String, String> colTypes = tableColumnTypeCache.computeIfAbsent(rawName, t -> {
-            Map<String, String> map = new java.util.HashMap<>();
-            try {
-                List<Map<String, Object>> cols = fetchTableSchemaDetails(t);
-                for (Map<String, Object> col : cols) {
-                    Object cName = col.get("column_name");
-                    Object dType = col.get("data_type");
-                    if (cName != null && dType != null) {
-                        map.put(cName.toString().toLowerCase(), dType.toString().toLowerCase());
-                    }
-                }
-            } catch (Exception ex) {
-                log.warn("Gagal mengambil schema kolom untuk tabel '{}': {}", t, ex.getMessage());
-            }
-            return map;
-        });
-        String foundType = colTypes.getOrDefault(columnName.toLowerCase(), "");
-        if (foundType.isEmpty()) {
-            try {
-                List<Map<String, Object>> cols = fetchTableSchemaDetails(rawName);
-                if (cols != null && !cols.isEmpty()) {
-                    Map<String, String> refreshedMap = new java.util.HashMap<>();
-                    for (Map<String, Object> col : cols) {
-                        Object cName = col.get("column_name");
-                        Object dType = col.get("data_type");
-                        if (cName != null && dType != null) {
-                            refreshedMap.put(cName.toString().toLowerCase(), dType.toString().toLowerCase());
-                        }
-                    }
-                    tableColumnTypeCache.put(rawName, refreshedMap);
-                    foundType = refreshedMap.getOrDefault(columnName.toLowerCase(), "");
-                }
-            } catch (Exception ignored) {
-            }
-        }
-        return foundType;
+        Map<String, String> colTypes = tableColumnTypeCache.get(rawName, this::fetchColumnTypes);
+        return colTypes.getOrDefault(columnName.toLowerCase(), "");
     }
 
     private Object sanitizeJdbcValue(String tableName, String columnName, Object val) {

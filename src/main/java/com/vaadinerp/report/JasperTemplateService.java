@@ -8,7 +8,10 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.InputStream;
-import java.util.concurrent.ConcurrentHashMap;
+import java.time.Duration;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 /**
  * Muat/compile template Jasper. Menerima .jasper (load langsung) dan .jrxml
@@ -17,7 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class JasperTemplateService {
 
-    private final ConcurrentHashMap<String, JasperReport> cache = new ConcurrentHashMap<>();
+    /** Maksimum 50 template di-cache; entry yang tidak diakses >30 menit di-evict otomatis. */
+    private final Cache<String, JasperReport> cache = Caffeine.newBuilder()
+            .maximumSize(50)
+            .expireAfterAccess(Duration.ofMinutes(30))
+            .build();
 
     /** Compile .jrxml dari stream (dipakai validasi saat upload). */
     public JasperReport compileForUpload(InputStream jrxml) throws JRException {
@@ -27,16 +34,16 @@ public class JasperTemplateService {
     /** .jasper → load; .jrxml → compile. Hasil di-cache by path+mtime. */
     public JasperReport loadCompiled(File template) throws JRException {
         String key = template.getAbsolutePath() + "#" + template.lastModified();
-        JasperReport cached = cache.get(key);
-        if (cached != null) return cached;
-
-        JasperReport jr;
-        if (template.getName().toLowerCase().endsWith(".jrxml")) {
-            jr = JasperCompileManager.compileReport(template.getAbsolutePath());
-        } else {
-            jr = (JasperReport) JRLoader.loadObject(template);
-        }
-        cache.put(key, jr);
-        return jr;
+        return cache.get(key, k -> {
+            try {
+                if (template.getName().toLowerCase().endsWith(".jrxml")) {
+                    return JasperCompileManager.compileReport(template.getAbsolutePath());
+                } else {
+                    return (JasperReport) JRLoader.loadObject(template);
+                }
+            } catch (JRException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 }
