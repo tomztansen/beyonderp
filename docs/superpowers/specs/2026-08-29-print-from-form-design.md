@@ -39,7 +39,7 @@ fleksibilitas ada di tangan perancang template, bukan di kolom konfigurasi.
 
 - Kolom `meta_report.usage_scope` (`FORM` / `RUNNER` / `BOTH`) + `meta_report.group_by`.
 - `ReportParamResolver.resolveFromRows(...)` — baris terpilih → nilai `FORM_FIELD` berupa `List`.
-- `ReportDataService` — parameter `FORM_FIELD` selalu di-bind sebagai list (`= ANY(...)`).
+- `ReportDataService` — parameter `FORM_FIELD` selalu di-bind sebagai list (`IN (:param)`).
 - `ReportLauncher` — kelas bersama untuk render output + buka tab portal; menghapus duplikasi
   antara `ReportRunnerView` dan `GenericFormView`.
 - `GenericFormView.btnPrint` ditulis ulang di atas `ReportRunService`.
@@ -163,9 +163,20 @@ dipilih agar tidak ada report yang berjalan saat user mencentang satu baris lalu
 mencentang baris kedua.
 
 **Model B** (`filterColumn` + `operator`): untuk parameter `FORM_FIELD`, `ReportDataService`
-**mengabaikan kolom `operator`** dan selalu membangun `{col} = ANY(:param)`. Di PostgreSQL
-`= ANY(ARRAY['x'])` tetap benar untuk satu elemen, sehingga tidak perlu percabangan. Admin tidak
-perlu menyetel `IN` secara manual.
+**mengabaikan kolom `operator`** dan selalu membangun `{col} IN (:param)`. Admin tidak perlu
+menyetel `IN` secara manual.
+
+Bentuknya harus `IN (:param)`, **bukan** `= ANY(:param)`. Keduanya setara di SQL, tetapi berbeda
+saat parameter di-bind dari Java: `NamedParameterJdbcTemplate` mengenali `IN (:param)` dan
+meng-expand `Collection` menjadi `IN (?, ?, ?)`, sedangkan pada `= ANY(:param)` ia mengirim
+`ArrayList` sebagai satu parameter dan driver PostgreSQL gagal dengan *"Can't infer the SQL type to
+use for an instance of java.util.ArrayList"*. `IN (:param)` juga tetap benar untuk list berisi satu
+elemen, sehingga tidak perlu percabangan.
+
+> Catatan: cabang `operator = 'IN'` yang sudah ada di `buildModelBWhere` memakai `= ANY(:param)` dan
+> karenanya bermasalah bila nilainya berupa `Collection`. Cabang itu **tidak diubah** oleh spec ini
+> (di luar cakupan, dan tidak ada report yang memakainya saat ini); yang ditambahkan hanya cabang
+> baru khusus `FORM_FIELD`. Perbaikannya dicatat di §12.
 
 **Model A** (custom query): admin menulis sendiri, dan harus memakai bentuk list:
 
@@ -332,8 +343,8 @@ sama dengan `ReportRunnerView`.
 - `ReportParamResolver.resolveFromRows`: N baris → list distinct; satu baris → list berisi satu
   elemen (bukan skalar); nol baris → key tidak muncul; `null` dibuang; `SYSTEM` tetap ter-resolve;
   `USER_INPUT` tetap dilewati.
-- `ReportDataService`: parameter `FORM_FIELD` menghasilkan `= ANY(:param)` dan mengabaikan
-  `operator` yang tersimpan.
+- `ReportDataService`: parameter `FORM_FIELD` menghasilkan `IN (:param)` dan mengabaikan `operator`
+  yang tersimpan; list kosong tidak menghasilkan klausa WHERE sama sekali.
 - `StandardRenderer`: `groupBy` terisi → satu blok per nilai group, `GROUP_HEADER` muncul sekali per
   kelompok, agregat di `GROUP_FOOTER` dihitung per kelompok; `groupBy` kosong → keluaran identik
   dengan sebelum perubahan (uji regresi).
@@ -355,6 +366,8 @@ sama dengan `ReportRunnerView`.
 
 ## 12. Future
 
+- Perbaiki cabang `operator = 'IN'` di `buildModelBWhere` dari `= ANY(:param)` menjadi
+  `IN (:param)`, agar Model B dengan nilai `Collection` juga berfungsi di luar jalur `FORM_FIELD`.
 - GROUP band bertingkat (group di dalam group) untuk engine STANDARD.
 - Export PDF/Excel langsung dari tombol Cetak untuk engine STANDARD.
 - Render Stimulsoft server-side agar keluarannya seragam PDF.
