@@ -26,14 +26,24 @@ public class StandardRenderer implements ReportRenderer {
         return "STANDARD";
     }
 
+    /** Overload lama: tanpa grouping. */
+    public static String renderHtml(List<Map<String, Object>> data, ReportMeta report,
+                                    List<ReportElementMeta> elements) {
+        return renderHtml(data, report, elements, null);
+    }
+
     /**
      * Render band-based bila report punya {@code elements}: TITLE / PAGE_HEADER di atas,
      * COLUMN_HEADER + DETAIL sebagai tabel (DETAIL diulang per baris data), lalu
      * SUMMARY / PAGE_FOOTER. Tanpa elements, jatuh ke dump semua kolom seperti semula
      * supaya report lama tetap tampil.
+     *
+     * <p>Bila {@code groupBy} terisi, data dipecah per nilai kolom itu (urutan kemunculan
+     * dipertahankan) dan tiap kelompok dirender sebagai GROUP_HEADER → tabel → GROUP_FOOTER,
+     * dipisah page break. Agregat di band group dihitung atas baris kelompoknya saja.
      */
     public static String renderHtml(List<Map<String, Object>> data, ReportMeta report,
-                                    List<ReportElementMeta> elements) {
+                                    List<ReportElementMeta> elements, String groupBy) {
         StringBuilder sb = new StringBuilder();
         sb.append("<div class=\"report-standard\">");
         if (report != null && report.getReportTitle() != null) {
@@ -42,7 +52,7 @@ public class StandardRenderer implements ReportRenderer {
         if (elements == null || elements.isEmpty()) {
             appendAllColumns(sb, data);
         } else {
-            appendBands(sb, data, elements);
+            appendBands(sb, data, elements, groupBy);
         }
         sb.append("</div>");
         return sb.toString();
@@ -66,34 +76,71 @@ public class StandardRenderer implements ReportRenderer {
     }
 
     private static void appendBands(StringBuilder sb, List<Map<String, Object>> data,
-                                    List<ReportElementMeta> elements) {
+                                    List<ReportElementMeta> elements, String groupBy) {
         List<Map<String, Object>> rows = (data != null) ? data : List.of();
         Map<String, List<ReportElementMeta>> bands = groupByBand(elements);
 
         for (String band : LEADING_BANDS) appendFreeBand(sb, bands.get(band), rows);
 
-        List<ReportElementMeta> header = bands.get("COLUMN_HEADER");
-        List<ReportElementMeta> detail = bands.get("DETAIL");
-        if (header != null || detail != null) {
-            sb.append("<table border=\"1\" cellspacing=\"0\" cellpadding=\"4\" style=\"width:100%\">");
-            if (header != null) {
-                sb.append("<thead><tr>");
-                for (ReportElementMeta el : header) appendCell(sb, "th", el, null, rows);
-                sb.append("</tr></thead>");
+        if (groupBy == null || groupBy.isBlank()) {
+            appendDataTable(sb, rows, bands, rows);
+        } else {
+            List<List<Map<String, Object>>> groups = partitionByGroup(rows, groupBy.trim());
+            boolean first = true;
+            for (List<Map<String, Object>> group : groups) {
+                sb.append("<div");
+                if (!first) sb.append(" style=\"page-break-before:always\"");
+                sb.append('>');
+                appendFreeBand(sb, bands.get("GROUP_HEADER"), group);
+                appendDataTable(sb, group, bands, group);
+                appendFreeBand(sb, bands.get("GROUP_FOOTER"), group);
+                sb.append("</div>");
+                first = false;
             }
-            if (detail != null) {
-                sb.append("<tbody>");
-                for (Map<String, Object> row : rows) {
-                    sb.append("<tr>");
-                    for (ReportElementMeta el : detail) appendCell(sb, "td", el, row, rows);
-                    sb.append("</tr>");
-                }
-                sb.append("</tbody>");
-            }
-            sb.append("</table>");
         }
 
         for (String band : TRAILING_BANDS) appendFreeBand(sb, bands.get(band), rows);
+    }
+
+    /** COLUMN_HEADER + DETAIL untuk sekumpulan baris. {@code aggRows} jadi cakupan fungsi agregat. */
+    private static void appendDataTable(StringBuilder sb, List<Map<String, Object>> rows,
+                                        Map<String, List<ReportElementMeta>> bands,
+                                        List<Map<String, Object>> aggRows) {
+        List<ReportElementMeta> header = bands.get("COLUMN_HEADER");
+        List<ReportElementMeta> detail = bands.get("DETAIL");
+        if (header == null && detail == null) return;
+
+        sb.append("<table border=\"1\" cellspacing=\"0\" cellpadding=\"4\" style=\"width:100%\">");
+        if (header != null) {
+            sb.append("<thead><tr>");
+            for (ReportElementMeta el : header) appendCell(sb, "th", el, null, aggRows);
+            sb.append("</tr></thead>");
+        }
+        if (detail != null) {
+            sb.append("<tbody>");
+            for (Map<String, Object> row : rows) {
+                sb.append("<tr>");
+                for (ReportElementMeta el : detail) appendCell(sb, "td", el, row, aggRows);
+                sb.append("</tr>");
+            }
+            sb.append("</tbody>");
+        }
+        sb.append("</table>");
+    }
+
+    /**
+     * Pecah baris per nilai {@code groupBy}, mempertahankan urutan kemunculan pertama.
+     * Baris tanpa kolom itu masuk ke satu kelompok bernilai null, sehingga kolom group
+     * yang salah ketik menghasilkan satu kelompok — bukan satu kelompok per baris.
+     */
+    private static List<List<Map<String, Object>>> partitionByGroup(List<Map<String, Object>> rows,
+                                                                    String groupBy) {
+        Map<Object, List<Map<String, Object>>> byKey = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            Object key = (row == null) ? null : row.get(groupBy);
+            byKey.computeIfAbsent(key, k -> new ArrayList<>()).add(row);
+        }
+        return new ArrayList<>(byKey.values());
     }
 
     /** Band di luar tabel: satu baris flex, tiap elemen jadi satu kolom. */
@@ -225,7 +272,7 @@ public class StandardRenderer implements ReportRenderer {
             head = new ReportMeta();
             head.setReportTitle(ctx.reportTitle());
         }
-        return ReportOutput.html(renderHtml(ctx.data(), head, ctx.elements()));
+        return ReportOutput.html(renderHtml(ctx.data(), head, ctx.elements(), ctx.groupBy()));
     }
 
     @Override

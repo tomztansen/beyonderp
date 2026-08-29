@@ -54,8 +54,8 @@ public class ReportRunService {
                 ? null
                 : resolver.resolveMasterTemplate(report.getReportCode(), engine, report.getTemplatePath());
         ReportContext ctx = new ReportContext(report.getReportCode(), engine, template, data, params,
-                report.getPageSize(), report.getOrientation(),
-                report.getReportTitle(), report.getElements());
+                report.getPageSize(), report.getOrientation(), report.getReportTitle(),
+                report.getElements(), report.getGroupBy());
         ReportRenderer renderer = registry.forEngine(engine);
         ReportOutput out = renderer.render(ctx);
         afterRun(report, params, data.size()); // titik ekstensi (no-op)
