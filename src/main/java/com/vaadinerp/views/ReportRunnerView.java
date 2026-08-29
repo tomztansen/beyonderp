@@ -1,13 +1,11 @@
 package com.vaadinerp.views;
 
-import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.accordion.Accordion;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H4;
-import com.vaadin.flow.component.html.IFrame;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -21,25 +19,15 @@ import com.vaadinerp.meta.ReportMeta;
 import com.vaadinerp.meta.ReportMetaRepository;
 import com.vaadinerp.meta.ReportParamMeta;
 import com.vaadinerp.report.*;
-import com.vaadinerp.report.render.ReportOutput;
 import com.vaadinerp.service.DynamicDataService;
 import com.vaadinerp.security.service.SessionSecurityService;
 
-import java.io.ByteArrayInputStream;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /** Layar end-user menjalankan report: katalog (kiri) + selection (kanan). Output dibuka sebagai tab di aplikasi. */
 @Route("report-runner")
 public class ReportRunnerView extends VerticalLayout {
-
-    private static final ExecutorService RUN_EXEC = Executors.newFixedThreadPool(4, r -> {
-        Thread t = new Thread(r, "report-run");
-        t.setDaemon(true);
-        return t;
-    });
 
     private final ReportMetaRepository reportMetaRepository;
     private final ReportAccessService reportAccessService;
@@ -109,6 +97,9 @@ public class ReportRunnerView extends VerticalLayout {
     private void rebuildCatalog(String search) {
         catalog.removeAll();
         List<ReportMeta> reports = reportAccessService.accessibleReports(reportMetaRepository.findAll());
+        // Report khusus form (param FORM_FIELD tak bisa terisi tanpa baris grid) disembunyikan
+        // di sini — menjalankannya tanpa filter akan menarik seluruh tabel.
+        reports = reports.stream().filter(r -> r.isUsableFrom("RUNNER")).collect(Collectors.toList());
         String q = search == null ? "" : search.trim().toLowerCase();
         if (!q.isEmpty()) {
             reports = reports.stream().filter(r ->
@@ -188,63 +179,7 @@ public class ReportRunnerView extends VerticalLayout {
         pb.setIndeterminate(true);
         selectionPanel.add(new H4("Running report…"), pb);
 
-        UI ui = UI.getCurrent();
-        String title = report.getReportTitle() != null ? report.getReportTitle() : report.getReportCode();
-        RUN_EXEC.submit(() -> {
-            try {
-                ReportRunResult res = reportRunService.run(report, values, false);
-                ui.access(() -> {
-                    Component content = buildOutput(res);
-                    PortalView portal = findPortal();
-                    if (portal == null) {
-                        Notification.show("Cannot find app shell to open output tab.");
-                    } else {
-                        portal.openComponentTab("RPT_OUT_" + report.getReportCode(), title, content);
-                    }
-                    selectReport(report);
-                });
-            } catch (org.springframework.dao.QueryTimeoutException te) {
-                ui.access(() -> {
-                    Notification.show("The report query took too long and was stopped. Please narrow your filter/parameters.");
-                    selectReport(report);
-                });
-            } catch (Exception ex) {
-                ui.access(() -> {
-                    Notification.show("Failed to run report: " + (ex.getMessage() != null ? ex.getMessage() : ex.toString()));
-                    selectReport(report);
-                });
-            }
-        });
-    }
-
-    private Component buildOutput(ReportRunResult res) {
-        VerticalLayout box = new VerticalLayout();
-        box.setSizeFull();
-        box.setPadding(false);
-        box.setSpacing(false);
-        if (res.stimulsoftViewer()) {
-            IFrame ifr = new IFrame(res.viewerUrl());
-            ifr.setSizeFull();
-            ifr.getStyle().set("border", "none").set("min-height", "0");
-            box.add(ifr);
-            box.setFlexGrow(1, ifr);
-            return box;
-        }
-        // StreamResource avoids sending bytes over WebSocket — browser fetches directly via HTTP.
-        ReportOutput out = res.output();
-        boolean isPdf = out.contentType().contains("pdf");
-        String filename = isPdf ? "report.pdf" : (out.contentType().startsWith("text/html") ? "report.html" : "report.bin");
-        byte[] bytes = out.bytes();
-        com.vaadin.flow.server.StreamResource sr = new com.vaadin.flow.server.StreamResource(
-                filename, () -> new ByteArrayInputStream(bytes));
-        sr.setContentType(out.contentType());
-        IFrame ifr = new IFrame();
-        ifr.getElement().setAttribute("src", sr);
-        ifr.setSizeFull();
-        ifr.getStyle().set("border", "none");
-        box.add(ifr);
-        box.setFlexGrow(1, ifr);
-        return box;
+        ReportLauncher.runAndOpenTab(this, reportRunService, report, values, () -> selectReport(report));
     }
 
     private Div buildEmptyState() {
@@ -264,19 +199,4 @@ public class ReportRunnerView extends VerticalLayout {
         return empty;
     }
 
-    /** Cari PortalView (app shell) untuk membuka tab: naik parent, fallback ke children UI. */
-    private PortalView findPortal() {
-        Component c = this;
-        while (c != null) {
-            if (c instanceof PortalView pv) return pv;
-            c = c.getParent().orElse(null);
-        }
-        UI ui = UI.getCurrent();
-        if (ui != null) {
-            for (Component child : ui.getChildren().toList()) {
-                if (child instanceof PortalView pv) return pv;
-            }
-        }
-        return null;
-    }
 }
