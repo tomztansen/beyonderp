@@ -14,6 +14,6 @@ public class WebAppConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(reportSecurityInterceptor)
-                .addPathPatterns("/stimulsoft-java/**", "/api/report/engine/**");
+                .addPathPatterns("/stimulsoft-java/**");
     }
 }
