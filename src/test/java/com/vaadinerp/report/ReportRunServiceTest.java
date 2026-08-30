@@ -18,7 +18,7 @@ class ReportRunServiceTest {
         r.setReportCode("INV");
         r.setEngineType("STIMULSOFT");
 
-        ReportRunResult res = svc.run(r, Map.of(), false);
+        ReportRunResult res = svc.run(r, Map.of(), "PDF", false);
 
         assertThat(res.stimulsoftViewer()).isTrue();
         assertThat(res.viewerUrl()).contains("/stimulsoft-java/viewer?code=INV");
@@ -43,7 +43,7 @@ class ReportRunServiceTest {
         when(registry.forEngine("STANDARD")).thenReturn(standard);
 
         ReportRunService svc = new ReportRunService(resolver, data, registry);
-        ReportRunResult res = svc.run(r, Map.of(), false);
+        ReportRunResult res = svc.run(r, Map.of(), "PDF", false);
 
         assertThat(res.stimulsoftViewer()).isFalse();
         assertThat(new String(res.output().bytes())).contains("ok");

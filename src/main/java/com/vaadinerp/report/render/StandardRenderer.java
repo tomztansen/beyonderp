@@ -3,6 +3,7 @@ package com.vaadinerp.report.render;
 import com.vaadinerp.meta.ReportElementMeta;
 import com.vaadinerp.meta.ReportMeta;
 import org.springframework.stereotype.Component;
+import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 
 import java.text.DecimalFormat;
 import java.time.format.DateTimeFormatter;
@@ -277,6 +278,59 @@ public class StandardRenderer implements ReportRenderer {
 
     @Override
     public ReportOutput export(ReportContext ctx, String format) {
-        return render(ctx); // export lanjutan (PDF/Excel) menyusul
+        if ("XLSX".equalsIgnoreCase(format) || "EXCEL".equalsIgnoreCase(format)) {
+            try (org.apache.poi.xssf.usermodel.XSSFWorkbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook()) {
+                org.apache.poi.ss.usermodel.Sheet sheet = wb.createSheet("Report");
+                List<Map<String, Object>> data = ctx.data();
+                if (data != null && !data.isEmpty()) {
+                    // Kolom dikunci dari baris pertama lalu diambil by-key: baris dengan urutan
+                    // atau jumlah key berbeda tidak menggeser kolom.
+                    List<String> cols = new ArrayList<>(data.get(0).keySet());
+                    org.apache.poi.ss.usermodel.Row headerRow = sheet.createRow(0);
+                    for (int c = 0; c < cols.size(); c++) {
+                        headerRow.createCell(c).setCellValue(cols.get(c));
+                    }
+                    int rowIdx = 1;
+                    for (Map<String, Object> row : data) {
+                        org.apache.poi.ss.usermodel.Row dataRow = sheet.createRow(rowIdx++);
+                        for (int c = 0; c < cols.size(); c++) {
+                            Object val = row.get(cols.get(c));
+                            if (val instanceof Number num) {
+                                dataRow.createCell(c).setCellValue(num.doubleValue());
+                            } else if (val != null) {
+                                dataRow.createCell(c).setCellValue(val.toString());
+                            }
+                        }
+                    }
+                }
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                wb.write(out);
+                return new ReportOutput("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to generate Excel for Standard Report: " + e.getMessage(), e);
+            }
+        } else if ("PDF".equalsIgnoreCase(format) || format == null || format.isBlank()) {
+            try {
+                ReportMeta head = null;
+                if (ctx.reportTitle() != null) {
+                    head = new ReportMeta();
+                    head.setReportTitle(ctx.reportTitle());
+                }
+                String htmlContent = renderHtml(ctx.data(), head, ctx.elements(), ctx.groupBy());
+                String fullHtml = "<!DOCTYPE html><html><head><style>body{font-family:sans-serif;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #000;padding:4px;}</style></head><body>" + htmlContent + "</body></html>";
+                
+                java.io.ByteArrayOutputStream os = new java.io.ByteArrayOutputStream();
+                PdfRendererBuilder builder = new PdfRendererBuilder();
+                builder.useFastMode();
+                builder.withHtmlContent(fullHtml, "");
+                builder.toStream(os);
+                builder.run();
+                
+                return ReportOutput.pdf(os.toByteArray());
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to generate PDF for Standard Report: " + e.getMessage(), e);
+            }
+        }
+        return render(ctx); // fallback to HTML
     }
 }

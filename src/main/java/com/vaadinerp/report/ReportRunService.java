@@ -30,7 +30,7 @@ public class ReportRunService {
         this.registry = registry;
     }
 
-    public ReportRunResult run(ReportMeta report, Map<String, Object> params, boolean sample) {
+    public ReportRunResult run(ReportMeta report, Map<String, Object> params, String format, boolean sample) {
         String engine = report.getEngineType() != null ? report.getEngineType() : "STANDARD";
         beforeRun(report, params); // titik ekstensi (no-op)
 
@@ -62,7 +62,7 @@ public class ReportRunService {
                 report.getPageSize(), report.getOrientation(), report.getReportTitle(),
                 report.getElements(), report.getGroupBy());
         ReportRenderer renderer = registry.forEngine(engine);
-        ReportOutput out = renderer.render(ctx);
+        ReportOutput out = renderer.export(ctx, format != null ? format : "PDF");
         afterRun(report, params, data.size()); // titik ekstensi (no-op)
         return ReportRunResult.rendered(out);
     }

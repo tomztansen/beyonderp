@@ -175,10 +175,11 @@ public class ReportBuilderView extends VerticalLayout {
         // 3. Workspace Layout
         HorizontalLayout workspace = new HorizontalLayout();
         workspace.setSizeFull();
-        workspace.getStyle().set("margin-top", "15px");
+        workspace.getStyle().set("margin-top", "15px").set("overflow", "auto");
         
-        stimulsoftIFrame.setSizeFull();
-        stimulsoftIFrame.getStyle().set("border", "none").set("background-color", "#fff");
+        stimulsoftIFrame.setWidthFull();
+        stimulsoftIFrame.setHeight("1200px");
+        stimulsoftIFrame.getStyle().set("border", "none").set("background-color", "#fff").set("min-height", "1200px");
         stimulsoftIFrame.setVisible(false);
 
         // COLUMN B: WYSIWYG Print Canvas
