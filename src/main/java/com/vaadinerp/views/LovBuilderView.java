@@ -32,7 +32,7 @@ public class LovBuilderView extends VerticalLayout {
     private final TextArea gridColumnsField = new TextArea("Grid Columns Configuration");
 
     private final TextField searchGridField = new TextField();
-    private java.util.List<LovMeta> allLovsList = new java.util.ArrayList<>();
+    // Lazy loaded via repository directly
 
     private LovMeta currentLovMeta;
 
@@ -109,6 +109,7 @@ public class LovBuilderView extends VerticalLayout {
 
     private void setupGrid() {
         grid.setSizeFull();
+        grid.setPageSize(50);
         grid.addColumn(meta -> meta != null ? meta.getLovCode() : "").setHeader("LOV Code").setSortable(true)
                 .setAutoWidth(true);
         grid.addColumn(meta -> meta != null ? meta.getLovName() : "").setHeader("Name").setSortable(true)
@@ -180,23 +181,34 @@ public class LovBuilderView extends VerticalLayout {
     }
 
     private void refreshGrid() {
-        allLovsList = lovMetaRepository.findAll();
         filterGrid();
     }
 
     private void filterGrid() {
-        String query = searchGridField.getValue() != null ? searchGridField.getValue().trim().toLowerCase() : "";
-        if (query.isEmpty()) {
-            grid.setItems(allLovsList);
-        } else {
-            java.util.List<LovMeta> filtered = allLovsList.stream().filter(lov -> {
-                String code = lov.getLovCode() != null ? lov.getLovCode().toLowerCase() : "";
-                String name = lov.getLovName() != null ? lov.getLovName().toLowerCase() : "";
-                String table = lov.getTableName() != null ? lov.getTableName().toLowerCase() : "";
-                return code.contains(query) || name.contains(query) || table.contains(query);
-            }).collect(java.util.stream.Collectors.toList());
-            grid.setItems(filtered);
-        }
+        grid.setItems(query -> {
+            int page = query.getPage();
+            int pageSize = query.getPageSize();
+            // Default sort code ascending if not specified
+            org.springframework.data.domain.Sort sort = org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "lovCode");
+            
+            if (!query.getSortOrders().isEmpty()) {
+                com.vaadin.flow.data.provider.QuerySortOrder order = query.getSortOrders().get(0);
+                sort = org.springframework.data.domain.Sort.by(
+                    order.getDirection() == com.vaadin.flow.data.provider.SortDirection.ASCENDING ? 
+                        org.springframework.data.domain.Sort.Direction.ASC : org.springframework.data.domain.Sort.Direction.DESC,
+                    order.getSorted()
+                );
+            }
+            
+            org.springframework.data.domain.PageRequest pageRequest = org.springframework.data.domain.PageRequest.of(page, pageSize, sort);
+            String search = searchGridField.getValue() != null ? searchGridField.getValue().trim() : "";
+            
+            if (search.isEmpty()) {
+                return lovMetaRepository.findAll(pageRequest).stream();
+            } else {
+                return lovMetaRepository.searchAll(search, pageRequest).stream();
+            }
+        });
     }
 
     private void clearForm() {

@@ -115,6 +115,10 @@ public class FormActionBuilderView extends VerticalLayout {
         btnNew.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnNew.getStyle().set("color", "#22c55e");
 
+        Button btnCopy = new com.vaadinerp.components.SafeButton("Copy", VaadinIcon.COPY.create(), e -> copyAction());
+        btnCopy.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btnCopy.getStyle().set("color", "#f59e0b");
+
         Button btnSave = new com.vaadinerp.components.SafeButton("Save", VaadinIcon.DOWNLOAD.create(), e -> saveAction());
         btnSave.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnSave.getStyle().set("color", "#3b82f6");
@@ -126,7 +130,7 @@ public class FormActionBuilderView extends VerticalLayout {
         btnRefresh.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnRefresh.getStyle().set("color", "#6b7280");
 
-        toolbar.add(btnNew, btnSave, btnDelete, btnRefresh);
+        toolbar.add(btnNew, btnCopy, btnSave, btnDelete, btnRefresh);
         return toolbar;
     }
 
@@ -1104,6 +1108,37 @@ public class FormActionBuilderView extends VerticalLayout {
             clearForm();
         } catch (Exception e) {
             Notification.show("Failed to delete: " + e.getMessage(), 4000, Notification.Position.MIDDLE);
+        }
+    }
+    private void copyAction() {
+        if (currentAction != null && currentAction.getId() != null) {
+            // Keep a copy of the values before they get wiped out
+            FormActionMeta clone = new FormActionMeta();
+            clone.setFormMeta(currentAction.getFormMeta());
+            clone.setActionCode(currentAction.getActionCode() + "_COPY");
+            clone.setActionLabel(currentAction.getActionLabel() + " Copy");
+            clone.setTargetScope(currentAction.getTargetScope());
+            clone.setActionType(currentAction.getActionType());
+            clone.setIconName(currentAction.getIconName());
+            clone.setButtonStyle(currentAction.getButtonStyle());
+            clone.setSourceLovCode(currentAction.getSourceLovCode());
+            clone.setCopySourceLovCode(currentAction.getCopySourceLovCode());
+            clone.setFilterMapping(currentAction.getFilterMapping());
+            clone.setCopyFilterMapping(currentAction.getCopyFilterMapping());
+            clone.setTargetMapping(currentAction.getTargetMapping());
+            clone.setMenuGroup(currentAction.getMenuGroup());
+            clone.setScriptContent(currentAction.getScriptContent());
+
+            // Deselecting grid will trigger clearForm() automatically
+            grid.deselectAll();
+            
+            // Now populate the form with our cloned data
+            populateForm(clone);
+            
+            Notification.show("Silakan ubah Action Code / Label lalu tekan Save.", 4000, Notification.Position.MIDDLE);
+            actionCodeField.focus();
+        } else {
+            Notification.show("Pilih aksi yang ingin di-copy terlebih dahulu.", 3000, Notification.Position.MIDDLE);
         }
     }
 }

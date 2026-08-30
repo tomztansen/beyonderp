@@ -18,9 +18,11 @@ import java.util.Map;
 public class JasperRenderer implements ReportRenderer {
 
     private final JasperTemplateService templates;
+    private final javax.sql.DataSource dataSource;
 
-    public JasperRenderer(JasperTemplateService templates) {
+    public JasperRenderer(JasperTemplateService templates, javax.sql.DataSource dataSource) {
         this.templates = templates;
+        this.dataSource = dataSource;
     }
 
     @Override
@@ -31,10 +33,21 @@ public class JasperRenderer implements ReportRenderer {
     private JasperPrint fill(ReportContext ctx) throws JRException {
         JasperReport jr = templates.loadCompiled(ctx.template());
         Map<String, Object> params = ctx.params() != null ? new HashMap<>(ctx.params()) : new HashMap<>();
-        List<Map<String, Object>> data = ctx.data() != null ? ctx.data() : new java.util.ArrayList<>();
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        JRMapCollectionDataSource ds = new JRMapCollectionDataSource((java.util.Collection) data);
-        return JasperFillManager.fillReport(jr, params, ds);
+        
+        if (ctx.data() == null) {
+            // Data is null, meaning no external query was defined in the application.
+            // Let Jasper execute its own internal <query> via JDBC.
+            try (java.sql.Connection conn = dataSource.getConnection()) {
+                return JasperFillManager.fillReport(jr, params, conn);
+            } catch (java.sql.SQLException e) {
+                throw new JRException("Failed to obtain JDBC connection for internal Jasper query", e);
+            }
+        } else {
+            List<Map<String, Object>> data = ctx.data();
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            JRMapCollectionDataSource ds = new JRMapCollectionDataSource((java.util.Collection) data);
+            return JasperFillManager.fillReport(jr, params, ds);
+        }
     }
 
     @Override

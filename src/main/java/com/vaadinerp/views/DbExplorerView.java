@@ -513,16 +513,32 @@ public class DbExplorerView extends VerticalLayout {
         long totalRecords = dynamicDataService.countTableDataPaged(currentTable, dataFilterValues);
         if (paginationBar != null) {
             paginationBar.setTotalRecords(totalRecords);
+            paginationBar.setVisible(false); // Hide manual pagination since we use lazy grid
         }
-        int offset = paginationBar != null ? paginationBar.getOffset() : 0;
-        int limit = paginationBar != null ? paginationBar.getLimit() : 100;
-
-        List<Map<String, Object>> pagedData = dynamicDataService.fetchTableDataPaged(
-                currentTable, offset, limit, dataFilterValues, currentSortField, currentSortDir);
-
-        currentDataList = new ArrayList<>(pagedData);
-        dataGrid.setDataProvider(new com.vaadin.flow.data.provider.ListDataProvider<>(currentDataList));
-        recordCount.setText("Menampilkan " + pagedData.size() + " dari total " + totalRecords + " baris data (dynamic."
+        
+        com.vaadin.flow.data.provider.DataProvider<Map<String, Object>, Void> dataProvider = 
+            com.vaadin.flow.data.provider.DataProvider.fromCallbacks(
+                query -> {
+                    int offset = query.getOffset();
+                    int limit = query.getLimit();
+                    
+                    String sortField = currentSortField;
+                    String sortDir = currentSortDir;
+                    if (!query.getSortOrders().isEmpty()) {
+                        com.vaadin.flow.data.provider.QuerySortOrder order = query.getSortOrders().get(0);
+                        sortField = order.getSorted();
+                        sortDir = order.getDirection() == com.vaadin.flow.data.provider.SortDirection.DESCENDING ? "DESC" : "ASC";
+                    }
+                    
+                    List<Map<String, Object>> pagedData = dynamicDataService.fetchTableDataPaged(
+                            currentTable, offset, limit, dataFilterValues, sortField, sortDir);
+                    return pagedData.stream();
+                },
+                query -> (int) totalRecords
+            );
+            
+        dataGrid.setDataProvider(dataProvider);
+        recordCount.setText("Menampilkan " + totalRecords + " baris data secara on-demand (dynamic."
                 + currentTable + ")");
     }
 

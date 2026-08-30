@@ -4796,6 +4796,25 @@ public class DynamicDataService {
         return jdbcTemplate.queryForList(wrappedSql);
     }
 
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> executeSafeAdhocQueryPaged(String sqlText, int offset, int limit) {
+        if (sqlText == null || sqlText.trim().isEmpty()) {
+            throw new IllegalArgumentException("SQL Query cannot be empty.");
+        }
+        String safeQuery = validateAndSanitizeSelectQuery(sqlText);
+        String wrappedSql = "SELECT * FROM ( " + safeQuery + " ) AS safe_query LIMIT ? OFFSET ?";
+        return jdbcTemplate.queryForList(wrappedSql, limit, offset);
+    }
+
+    @Transactional(readOnly = true)
+    public long countSafeAdhocQuery(String sqlText) {
+        if (sqlText == null || sqlText.trim().isEmpty()) return 0;
+        String safeQuery = validateAndSanitizeSelectQuery(sqlText);
+        String countSql = "SELECT COUNT(*) FROM ( " + safeQuery + " ) AS count_query";
+        Long count = jdbcTemplate.queryForObject(countSql, Long.class);
+        return count != null ? count : 0L;
+    }
+
     // --- PG_CRON Management ---
     public List<Map<String, Object>> fetchPgCronJobs() {
         try {

@@ -132,7 +132,7 @@ public class ReportDataService {
         FormMeta form = findFormBySourceKey(report.getTableName());
 
         String sql = resolveBaseQuery(report, form, dynamicDataService);
-        if (sql == null) return new ArrayList<>();
+        if (sql == null) return null; // Return null so JasperRenderer knows to use JDBC connection
 
         // resolve keyword ($CURRENT_USER dll) & validasi read-only
         sql = DynamicDataService.validateAndSanitizeSelectQuery(
