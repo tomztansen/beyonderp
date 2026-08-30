@@ -119,10 +119,8 @@ public class LovComboBox extends ComboBox<String> {
                             lovMeta.getValueColumn(), value);
                     if (rec != null) {
                         valueToRecordMap.put(value, rec);
-                    }
-                    Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
-                    if (lblObj != null) {
-                        valueToLabelMap.put(value, lblObj.toString());
+                        Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
+                        valueToLabelMap.put(value, lblObj != null ? lblObj.toString() : value);
                     } else {
                         valueToLabelMap.put(value, value);
                     }
