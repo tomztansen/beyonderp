@@ -509,32 +509,37 @@ public class VisualQueryBuilderView extends VerticalLayout {
     private void executeQuery() {
         String sql = sqlEditor.getValue();
         if (sql == null || sql.trim().isEmpty()) {
-            Notification.show("SQL is empty!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Silakan masukkan query SQL.", 3000, Notification.Position.MIDDLE);
             return;
         }
 
         try {
-            // maxRows limit to 1000 for safety against memory leak
-            List<Map<String, Object>> data = dynamicDataService.executeSafeAdhocQuery(sql, 1000);
+            // Test execution to get column structure
+            List<Map<String, Object>> testData = dynamicDataService.executeSafeAdhocQueryPaged(sql, 0, 1);
             
             resultGrid.removeAllColumns();
-            if (!data.isEmpty()) {
-                Map<String, Object> firstRow = data.get(0);
+            if (testData != null && !testData.isEmpty()) {
+                Map<String, Object> firstRow = testData.get(0);
                 for (String colName : firstRow.keySet()) {
                     resultGrid.addColumn(row -> row.get(colName) != null ? row.get(colName).toString() : "")
                             .setHeader(colName)
-                            .setSortable(true)
-                            .setAutoWidth(true);
+                            .setAutoWidth(true)
+                            .setSortable(false);
                 }
             }
             
-            resultGrid.setItems(data);
-            recordCount.setText("Showing " + data.size() + " rows.");
+            resultGrid.setItems(query -> {
+                int offset = query.getOffset();
+                int limit = query.getLimit();
+                List<Map<String, Object>> pagedData = dynamicDataService.executeSafeAdhocQueryPaged(sql, offset, limit);
+                return pagedData.stream();
+            });
             
+            recordCount.setText("Data diload on-demand (Infinite Scroll)");
+
         } catch (Exception ex) {
             Notification.show("Error eksekusi query: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
             resultGrid.setItems(new ArrayList<>());
-            recordCount.setText("Error during execution.");
         }
     }
 

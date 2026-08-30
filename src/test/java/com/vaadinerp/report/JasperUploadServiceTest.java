@@ -19,7 +19,8 @@ class JasperUploadServiceTest {
     private JasperUploadService svc(String uploadDir) {
         ReportResolver r = new ReportResolver(null);
         r.setUploadDirForTest(uploadDir);
-        return new JasperUploadService(new JasperTemplateService(), r);
+        com.vaadinerp.meta.ReportMetaRepository repo = org.mockito.Mockito.mock(com.vaadinerp.meta.ReportMetaRepository.class);
+        return new JasperUploadService(new JasperTemplateService(), r, repo);
     }
 
     @Test
@@ -43,8 +44,8 @@ class JasperUploadServiceTest {
     @Test
     void rejectsInvalidJrxml(@TempDir Path dir) {
         JasperUploadService s = svc(dir.toString());
-        assertThatThrownBy(() -> s.saveUpload("INV", "bad.jrxml",
-                "<nope/>".getBytes(StandardCharsets.UTF_8)))
+        // Validasi isi .jrxml kini di validateUpload(); saveUpload hanya menjaga ekstensi.
+        assertThatThrownBy(() -> s.validateUpload("<nope/>".getBytes(StandardCharsets.UTF_8)))
                 .isInstanceOf(RuntimeException.class);
     }
 }

@@ -63,7 +63,7 @@ public class ReportRunService {
                 report.getElements(), report.getGroupBy());
         ReportRenderer renderer = registry.forEngine(engine);
         ReportOutput out = renderer.export(ctx, format != null ? format : "PDF");
-        afterRun(report, params, data.size()); // titik ekstensi (no-op)
+        afterRun(report, params, data != null ? data.size() : 0); // titik ekstensi (no-op)
         return ReportRunResult.rendered(out);
     }
 

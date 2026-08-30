@@ -66,6 +66,9 @@ public class ReportDesignerView extends VerticalLayout {
     private String editingCode = null;
     private final List<ReportParamMeta> paramState = new ArrayList<>();
     private ReportBuilderView embeddedBuilder = null; // active only during STANDARD design
+    private byte[] pendingJasperBytes = null;
+    private String pendingJasperFilename = null;
+    private boolean pendingJasperDelete = false;
 
     // Metadata inputs
     private final TextField codeField = new TextField("Report Code");
@@ -525,6 +528,10 @@ public class ReportDesignerView extends VerticalLayout {
      */
     private void loadReportState(ReportMeta report) {
         paramState.clear();
+        pendingJasperBytes = null;
+        pendingJasperFilename = null;
+        pendingJasperDelete = false;
+        
         if (report == null) {
             editingCode = null;
             codeField.clear();
@@ -671,6 +678,26 @@ public class ReportDesignerView extends VerticalLayout {
         }
 
         try {
+            if ("JASPER".equalsIgnoreCase(rep.getEngineType())) {
+                if (pendingJasperDelete && rep.getTemplatePath() != null) {
+                    // Backup file before deleting
+                    java.io.File f = reportResolver.resolveMasterTemplate(rep.getReportCode(), "JASPER", rep.getTemplatePath());
+                    if (f.exists()) {
+                        java.io.File trash = new java.io.File(f.getParentFile(), "_trash");
+                        trash.mkdirs();
+                        String ts = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date());
+                        f.renameTo(new java.io.File(trash, rep.getReportCode() + "_" + ts + ".jrxml"));
+                    }
+                    rep.setTemplatePath(null);
+                } else if (pendingJasperBytes != null && pendingJasperFilename != null) {
+                    java.io.File target = reportResolver.resolveMasterTemplate(rep.getReportCode(), "JASPER", pendingJasperFilename);
+                    java.io.File parent = target.getParentFile();
+                    if (parent != null && !parent.exists()) parent.mkdirs();
+                    java.nio.file.Files.write(target.toPath(), pendingJasperBytes);
+                    rep.setTemplatePath(pendingJasperFilename);
+                }
+            }
+
             reportMetaRepository.save(rep);
             editingCode = rep.getReportCode();
             codeField.setReadOnly(true);
@@ -734,7 +761,7 @@ public class ReportDesignerView extends VerticalLayout {
             designSurface.add(ifr);
             designSurface.setFlexGrow(1, ifr);
         } else if ("JASPER".equalsIgnoreCase(engine)) {
-            designSurface.add(buildJasperUpload(report.getReportCode()));
+            designSurface.add(buildJasperUpload(report));
         } else { // STANDARD — embed band designer (canvas only); the single top toolbar Save
                  // persists it
             ReportBuilderView rb = new ReportBuilderView(reportMetaRepository, formMetaRepository, this::refreshGrid);
@@ -748,22 +775,74 @@ public class ReportDesignerView extends VerticalLayout {
         tabs.setSelectedIndex(1);
     }
 
-    private com.vaadin.flow.component.Component buildJasperUpload(String code) {
+    private com.vaadin.flow.component.Component buildJasperUpload(ReportMeta report) {
+        VerticalLayout box = new VerticalLayout();
+        box.add(new com.vaadin.flow.component.html.H4("Jasper Template Upload"));
+        
+        com.vaadin.flow.component.html.Span currentFile = new com.vaadin.flow.component.html.Span();
+        currentFile.getStyle().set("font-weight", "bold");
+        
+        HorizontalLayout currentFileLayout = new HorizontalLayout();
+        currentFileLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
+        currentFileLayout.setVisible(false);
+        
+        com.vaadin.flow.component.button.Button deleteBtn = new com.vaadin.flow.component.button.Button("Hapus File", com.vaadin.flow.component.icon.VaadinIcon.TRASH.create());
+        deleteBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_ERROR, com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
+        
+        currentFileLayout.add(currentFile, deleteBtn);
+        box.add(currentFileLayout);
+        
+        if (report.getTemplatePath() != null && !report.getTemplatePath().isEmpty() && !pendingJasperDelete) {
+            currentFile.setText("File saat ini: " + report.getTemplatePath());
+            currentFile.getStyle().set("color", "var(--lumo-success-text-color)");
+            currentFileLayout.setVisible(true);
+        }
+        
+        if (pendingJasperFilename != null) {
+            currentFile.setText("Akan diupload: " + pendingJasperFilename);
+            currentFile.getStyle().set("color", "var(--lumo-primary-text-color)");
+            currentFileLayout.setVisible(true);
+        }
+
         com.vaadin.flow.component.upload.receivers.MemoryBuffer buffer = new com.vaadin.flow.component.upload.receivers.MemoryBuffer();
         com.vaadin.flow.component.upload.Upload upload = new com.vaadin.flow.component.upload.Upload(buffer);
         upload.setAcceptedFileTypes(".jrxml");
         upload.setMaxFiles(1);
+        
         upload.addSucceededListener(e -> {
             try {
                 byte[] bytes = buffer.getInputStream().readAllBytes();
-                jasperUploadService.saveUpload(code, e.getFileName(), bytes);
-                Notification.show("Template uploaded: " + e.getFileName());
+                // Validate jrxml compilation early
+                jasperUploadService.validateUpload(bytes);
+                
+                pendingJasperBytes = bytes;
+                pendingJasperFilename = e.getFileName();
+                pendingJasperDelete = false; // Cancel any pending delete
+                
+                Notification.show("File siap diupload. Klik tombol Save untuk menyimpan permanen.");
+                
+                currentFile.setText("Akan diupload: " + pendingJasperFilename);
+                currentFile.getStyle().set("color", "var(--lumo-primary-text-color)");
+                currentFileLayout.setVisible(true);
             } catch (Exception ex) {
-                Notification.show(ex.getMessage() != null ? ex.getMessage() : "Upload failed");
+                Notification.show("Gagal memvalidasi file: " + ex.getMessage());
             }
         });
-        VerticalLayout box = new VerticalLayout(
-                new com.vaadin.flow.component.html.H4("Jasper Template Upload"),
+        
+        deleteBtn.addClickListener(e -> {
+            pendingJasperDelete = true;
+            pendingJasperBytes = null;
+            pendingJasperFilename = null;
+            upload.clearFileList();
+            
+            Notification.show("Penghapusan ditandai. Klik tombol Save untuk menghapus permanen.");
+            
+            currentFile.setText("Akan dihapus");
+            currentFile.getStyle().set("color", "var(--lumo-error-text-color)");
+            currentFileLayout.setVisible(true);
+        });
+        
+        box.add(
                 new com.vaadin.flow.component.html.Span(
                         "Upload a .jrxml source file, authored in "
                                 + "JasperSoft Studio matching the runtime JasperReports version. "
