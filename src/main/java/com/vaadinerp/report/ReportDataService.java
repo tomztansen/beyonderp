@@ -75,29 +75,41 @@ public class ReportDataService {
             String opRaw = p.getOperator();
             boolean formField = "FORM_FIELD".equalsIgnoreCase(
                     p.getSource() == null ? "" : p.getSource().trim());
-            // Model A (tanpa filterColumn) dilewati. Operator boleh kosong untuk FORM_FIELD
-            // karena bentuk klausanya sudah pasti IN.
             if (col == null || col.isBlank()) continue;
             if (!formField && (opRaw == null || opRaw.isBlank())) continue;
 
+            String op = formField ? "IN" : opRaw.trim().toUpperCase();
+            boolean noValue = "IS NULL".equals(op) || "IS NOT NULL".equals(op);
+
             Object val = values != null ? values.get(p.getParamName()) : null;
-            if (val == null
+            if (!noValue && (val == null
                     || (val instanceof String s && s.isBlank())
-                    || (val instanceof java.util.Collection<?> c && c.isEmpty())) continue;
+                    || (val instanceof java.util.Collection<?> c && c.isEmpty()))) continue;
 
             DynamicDataService.validateSqlIdentifier(col, "filter column");
             String name = p.getParamName();
             sb.append(sb.length() == 0 ? " WHERE " : " AND ");
-            if (formField) {
+
+            if (noValue) {
+                // IS NULL / IS NOT NULL — tidak butuh bind value
+                sb.append(col).append(" ").append(op);
+            } else if ("IN".equals(op)) {
+                // FORM_FIELD selalu Collection; USER_INPUT bisa comma-separated string
+                Object inVal = (val instanceof String sv)
+                        ? java.util.Arrays.asList(sv.split("\\s*,\\s*"))
+                        : val;
                 sb.append(col).append(" IN (:").append(name).append(")");
-                outBind.put(name, val);
-            } else if ("IN".equalsIgnoreCase(opRaw.trim())) {
-                sb.append(col).append(" = ANY(:").append(name).append(")");
-                outBind.put(name, val);
+                outBind.put(name, inVal);
+            } else if ("NOT IN".equals(op)) {
+                Object inVal = (val instanceof String sv)
+                        ? java.util.Arrays.asList(sv.split("\\s*,\\s*"))
+                        : val;
+                sb.append(col).append(" NOT IN (:").append(name).append(")");
+                outBind.put(name, inVal);
             } else {
-                String op = DynamicDataService.validateComparisonOperator(opRaw);
-                sb.append(col).append(" ").append(op).append(" :").append(name);
-                if ("LIKE".equals(op) || "ILIKE".equals(op)) {
+                String validOp = DynamicDataService.validateComparisonOperator(op);
+                sb.append(col).append(" ").append(validOp).append(" :").append(name);
+                if (validOp.contains("LIKE")) {
                     String s = val.toString();
                     outBind.put(name, s.contains("%") ? s : "%" + s + "%");
                 } else {
@@ -137,6 +149,19 @@ public class ReportDataService {
         // resolve keyword ($CURRENT_USER dll) & validasi read-only
         sql = DynamicDataService.validateAndSanitizeSelectQuery(
                 dynamicDataService.resolveSqlKeywords(sql));
+
+        // Tolak query kalau param wajib (Model B) kosong — cegah return semua data.
+        if (report.getParams() != null) {
+            for (com.vaadinerp.meta.ReportParamMeta p : report.getParams()) {
+                if (!p.isRequired() || p.getFilterColumn() == null || p.getFilterColumn().isBlank()) continue;
+                Object v = params != null ? params.get(p.getParamName()) : null;
+                boolean empty = v == null
+                        || (v instanceof String s && s.isBlank())
+                        || (v instanceof java.util.Collection<?> c && c.isEmpty());
+                if (empty) throw new IllegalArgumentException(
+                        "Parameter '" + (p.getParamLabel() != null ? p.getParamLabel() : p.getParamName()) + "' is required.");
+            }
+        }
 
         // Bind Model A (:param di query) + Model B (WHERE dari filterColumn/operator).
         Map<String, Object> bind = new HashMap<>();

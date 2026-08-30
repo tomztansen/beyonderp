@@ -612,7 +612,7 @@ public class DynamicDataService {
      * (whitelist).
      */
     private static final java.util.Set<String> ALLOWED_COMPARISON_OPS = java.util.Set.of(
-            "=", "!=", "<>", "<", ">", "<=", ">=", "LIKE", "ILIKE", "NOT LIKE", "NOT ILIKE", "IS NULL", "IS NOT NULL", "= ANY");
+            "=", "!=", "<>", "<", ">", "<=", ">=", "LIKE", "ILIKE", "NOT LIKE", "NOT ILIKE", "IS NULL", "IS NOT NULL");
 
     public static String validateComparisonOperator(String op) {
         if (op == null || op.trim().isEmpty())
