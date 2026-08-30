@@ -58,7 +58,7 @@ public class StimulsoftJavaController {
         }
 
         File base = new File(uploadDir).getCanonicalFile();
-        File file = new File(base, code + ".mrt").getCanonicalFile();
+        File file = new File(base, "stimulsoft/" + code + ".mrt").getCanonicalFile();
         if (!file.toPath().startsWith(base.toPath())) {
             writeError(response, "Invalid Report Path", "Path tidak valid.");
             return;
@@ -163,7 +163,7 @@ public class StimulsoftJavaController {
             public StiReport getEditedReport(HttpServletRequest requestHandler) {
                 StiReport report = new StiReport();
                 try {
-                    File file = new File(uploadDir, code + ".mrt");
+                    File file = new File(uploadDir, "stimulsoft/" + code + ".mrt");
                     if (file.exists()) {
                         report = StiSerializeManager.deserializeReport(file);
                     } else {
@@ -184,7 +184,7 @@ public class StimulsoftJavaController {
             public void onSaveReportTemplate(StiReport report, StiRequestParams requestParams,
                     HttpServletRequest requestHandler) {
                 try {
-                    File file = new File(uploadDir, code + ".mrt");
+                    File file = new File(uploadDir, "stimulsoft/" + code + ".mrt");
                     file.getParentFile().mkdirs();
                     try (java.io.FileOutputStream fos = new java.io.FileOutputStream(file)) {
                         StiSerializeManager.serializeReport(report, fos);

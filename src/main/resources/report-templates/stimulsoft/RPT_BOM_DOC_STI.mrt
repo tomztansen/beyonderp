@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+﻿<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <StiSerializer application="StiReport" type="Java" version="1.2">
   <AllowScriptsInExpressions>True</AllowScriptsInExpressions>
   <AllowScriptsToRun>True</AllowScriptsToRun>

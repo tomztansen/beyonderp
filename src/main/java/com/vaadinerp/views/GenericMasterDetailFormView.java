@@ -1098,9 +1098,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         btnPrint.setIcon(iconPrint);
         btnPrint.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnPrint.getStyle().set("font-weight", "500").set("color", "#374151");
-        btnPrint.addClickListener(e -> {
-            Notification.show("Fitur Cetak belum diimplementasikan.", 3000, Notification.Position.TOP_CENTER);
-        });
+        btnPrint.addClickListener(e -> openPrintDialog());
 
         // 6. REFRESH BUTTON
         btnRefresh = new com.vaadinerp.components.SafeButton("Refresh");
@@ -3616,5 +3614,141 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         this.closeHandler = null;
         this.currentFormDef = null;
         this.removeAll();
+    }
+
+    private void openPrintDialog() {
+        if (currentFormDef == null) {
+            Notification.show("Form definition is not loaded yet.", 3000, Notification.Position.MIDDLE);
+            return;
+        }
+        String sourceKey = currentFormDef.reportSourceKey();
+        if (sourceKey == null) {
+            Notification.show("This form has no table or view to report on.", 3000, Notification.Position.MIDDLE);
+            return;
+        }
+
+        java.util.List<com.vaadinerp.meta.ReportMeta> available;
+        try {
+            com.vaadinerp.meta.ReportMetaRepository reportRepo = com.vaadinerp.config.SpringContextHolder
+                    .getBean(com.vaadinerp.meta.ReportMetaRepository.class);
+            com.vaadinerp.report.ReportAccessService access = com.vaadinerp.config.SpringContextHolder
+                    .getBean(com.vaadinerp.report.ReportAccessService.class);
+            available = reportRepo.findAll().stream()
+                    .filter(r -> sourceKey.equalsIgnoreCase(r.getTableName()))
+                    .filter(r -> r.isUsableFrom("FORM"))
+                    .filter(access::canAccess)
+                    .toList();
+        } catch (Exception ex) {
+            Notification.show("Failed to load the report list.", 3000, Notification.Position.MIDDLE);
+            return;
+        }
+
+        if (available.isEmpty()) {
+            Notification.show("No report is configured for this form.", 3000, Notification.Position.MIDDLE);
+            return;
+        }
+        if (available.size() == 1) {
+            preparePrint(available.get(0));
+            return;
+        }
+
+        com.vaadin.flow.component.dialog.Dialog chooser = new com.vaadin.flow.component.dialog.Dialog();
+        chooser.setHeaderTitle("Select Report");
+        VerticalLayout list = new VerticalLayout();
+        for (com.vaadinerp.meta.ReportMeta rep : available) {
+            String engine = rep.getEngineType() != null ? rep.getEngineType() : "STANDARD";
+            com.vaadinerp.components.SafeButton pick = new com.vaadinerp.components.SafeButton(
+                    (rep.getReportTitle() != null ? rep.getReportTitle() : rep.getReportCode())
+                            + " (" + engine + ")",
+                    ev -> {
+                        chooser.close();
+                        preparePrint(rep);
+                    });
+            pick.setWidthFull();
+            list.add(pick);
+        }
+        chooser.add(list);
+        chooser.open();
+    }
+
+    private void preparePrint(com.vaadinerp.meta.ReportMeta report) {
+        // Master record as the single "row" for FORM_FIELD param resolution
+        java.util.List<Map<String, Object>> rows = new ArrayList<>();
+        Map<String, Object> bean = formBinder != null ? formBinder.getBean() : null;
+        if (bean != null && !bean.isEmpty()) rows.add(bean);
+
+        boolean needsRows = report.getParams() != null && report.getParams().stream()
+                .anyMatch(p -> "FORM_FIELD".equalsIgnoreCase(p.getSource() == null ? "" : p.getSource().trim())
+                        && p.isRequired());
+        if (needsRows && rows.isEmpty()) {
+            Notification.show("Please open a record first.", 3000, Notification.Position.MIDDLE);
+            return;
+        }
+
+        String user = null;
+        try {
+            com.vaadinerp.security.service.SessionSecurityService sec = com.vaadinerp.config.SpringContextHolder
+                    .getBean(com.vaadinerp.security.service.SessionSecurityService.class);
+            if (sec.getCurrentUser() != null) user = sec.getCurrentUser().getUsername();
+        } catch (Exception ignored) { }
+
+        Map<String, Object> values = new HashMap<>(
+                com.vaadinerp.report.ReportParamResolver.resolveFromRows(report.getParams(), rows, user));
+
+        java.util.List<com.vaadinerp.meta.ReportParamMeta> asked =
+                com.vaadinerp.report.ReportParamResolver.userInputParams(report.getParams());
+        if (asked.isEmpty()) {
+            launchPrint(report, values);
+            return;
+        }
+
+        com.vaadin.flow.component.dialog.Dialog paramDialog = new com.vaadin.flow.component.dialog.Dialog();
+        paramDialog.setHeaderTitle("Report Parameters");
+        com.vaadinerp.components.ReportParameterForm form =
+                new com.vaadinerp.components.ReportParameterForm(report.getParams(), dynamicDataService);
+        com.vaadinerp.components.SafeButton run = new com.vaadinerp.components.SafeButton("Print", ev -> {
+            values.putAll(form.collectValues());
+            if (!validateRequired(report, values)) return;
+            paramDialog.close();
+            launchPrint(report, values);
+        });
+        run.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
+        com.vaadinerp.components.SafeButton cancel =
+                new com.vaadinerp.components.SafeButton("Cancel", ev -> paramDialog.close());
+        paramDialog.add(form);
+        paramDialog.getFooter().add(cancel, run);
+        paramDialog.open();
+    }
+
+    private boolean validateRequired(com.vaadinerp.meta.ReportMeta report, Map<String, Object> values) {
+        if (report.getParams() == null) return true;
+        for (com.vaadinerp.meta.ReportParamMeta p : report.getParams()) {
+            values.putIfAbsent(p.getParamName(), p.getDefaultValue());
+            if (!p.isRequired()) continue;
+            Object v = values.get(p.getParamName());
+            boolean empty = v == null
+                    || (v instanceof String s && s.isBlank())
+                    || (v instanceof java.util.Collection<?> c && c.isEmpty());
+            if (empty) {
+                Notification.show("Parameter '"
+                        + (p.getParamLabel() != null ? p.getParamLabel() : p.getParamName())
+                        + "' is required.", 3000, Notification.Position.MIDDLE);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void launchPrint(com.vaadinerp.meta.ReportMeta report, Map<String, Object> values) {
+        if (!validateRequired(report, values)) return;
+        try {
+            com.vaadinerp.report.ReportRunService runService = com.vaadinerp.config.SpringContextHolder
+                    .getBean(com.vaadinerp.report.ReportRunService.class);
+            com.vaadinerp.report.ReportLauncher.runAndOpenTab(this, runService, report, values, "PDF", null);
+        } catch (Exception ex) {
+            Notification.show("Failed to start the report: "
+                    + (ex.getMessage() != null ? ex.getMessage() : ex.toString()),
+                    4000, Notification.Position.MIDDLE);
+        }
     }
 }
