@@ -390,3 +390,60 @@ END $$;
 ALTER TABLE public.meta_report ADD COLUMN IF NOT EXISTS usage_scope VARCHAR(20) DEFAULT 'RUNNER';
 ALTER TABLE public.meta_report ADD COLUMN IF NOT EXISTS group_by VARCHAR(100);
 UPDATE public.meta_report SET usage_scope = 'RUNNER' WHERE usage_scope IS NULL;
+
+-- ── Report contoh: dokumen Bill of Material, satu per engine ────────────────────
+-- Ketiganya memakai data_query yang sama; hanya engine + template yang berbeda.
+-- table_name = 'mhbom' menghubungkan report ke form BOM_ALL (bukan sumber query,
+-- karena data_query menang di resolveBaseQuery).
+
+DELETE FROM public.meta_report_param
+ WHERE report_code IN ('RPT_BOM_DOC_STD','RPT_BOM_DOC_JSP','RPT_BOM_DOC_STI');
+DELETE FROM public.meta_report_element
+ WHERE report_code IN ('RPT_BOM_DOC_STD','RPT_BOM_DOC_JSP','RPT_BOM_DOC_STI');
+DELETE FROM public.meta_report
+ WHERE report_code IN ('RPT_BOM_DOC_STD','RPT_BOM_DOC_JSP','RPT_BOM_DOC_STI');
+
+-- template_path WAJIB diisi untuk JASPER: ReportResolver.masterExtension mengembalikan
+-- "jasper" kecuali template_path berakhiran ".jrxml", sehingga resolver akan mencari
+-- RPT_BOM_DOC_JSP.jasper (tidak ada) alih-alih .jrxml yang kita pasang. Report JASPER
+-- `12345` yang sudah ada di DB memperlihatkan bug ini: template_path-nya kosong padahal
+-- berkasnya 12345.jrxml, jadi report itu tidak akan pernah ketemu templatenya.
+INSERT INTO public.meta_report
+    (report_code, report_title, table_name, page_size, orientation, engine_type,
+     data_query, category, description, usage_scope, group_by, template_path)
+VALUES
+    ('RPT_BOM_DOC_STD', 'Bill of Material Document (Standard)', 'mhbom', 'A4', 'PORTRAIT', 'STANDARD',
+     'SELECT h.id AS bom_id, h.idno, h.itemname AS product, h.abmdrawingnumber AS drawing, h.netweight, d.itemname AS material, d.itemgroup, d.qty, d.perseries FROM dynamic.mhbom h LEFT JOIN dynamic.mdbom d ON d.mhbomid = h.id WHERE h.id IN (:bom_id) ORDER BY h.id, d.id',
+     'Production', 'Prints the selected BOM rows as documents, one page per BOM.', 'FORM', 'bom_id', NULL),
+    ('RPT_BOM_DOC_JSP', 'Bill of Material Document (Jasper)', 'mhbom', 'A4', 'PORTRAIT', 'JASPER',
+     'SELECT h.id AS bom_id, h.idno, h.itemname AS product, h.abmdrawingnumber AS drawing, h.netweight, d.itemname AS material, d.itemgroup, d.qty, d.perseries FROM dynamic.mhbom h LEFT JOIN dynamic.mdbom d ON d.mhbomid = h.id WHERE h.id IN (:bom_id) ORDER BY h.id, d.id',
+     'Production', 'Prints the selected BOM rows as documents, one page per BOM.', 'FORM', NULL, 'RPT_BOM_DOC_JSP.jrxml'),
+    ('RPT_BOM_DOC_STI', 'Bill of Material Document (Stimulsoft)', 'mhbom', 'A4', 'PORTRAIT', 'STIMULSOFT',
+     'SELECT h.id AS bom_id, h.idno, h.itemname AS product, h.abmdrawingnumber AS drawing, h.netweight, d.itemname AS material, d.itemgroup, d.qty, d.perseries FROM dynamic.mhbom h LEFT JOIN dynamic.mdbom d ON d.mhbomid = h.id WHERE h.id IN (:bom_id) ORDER BY h.id, d.id',
+     'Production', 'Prints the selected BOM rows as documents, one page per BOM.', 'FORM', NULL, NULL);
+
+INSERT INTO public.meta_report_param
+    (report_code, param_name, param_label, param_type, source, source_key, required, col_order)
+SELECT r.report_code, 'bom_id', 'BOM', 'TEXTBOX', 'FORM_FIELD', 'id', true, 1
+  FROM public.meta_report r
+ WHERE r.report_code IN ('RPT_BOM_DOC_STD','RPT_BOM_DOC_JSP','RPT_BOM_DOC_STI');
+
+-- Band untuk engine STANDARD (dua engine lain menyimpan tata letak di templatenya).
+INSERT INTO public.meta_report_element
+    (report_code, band_type, element_type, element_value, column_width, alignment, font_weight, col_order, format_pattern)
+VALUES
+    ('RPT_BOM_DOC_STD', 'TITLE',        'LABEL',  'BILL OF MATERIAL', '100%', 'LEFT',  'BOLD',   1, NULL),
+    ('RPT_BOM_DOC_STD', 'GROUP_HEADER', 'LABEL',  'BOM No:',          '80px', 'LEFT',  'BOLD',   1, NULL),
+    ('RPT_BOM_DOC_STD', 'GROUP_HEADER', 'FIELD',  'idno',             '120px','LEFT',  'BOLD',   2, NULL),
+    ('RPT_BOM_DOC_STD', 'GROUP_HEADER', 'LABEL',  'Product:',         '80px', 'LEFT',  'NORMAL', 3, NULL),
+    ('RPT_BOM_DOC_STD', 'GROUP_HEADER', 'FIELD',  'product',          '275px','LEFT',  'NORMAL', 4, NULL),
+    ('RPT_BOM_DOC_STD', 'COLUMN_HEADER','LABEL',  'Material',         '45%',  'LEFT',  'BOLD',   1, NULL),
+    ('RPT_BOM_DOC_STD', 'COLUMN_HEADER','LABEL',  'Group',            '30%',  'LEFT',  'BOLD',   2, NULL),
+    ('RPT_BOM_DOC_STD', 'COLUMN_HEADER','LABEL',  'Qty',              '15%',  'RIGHT', 'BOLD',   3, NULL),
+    ('RPT_BOM_DOC_STD', 'COLUMN_HEADER','LABEL',  '/Series',          '10%',  'RIGHT', 'BOLD',   4, NULL),
+    ('RPT_BOM_DOC_STD', 'DETAIL',       'FIELD',  'material',         '45%',  'LEFT',  'NORMAL', 1, NULL),
+    ('RPT_BOM_DOC_STD', 'DETAIL',       'FIELD',  'itemgroup',        '30%',  'LEFT',  'NORMAL', 2, NULL),
+    ('RPT_BOM_DOC_STD', 'DETAIL',       'FIELD',  'qty',              '15%',  'RIGHT', 'NORMAL', 3, '#,##0.00'),
+    ('RPT_BOM_DOC_STD', 'DETAIL',       'FIELD',  'perseries',        '10%',  'RIGHT', 'NORMAL', 4, '#,##0.##'),
+    ('RPT_BOM_DOC_STD', 'GROUP_FOOTER', 'LABEL',  'Total item:',      '85%',  'RIGHT', 'BOLD',   1, NULL),
+    ('RPT_BOM_DOC_STD', 'GROUP_FOOTER', 'SYSTEM', 'COUNT()',          '15%',  'RIGHT', 'BOLD',   2, NULL);
