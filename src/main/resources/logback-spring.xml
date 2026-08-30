@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keeps Spring Boot's default logging (console/file appenders, patterns, and the
+  logging.level.* properties in application.properties still apply) and adds one
+  turbo filter that drops benign ClientAbortException noise from the Stimulsoft
+  viewer servlet. See ClientAbortLogFilter.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/base.xml"/>
+    <turboFilter class="com.vaadinerp.config.ClientAbortLogFilter"/>
+</configuration>
