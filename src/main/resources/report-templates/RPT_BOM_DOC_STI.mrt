@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<StiSerializer application="StiReport" type="Java" version="1.2">
+  <AllowScriptsInExpressions>True</AllowScriptsInExpressions>
+  <AllowScriptsToRun>True</AllowScriptsToRun>
+  <CalculationMode>Interpretation</CalculationMode>
+  <Dictionary Ref="1" isKey="true" type="Dictionary">
+    <BusinessObjects count="0" isList="true"/>
+    <Databases count="1" isList="true">
+      <DynamicData Ref="2" isKey="true" type="Stimulsoft.Report.Dictionary.StiJsonDatabase">
+        <Alias>DynamicData</Alias>
+        <EmbeddedData>{"DynamicData":[{"bom_id":38,"idno":"BOM00053","product":"SAMPLE PRODUCT","drawing":"-","netweight":"0","material":"SAMPLE MATERIAL","itemgroup":"GROUP","qty":1.0,"perseries":1.0}]}</EmbeddedData>
+        <HeadersString/>
+        <Name>DynamicData</Name>
+        <PathData/>
+      </DynamicData>
+    </Databases>
+    <DataSources count="1" isList="true">
+      <DynamicData Ref="3" isKey="true" type="DataTableSource">
+        <Alias>DynamicData</Alias>
+        <Columns count="9" isList="true">
+          <value>bom_id,System.Int32</value>
+          <value>idno,System.String</value>
+          <value>product,System.String</value>
+          <value>drawing,System.String</value>
+          <value>netweight,System.String</value>
+          <value>material,System.String</value>
+          <value>itemgroup,System.String</value>
+          <value>qty,System.Decimal</value>
+          <value>perseries,System.Decimal</value>
+        </Columns>
+        <Dictionary isRef="1"/>
+        <Name>DynamicData</Name>
+        <NameInSource>DynamicData.DynamicData</NameInSource>
+        <Parameters count="0" isList="true"/>
+      </DynamicData>
+    </DataSources>
+    <Relations count="0" isList="true"/>
+    <Report isRef="0"/>
+    <Resources count="0" isList="true"/>
+    <UserFunctions count="0" isList="true"/>
+    <Variables count="0" isList="true"/>
+  </Dictionary>
+  <EngineVersion>EngineV2</EngineVersion>
+  <ExportSettingsString/>
+  <GlobalizationStrings count="0" isList="true"/>
+  <HtmlPreviewMode>Div</HtmlPreviewMode>
+  <IsSubmit>False</IsSubmit>
+  <JsonReport>False</JsonReport>
+  <Key>a1b2c3d4e5f6478900112233445566aa</Key>
+  <MetaTags count="0" isList="true"/>
+  <Pages count="1" isList="true">
+    <Page1 Ref="4" isKey="true" type="Page">
+      <Border>None;Black;2.0;Solid;False;4.0;Black</Border>
+      <Brush>Transparent</Brush>
+      <Components count="2" isList="true">
+        <ColumnHeaderBand1 Ref="7" isKey="true" type="Stimulsoft.Report.Components.StiColumnHeaderBand">
+          <Brush>[220:220:220]</Brush>
+          <ClientRectangle>0,0,19.01,0.6</ClientRectangle>
+          <Components count="6" isList="true">
+            <HeadNo Ref="11" isKey="true" type="Text">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0,2.5,0.6</ClientRectangle>
+              <Conditions count="0" isList="true"/>
+              <Expressions count="0" isList="true"/>
+              <Font>Arial,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>HeadNo</Name>
+              <Page isRef="4"/>
+              <Parent isRef="7"/>
+              <Text>BOM No</Text>
+              <TextBrush>Black</TextBrush>
+            </HeadNo>
+            <HeadProduct Ref="12" isKey="true" type="Text">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.5,0,5.5,0.6</ClientRectangle>
+              <Conditions count="0" isList="true"/>
+              <Expressions count="0" isList="true"/>
+              <Font>Arial,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>HeadProduct</Name>
+              <Page isRef="4"/>
+              <Parent isRef="7"/>
+              <Text>Product</Text>
+              <TextBrush>Black</TextBrush>
+            </HeadProduct>
+            <HeadMaterial Ref="13" isKey="true" type="Text">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>8,0,5,0.6</ClientRectangle>
+              <Conditions count="0" isList="true"/>
+              <Expressions count="0" isList="true"/>
+              <Font>Arial,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>HeadMaterial</Name>
+              <Page isRef="4"/>
+              <Parent isRef="7"/>
+              <Text>Material</Text>
+              <TextBrush>Black</TextBrush>
+            </HeadMaterial>
+            <HeadGroup Ref="14" isKey="true" type="Text">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>13,0,3,0.6</ClientRectangle>
+              <Conditions count="0" isList="true"/>
+              <Expressions count="0" isList="true"/>
+              <Font>Arial,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>HeadGroup</Name>
+              <Page isRef="4"/>
+              <Parent isRef="7"/>
+              <Text>Group</Text>
+              <TextBrush>Black</TextBrush>
+            </HeadGroup>
+            <HeadQty Ref="15" isKey="true" type="Text">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>16,0,1.5,0.6</ClientRectangle>
+              <Conditions count="0" isList="true"/>
+              <Expressions count="0" isList="true"/>
+              <Font>Arial,8,Bold</Font>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>HeadQty</Name>
+              <Page isRef="4"/>
+              <Parent isRef="7"/>
+              <Text>Qty</Text>
+              <TextBrush>Black</TextBrush>
+            </HeadQty>
+            <HeadSeries Ref="16" isKey="true" type="Text">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>17.5,0,1.5,0.6</ClientRectangle>
+              <Conditions count="0" isList="true"/>
+              <Expressions count="0" isList="true"/>
+              <Font>Arial,8,Bold</Font>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>HeadSeries</Name>
+              <Page isRef="4"/>
+              <Parent isRef="7"/>
+              <Text>/Series</Text>
+              <TextBrush>Black</TextBrush>
+            </HeadSeries>
+          </Components>
+          <Conditions count="0" isList="true"/>
+          <Expressions count="0" isList="true"/>
+          <Name>ColumnHeaderBand1</Name>
+          <Page isRef="4"/>
+          <Parent isRef="4"/>
+        </ColumnHeaderBand1>
+        <DataBand1 Ref="8" isKey="true" type="DataBand">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,1.8,19.01,0.5</ClientRectangle>
+          <Components count="6" isList="true">
+            <CellNo Ref="21" isKey="true" type="Text">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0,2.5,0.5</ClientRectangle>
+              <Conditions count="0" isList="true"/>
+              <Expressions count="0" isList="true"/>
+              <Font>Arial,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>CellNo</Name>
+              <Page isRef="4"/>
+              <Parent isRef="8"/>
+              <Text>{DynamicData.idno}</Text>
+              <TextBrush>Black</TextBrush>
+            </CellNo>
+            <CellProduct Ref="22" isKey="true" type="Text">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.5,0,5.5,0.5</ClientRectangle>
+              <Conditions count="0" isList="true"/>
+              <Expressions count="0" isList="true"/>
+              <Font>Arial,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>CellProduct</Name>
+              <Page isRef="4"/>
+              <Parent isRef="8"/>
+              <Text>{DynamicData.product}</Text>
+              <TextBrush>Black</TextBrush>
+            </CellProduct>
+            <CellMaterial Ref="23" isKey="true" type="Text">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>8,0,5,0.5</ClientRectangle>
+              <Conditions count="0" isList="true"/>
+              <Expressions count="0" isList="true"/>
+              <Font>Arial,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>CellMaterial</Name>
+              <Page isRef="4"/>
+              <Parent isRef="8"/>
+              <Text>{DynamicData.material}</Text>
+              <TextBrush>Black</TextBrush>
+            </CellMaterial>
+            <CellGroup Ref="24" isKey="true" type="Text">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>13,0,3,0.5</ClientRectangle>
+              <Conditions count="0" isList="true"/>
+              <Expressions count="0" isList="true"/>
+              <Font>Arial,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>CellGroup</Name>
+              <Page isRef="4"/>
+              <Parent isRef="8"/>
+              <Text>{DynamicData.itemgroup}</Text>
+              <TextBrush>Black</TextBrush>
+            </CellGroup>
+            <CellQty Ref="25" isKey="true" type="Text">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>16,0,1.5,0.5</ClientRectangle>
+              <Conditions count="0" isList="true"/>
+              <Expressions count="0" isList="true"/>
+              <Font>Arial,8</Font>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>CellQty</Name>
+              <Page isRef="4"/>
+              <Parent isRef="8"/>
+              <Text>{DynamicData.qty}</Text>
+              <TextBrush>Black</TextBrush>
+            </CellQty>
+            <CellSeries Ref="26" isKey="true" type="Text">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>17.5,0,1.5,0.5</ClientRectangle>
+              <Conditions count="0" isList="true"/>
+              <Expressions count="0" isList="true"/>
+              <Font>Arial,8</Font>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>CellSeries</Name>
+              <Page isRef="4"/>
+              <Parent isRef="8"/>
+              <Text>{DynamicData.perseries}</Text>
+              <TextBrush>Black</TextBrush>
+            </CellSeries>
+          </Components>
+          <Conditions count="0" isList="true"/>
+          <DataRelationName isNull="true"/>
+          <DataSourceName>DynamicData</DataSourceName>
+          <Expressions count="0" isList="true"/>
+          <Filters count="0" isList="true"/>
+          <KeepDetails>None</KeepDetails>
+          <LimitRows/>
+          <Name>DataBand1</Name>
+          <Page isRef="4"/>
+          <Parent isRef="4"/>
+          <Sort count="0" isList="true"/>
+        </DataBand1>
+      </Components>
+      <Conditions count="0" isList="true"/>
+      <Expressions count="0" isList="true"/>
+      <Guid>766bd54767144d7cad81ab61c1e0c617</Guid>
+      <Margins>1,1,1,1</Margins>
+      <MirrorMargins>False</MirrorMargins>
+      <Name>Page1</Name>
+      <Page isRef="4"/>
+      <PageHeight>29.69</PageHeight>
+      <PageWidth>21.01</PageWidth>
+      <Report isRef="0"/>
+      <SnapPageWidthToGrid>False</SnapPageWidthToGrid>
+      <Watermark Ref="9" isKey="true" type="Stimulsoft.Report.Components.StiWatermark">
+        <EnabledExpression/>
+        <Font>Arial,100</Font>
+        <ImageHyperlink/>
+        <TextBrush>[50:0:0:0]</TextBrush>
+      </Watermark>
+    </Page1>
+  </Pages>
+  <ParameterAlignment>Left</ParameterAlignment>
+  <ParametersDisplayMode>Panel</ParametersDisplayMode>
+  <ParameterWidth>0</ParameterWidth>
+  <PreviewSettings>260039167</PreviewSettings>
+  <PreviewToolBarOptions Ref="10" isKey="true" type="Stimulsoft.Report.StiPreviewToolBarOptions">
+    <ReportIconSet>Monoline</ReportIconSet>
+    <ReportToolbarHorAlignment>Left</ReportToolbarHorAlignment>
+    <ReportToolbarReverse>False</ReportToolbarReverse>
+  </PreviewToolBarOptions>
+  <PrinterSettings Ref="30" isKey="true" type="Stimulsoft.Report.Print.StiPrinterSettings"/>
+  <ReferencedAssemblies count="8" isList="true">
+    <value>System.Dll</value>
+    <value>System.Drawing.Dll</value>
+    <value>System.Windows.Forms.Dll</value>
+    <value>System.Data.Dll</value>
+    <value>System.Xml.Dll</value>
+    <value>Stimulsoft.Controls.Dll</value>
+    <value>Stimulsoft.Base.Dll</value>
+    <value>Stimulsoft.Report.Dll</value>
+  </ReferencedAssemblies>
+  <RefreshTime>0</RefreshTime>
+  <ReportAlias>Report</ReportAlias>
+  <ReportCreated>08/30/2026 12:00:00 PM</ReportCreated>
+  <ReportFile>RPT_BOM_DOC_STI.mrt</ReportFile>
+  <ReportGuid>23cd1d39db174427812f91894b484d80</ReportGuid>
+  <ReportName>RPT_BOM_DOC_STI</ReportName>
+  <ReportResources count="0" isList="true"/>
+  <ReportUnit>Centimeters</ReportUnit>
+  <ReportVersion>2026.3.2 from 11 August 2026, Java</ReportVersion>
+  <RetrieveOnlyUsedData>False</RetrieveOnlyUsedData>
+  <Script>using System;
+using System.Drawing;
+using System.Windows.Forms;
+using System.Data;
+using Stimulsoft.Controls;
+using Stimulsoft.Base.Drawing;
+using Stimulsoft.Report;
+using Stimulsoft.Report.Dialogs;
+using Stimulsoft.Report.Components;
+
+namespace Reports
+{
+    public class Report : Stimulsoft.Report.StiReport
+    {
+
+        public Report()
+        {
+            this.InitializeComponent();
+        }
+
+        #region StiReport Designer generated code - do not modify
+        #endregion StiReport Designer generated code - do not modify
+    }
+}
+</Script>
+  <ScriptLanguage>CSharp</ScriptLanguage>
+  <StoreImagesInResources>False</StoreImagesInResources>
+  <Styles count="0" isList="true"/>
+</StiSerializer>
