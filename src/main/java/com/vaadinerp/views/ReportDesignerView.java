@@ -31,8 +31,10 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * Report Designer: filterable report list (grid + toolbar) + editor tab (metadata,
- * parameters, save-first) and Stimulsoft design surface. Jasper upload and preview are
+ * Report Designer: filterable report list (grid + toolbar) + editor tab
+ * (metadata,
+ * parameters, save-first) and Stimulsoft design surface. Jasper upload and
+ * preview are
  * added in the next task.
  */
 @Route("report-designer")
@@ -49,13 +51,16 @@ public class ReportDesignerView extends VerticalLayout {
     private final TabSheet tabs = new TabSheet();
     private final HorizontalLayout mainToolbar = new HorizontalLayout();
 
-    // Editor tab has two toggled containers: the definition form and the design surface.
+    // Editor tab has two toggled containers: the definition form and the design
+    // surface.
     private final VerticalLayout editorTab = new VerticalLayout();
     private final VerticalLayout editorForm = new VerticalLayout();
     private final VerticalLayout designSurface = new VerticalLayout();
 
-    private Runnable reapplyFilters = () -> {};
-    private Runnable paramReapply = () -> {};
+    private Runnable reapplyFilters = () -> {
+    };
+    private Runnable paramReapply = () -> {
+    };
 
     // Editor state
     private String editingCode = null;
@@ -74,8 +79,8 @@ public class ReportDesignerView extends VerticalLayout {
     private final Select<String> usageScopeSelect = new Select<>();
     private final TextField groupByField = new TextField("Group By (STANDARD engine)");
     private final TextArea descriptionArea = new TextArea("Description");
-    private final com.vaadin.flow.component.combobox.MultiSelectComboBox<String> rolesSelect =
-            new com.vaadin.flow.component.combobox.MultiSelectComboBox<>("Allowed Roles");
+    private final com.vaadin.flow.component.combobox.MultiSelectComboBox<String> rolesSelect = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(
+            "Allowed Roles");
     private final Grid<ReportParamMeta> paramGrid = new Grid<>(ReportParamMeta.class, false);
 
     private static final List<String> USAGE_SCOPES = List.of("RUNNER", "FORM", "BOTH");
@@ -84,21 +89,23 @@ public class ReportDesignerView extends VerticalLayout {
             "CHECKBOX", "COMBOBOX", "LISTBOX", "CHOSENBOX", "BANDBOX");
     private static final List<String> PARAM_SOURCES = List.of("USER_INPUT", "FORM_FIELD", "SYSTEM");
 
-    // Shared, bounded, daemon pool for off-UI preview rendering (replaces per-click raw threads:
-    // won't delay JVM shutdown, rapid clicks queue instead of spawning unbounded threads).
-    private static final java.util.concurrent.ExecutorService PREVIEW_EXECUTOR =
-            java.util.concurrent.Executors.newFixedThreadPool(4, r -> {
+    // Shared, bounded, daemon pool for off-UI preview rendering (replaces per-click
+    // raw threads:
+    // won't delay JVM shutdown, rapid clicks queue instead of spawning unbounded
+    // threads).
+    private static final java.util.concurrent.ExecutorService PREVIEW_EXECUTOR = java.util.concurrent.Executors
+            .newFixedThreadPool(4, r -> {
                 Thread t = new Thread(r, "report-preview");
                 t.setDaemon(true);
                 return t;
             });
 
     public ReportDesignerView(ReportMetaRepository reportMetaRepository,
-                              FormMetaRepository formMetaRepository,
-                              ReportResolver reportResolver,
-                              com.vaadinerp.report.ReportRunService reportRunService,
-                              com.vaadinerp.report.JasperUploadService jasperUploadService,
-                              com.vaadinerp.security.service.SessionSecurityService securityService) {
+            FormMetaRepository formMetaRepository,
+            ReportResolver reportResolver,
+            com.vaadinerp.report.ReportRunService reportRunService,
+            com.vaadinerp.report.JasperUploadService jasperUploadService,
+            com.vaadinerp.security.service.SessionSecurityService securityService) {
         this.reportMetaRepository = reportMetaRepository;
         this.formMetaRepository = formMetaRepository;
         this.reportResolver = reportResolver;
@@ -116,6 +123,8 @@ public class ReportDesignerView extends VerticalLayout {
         designSurface.setPadding(false);
         designSurface.setVisible(false);
         editorTab.add(editorForm, designSurface);
+        editorTab.setFlexGrow(1, designSurface);
+        editorTab.setFlexGrow(1, editorForm);
 
         VerticalLayout listLayout = new VerticalLayout(grid);
         listLayout.setSizeFull();
@@ -135,48 +144,64 @@ public class ReportDesignerView extends VerticalLayout {
         setFlexGrow(1, tabs);
     }
 
-    /** One toolbar above the tabs (like GenericFormView), contents depend on the active tab. */
+    /**
+     * One toolbar above the tabs (like GenericFormView), contents depend on the
+     * active tab.
+     */
     private void updateToolbar() {
         mainToolbar.removeAll();
         if (tabs.getSelectedIndex() == 1) { // Editor tab
             mainToolbar.add(
-                tbBtn("Save", com.vaadin.flow.component.icon.VaadinIcon.DOWNLOAD, e -> saveReport()),
-                tbBtn("Cancel", com.vaadin.flow.component.icon.VaadinIcon.BAN, e -> cancelEdit()),
-                tbBtn("Back to List", com.vaadin.flow.component.icon.VaadinIcon.ARROW_LEFT,
-                        e -> { showForm(); refreshGrid(); tabs.setSelectedIndex(0); })
-            );
+                    tbBtn("Save", com.vaadin.flow.component.icon.VaadinIcon.DOWNLOAD, e -> saveReport()),
+                    tbBtn("Cancel", com.vaadin.flow.component.icon.VaadinIcon.BAN, e -> cancelEdit()),
+                    tbBtn("Back to List", com.vaadin.flow.component.icon.VaadinIcon.ARROW_LEFT,
+                            e -> {
+                                showForm();
+                                refreshGrid();
+                                tabs.setSelectedIndex(0);
+                            }));
         } else { // Report List tab
             mainToolbar.add(
-                tbBtn("New", com.vaadin.flow.component.icon.VaadinIcon.PLUS_CIRCLE, e -> openEditor(null)),
-                tbBtn("Edit", com.vaadin.flow.component.icon.VaadinIcon.EDIT, e -> withSelected(this::openEditor)),
-                tbBtn("Design", com.vaadin.flow.component.icon.VaadinIcon.MAGIC, e -> withSelected(this::openDesigner)),
-                tbBtn("Delete", com.vaadin.flow.component.icon.VaadinIcon.CLOSE_CIRCLE, e -> {
-                    java.util.Set<ReportMeta> sel = grid.getSelectedItems();
-                    if (sel.isEmpty()) { Notification.show("Please select a report first."); return; }
-                    deleteReports(sel);
-                }),
-                tbBtn("Preview", com.vaadin.flow.component.icon.VaadinIcon.EYE, e -> withSelected(this::preview)),
-                tbBtn("Refresh", com.vaadin.flow.component.icon.VaadinIcon.REFRESH, e -> refreshGrid()),
-                StandardGridUtils.createExportExcelButton(grid, "report_list")
-            );
+                    tbBtn("New", com.vaadin.flow.component.icon.VaadinIcon.PLUS_CIRCLE, e -> openEditor(null)),
+                    tbBtn("Edit", com.vaadin.flow.component.icon.VaadinIcon.EDIT, e -> withSelected(this::openEditor)),
+                    tbBtn("Design", com.vaadin.flow.component.icon.VaadinIcon.MAGIC,
+                            e -> withSelected(this::openDesigner)),
+                    tbBtn("Delete", com.vaadin.flow.component.icon.VaadinIcon.CLOSE_CIRCLE, e -> {
+                        java.util.Set<ReportMeta> sel = grid.getSelectedItems();
+                        if (sel.isEmpty()) {
+                            Notification.show("Please select a report first.");
+                            return;
+                        }
+                        deleteReports(sel);
+                    }),
+                    tbBtn("Preview", com.vaadin.flow.component.icon.VaadinIcon.EYE, e -> withSelected(this::preview)),
+                    tbBtn("Refresh", com.vaadin.flow.component.icon.VaadinIcon.REFRESH, e -> refreshGrid()),
+                    StandardGridUtils.createExportExcelButton(grid, "report_list"));
         }
     }
 
     // ---------- Report list ----------
 
     private void setupGrid() {
-        Grid.Column<ReportMeta> colCode = grid.addColumn(ReportMeta::getReportCode).setHeader("Code").setAutoWidth(true);
-        Grid.Column<ReportMeta> colTitle = grid.addColumn(ReportMeta::getReportTitle).setHeader("Title").setAutoWidth(true);
+        Grid.Column<ReportMeta> colCode = grid.addColumn(ReportMeta::getReportCode).setHeader("Code")
+                .setAutoWidth(true);
+        Grid.Column<ReportMeta> colTitle = grid.addColumn(ReportMeta::getReportTitle).setHeader("Title")
+                .setAutoWidth(true);
         Grid.Column<ReportMeta> colEngine = grid.addColumn(this::engineOf).setHeader("Engine").setAutoWidth(true);
-        Grid.Column<ReportMeta> colSource = grid.addColumn(ReportMeta::getTableName).setHeader("Source").setAutoWidth(true);
+        Grid.Column<ReportMeta> colSource = grid.addColumn(ReportMeta::getTableName).setHeader("Source")
+                .setAutoWidth(true);
         Grid.Column<ReportMeta> colUsage = grid.addColumn(
-                        r -> r.getUsageScope() == null ? "RUNNER" : r.getUsageScope())
+                r -> r.getUsageScope() == null ? "RUNNER" : r.getUsageScope())
                 .setHeader("Usage").setAutoWidth(true);
-        Grid.Column<ReportMeta> colCategory = grid.addColumn(ReportMeta::getCategory).setHeader("Category").setAutoWidth(true);
-        Grid.Column<ReportMeta> colPage = grid.addColumn(ReportMeta::getPageSize).setHeader("Page Size").setAutoWidth(true);
-        Grid.Column<ReportMeta> colOrient = grid.addColumn(ReportMeta::getOrientation).setHeader("Orientation").setAutoWidth(true);
+        Grid.Column<ReportMeta> colCategory = grid.addColumn(ReportMeta::getCategory).setHeader("Category")
+                .setAutoWidth(true);
+        Grid.Column<ReportMeta> colPage = grid.addColumn(ReportMeta::getPageSize).setHeader("Page Size")
+                .setAutoWidth(true);
+        Grid.Column<ReportMeta> colOrient = grid.addColumn(ReportMeta::getOrientation).setHeader("Orientation")
+                .setAutoWidth(true);
         Grid.Column<ReportMeta> colRoles = grid.addColumn(this::rolesText).setHeader("Roles").setAutoWidth(true);
-        Grid.Column<ReportMeta> colDesc = grid.addColumn(ReportMeta::getDescription).setHeader("Description").setAutoWidth(true);
+        Grid.Column<ReportMeta> colDesc = grid.addColumn(ReportMeta::getDescription).setHeader("Description")
+                .setAutoWidth(true);
         grid.setSelectionMode(Grid.SelectionMode.MULTI); // kolom centang seperti grid form
         grid.setSizeFull();
         grid.addItemDoubleClickListener(e -> openEditor(e.getItem())); // double-click = edit
@@ -204,8 +229,7 @@ public class ReportDesignerView extends VerticalLayout {
     }
 
     private SafeButton tbBtn(String text, com.vaadin.flow.component.icon.VaadinIcon icon,
-                            com.vaadin.flow.component.ComponentEventListener<
-                                    com.vaadin.flow.component.ClickEvent<com.vaadin.flow.component.button.Button>> listener) {
+            com.vaadin.flow.component.ComponentEventListener<com.vaadin.flow.component.ClickEvent<com.vaadin.flow.component.button.Button>> listener) {
         SafeButton b = new SafeButton(text, listener);
         b.setIcon(icon.create());
         b.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
@@ -222,17 +246,24 @@ public class ReportDesignerView extends VerticalLayout {
 
     private String rolesText(ReportMeta r) {
         return r.getAllowedRoles() == null || r.getAllowedRoles().isEmpty()
-                ? "" : String.join(", ", r.getAllowedRoles());
+                ? ""
+                : String.join(", ", r.getAllowedRoles());
     }
 
-    /** Lihat {@link FormMeta#reportSourceKey()} — definisi tunggal ada di entity. */
+    /**
+     * Lihat {@link FormMeta#reportSourceKey()} — definisi tunggal ada di entity.
+     */
     private static String sourceKeyOf(FormMeta f) {
         return f.reportSourceKey();
     }
 
-    /** Cari FormMeta by tableName tanpa mengasumsikan unik (findByTableName melempar bila >1). */
+    /**
+     * Cari FormMeta by tableName tanpa mengasumsikan unik (findByTableName melempar
+     * bila >1).
+     */
     private FormMeta findFormBySourceKey(String key) {
-        if (key == null || key.isBlank()) return null;
+        if (key == null || key.isBlank())
+            return null;
         return formMetaRepository.findByReportSourceKey(key).stream().findFirst().orElse(null);
     }
 
@@ -301,7 +332,8 @@ public class ReportDesignerView extends VerticalLayout {
                     .getBean(com.vaadinerp.security.repository.AppRoleRepository.class)
                     .findAll().stream().map(com.vaadinerp.security.entity.AppRole::getRoleCode)
                     .filter(java.util.Objects::nonNull).sorted().toList());
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         rolesSelect.setHelperText("Empty = only SUPER_ADMIN can run this report");
 
         FormLayout meta = new FormLayout(codeField, titleField, categoryCombo, sourceCombo,
@@ -317,11 +349,12 @@ public class ReportDesignerView extends VerticalLayout {
         meta.setColspan(descriptionArea, 2);
         meta.setColspan(rolesSelect, 2);
 
-        // Inline-editable parameter grid with the SAME look/feel as the report list grid
+        // Inline-editable parameter grid with the SAME look/feel as the report list
+        // grid
         paramGrid.setSelectionMode(Grid.SelectionMode.MULTI);
         paramGrid.setAllRowsVisible(true);
-        com.vaadin.flow.data.binder.Binder<ReportParamMeta> pBinder =
-                new com.vaadin.flow.data.binder.Binder<>(ReportParamMeta.class);
+        com.vaadin.flow.data.binder.Binder<ReportParamMeta> pBinder = new com.vaadin.flow.data.binder.Binder<>(
+                ReportParamMeta.class);
         paramGrid.getEditor().setBinder(pBinder);
         paramGrid.getEditor().setBuffered(false);
 
@@ -348,7 +381,8 @@ public class ReportDesignerView extends VerticalLayout {
                     .getBean(com.vaadinerp.meta.LovMetaRepository.class)
                     .findAll().stream().map(com.vaadinerp.meta.LovMeta::getLovCode)
                     .filter(java.util.Objects::nonNull).sorted().toList());
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         Grid.Column<ReportParamMeta> pColLov = paramGrid.addColumn(ReportParamMeta::getLovCode)
                 .setHeader("LOV Code").setEditorComponent(edLov).setAutoWidth(true).setResizable(true);
         pBinder.forField(edLov).bind(ReportParamMeta::getLovCode, ReportParamMeta::setLovCode);
@@ -387,15 +421,17 @@ public class ReportDesignerView extends VerticalLayout {
                 .setHeader("Operator").setEditorComponent(edOperator).setAutoWidth(true).setResizable(true);
         pBinder.forField(edOperator).bind(ReportParamMeta::getOperator, ReportParamMeta::setOperator);
 
-        // LOV Filter: expand-row (inline sub-grid) — dukung banyak filter STATIC/FIELD per parameter
+        // LOV Filter: expand-row (inline sub-grid) — dukung banyak filter STATIC/FIELD
+        // per parameter
         paramGrid.addComponentColumn(p -> {
-            com.vaadin.flow.component.button.Button b =
-                    new com.vaadin.flow.component.button.Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
+            com.vaadin.flow.component.button.Button b = new com.vaadin.flow.component.button.Button(
+                    com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
             b.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE,
                     com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
             int n = (p.getFilters() != null) ? p.getFilters().size() : 0;
             b.getElement().setAttribute("title", "LOV Filters" + (n > 0 ? " (" + n + ")" : ""));
-            if (n > 0) b.setText(String.valueOf(n));
+            if (n > 0)
+                b.setText(String.valueOf(n));
             b.addClickListener(e -> paramGrid.setDetailsVisible(p, !paramGrid.isDetailsVisible(p)));
             return b;
         }).setHeader("Filters").setWidth("90px").setFlexGrow(0);
@@ -407,19 +443,23 @@ public class ReportDesignerView extends VerticalLayout {
             List<String> cols = new ArrayList<>();
             if (fm != null && fm.getTableName() != null) {
                 try {
-                    cols = com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.service.DynamicDataService.class).getColumnsForQueryOrTable(fm.getTableName());
-                } catch(Exception ignored) {}
+                    cols = com.vaadinerp.config.SpringContextHolder
+                            .getBean(com.vaadinerp.service.DynamicDataService.class)
+                            .getColumnsForQueryOrTable(fm.getTableName());
+                } catch (Exception ignored) {
+                }
             }
             edSourceKey.setItems(cols);
             edFilterCol.setItems(cols);
         });
-        paramGrid.setItemDetailsRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(p ->
-                new com.vaadinerp.components.ParamFilterEditor(p, () ->
-                        paramState.stream().map(ReportParamMeta::getParamName)
+        paramGrid.setItemDetailsRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(
+                p -> new com.vaadinerp.components.ParamFilterEditor(p,
+                        () -> paramState.stream().map(ReportParamMeta::getParamName)
                                 .filter(nm -> nm != null && !nm.equals(p.getParamName()))
                                 .collect(java.util.stream.Collectors.toList()))));
 
-        // Same treatment as report list grid: filter header, sort, resize, clipboard, row-click select
+        // Same treatment as report list grid: filter header, sort, resize, clipboard,
+        // row-click select
         Map<Grid.Column<ReportParamMeta>, Function<ReportParamMeta, String>> pGetters = new LinkedHashMap<>();
         pGetters.put(pColName, p -> nz(p.getParamName()));
         pGetters.put(pColLabel, p -> nz(p.getParamLabel()));
@@ -439,24 +479,27 @@ public class ReportDesignerView extends VerticalLayout {
         paramGrid.getEditor().addCloseListener(e -> paramGrid.getDataProvider().refreshItem(e.getItem()));
 
         HorizontalLayout paramToolbar = new HorizontalLayout(
-            tbBtn("Add Parameter", com.vaadin.flow.component.icon.VaadinIcon.PLUS_CIRCLE, e -> {
-                ReportParamMeta np = new ReportParamMeta();
-                np.setParamName("param" + (paramState.size() + 1));
-                np.setParamType("TEXTBOX");
-                np.setSource("USER_INPUT");
-                paramState.add(np);
-                paramReapply.run();
-                paramGrid.getEditor().editItem(np);
-            }),
-            tbBtn("Remove Parameter", com.vaadin.flow.component.icon.VaadinIcon.TRASH, e -> {
-                java.util.Set<ReportParamMeta> sel = paramGrid.getSelectedItems();
-                if (sel.isEmpty()) { Notification.show("Please select a parameter."); return; }
-                if (paramGrid.getEditor().isOpen()) paramGrid.getEditor().cancel();
-                paramState.removeAll(sel);
-                paramReapply.run();
-            }),
-            StandardGridUtils.createExportExcelButton(paramGrid, "report_parameters")
-        );
+                tbBtn("Add Parameter", com.vaadin.flow.component.icon.VaadinIcon.PLUS_CIRCLE, e -> {
+                    ReportParamMeta np = new ReportParamMeta();
+                    np.setParamName("param" + (paramState.size() + 1));
+                    np.setParamType("TEXTBOX");
+                    np.setSource("USER_INPUT");
+                    paramState.add(np);
+                    paramReapply.run();
+                    paramGrid.getEditor().editItem(np);
+                }),
+                tbBtn("Remove Parameter", com.vaadin.flow.component.icon.VaadinIcon.TRASH, e -> {
+                    java.util.Set<ReportParamMeta> sel = paramGrid.getSelectedItems();
+                    if (sel.isEmpty()) {
+                        Notification.show("Please select a parameter.");
+                        return;
+                    }
+                    if (paramGrid.getEditor().isOpen())
+                        paramGrid.getEditor().cancel();
+                    paramState.removeAll(sel);
+                    paramReapply.run();
+                }),
+                StandardGridUtils.createExportExcelButton(paramGrid, "report_parameters"));
         paramToolbar.setPadding(false);
 
         editorForm.setPadding(false);
@@ -477,7 +520,9 @@ public class ReportDesignerView extends VerticalLayout {
         tabs.setSelectedIndex(1);
     }
 
-    /** Load metadata + parameters into the editor state (shared by Edit and Design). */
+    /**
+     * Load metadata + parameters into the editor state (shared by Edit and Design).
+     */
     private void loadReportState(ReportMeta report) {
         paramState.clear();
         if (report == null) {
@@ -510,10 +555,12 @@ public class ReportDesignerView extends VerticalLayout {
             rolesSelect.setValue(report.getAllowedRoles() != null ? report.getAllowedRoles() : java.util.Set.of());
             usageScopeSelect.setValue(
                     report.getUsageScope() == null || report.getUsageScope().isBlank()
-                            ? "RUNNER" : report.getUsageScope().trim().toUpperCase());
+                            ? "RUNNER"
+                            : report.getUsageScope().trim().toUpperCase());
             groupByField.setValue(report.getGroupBy() == null ? "" : report.getGroupBy());
             if (report.getParams() != null) {
-                for (ReportParamMeta p : report.getParams()) paramState.add(cloneParam(p));
+                for (ReportParamMeta p : report.getParams())
+                    paramState.add(cloneParam(p));
             }
         }
         paramReapply.run();
@@ -583,14 +630,18 @@ public class ReportDesignerView extends VerticalLayout {
         rep.setPageSize(pageSelect.getValue());
         rep.setOrientation(orientSelect.getValue());
         rep.setEngineType(engineSelect.getValue());
-        rep.setCategory(categoryCombo.getValue() == null || categoryCombo.getValue().isBlank() ? null : categoryCombo.getValue().trim());
-        rep.setDescription(descriptionArea.getValue() == null || descriptionArea.getValue().isBlank() ? null : descriptionArea.getValue());
+        rep.setCategory(categoryCombo.getValue() == null || categoryCombo.getValue().isBlank() ? null
+                : categoryCombo.getValue().trim());
+        rep.setDescription(descriptionArea.getValue() == null || descriptionArea.getValue().isBlank() ? null
+                : descriptionArea.getValue());
         rep.setAllowedRoles(new java.util.HashSet<>(rolesSelect.getValue()));
         rep.setUsageScope(usageScopeSelect.getValue() != null ? usageScopeSelect.getValue() : "RUNNER");
         rep.setGroupBy(groupByField.getValue() == null || groupByField.getValue().isBlank()
-                ? null : groupByField.getValue().trim());
+                ? null
+                : groupByField.getValue().trim());
 
-        if (rep.getParams() == null) rep.setParams(new ArrayList<>());
+        if (rep.getParams() == null)
+            rep.setParams(new ArrayList<>());
         rep.getParams().clear(); // orphanRemoval deletes the old ones
         for (int i = 0; i < paramState.size(); i++) {
             ReportParamMeta p = paramState.get(i);
@@ -599,15 +650,19 @@ public class ReportDesignerView extends VerticalLayout {
             if (p.getFilters() != null) {
                 p.getFilters().removeIf(fl -> fl.getFilterColumn() == null || fl.getFilterColumn().isBlank()
                         || fl.getSourceName() == null || fl.getSourceName().isBlank());
-                for (com.vaadinerp.meta.ReportParamFilterMeta fl : p.getFilters()) fl.setParamMeta(p);
+                for (com.vaadinerp.meta.ReportParamFilterMeta fl : p.getFilters())
+                    fl.setParamMeta(p);
             }
             rep.getParams().add(p);
         }
 
-        // Band elements from the embedded STANDARD designer (single Save covers everything).
-        // When not designing (embeddedBuilder == null), existing elements are left untouched.
+        // Band elements from the embedded STANDARD designer (single Save covers
+        // everything).
+        // When not designing (embeddedBuilder == null), existing elements are left
+        // untouched.
         if (embeddedBuilder != null) {
-            if (rep.getElements() == null) rep.setElements(new ArrayList<>());
+            if (rep.getElements() == null)
+                rep.setElements(new ArrayList<>());
             rep.getElements().clear();
             for (ReportElementMeta el : embeddedBuilder.collectElements()) {
                 el.setReportMeta(rep);
@@ -631,7 +686,8 @@ public class ReportDesignerView extends VerticalLayout {
         ConfirmDialog dlg = new ConfirmDialog();
         dlg.setHeader("Delete Report");
         String msg = reports.size() == 1
-                ? "Delete report " + reports.iterator().next().getReportCode() + " including its template and parameters?"
+                ? "Delete report " + reports.iterator().next().getReportCode()
+                        + " including its template and parameters?"
                 : "Delete " + reports.size() + " selected reports including their templates and parameters?";
         dlg.setText(msg);
         dlg.setConfirmText("Delete");
@@ -652,7 +708,8 @@ public class ReportDesignerView extends VerticalLayout {
                                     reportResolver.masterExtension(report.getEngineType(), report.getTemplatePath())));
                         }
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
             refreshGrid();
             Notification.show(reports.size() == 1 ? "Report deleted." : reports.size() + " reports deleted.");
@@ -661,7 +718,7 @@ public class ReportDesignerView extends VerticalLayout {
     }
 
     private void openDesigner(ReportMeta report) {
-        loadReportState(report);     // load metadata+params so the single top Save persists everything
+        loadReportState(report); // load metadata+params so the single top Save persists everything
         embeddedBuilder = null;
         editorForm.setVisible(false);
         designSurface.removeAll();
@@ -670,13 +727,16 @@ public class ReportDesignerView extends VerticalLayout {
         String engine = engineOf(report);
         if ("STIMULSOFT".equalsIgnoreCase(engine)) {
             IFrame ifr = new IFrame("/stimulsoft-java/designer?code=" + report.getReportCode());
-            ifr.setSizeFull();
-            ifr.getStyle().set("border", "none");
+            ifr.setWidthFull();
+            ifr.setHeight("1000px");
+            ifr.getStyle().set("border", "none").set("min-height", "1000px");
+            designSurface.getStyle().set("overflow", "auto");
             designSurface.add(ifr);
             designSurface.setFlexGrow(1, ifr);
         } else if ("JASPER".equalsIgnoreCase(engine)) {
             designSurface.add(buildJasperUpload(report.getReportCode()));
-        } else { // STANDARD — embed band designer (canvas only); the single top toolbar Save persists it
+        } else { // STANDARD — embed band designer (canvas only); the single top toolbar Save
+                 // persists it
             ReportBuilderView rb = new ReportBuilderView(reportMetaRepository, formMetaRepository, this::refreshGrid);
             rb.setEmbeddedMode(true);
             rb.loadReport(report.getReportCode());
@@ -689,8 +749,7 @@ public class ReportDesignerView extends VerticalLayout {
     }
 
     private com.vaadin.flow.component.Component buildJasperUpload(String code) {
-        com.vaadin.flow.component.upload.receivers.MemoryBuffer buffer =
-                new com.vaadin.flow.component.upload.receivers.MemoryBuffer();
+        com.vaadin.flow.component.upload.receivers.MemoryBuffer buffer = new com.vaadin.flow.component.upload.receivers.MemoryBuffer();
         com.vaadin.flow.component.upload.Upload upload = new com.vaadin.flow.component.upload.Upload(buffer);
         upload.setAcceptedFileTypes(".jrxml");
         upload.setMaxFiles(1);
@@ -707,8 +766,8 @@ public class ReportDesignerView extends VerticalLayout {
                 new com.vaadin.flow.component.html.H4("Jasper Template Upload"),
                 new com.vaadin.flow.component.html.Span(
                         "Upload a .jrxml source file, authored in "
-                        + "JasperSoft Studio matching the runtime JasperReports version. "
-                        + "(.jasper files are blocked to prevent deserialization attacks.)"),
+                                + "JasperSoft Studio matching the runtime JasperReports version. "
+                                + "(.jasper files are blocked to prevent deserialization attacks.)"),
                 upload);
         box.setPadding(false);
         return box;
@@ -716,7 +775,8 @@ public class ReportDesignerView extends VerticalLayout {
 
     private void preview(ReportMeta report) {
         String user = (securityService != null && securityService.getCurrentUser() != null)
-                ? securityService.getCurrentUser().getUsername() : null;
+                ? securityService.getCurrentUser().getUsername()
+                : null;
         Map<String, Object> params = new java.util.HashMap<>(
                 com.vaadinerp.report.ReportParamResolver.resolveAuto(report.getParams(), java.util.Map.of(), user));
         if (report.getParams() != null) {
@@ -726,7 +786,7 @@ public class ReportDesignerView extends VerticalLayout {
         }
 
         if ("STIMULSOFT".equalsIgnoreCase(engineOf(report))) {
-            com.vaadinerp.report.ReportRunResult res = reportRunService.run(report, params, true);
+            com.vaadinerp.report.ReportRunResult res = reportRunService.run(report, params, "HTML", true);
             getUI().ifPresent(ui -> ui.getPage().open(res.viewerUrl(), "_blank"));
             return;
         }
@@ -744,7 +804,7 @@ public class ReportDesignerView extends VerticalLayout {
 
         PREVIEW_EXECUTOR.submit(() -> {
             try {
-                com.vaadinerp.report.ReportRunResult res = reportRunService.run(report, params, true);
+                com.vaadinerp.report.ReportRunResult res = reportRunService.run(report, params, "HTML", true);
                 ui.access(() -> {
                     d.removeAll();
                     com.vaadinerp.report.render.ReportOutput out = res.output();

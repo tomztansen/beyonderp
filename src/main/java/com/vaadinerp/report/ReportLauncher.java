@@ -2,10 +2,13 @@ package com.vaadinerp.report;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.IFrame;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.server.StreamResource;
+import com.vaadin.flow.server.streams.DownloadHandler;
+import com.vaadin.flow.server.streams.DownloadResponse;
 import com.vaadinerp.meta.ReportMeta;
 import com.vaadinerp.report.render.ReportOutput;
 import com.vaadinerp.views.PortalView;
@@ -35,6 +38,7 @@ public final class ReportLauncher {
         if (contentType == null) return "report.bin";
         if (contentType.contains("pdf")) return "report.pdf";
         if (contentType.startsWith("text/html")) return "report.html";
+        if (contentType.contains("spreadsheetml") || contentType.contains("excel") || contentType.contains("xls")) return "report.xlsx";
         return "report.bin";
     }
 
@@ -75,6 +79,22 @@ public final class ReportLauncher {
         return box;
     }
 
+    /**
+     * Unduh hasil render sebagai berkas. Anchor tersembunyi + klik programatis: pola
+     * download Vaadin yang tidak menavigasi SPA (window.location.href akan me-reload UI).
+     */
+    private static void download(UI ui, ReportOutput out) {
+        if (out == null || out.bytes() == null) return;
+        byte[] bytes = out.bytes();
+        String name = outputFilename(out.contentType());
+        Anchor a = new Anchor(DownloadHandler.fromInputStream(e -> new DownloadResponse(
+                new ByteArrayInputStream(bytes), name, out.contentType(), bytes.length)), "");
+        a.getElement().setAttribute("download", true);
+        a.getStyle().set("display", "none");
+        ui.add(a);
+        a.getElement().executeJs("this.click(); setTimeout(() => this.remove(), 0);");
+    }
+
     /** Cari PortalView pembungkus: naik lewat parent, lalu telusuri anak UI. */
     public static PortalView findPortal(Component origin) {
         Component c = origin;
@@ -96,18 +116,22 @@ public final class ReportLauncher {
      * dijalankan di thread UI setelah sukses maupun gagal, untuk memulihkan panel pemanggil.
      */
     public static void runAndOpenTab(Component origin, ReportRunService svc, ReportMeta report,
-                                     Map<String, Object> values, Runnable onFinish) {
+                                     Map<String, Object> values, String format, Runnable onFinish) {
         UI ui = UI.getCurrent();
         String title = report.getReportTitle() != null ? report.getReportTitle() : report.getReportCode();
         RUN_EXEC.submit(() -> {
             try {
-                ReportRunResult res = svc.run(report, values, false);
+                ReportRunResult res = svc.run(report, values, format, false);
                 ui.access(() -> {
-                    PortalView portal = findPortal(origin);
-                    if (portal == null) {
-                        Notification.show("Cannot find app shell to open output tab.");
+                    if ("EXCEL".equalsIgnoreCase(format) || "XLSX".equalsIgnoreCase(format)) {
+                        download(ui, res.output());
                     } else {
-                        portal.openComponentTab(tabId(report.getReportCode()), title, buildOutput(res));
+                        PortalView portal = findPortal(origin);
+                        if (portal == null) {
+                            Notification.show("Cannot find app shell to open output tab.");
+                        } else {
+                            portal.openComponentTab(tabId(report.getReportCode()), title, buildOutput(res));
+                        }
                     }
                     if (onFinish != null) onFinish.run();
                 });

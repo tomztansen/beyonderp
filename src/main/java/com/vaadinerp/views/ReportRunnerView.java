@@ -148,13 +148,21 @@ public class ReportRunnerView extends VerticalLayout {
         paramForm.setMaxWidth("520px");
         selectionPanel.add(paramForm);
 
-        SafeButton run = new SafeButton("Run", e -> runReport(report));
+        com.vaadin.flow.component.combobox.ComboBox<String> formatCombo = new com.vaadin.flow.component.combobox.ComboBox<>("Output Format");
+        formatCombo.setItems("PDF", "EXCEL");
+        formatCombo.setValue("PDF");
+        if ("STIMULSOFT".equalsIgnoreCase(report.getEngineType())) {
+            formatCombo.setVisible(false);
+        }
+        selectionPanel.add(formatCombo);
+
+        SafeButton run = new SafeButton("Run", e -> runReport(report, formatCombo.getValue()));
         run.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
         SafeButton reset = new SafeButton("Reset", e -> selectReport(report));
         selectionPanel.add(new HorizontalLayout(run, reset));
     }
 
-    private void runReport(ReportMeta report) {
+    private void runReport(ReportMeta report, String format) {
         String user = (securityService.getCurrentUser() != null) ? securityService.getCurrentUser().getUsername() : null;
         Map<String, Object> values = new HashMap<>(
                 ReportParamResolver.resolveAuto(report.getParams(), Map.of(), user));
@@ -179,7 +187,7 @@ public class ReportRunnerView extends VerticalLayout {
         pb.setIndeterminate(true);
         selectionPanel.add(new H4("Running report…"), pb);
 
-        ReportLauncher.runAndOpenTab(this, reportRunService, report, values, () -> selectReport(report));
+        ReportLauncher.runAndOpenTab(this, reportRunService, report, values, format, () -> selectReport(report));
     }
 
     private Div buildEmptyState() {

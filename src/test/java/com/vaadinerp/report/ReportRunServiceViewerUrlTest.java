@@ -28,7 +28,7 @@ class ReportRunServiceViewerUrlTest {
     @Test
     void listParameterRepeatsTheKey() {
         ReportRunResult res = service().run(stimulsoftReport(),
-                Map.of("bom_id", List.of(38, 42)), false);
+                Map.of("bom_id", List.of(38, 42)), "PDF", false);
 
         assertThat(res.stimulsoftViewer()).isTrue();
         assertThat(res.viewerUrl()).contains("bom_id=38").contains("bom_id=42");
@@ -38,7 +38,7 @@ class ReportRunServiceViewerUrlTest {
 
     @Test
     void scalarParameterUnchanged() {
-        ReportRunResult res = service().run(stimulsoftReport(), Map.of("id", 7), false);
+        ReportRunResult res = service().run(stimulsoftReport(), Map.of("id", 7), "PDF", false);
         assertThat(res.viewerUrl()).contains("id=7");
     }
 
@@ -46,27 +46,27 @@ class ReportRunServiceViewerUrlTest {
     void nullValuesSkipped() {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("id", null);
-        ReportRunResult res = service().run(stimulsoftReport(), params, false);
+        ReportRunResult res = service().run(stimulsoftReport(), params, "PDF", false);
         assertThat(res.viewerUrl()).doesNotContain("id=");
     }
 
     @Test
     void emptyListProducesNoParameter() {
         ReportRunResult res = service().run(stimulsoftReport(),
-                Map.of("bom_id", List.of()), false);
+                Map.of("bom_id", List.of()), "PDF", false);
         assertThat(res.viewerUrl()).doesNotContain("bom_id");
     }
 
     @Test
     void valuesAreUrlEncoded() {
         ReportRunResult res = service().run(stimulsoftReport(),
-                Map.of("name", List.of("a b", "c&d")), false);
+                Map.of("name", List.of("a b", "c&d")), "PDF", false);
         assertThat(res.viewerUrl()).contains("name=a+b").contains("name=c%26d");
     }
 
     @Test
     void codeAlwaysPresent() {
-        ReportRunResult res = service().run(stimulsoftReport(), Map.of(), false);
+        ReportRunResult res = service().run(stimulsoftReport(), Map.of(), "PDF", false);
         assertThat(res.viewerUrl()).startsWith("/stimulsoft-java/viewer?code=RPT_BOM_DOC_STI");
     }
 }
