@@ -27,7 +27,7 @@ class JasperUploadServiceTest {
     void savesValidJrxmlToTemplatePath(@TempDir Path dir) {
         JasperUploadService s = svc(dir.toString());
         s.saveUpload("INV", "report.jrxml", VALID_JRXML.getBytes(StandardCharsets.UTF_8));
-        assertThat(new File(dir.toFile(), "INV.jrxml")).exists();
+        assertThat(new File(dir.toFile(), "jasper/INV.jrxml")).exists();
     }
 
     /** .jasper is a serialized Java object; accepting one would hand an attacker a

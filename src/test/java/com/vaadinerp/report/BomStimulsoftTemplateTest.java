@@ -22,7 +22,7 @@ class BomStimulsoftTemplateTest {
 
     @Test
     void templateDeserializesAndBindsData() throws Exception {
-        File f = new File("src/main/resources/report-templates/RPT_BOM_DOC_STI.mrt");
+        File f = new File("src/main/resources/report-templates/stimulsoft/RPT_BOM_DOC_STI.mrt");
         assumeTrue(f.exists(), "template not present in this checkout");
 
         StiReport report = StiSerializeManager.deserializeReport(f);

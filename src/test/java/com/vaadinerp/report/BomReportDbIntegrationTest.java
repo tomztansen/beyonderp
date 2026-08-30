@@ -95,7 +95,7 @@ class BomReportDbIntegrationTest {
 
     @Test
     void realDataGeneratesTwoPagePdf() throws Exception {
-        File templateFile = new File("uploads/RPT_BOM_DOC_JSP.jrxml");
+        File templateFile = new File("uploads/jasper/RPT_BOM_DOC_JSP.jrxml");
         assumeTrue(templateFile.exists(), "Template " + templateFile.getPath() + " tidak ada, test di-skip");
 
         try (Connection conn = connect()) {

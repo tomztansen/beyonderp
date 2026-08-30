@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <!-- JasperReports 7 JRXML: tanpa namespace, elemen band memakai <element kind="..."/>.
      Format JR6 (<reportElement>/<staticText>/<textFieldExpression>) TIDAK bisa dimuat
      oleh runtime 7.0.7 di pom.xml - JRXmlLoader menolaknya dengan "Unable to load report". -->
