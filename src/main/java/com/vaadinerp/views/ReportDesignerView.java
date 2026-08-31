@@ -832,30 +832,27 @@ public class ReportDesignerView extends VerticalLayout {
             currentFileLayout.setVisible(true);
         }
 
-        com.vaadin.flow.component.upload.receivers.MemoryBuffer buffer = new com.vaadin.flow.component.upload.receivers.MemoryBuffer();
-        com.vaadin.flow.component.upload.Upload upload = new com.vaadin.flow.component.upload.Upload(buffer);
+        com.vaadin.flow.component.UI ui = com.vaadin.flow.component.UI.getCurrent();
+        com.vaadin.flow.component.upload.UploadHandler handler =
+                com.vaadin.flow.component.upload.UploadHandler.inMemory((metadata, data) -> {
+                    try {
+                        jasperUploadService.validateUpload(data);
+                        pendingJasperBytes = data;
+                        pendingJasperFilename = metadata.fileName();
+                        pendingJasperDelete = false;
+                        ui.access(() -> {
+                            Notification.show("File siap diupload. Klik tombol Save untuk menyimpan permanen.");
+                            currentFile.setText("Akan diupload: " + pendingJasperFilename);
+                            currentFile.getStyle().set("color", "var(--lumo-primary-text-color)");
+                            currentFileLayout.setVisible(true);
+                        });
+                    } catch (Exception ex) {
+                        ui.access(() -> Notification.show("Gagal memvalidasi file: " + ex.getMessage()));
+                    }
+                });
+        com.vaadin.flow.component.upload.Upload upload = new com.vaadin.flow.component.upload.Upload(handler);
         upload.setAcceptedFileTypes(".jrxml");
         upload.setMaxFiles(1);
-        
-        upload.addSucceededListener(e -> {
-            try {
-                byte[] bytes = buffer.getInputStream().readAllBytes();
-                // Validate jrxml compilation early
-                jasperUploadService.validateUpload(bytes);
-                
-                pendingJasperBytes = bytes;
-                pendingJasperFilename = e.getFileName();
-                pendingJasperDelete = false; // Cancel any pending delete
-                
-                Notification.show("File siap diupload. Klik tombol Save untuk menyimpan permanen.");
-                
-                currentFile.setText("Akan diupload: " + pendingJasperFilename);
-                currentFile.getStyle().set("color", "var(--lumo-primary-text-color)");
-                currentFileLayout.setVisible(true);
-            } catch (Exception ex) {
-                Notification.show("Gagal memvalidasi file: " + ex.getMessage());
-            }
-        });
         
         deleteBtn.addClickListener(e -> {
             pendingJasperDelete = true;
