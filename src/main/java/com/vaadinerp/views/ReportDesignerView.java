@@ -833,8 +833,8 @@ public class ReportDesignerView extends VerticalLayout {
         }
 
         com.vaadin.flow.component.UI ui = com.vaadin.flow.component.UI.getCurrent();
-        com.vaadin.flow.component.upload.UploadHandler handler =
-                com.vaadin.flow.component.upload.UploadHandler.inMemory((metadata, data) -> {
+        com.vaadin.flow.server.streams.UploadHandler handler =
+                com.vaadin.flow.server.streams.UploadHandler.inMemory((metadata, data) -> {
                     try {
                         jasperUploadService.validateUpload(data);
                         pendingJasperBytes = data;
