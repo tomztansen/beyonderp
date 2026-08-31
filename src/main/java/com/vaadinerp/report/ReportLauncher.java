@@ -48,6 +48,7 @@ public final class ReportLauncher {
     }
 
     /** Bangun komponen output: viewer Stimulsoft, atau berkas hasil render di IFrame. */
+    @SuppressWarnings("deprecation")
     public static Component buildOutput(ReportRunResult res) {
         VerticalLayout box = new VerticalLayout();
         box.setSizeFull();
