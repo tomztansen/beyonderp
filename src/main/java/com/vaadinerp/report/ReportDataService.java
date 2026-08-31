@@ -96,13 +96,15 @@ public class ReportDataService {
             } else if ("IN".equals(op)) {
                 // FORM_FIELD selalu Collection; USER_INPUT bisa comma-separated string
                 Object inVal = (val instanceof String sv)
-                        ? java.util.Arrays.asList(sv.split("\\s*,\\s*"))
+                        ? java.util.Arrays.stream(sv.split(",")).map(String::trim)
+                                .filter(s -> !s.isEmpty()).toList()
                         : val;
                 sb.append(col).append(" IN (:").append(name).append(")");
                 outBind.put(name, inVal);
             } else if ("NOT IN".equals(op)) {
                 Object inVal = (val instanceof String sv)
-                        ? java.util.Arrays.asList(sv.split("\\s*,\\s*"))
+                        ? java.util.Arrays.stream(sv.split(",")).map(String::trim)
+                                .filter(s -> !s.isEmpty()).toList()
                         : val;
                 sb.append(col).append(" NOT IN (:").append(name).append(")");
                 outBind.put(name, inVal);
