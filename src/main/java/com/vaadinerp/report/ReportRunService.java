@@ -22,12 +22,18 @@ public class ReportRunService {
     private final ReportResolver resolver;
     private final ReportDataService dataService;
     private final ReportRendererRegistry registry;
+    private final com.vaadinerp.service.ScriptExecutorService scriptExecutor;
+    private final com.vaadinerp.security.service.SessionSecurityService securityService;
 
     public ReportRunService(ReportResolver resolver, ReportDataService dataService,
-                            ReportRendererRegistry registry) {
+                            ReportRendererRegistry registry,
+                            com.vaadinerp.service.ScriptExecutorService scriptExecutor,
+                            com.vaadinerp.security.service.SessionSecurityService securityService) {
         this.resolver = resolver;
         this.dataService = dataService;
         this.registry = registry;
+        this.scriptExecutor = scriptExecutor;
+        this.securityService = securityService;
     }
 
     public ReportRunResult run(ReportMeta report, Map<String, Object> params, String format, boolean sample) {
@@ -74,13 +80,31 @@ public class ReportRunService {
            .append(java.net.URLEncoder.encode(value.toString(), java.nio.charset.StandardCharsets.UTF_8));
     }
 
-    /**
-     * Titik ekstensi sebelum report dijalankan. No-op sekarang; wiring Groovy opsional
-     * (ScriptExecutorService) ditambahkan di sini bila ada kebutuhan konkret — belum ada
-     * field script / kolom DB (YAGNI).
-     */
-    protected void beforeRun(ReportMeta report, Map<String, Object> params) {}
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ReportRunService.class);
 
-    /** Titik ekstensi setelah report dijalankan (mis. audit). No-op sekarang. */
-    protected void afterRun(ReportMeta report, Map<String, Object> params, int rowCount) {}
+    /**
+     * Titik ekstensi sebelum report dijalankan. 
+     */
+    protected void beforeRun(ReportMeta report, Map<String, Object> params) {
+        if (report.getBeforeScript() != null && !report.getBeforeScript().isBlank()) {
+            String username = securityService != null && securityService.getCurrentUser() != null
+                ? securityService.getCurrentUser().getUsername() : "system";
+            scriptExecutor.executeReportScript(report.getBeforeScript(), params, username, log);
+        }
+    }
+
+    /** Titik ekstensi setelah report dijalankan (mis. audit). */
+    protected void afterRun(ReportMeta report, Map<String, Object> params, int rowCount) {
+        if (report.getAfterScript() != null && !report.getAfterScript().isBlank()) {
+            String username = securityService != null && securityService.getCurrentUser() != null
+                ? securityService.getCurrentUser().getUsername() : "system";
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    scriptExecutor.executeReportScript(report.getAfterScript(), params, username, log);
+                } catch (Exception e) {
+                    log.error("Error executing afterScript for report {}: {}", report.getReportCode(), e.getMessage());
+                }
+            });
+        }
+    }
 }

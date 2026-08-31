@@ -70,7 +70,13 @@ public class ParamFilterEditor extends VerticalLayout {
         eSrc.addCustomValueSetListener(e -> eSrc.setValue(e.getDetail()));
         if (otherParamNames != null) {
             List<String> names = otherParamNames.get();
-            if (names != null) eSrc.setItems(names);
+            if (names != null) {
+                eSrc.setItems(names);
+            } else {
+                eSrc.setItems(new java.util.ArrayList<>());
+            }
+        } else {
+            eSrc.setItems(new java.util.ArrayList<>());
         }
         binder.bind(eSrc, ReportParamFilterMeta::getSourceName, ReportParamFilterMeta::setSourceName);
         cSrc.setEditorComponent(eSrc);

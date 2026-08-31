@@ -113,6 +113,31 @@ public class ScriptExecutorService {
                 scriptText, newRow, rowIndex, headerData, items, currentView);
     }
 
+    public void executeReportScript(String scriptText, Map<String, Object> params, String username, org.slf4j.Logger log) {
+        if (scriptText == null || scriptText.trim().isEmpty()) {
+            return;
+        }
+        try {
+            String scriptId = "report_" + scriptText.hashCode();
+            Class<? extends Script> scriptClass = scriptCache.get(scriptId, id -> {
+                return new GroovyShell(compilerConfiguration).parse(scriptText).getClass();
+            });
+
+            Script scriptInstance = scriptClass.getDeclaredConstructor().newInstance();
+            Binding binding = new Binding();
+            binding.setVariable("params", params != null ? params : new HashMap<>());
+            binding.setVariable("username", username);
+            binding.setVariable("log", log);
+            binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
+            binding.setVariable("dataService", dataServiceProvider.getIfAvailable());
+
+            scriptInstance.setBinding(binding);
+            scriptInstance.run();
+        } catch (Exception ex) {
+            throw new RuntimeException("Report Script Error: " + ex.getMessage(), ex);
+        }
+    }
+
     public void executeScript(String scriptId, String scriptText, Map<String, Object> newRow, int rowIndex,
             Map<String, Object> headerData, List<Map<String, Object>> items,
             com.vaadin.flow.component.Component currentView) {

@@ -82,6 +82,8 @@ public class ReportDesignerView extends VerticalLayout {
     private final Select<String> usageScopeSelect = new Select<>();
     private final TextField groupByField = new TextField("Group By (STANDARD engine)");
     private final TextArea descriptionArea = new TextArea("Description");
+    private final TextArea beforeScriptArea = new TextArea("Before Run Script (Groovy)");
+    private final TextArea afterScriptArea = new TextArea("After Run Script (Groovy)");
     private final com.vaadin.flow.component.combobox.MultiSelectComboBox<String> rolesSelect = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(
             "Allowed Roles");
     private final Grid<ReportParamMeta> paramGrid = new Grid<>(ReportParamMeta.class, false);
@@ -330,6 +332,15 @@ public class ReportDesignerView extends VerticalLayout {
                 .map(ReportMeta::getCategory).filter(c -> c != null && !c.isBlank()).distinct().sorted().toList());
         categoryCombo.addCustomValueSetListener(e -> categoryCombo.setValue(e.getDetail()));
         descriptionArea.setMinHeight("60px");
+        
+        beforeScriptArea.setMinHeight("100px");
+        beforeScriptArea.getStyle().set("font-family", "monospace");
+        beforeScriptArea.setPlaceholder("Available variables: dataService, params, username, log");
+        
+        afterScriptArea.setMinHeight("100px");
+        afterScriptArea.getStyle().set("font-family", "monospace");
+        afterScriptArea.setPlaceholder("Available variables: dataService, params, username, log");
+
         try {
             rolesSelect.setItems(com.vaadinerp.config.SpringContextHolder
                     .getBean(com.vaadinerp.security.repository.AppRoleRepository.class)
@@ -341,16 +352,20 @@ public class ReportDesignerView extends VerticalLayout {
 
         FormLayout meta = new FormLayout(codeField, titleField, categoryCombo, sourceCombo,
                 usageScopeSelect, groupByField, queryArea,
-                descriptionArea, rolesSelect, pageSelect, orientSelect, engineSelect);
+                descriptionArea, rolesSelect, pageSelect, orientSelect, engineSelect,
+                beforeScriptArea, afterScriptArea);
         meta.setResponsiveSteps(
                 new FormLayout.ResponsiveStep("0", 1),
                 new FormLayout.ResponsiveStep("600px", 2),
                 new FormLayout.ResponsiveStep("900px", 4));
         meta.setColspan(titleField, 3);
         meta.setColspan(sourceCombo, 2);
-        meta.setColspan(queryArea, 2);
+        meta.setColspan(groupByField, 2);
+        meta.setColspan(queryArea, 4);
         meta.setColspan(descriptionArea, 2);
         meta.setColspan(rolesSelect, 2);
+        meta.setColspan(beforeScriptArea, 2);
+        meta.setColspan(afterScriptArea, 2);
 
         // Inline-editable parameter grid with the SAME look/feel as the report list
         // grid
@@ -379,6 +394,8 @@ public class ReportDesignerView extends VerticalLayout {
 
         ComboBox<String> edLov = new ComboBox<>();
         edLov.setClearButtonVisible(true);
+        edLov.setAllowCustomValue(true);
+        edLov.setItems(new java.util.ArrayList<>());
         try {
             edLov.setItems(com.vaadinerp.config.SpringContextHolder
                     .getBean(com.vaadinerp.meta.LovMetaRepository.class)
@@ -398,6 +415,7 @@ public class ReportDesignerView extends VerticalLayout {
 
         ComboBox<String> edSourceKey = new ComboBox<>();
         edSourceKey.setAllowCustomValue(true);
+        edSourceKey.setItems(new java.util.ArrayList<>());
         Grid.Column<ReportParamMeta> pColKey = paramGrid.addColumn(ReportParamMeta::getSourceKey)
                 .setHeader("Source Key").setEditorComponent(edSourceKey).setAutoWidth(true).setResizable(true);
         pBinder.forField(edSourceKey).bind(ReportParamMeta::getSourceKey, ReportParamMeta::setSourceKey);
@@ -414,6 +432,8 @@ public class ReportDesignerView extends VerticalLayout {
 
         ComboBox<String> edFilterCol = new ComboBox<>();
         edFilterCol.setAllowCustomValue(true);
+        edFilterCol.setItems(new java.util.ArrayList<>());
+        edFilterCol.setItems(new java.util.ArrayList<>());
         Grid.Column<ReportParamMeta> pColFilter = paramGrid.addColumn(ReportParamMeta::getFilterColumn)
                 .setHeader("Filter Column").setEditorComponent(edFilterCol).setAutoWidth(true).setResizable(true);
         pBinder.forField(edFilterCol).bind(ReportParamMeta::getFilterColumn, ReportParamMeta::setFilterColumn);
@@ -547,6 +567,8 @@ public class ReportDesignerView extends VerticalLayout {
             rolesSelect.clear();
             usageScopeSelect.setValue("RUNNER");
             groupByField.clear();
+            beforeScriptArea.clear();
+            afterScriptArea.clear();
         } else {
             editingCode = report.getReportCode();
             codeField.setValue(nz(report.getReportCode()));
@@ -565,6 +587,8 @@ public class ReportDesignerView extends VerticalLayout {
                             ? "RUNNER"
                             : report.getUsageScope().trim().toUpperCase());
             groupByField.setValue(report.getGroupBy() == null ? "" : report.getGroupBy());
+            beforeScriptArea.setValue(nz(report.getBeforeScript()));
+            afterScriptArea.setValue(nz(report.getAfterScript()));
             if (report.getParams() != null) {
                 for (ReportParamMeta p : report.getParams())
                     paramState.add(cloneParam(p));
@@ -646,6 +670,10 @@ public class ReportDesignerView extends VerticalLayout {
         rep.setGroupBy(groupByField.getValue() == null || groupByField.getValue().isBlank()
                 ? null
                 : groupByField.getValue().trim());
+        rep.setBeforeScript(beforeScriptArea.getValue() == null || beforeScriptArea.getValue().isBlank() ? null
+                : beforeScriptArea.getValue());
+        rep.setAfterScript(afterScriptArea.getValue() == null || afterScriptArea.getValue().isBlank() ? null
+                : afterScriptArea.getValue());
 
         if (rep.getParams() == null)
             rep.setParams(new ArrayList<>());

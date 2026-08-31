@@ -42,6 +42,14 @@ public class ReportMeta extends BaseAuditableEntity {
     @Column(name = "description", length = 500)
     private String description;
 
+    @Column(name = "before_script", columnDefinition = "TEXT")
+    @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.LONGVARCHAR)
+    private String beforeScript;
+
+    @Column(name = "after_script", columnDefinition = "TEXT")
+    @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.LONGVARCHAR)
+    private String afterScript;
+
     /** FORM | RUNNER | BOTH — di mana report ini boleh dijalankan. */
     @Column(name = "usage_scope", length = 20)
     private String usageScope = "RUNNER";
