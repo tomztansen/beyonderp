@@ -318,6 +318,37 @@ public class ScriptExecutorService {
             binding.setVariable("JsonOutput", groovy.json.JsonOutput.class);
             binding.setVariable("JsonSlurper", groovy.json.JsonSlurper.class);
 
+            binding.setVariable("prompt", new groovy.lang.Closure<Void>(null) {
+                public void doCall(Object... args) {
+                    if (args == null || args.length == 0) return;
+                    // prompt("message", callback)
+                    // prompt("title", "message", callback)
+                    // prompt("message", "default", callback)
+                    Object callback = null;
+                    String title = "Input";
+                    String message = null;
+                    String defaultValue = null;
+                    List<String> strings = new ArrayList<>();
+                    for (Object arg : args) {
+                        if (arg instanceof groovy.lang.Closure || arg instanceof java.util.function.Consumer) {
+                            callback = arg;
+                        } else if (arg != null) {
+                            strings.add(arg.toString());
+                        }
+                    }
+                    if (strings.size() == 1) {
+                        message = strings.get(0);
+                    } else if (strings.size() == 2) {
+                        title = strings.get(0);
+                        message = strings.get(1);
+                    } else if (strings.size() >= 3) {
+                        title = strings.get(0);
+                        message = strings.get(1);
+                        defaultValue = strings.get(2);
+                    }
+                    ctx.showInputDialog(title, message, defaultValue, callback);
+                }
+            });
             binding.setVariable("showYesNoDialog", new groovy.lang.Closure<Void>(null) {
                 public void doCall(String title, String message, Object callback) {
                     ctx.showYesNoDialog(title, message, callback);

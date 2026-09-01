@@ -48,6 +48,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private final Map<String, FilterCriteria> filterValues = new HashMap<>();
     private final Map<Grid.Column<Map<String, Object>>, String> columnToFieldNameMap = new HashMap<>();
     private final Map<Grid.Column<Map<String, Object>>, java.util.function.Function<Map<String, Object>, String>> colGetterMap = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, java.util.function.Function<Map<String, Object>, String>> fieldNameToGetterMap = new HashMap<>();
     private Map<String, Object> draggedItem;
 
     // Line Number feature
@@ -636,7 +637,9 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 String query = criteria.value;
 
                 Object val = getCaseInsensitiveVal(item, fieldName);
-                String strVal = val != null ? val.toString().toLowerCase() : "";
+                java.util.function.Function<Map<String, Object>, String> getter = fieldNameToGetterMap.get(fieldName);
+                String strVal = getter != null ? getter.apply(item).toLowerCase()
+                        : (val != null ? val.toString().toLowerCase() : "");
 
                 if ("Blank".equals(op)) {
                     if (!strVal.isEmpty())
@@ -816,6 +819,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     .setResizable(true)
                     .setKey(fieldName);
             colGetterMap.put(col, valueGetter);
+            fieldNameToGetterMap.put(fieldName, valueGetter);
 
             String fType = field.getComponentType() != null ? field.getComponentType().toUpperCase() : "";
             if ("INTBOX".equals(fType) || "DECIMALBOX".equals(fType)) {

@@ -108,21 +108,22 @@ public class LoginView extends Div {
                                 .set("letter-spacing", "-0.3px");
                 card.add(title);
 
-                Span edition = new Span("");
+                Span edition = new Span("Growth Manufacturing & Operational System");
                 edition.getStyle()
-                                .set("font-size", "0.68rem")
+                                .set("font-size", "0.65rem")
                                 .set("letter-spacing", "3px")
                                 .set("color", "#0070F2")
                                 .set("font-weight", "600")
-                                .set("margin-bottom", "28px");
+                                .set("margin-bottom", "25px");
                 card.add(edition);
 
                 // ── Username field ──
                 TextField usernameField = new TextField("User");
                 usernameField.setWidthFull();
-                usernameField.setPlaceholder("Masukkan username");
+                usernameField.setPlaceholder("Enter username");
                 usernameField.setPrefixComponent(VaadinIcon.USER.create());
                 usernameField.getStyle().set("--lumo-border-radius-m", "8px");
+                usernameField.setAutofocus(true);
                 card.add(usernameField);
 
                 // spacer between fields
@@ -133,7 +134,7 @@ public class LoginView extends Div {
                 // ── Password field ──
                 PasswordField passwordField = new PasswordField("Password");
                 passwordField.setWidthFull();
-                passwordField.setPlaceholder("Masukkan password");
+                passwordField.setPlaceholder("Enter password");
                 passwordField.setPrefixComponent(VaadinIcon.LOCK.create());
                 passwordField.getStyle().set("--lumo-border-radius-m", "8px");
                 card.add(passwordField);

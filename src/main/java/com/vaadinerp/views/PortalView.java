@@ -208,7 +208,8 @@ public class PortalView extends AppLayout {
                 "2px");
 
         // 3. Action Buttons (Change Password & Logout)
-        Button changePassBtn = new com.vaadinerp.components.SafeButton("Change Password", VaadinIcon.KEY.create(), e -> openChangePasswordDialog());
+        Button changePassBtn = new com.vaadinerp.components.SafeButton("Change Password", VaadinIcon.KEY.create(),
+                e -> openChangePasswordDialog());
         changePassBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         changePassBtn.getStyle().set("color", "#4f46e5").set("font-weight", "600").set("cursor", "pointer");
 
@@ -376,7 +377,7 @@ public class PortalView extends AppLayout {
 
         List<AppMenu> children = menuChildrenMap.getOrDefault(menu.getMenuCode(), java.util.Collections.emptyList());
         List<AppMenu> accessibleChildren = children.stream()
-                .filter(c -> !"FORM".equalsIgnoreCase(c.getMenuType()) && 
+                .filter(c -> !"FORM".equalsIgnoreCase(c.getMenuType()) &&
                         ("GROUP".equalsIgnoreCase(c.getMenuType()) || allowedMenus.contains(c.getMenuCode())))
                 .toList();
 
@@ -431,7 +432,7 @@ public class PortalView extends AppLayout {
             List<AppMenu> children = menuChildrenMap.getOrDefault(menu.getMenuCode(),
                     java.util.Collections.emptyList());
             List<AppMenu> accessibleChildren = children.stream()
-                    .filter(c -> !"FORM".equalsIgnoreCase(c.getMenuType()) && 
+                    .filter(c -> !"FORM".equalsIgnoreCase(c.getMenuType()) &&
                             ("GROUP".equalsIgnoreCase(c.getMenuType()) || allowedMenus.contains(c.getMenuCode())))
                     .toList();
 
@@ -767,7 +768,7 @@ public class PortalView extends AppLayout {
     public void openTabByCode(String code, String forceTabId, String title, Object extra) {
         if (code == null || code.isBlank())
             return;
-        
+
         String activeTabId = forceTabId != null ? forceTabId : code;
         if (openTabs.containsKey(activeTabId)) {
             Tab tab = openTabs.get(activeTabId);
@@ -925,7 +926,7 @@ public class PortalView extends AppLayout {
         portalIcon.setSize("70px");
         portalIcon.setColor("#6366f1");
 
-        H1 mainTitle = new H1("Selamat Datang");
+        H1 mainTitle = new H1("Welcome");
         mainTitle.getStyle().set("margin", "10px 0").set("color", "#111827");
 
         Paragraph desc = new Paragraph(
@@ -948,8 +949,9 @@ public class PortalView extends AppLayout {
                         "Semua tabel dinamis di-generate dan dikelola dalam schema PostgreSQL terpisah bernama 'dynamic'.",
                         VaadinIcon.DATABASE));
 
-        welcomeContent.add(portalIcon, mainTitle, desc, cards);
-        tabSheet.add("Dashboard", welcomeContent);
+        // welcomeContent.add(portalIcon, mainTitle, desc, cards);
+        welcomeContent.add(portalIcon, mainTitle);
+        tabSheet.add("Home", welcomeContent);
     }
 
     private HorizontalLayout createFeatureCard(String title, String desc, VaadinIcon icon) {
@@ -1072,7 +1074,10 @@ public class PortalView extends AppLayout {
         return copyNum;
     }
 
-    /** Buka Component arbitrer (mis. output report) sebagai tab tertutup. Re-open dengan id sama = refresh. */
+    /**
+     * Buka Component arbitrer (mis. output report) sebagai tab tertutup. Re-open
+     * dengan id sama = refresh.
+     */
     public void openComponentTab(String tabId, String title, Component content) {
         if (openTabs.containsKey(tabId)) {
             closeTabById(tabId); // refresh isi

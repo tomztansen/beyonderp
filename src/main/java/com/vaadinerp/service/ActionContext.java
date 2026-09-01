@@ -172,6 +172,68 @@ public class ActionContext {
         }
     }
 
+    public void showInputDialog(String title, String message, String defaultValue, Object callback) {
+        UI ui = UI.getCurrent();
+        if (ui == null && currentView != null && currentView.getUI().isPresent()) {
+            ui = currentView.getUI().get();
+        }
+        final UI activeUi = ui;
+
+        Command openDialog = () -> {
+            com.vaadin.flow.component.dialog.Dialog dialog = new com.vaadin.flow.component.dialog.Dialog();
+            dialog.setHeaderTitle(title != null ? title : "Input");
+
+            com.vaadin.flow.component.orderedlayout.VerticalLayout layout = new com.vaadin.flow.component.orderedlayout.VerticalLayout();
+            layout.setPadding(false);
+            layout.setSpacing(true);
+
+            if (message != null && !message.isEmpty()) {
+                layout.add(new com.vaadin.flow.component.html.Span(message));
+            }
+
+            com.vaadin.flow.component.textfield.TextField textField = new com.vaadin.flow.component.textfield.TextField();
+            textField.setWidthFull();
+            if (defaultValue != null) {
+                textField.setValue(defaultValue);
+            }
+            layout.add(textField);
+            dialog.add(layout);
+
+            com.vaadin.flow.component.button.Button btnOk = new com.vaadin.flow.component.button.Button("OK", e -> {
+                dialog.close();
+                String value = textField.getValue();
+                try {
+                    if (callback instanceof Closure<?> closure) {
+                        closure.call(value);
+                    } else if (callback instanceof Consumer consumer) {
+                        @SuppressWarnings("unchecked")
+                        Consumer<String> c = (Consumer<String>) consumer;
+                        c.accept(value);
+                    }
+                } catch (Exception ex) {
+                    showError("Script Execution Error", ex.getMessage());
+                }
+            });
+            btnOk.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
+
+            com.vaadin.flow.component.button.Button btnCancel = new com.vaadin.flow.component.button.Button("Cancel",
+                    e -> dialog.close());
+
+            dialog.getFooter().add(btnCancel, btnOk);
+
+            // Enter key confirms
+            textField.addKeyPressListener(com.vaadin.flow.component.Key.ENTER, e -> btnOk.click());
+            dialog.open();
+            textField.focus();
+        };
+
+        if (activeUi != null) {
+            activeUi.access(openDialog);
+        } else {
+            openDialog.execute();
+        }
+    }
+
     public void msgBox(Object content) {
         msgBox("Message Box", content);
     }
@@ -416,9 +478,18 @@ public class ActionContext {
                 }
 
                 if (procName != null && !procName.isEmpty()) {
-                    Object[] cleanRest = new Object[rest.length];
-                    for (int i = 0; i < rest.length; i++) {
-                        Object arg = rest[i];
+                    // Extract trailing closure from rest (Groovy trailing-closure syntax appends it as last arg)
+                    List<Object> restList = new ArrayList<>();
+                    for (Object arg : rest) {
+                        if (callback == null && (arg instanceof Closure<?> || arg instanceof Runnable || arg instanceof Consumer)) {
+                            callback = arg;
+                        } else {
+                            restList.add(arg);
+                        }
+                    }
+                    Object[] cleanRest = new Object[restList.size()];
+                    for (int i = 0; i < restList.size(); i++) {
+                        Object arg = restList.get(i);
                         if (arg instanceof com.vaadinerp.service.ScriptExecutorService.SmartHeaderNode shn) {
                             arg = shn.getPrimaryValue();
                         }
@@ -463,13 +534,11 @@ public class ActionContext {
                                 + ", " + cleanRest[1] + ", " + cleanRest[2]);
                         dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?, ?)", cleanRest[0],
                                 cleanRest[1], cleanRest[2]);
-                    } else if (cleanRest.length == 2 && jsonParams != null && !jsonParams.trim().startsWith("{")
-                            && !jsonParams.trim().startsWith("[")) {
+                    } else if (cleanRest.length == 2 && (jsonParams == null || (!jsonParams.trim().startsWith("{") && !jsonParams.trim().startsWith("[")))) {
                         System.out.println("Executing Procedure [" + procName + "] with 2 non-json arguments: "
                                 + cleanRest[0] + ", " + cleanRest[1]);
                         dataService.getJdbcTemplate().update("CALL " + procName + "(?, ?)", cleanRest[0], cleanRest[1]);
-                    } else if (cleanRest.length == 1 && jsonParams != null && !jsonParams.trim().startsWith("{")
-                            && !jsonParams.trim().startsWith("[")) {
+                    } else if (cleanRest.length == 1 && (jsonParams == null || (!jsonParams.trim().startsWith("{") && !jsonParams.trim().startsWith("[")))) {
                         System.out.println("Executing Procedure [" + procName + "] with 1 argument: " + cleanRest[0]);
                         dataService.getJdbcTemplate().update("CALL " + procName + "(?)", cleanRest[0]);
                     } else {
