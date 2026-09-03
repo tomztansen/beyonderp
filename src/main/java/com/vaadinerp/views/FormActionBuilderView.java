@@ -1,5 +1,6 @@
 package com.vaadinerp.views;
 
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -430,16 +431,21 @@ public class FormActionBuilderView extends VerticalLayout {
         dlg.setResizable(true);
         dlg.setDraggable(true);
 
+        // Unique key for this CM instance on the browser window object
+        String cmVar = "_cm_" + System.currentTimeMillis();
+        String initialValue = scriptContentField.getValue() != null ? scriptContentField.getValue() : "";
+
         com.vaadin.flow.component.orderedlayout.VerticalLayout layout = new com.vaadin.flow.component.orderedlayout.VerticalLayout();
         layout.setSizeFull();
         layout.setPadding(false);
-        layout.setSpacing(true);
+        layout.setSpacing(false);
+        layout.getStyle().set("gap", "8px");
 
         com.vaadin.flow.component.orderedlayout.HorizontalLayout toolbar = new com.vaadin.flow.component.orderedlayout.HorizontalLayout();
         toolbar.setWidthFull();
         toolbar.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.BASELINE);
         toolbar.getStyle().set("background-color", "#f1f5f9").set("padding", "8px 16px").set("border-radius", "6px")
-                .set("border-bottom", "1px solid #cbd5e1");
+                .set("border-bottom", "1px solid #cbd5e1").set("flex-shrink", "0").set("flex-wrap", "wrap");
 
         Button checkBtn = new com.vaadinerp.components.SafeButton("🔍 Cek & Validasi Sintaks", VaadinIcon.CHECK_CIRCLE.create());
         checkBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL,
@@ -462,50 +468,129 @@ public class FormActionBuilderView extends VerticalLayout {
                 "7. Query Database Ringan di Script (db.getValue & db.find)");
         snippetComboModal.setWidth("280px");
 
-        com.vaadin.flow.component.textfield.TextArea modalEditor = new com.vaadin.flow.component.textfield.TextArea();
-        modalEditor.setSizeFull();
-        modalEditor.setValue(scriptContentField.getValue() != null ? scriptContentField.getValue() : "");
-        modalEditor.getStyle().set("font-family", "Consolas, 'Courier New', monospace").set("font-size", "14px")
-                .set("line-height", "1.5");
-        modalEditor.setPlaceholder("Tulis atau sisipkan script Groovy Anda di sini...");
+        // CodeMirror host div — replaces the plain TextArea
+        com.vaadin.flow.component.html.Div editorDiv = new com.vaadin.flow.component.html.Div();
+        editorDiv.setId("cm-host-" + System.currentTimeMillis());
+        editorDiv.getStyle()
+                .set("flex", "1 1 0")
+                .set("min-height", "0")
+                .set("overflow", "hidden");
 
         com.vaadin.flow.component.html.Div statusArea = new com.vaadin.flow.component.html.Div();
         statusArea.setWidthFull();
         statusArea.getStyle().set("padding", "10px 14px").set("border-radius", "6px").set("font-weight", "500")
-                .set("display", "none").set("white-space", "pre-wrap");
+                .set("display", "none").set("white-space", "pre-wrap").set("flex-shrink", "0");
 
-        checkBtn.addClickListener(e -> {
-            checkGroovySyntaxInternal(modalEditor.getValue(), statusArea);
+        // Load CodeMirror from CDN and initialize when dialog opens; clean up on close
+        dlg.addOpenedChangeListener(ev -> {
+            if (!ev.isOpened()) {
+                UI.getCurrent().getPage().executeJs("window[$0] = null", cmVar);
+                return;
+            }
+            UI.getCurrent().getPage().executeJs("""
+                (function(editorId, cmVar, initVal) {
+                    function init() {
+                        var el = document.getElementById(editorId);
+                        if (!el) return;
+                        // Suppress horizontal scroll — lineWrapping handles long lines
+                        var s = document.createElement('style');
+                        s.textContent = '#' + editorId + ' .CodeMirror-scroll{overflow-x:hidden!important}';
+                        document.head.appendChild(s);
+                        var cm = CodeMirror(el, {
+                            value: initVal,
+                            mode: 'groovy',
+                            theme: 'eclipse',
+                            lineNumbers: true,
+                            indentWithTabs: false,
+                            indentUnit: 4,
+                            tabSize: 4,
+                            lineWrapping: true,
+                            extraKeys: {Tab: 'indentMore', 'Shift-Tab': 'indentLess'}
+                        });
+                        window[cmVar] = cm;
+                        // Wait for browser to finish layout, then size CM to actual container height
+                        requestAnimationFrame(function() {
+                            requestAnimationFrame(function() {
+                                var h = el.clientHeight;
+                                cm.setSize('100%', h > 50 ? h : 400);
+                                cm.refresh();
+                            });
+                        });
+                    }
+                    function loadScript(src, cb) {
+                        if (document.querySelector('script[src="' + src + '"]')) { cb(); return; }
+                        var s = document.createElement('script'); s.src = src; s.onload = cb;
+                        document.head.appendChild(s);
+                    }
+                    function loadCss(href, id) {
+                        if (document.getElementById(id)) return;
+                        var l = document.createElement('link'); l.id = id; l.rel = 'stylesheet'; l.href = href;
+                        document.head.appendChild(l);
+                    }
+                    loadCss('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css', 'cm5-css');
+                    loadCss('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/eclipse.min.css', 'cm5-theme-css');
+                    if (typeof CodeMirror !== 'undefined') { init(); return; }
+                    loadScript('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js', function() {
+                        loadScript('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/groovy/groovy.min.js', init);
+                    });
+                })($0, $1, $2)
+                """, editorDiv.getId().get(), cmVar, initialValue);
         });
 
-        formatBtn.addClickListener(e -> {
-            String formatted = formatGroovyScript(modalEditor.getValue());
-            modalEditor.setValue(formatted);
-            checkGroovySyntaxInternal(formatted, statusArea);
-        });
+        // Cek sintaks — ambil nilai dari CM dulu (async), lalu validasi di Java
+        checkBtn.addClickListener(e ->
+            UI.getCurrent().getPage().executeJs("return window[$0] ? window[$0].getValue() : ''", cmVar)
+                .then(String.class, value -> checkGroovySyntaxInternal(value, statusArea))
+        );
 
+        // Format — pakai CodeMirror indentAuto langsung di client, lebih akurat dari Java formatter
+        formatBtn.addClickListener(e ->
+            UI.getCurrent().getPage().executeJs("""
+                if (window[$0]) {
+                    var cm = window[$0];
+                    var cursor = cm.getCursor();
+                    cm.execCommand('selectAll');
+                    cm.execCommand('indentAuto');
+                    cm.setCursor(cursor);
+                    cm.focus();
+                }
+                """, cmVar)
+        );
+
+        // Snippet — sisipkan di akhir editor via CM API
         snippetComboModal.addValueChangeListener(e -> {
             String val = e.getValue();
             if (val != null) {
-                insertSnippetToText(modalEditor, val);
+                String tpl = getSnippetTemplate(val);
+                UI.getCurrent().getPage().executeJs("""
+                    if (window[$0]) {
+                        var cm = window[$0];
+                        var ins = cm.getValue().trim() === '' ? $1 : '\\n\\n' + $1;
+                        cm.replaceRange(ins, {line: cm.lastLine(), ch: cm.getLine(cm.lastLine()).length});
+                        cm.focus();
+                    }
+                    """, cmVar, tpl);
                 snippetComboModal.clear();
             }
         });
 
         toolbar.add(checkBtn, formatBtn, snippetComboModal, cheatBtn);
-        layout.add(toolbar, modalEditor, statusArea);
-        layout.setFlexGrow(1, modalEditor);
+        layout.add(toolbar, editorDiv, statusArea);
+        layout.setFlexGrow(1, editorDiv);
 
         dlg.add(layout);
 
-        Button saveBtn = new com.vaadinerp.components.SafeButton("💾 Terapkan ke Form", VaadinIcon.CHECK.create(), e -> {
-            scriptContentField.setValue(modalEditor.getValue());
-            dlg.close();
-            com.vaadin.flow.component.notification.Notification
-                    .show("✅ Script berhasil diterapkan!", 3000,
-                            com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
-                    .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
-        });
+        Button saveBtn = new com.vaadinerp.components.SafeButton("💾 Terapkan ke Form", VaadinIcon.CHECK.create(), e ->
+            UI.getCurrent().getPage().executeJs("return window[$0] ? window[$0].getValue() : ''", cmVar)
+                .then(String.class, value -> {
+                    scriptContentField.setValue(value);
+                    dlg.close();
+                    com.vaadin.flow.component.notification.Notification
+                            .show("✅ Script berhasil diterapkan!", 3000,
+                                    com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
+                            .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
+                })
+        );
         saveBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
 
         Button cancelBtn = new com.vaadinerp.components.SafeButton("Cancel", e -> dlg.close());
