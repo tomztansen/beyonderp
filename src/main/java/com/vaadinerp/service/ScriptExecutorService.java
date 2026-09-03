@@ -87,10 +87,10 @@ public class ScriptExecutorService {
         compilerConfiguration = new CompilerConfiguration();
         compilerConfiguration.addCompilationCustomizers(secure);
 
-        // Add timeout protection (max 20 seconds)
+        // Add timeout protection (max 60 seconds)
         try {
             ASTTransformationCustomizer timerCustomizer = new ASTTransformationCustomizer(
-                    Collections.singletonMap("value", 20L), TimedInterrupt.class);
+                    Collections.singletonMap("value", 60L), TimedInterrupt.class);
             compilerConfiguration.addCompilationCustomizers(timerCustomizer);
         } catch (Exception ignored) {
         }
@@ -234,10 +234,10 @@ public class ScriptExecutorService {
 
             Future<?> future = executorService.submit((Runnable) () -> scriptInstance.run());
             try {
-                future.get(20, TimeUnit.SECONDS);
+                future.get(60, TimeUnit.SECONDS);
             } catch (TimeoutException te) {
                 future.cancel(true);
-                throw new RuntimeException("Script Execution Timeout: exceeded 20 seconds maximum limit.");
+                throw new RuntimeException("Script Execution Timeout: exceeded 60 seconds maximum limit.");
             } catch (ExecutionException ee) {
                 Throwable cause = ee.getCause() != null ? ee.getCause() : ee;
                 throw new RuntimeException("Script Error: " + cause.getMessage(), cause);

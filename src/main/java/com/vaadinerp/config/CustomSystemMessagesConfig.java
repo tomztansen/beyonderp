@@ -69,11 +69,11 @@ public class CustomSystemMessagesConfig implements VaadinServiceInitListener {
             reconnectConfig.setDialogTextGaveUp(
                     "❌ Koneksi ke server terputus secara permanen atau server sedang offline. Silakan periksa jaringan Anda dan muat ulang halaman (F5).");
 
-            // Interval percobaan reconnect (setiap 2 detik)
-            reconnectConfig.setReconnectInterval(2000);
+            // Interval percobaan reconnect (setiap 3 detik)
+            reconnectConfig.setReconnectInterval(3000);
 
-            // Maksimum jumlah percobaan reconnect (15 kali = 30 detik total)
-            reconnectConfig.setReconnectAttempts(15);
+            // Maksimum jumlah percobaan reconnect (40 kali = ~2 menit total)
+            reconnectConfig.setReconnectAttempts(40);
         });
     }
 }
