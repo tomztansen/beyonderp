@@ -187,6 +187,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     // Peta untuk menyimpan referensi komponen form untuk update lintas-field
     private Map<String, Component> formComponents = new HashMap<>();
 
+    // Action ON_CHANGE per field pemicu (lowercase), dimuat sekali per form
+    private Map<String, List<com.vaadinerp.meta.FormActionMeta>> onChangeActions = new HashMap<>();
+
     private Button btnNew;
     private Button btnEdit;
     private Button btnView;
@@ -335,7 +338,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         buildToolbar(formDef);
         buildForm(formDef, event != null ? event.getLocation().getQueryParameters() : null);
         buildInlineEditingGrid(formDef);
-        executeOnLoadActions("ON_LOAD_NEW");
+        // ON_LOAD_NEW sengaja TIDAK dipanggil di sini. Saat form dibuka, tab aktif
+        // adalah daftar (historisTab), bukan tab entri — user harus menekan New atau
+        // Edit dulu. Memanggilnya di sini membuat script jalan dua kali dan tidak bisa
+        // dibedakan dari penekanan tombol New.
     }
 
     private void buildToolbar(FormMeta formDef) {
@@ -1116,11 +1122,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         if (currentFormDef == null || dynamicDataService == null)
             return;
         List<com.vaadinerp.meta.FormActionMeta> actions = dynamicDataService.getFormActions(currentFormCode, scope);
-        if (actions == null || actions.isEmpty())
-            return;
-
         Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : new HashMap<>();
-        for (com.vaadinerp.meta.FormActionMeta act : actions) {
+        for (com.vaadinerp.meta.FormActionMeta act : actions != null ? actions
+                : java.util.Collections.<com.vaadinerp.meta.FormActionMeta>emptyList()) {
             try {
                 if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType())) {
                     if (dynamicDataService.getScriptExecutorService() != null) {
@@ -1151,6 +1155,52 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             } catch (Exception ex) {
                 System.err.println("Error executing OnLoad action [" + act.getActionCode() + "] in scope [" + scope
                         + "]: " + ex.getMessage());
+            }
+        }
+
+    }
+
+    /** Memuat action ON_CHANGE satu kali per form, dikelompokkan per field pemicu. */
+    private void loadOnChangeActions(FormMeta formDef) {
+        onChangeActions.clear();
+        if (formDef == null || dynamicDataService == null)
+            return;
+        List<com.vaadinerp.meta.FormActionMeta> actions = dynamicDataService.getFormActions(formDef.getFormCode(),
+                "ON_CHANGE");
+        if (actions == null)
+            return;
+        for (com.vaadinerp.meta.FormActionMeta act : actions) {
+            String trigger = act.getTriggerField();
+            if (trigger == null || trigger.trim().isEmpty())
+                continue;
+            onChangeActions.computeIfAbsent(trigger.trim().toLowerCase(), k -> new ArrayList<>()).add(act);
+        }
+    }
+
+    /** Menjalankan action ON_CHANGE milik satu field pemicu. */
+    private void runOnChangeActions(String fieldName) {
+        if (fieldName == null || onChangeActions.isEmpty())
+            return;
+        runOnChangeActions(onChangeActions.get(fieldName.trim().toLowerCase()));
+    }
+
+    private void runOnChangeActions(List<com.vaadinerp.meta.FormActionMeta> acts) {
+        if (acts == null || acts.isEmpty() || dynamicDataService == null
+                || dynamicDataService.getScriptExecutorService() == null)
+            return;
+        Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : null;
+        if (headerBean == null)
+            return;
+        for (com.vaadinerp.meta.FormActionMeta act : acts) {
+            // Script dieksekusi di dalam value-change listener; exception yang lolos akan
+            // mematikan sesi Vaadin, jadi wajib ditahan di sini.
+            try {
+                dynamicDataService.getScriptExecutorService().executeActionScript(act, headerBean, null, this);
+            } catch (Exception ex) {
+                Notification.show(
+                        "On-Change script [" + act.getActionCode() + "]: "
+                                + (ex.getMessage() != null ? ex.getMessage() : ex.toString()),
+                        5000, Notification.Position.MIDDLE);
             }
         }
     }
@@ -1690,6 +1740,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             }
         }
 
+        loadOnChangeActions(formDef);
+
         // Setup cascading from parent fields to SubformGrid fields
         for (FieldMeta field : formDef.getFields()) {
             Component sourceComponent = formComponents.get(field.getFieldName());
@@ -1702,6 +1754,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         if (comp instanceof SubformGridField) {
                             ((SubformGridField) comp).setParentFieldValue(field.getFieldName(), newValue);
                         }
+                    }
+                    // Hanya perubahan dari user yang memicu ON_CHANGE. Nilai yang ditulis server
+                    // (formula, isian target LOV, setElementValue dari script) sengaja diabaikan
+                    // supaya tidak terjadi pemicuan berantai.
+                    if (event.isFromClient()) {
+                        runOnChangeActions(field.getFieldName());
                     }
                 });
             }
@@ -2559,7 +2617,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             }
 
             for (FieldMeta field : currentFormDef.getFields()) {
-                if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
+                if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType()) ||
+                        "LABEL".equalsIgnoreCase(field.getComponentType())) {
                     continue;
                 }
                 if (field.getFormula() != null && !field.getFormula().trim().isEmpty()) {
@@ -2735,9 +2794,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         builder.bind(
                 map -> convertToFieldValue(getValueCaseInsensitive(map, field.getFieldName()), editComponent),
                 (map, value) -> {
-                    putValueCaseInsensitive(map, field.getFieldName(), value);
-                    if (value != null && !(value instanceof Map)) {
-                        putValueCaseInsensitive(map, field.getFieldName() + ".id", value);
+                    Object storeValue = (editComponent instanceof com.vaadin.flow.component.checkbox.Checkbox
+                            && value instanceof Boolean
+                            && getValueCaseInsensitive(map, field.getFieldName()) instanceof Number)
+                            ? (Boolean.TRUE.equals(value) ? 1 : 0) : value;
+                    putValueCaseInsensitive(map, field.getFieldName(), storeValue);
+                    if (storeValue != null && !(storeValue instanceof Map)) {
+                        putValueCaseInsensitive(map, field.getFieldName() + ".id", storeValue);
                     }
                     String dispLabel = null;
                     Map<String, Object> selMap = null;
@@ -2771,7 +2834,11 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         hasValue.addValueChangeListener(e -> {
             Map<String, Object> bean = binder.getBean();
             if (bean != null) {
-                putValueCaseInsensitive(bean, field.getFieldName(), e.getValue());
+                Object liveValue = (editComponent instanceof com.vaadin.flow.component.checkbox.Checkbox
+                        && e.getValue() instanceof Boolean
+                        && getValueCaseInsensitive(bean, field.getFieldName()) instanceof Number)
+                        ? (Boolean.TRUE.equals(e.getValue()) ? 1 : 0) : e.getValue();
+                putValueCaseInsensitive(bean, field.getFieldName(), liveValue);
                 if (e.getValue() != null && !(e.getValue() instanceof Map)) {
                     putValueCaseInsensitive(bean, field.getFieldName() + ".id", e.getValue());
                 }

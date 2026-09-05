@@ -53,6 +53,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     private final List<Map<String, Object>> detailsList = new ArrayList<>();
     private final List<Map<String, Object>> deletedDetailsList = new ArrayList<>();
     private final Map<String, Component> formComponents = new HashMap<>();
+
+    // Action ON_CHANGE per field pemicu (lowercase), dimuat sekali per form
+    private final Map<String, List<com.vaadinerp.meta.FormActionMeta>> onChangeActions = new HashMap<>();
     private final Map<String, Component> detailEditorComponents = new HashMap<>();
 
     private HorizontalLayout toolbar;
@@ -484,7 +487,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         buildDetailsGrid(formDef);
         buildDetailsActions(formDef);
         refreshMasterGridData();
-        executeOnLoadActions("ON_LOAD_NEW");
+        // ON_LOAD_NEW sengaja TIDAK dipanggil di sini — lihat catatan yang sama di
+        // GenericFormView.setParameter. Hanya tombol New yang memicunya.
     }
 
     private void buildDetailsActions(FormMeta formDef) {
@@ -625,11 +629,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         if (currentFormDef == null || dynamicDataService == null)
             return;
         List<com.vaadinerp.meta.FormActionMeta> actions = dynamicDataService.getFormActions(currentFormCode, scope);
-        if (actions == null || actions.isEmpty())
-            return;
-
         Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : new HashMap<>();
-        for (com.vaadinerp.meta.FormActionMeta act : actions) {
+        for (com.vaadinerp.meta.FormActionMeta act : actions != null ? actions
+                : java.util.Collections.<com.vaadinerp.meta.FormActionMeta>emptyList()) {
             try {
                 if ("GROOVY_SCRIPT".equalsIgnoreCase(act.getActionType())) {
                     if (dynamicDataService.getScriptExecutorService() != null) {
@@ -670,6 +672,52 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             } catch (Exception ex) {
                 System.err.println("Error executing OnLoad action [" + act.getActionCode() + "] in scope [" + scope
                         + "]: " + ex.getMessage());
+            }
+        }
+
+    }
+
+    /** Memuat action ON_CHANGE satu kali per form, dikelompokkan per field pemicu. */
+    private void loadOnChangeActions(FormMeta formDef) {
+        onChangeActions.clear();
+        if (formDef == null || dynamicDataService == null)
+            return;
+        List<com.vaadinerp.meta.FormActionMeta> actions = dynamicDataService.getFormActions(formDef.getFormCode(),
+                "ON_CHANGE");
+        if (actions == null)
+            return;
+        for (com.vaadinerp.meta.FormActionMeta act : actions) {
+            String trigger = act.getTriggerField();
+            if (trigger == null || trigger.trim().isEmpty())
+                continue;
+            onChangeActions.computeIfAbsent(trigger.trim().toLowerCase(), k -> new ArrayList<>()).add(act);
+        }
+    }
+
+    /** Menjalankan action ON_CHANGE milik satu field pemicu. */
+    private void runOnChangeActions(String fieldName) {
+        if (fieldName == null || onChangeActions.isEmpty())
+            return;
+        runOnChangeActions(onChangeActions.get(fieldName.trim().toLowerCase()));
+    }
+
+    private void runOnChangeActions(List<com.vaadinerp.meta.FormActionMeta> acts) {
+        if (acts == null || acts.isEmpty() || dynamicDataService == null
+                || dynamicDataService.getScriptExecutorService() == null)
+            return;
+        Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : null;
+        if (headerBean == null)
+            return;
+        for (com.vaadinerp.meta.FormActionMeta act : acts) {
+            // Script dieksekusi di dalam value-change listener; exception yang lolos akan
+            // mematikan sesi Vaadin, jadi wajib ditahan di sini.
+            try {
+                dynamicDataService.getScriptExecutorService().executeActionScript(act, headerBean, null, this);
+            } catch (Exception ex) {
+                Notification.show(
+                        "On-Change script [" + act.getActionCode() + "]: "
+                                + (ex.getMessage() != null ? ex.getMessage() : ex.toString()),
+                        5000, Notification.Position.MIDDLE);
             }
         }
     }
@@ -1631,6 +1679,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             formLayout.add(rowLayout);
         }
 
+        loadOnChangeActions(formDef);
+
         // Setup cascading from master fields to detail editors and SubformGridField
         // components
         for (FieldMeta field : formDef.getFields()) {
@@ -1650,6 +1700,12 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         if (comp instanceof com.vaadinerp.components.SubformGridField sgf) {
                             sgf.setParentFieldValue(field.getFieldName(), newValue);
                         }
+                    }
+                    // Hanya perubahan dari user yang memicu ON_CHANGE. Nilai yang ditulis server
+                    // (formula, isian target LOV, setElementValue dari script) sengaja diabaikan
+                    // supaya tidak terjadi pemicuan berantai.
+                    if (event.isFromClient()) {
+                        runOnChangeActions(field.getFieldName());
                     }
                 });
             }
@@ -3068,7 +3124,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
 
             for (FieldMeta field : currentFormDef.getFields()) {
-                if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
+                if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType()) ||
+                        "LABEL".equalsIgnoreCase(field.getComponentType())) {
                     continue;
                 }
                 if (!field.isDetail() && field.getFormula() != null && !field.getFormula().trim().isEmpty()) {
@@ -3299,9 +3356,13 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         builder.bind(
                 map -> convertToFieldValue(getValueCaseInsensitive(map, field.getFieldName()), editComponent),
                 (map, value) -> {
-                    putValueCaseInsensitive(map, field.getFieldName(), value);
-                    if (value != null && !(value instanceof Map)) {
-                        putValueCaseInsensitive(map, field.getFieldName() + ".id", value);
+                    Object storeValue = (editComponent instanceof com.vaadin.flow.component.checkbox.Checkbox
+                            && value instanceof Boolean
+                            && getValueCaseInsensitive(map, field.getFieldName()) instanceof Number)
+                            ? (Boolean.TRUE.equals(value) ? 1 : 0) : value;
+                    putValueCaseInsensitive(map, field.getFieldName(), storeValue);
+                    if (storeValue != null && !(storeValue instanceof Map)) {
+                        putValueCaseInsensitive(map, field.getFieldName() + ".id", storeValue);
                     }
                     String dispLabel = null;
                     Map<String, Object> selMap = null;
@@ -3335,9 +3396,13 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         hasValue.addValueChangeListener(e -> {
             Map<String, Object> bean = binder.getBean();
             if (bean != null) {
-                putValueCaseInsensitive(bean, field.getFieldName(), e.getValue());
-                if (e.getValue() != null && !(e.getValue() instanceof Map)) {
-                    putValueCaseInsensitive(bean, field.getFieldName() + ".id", e.getValue());
+                Object liveValue = (editComponent instanceof com.vaadin.flow.component.checkbox.Checkbox
+                        && e.getValue() instanceof Boolean
+                        && getValueCaseInsensitive(bean, field.getFieldName()) instanceof Number)
+                        ? (Boolean.TRUE.equals(e.getValue()) ? 1 : 0) : e.getValue();
+                putValueCaseInsensitive(bean, field.getFieldName(), liveValue);
+                if (liveValue != null && !(liveValue instanceof Map)) {
+                    putValueCaseInsensitive(bean, field.getFieldName() + ".id", liveValue);
                 }
                 String dispLabel = null;
                 Map<String, Object> selMap = null;

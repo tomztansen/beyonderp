@@ -539,6 +539,12 @@ public class ComponentFactory {
 
         String compType = field != null && field.getComponentType() != null ? field.getComponentType().toUpperCase()
                 : "";
+        if ("CHECKBOX".equals(compType)) {
+            if (val instanceof Boolean b)
+                return b ? "Y" : "N";
+            if (val instanceof Number num)
+                return num.intValue() != 0 ? "Y" : "N";
+        }
         if (!hasCustomFormat) {
             if ("DATEBOX".equals(compType) || val instanceof java.time.LocalDate || val instanceof java.sql.Date) {
                 pattern = StandardFormatService.getStandardFormat("DATEBOX", "dd/MM/yyyy");
@@ -1144,6 +1150,8 @@ public class ComponentFactory {
                         dataService != null ? dataService.getFileStorageService() : null, true);
                 imageUpload.setReadOnly(field.isReadonly());
                 return imageUpload;
+            case "LABEL":
+                return new LabelField("", field.getFieldLabel(), field.getDisplayFormat());
             default:
                 TextField defaultField = new TextField(label);
                 defaultField.setReadOnly(field.isReadonly());

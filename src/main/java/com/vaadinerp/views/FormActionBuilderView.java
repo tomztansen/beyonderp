@@ -33,6 +33,7 @@ public class FormActionBuilderView extends VerticalLayout {
     private final TextField actionCodeField = new TextField("Action Code (Unik)");
     private final TextField actionLabelField = new TextField("Label Tombol");
     private final ComboBox<String> targetScopeCombo = new ComboBox<>("Posisi Toolbar");
+    private final TextField triggerFieldField = new TextField("Trigger Field (khusus ON_CHANGE)");
     private final ComboBox<String> actionTypeCombo = new ComboBox<>("Tipe Aksi");
     private final ComboBox<String> iconNameCombo = new ComboBox<>("Ikon Tombol");
     private final ComboBox<String> buttonStyleCombo = new ComboBox<>("Gaya / Warna Tombol");
@@ -155,8 +156,12 @@ public class FormActionBuilderView extends VerticalLayout {
         formCodeCombo.setItems(formCodes);
         formCodeCombo.setClearButtonVisible(true);
 
-        targetScopeCombo.setItems("MASTER_TOOLBAR", "DETAIL_TOOLBAR", "ON_LOAD_NEW", "ON_DETAIL_ADD", "ON_LOAD_EDIT", "BEFORE_SAVE", "AFTER_SAVE");
+        targetScopeCombo.setItems("MASTER_TOOLBAR", "DETAIL_TOOLBAR", "ON_LOAD_NEW", "ON_DETAIL_ADD", "ON_LOAD_EDIT", "ON_LOAD_VIEW", "BEFORE_SAVE", "AFTER_SAVE", "ON_CHANGE");
         targetScopeCombo.setValue("MASTER_TOOLBAR");
+
+        triggerFieldField.setPlaceholder("mis. is_harga_manual");
+        triggerFieldField.setHelperText(
+                "Hanya dipakai saat Posisi = ON_CHANGE. Script dijalankan ketika user mengubah field ini.");
 
         actionTypeCombo.setItems("POPUP_PICKER", "GROOVY_SCRIPT");
         actionTypeCombo.setValue("POPUP_PICKER");
@@ -797,7 +802,8 @@ public class FormActionBuilderView extends VerticalLayout {
         scriptContentField.getStyle().set("font-family", "Consolas, 'Courier New', monospace").set("font-size", "14px")
                 .set("line-height", "1.5");
 
-        editor.add(formCodeCombo, actionCodeField, actionLabelField, menuGroupField, targetScopeCombo, actionTypeCombo,
+        editor.add(formCodeCombo, actionCodeField, actionLabelField, menuGroupField, targetScopeCombo,
+                triggerFieldField, actionTypeCombo,
                 iconNameCombo, buttonStyleCombo, sourceLovCodeCombo, filterLayout,
                 copySourceLovCodeCombo, copyFilterLayout, targetLayout, groovyHelperBar, scriptContentField);
 
@@ -852,6 +858,7 @@ public class FormActionBuilderView extends VerticalLayout {
         actionCodeField.setValue(action.getActionCode() != null ? action.getActionCode() : "");
         actionLabelField.setValue(action.getActionLabel() != null ? action.getActionLabel() : "");
         targetScopeCombo.setValue(action.getTargetScope() != null ? action.getTargetScope() : "DETAIL_TOOLBAR");
+        triggerFieldField.setValue(action.getTriggerField() != null ? action.getTriggerField() : "");
         actionTypeCombo.setValue(action.getActionType() != null ? action.getActionType() : "POPUP_PICKER");
         iconNameCombo.setValue(action.getIconName());
         buttonStyleCombo.setValue(action.getButtonStyle() != null ? action.getButtonStyle() : "PRIMARY");
@@ -871,6 +878,7 @@ public class FormActionBuilderView extends VerticalLayout {
         actionCodeField.clear();
         actionLabelField.clear();
         targetScopeCombo.setValue("MASTER_TOOLBAR");
+        triggerFieldField.clear();
         actionTypeCombo.setValue("POPUP_PICKER");
         iconNameCombo.clear();
         buttonStyleCombo.setValue("PRIMARY");
@@ -906,6 +914,8 @@ public class FormActionBuilderView extends VerticalLayout {
         currentAction.setActionCode(actionCodeField.getValue().trim());
         currentAction.setActionLabel(actionLabelField.getValue().trim());
         currentAction.setTargetScope(targetScopeCombo.getValue());
+        String trg = triggerFieldField.getValue() != null ? triggerFieldField.getValue().trim() : "";
+        currentAction.setTriggerField(trg.isEmpty() ? null : trg);
         currentAction.setActionType(actionTypeCombo.getValue() != null ? actionTypeCombo.getValue() : "POPUP_PICKER");
         currentAction.setIconName(iconNameCombo.getValue());
         currentAction.setButtonStyle(buttonStyleCombo.getValue());
@@ -1203,6 +1213,7 @@ public class FormActionBuilderView extends VerticalLayout {
             clone.setActionCode(currentAction.getActionCode() + "_COPY");
             clone.setActionLabel(currentAction.getActionLabel() + " Copy");
             clone.setTargetScope(currentAction.getTargetScope());
+            clone.setTriggerField(currentAction.getTriggerField());
             clone.setActionType(currentAction.getActionType());
             clone.setIconName(currentAction.getIconName());
             clone.setButtonStyle(currentAction.getButtonStyle());
