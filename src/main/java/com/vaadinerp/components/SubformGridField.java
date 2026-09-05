@@ -932,7 +932,12 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
             builder.bind(map -> convertToFieldValue(getCaseInsensitiveVal(map, fieldName), editorComp),
                     (map, val) -> {
-                        putCaseInsensitiveVal(map, fieldName, val);
+                        Object storeVal = (editorComp instanceof com.vaadin.flow.component.checkbox.Checkbox
+                                && val instanceof Boolean
+                                && getCaseInsensitiveVal(map, fieldName) instanceof Number)
+                                        ? (Boolean.TRUE.equals(val) ? 1 : 0)
+                                        : val;
+                        putCaseInsensitiveVal(map, fieldName, storeVal);
                         evaluateRowFormulas(map);
                         if (!grid.getEditor().isOpen() || grid.getEditor().getItem() != map) {
                             if (grid.getDataProvider() instanceof ListDataProvider) {
@@ -1004,9 +1009,9 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                         grid.getEditor().cancel();
                     }
                     if ("Y".equals(e.getValue())) {
-                        criteria.value = "true";
+                        criteria.value = "y";
                     } else if ("N".equals(e.getValue())) {
-                        criteria.value = "false";
+                        criteria.value = "n";
                     } else {
                         criteria.value = "";
                     }

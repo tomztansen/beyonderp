@@ -124,6 +124,7 @@ public class FormBuilderView extends VerticalLayout {
     private final ComboBox<String> propValidationRule = new ComboBox<>("Validation Rule (e.g. ONLY_SUNDAY)");
     private final ComboBox<String> propSequenceCode = new ComboBox<>("⚡ Auto-Sequence Code");
     private final TextField propDisplayFormat = new TextField("Kolom Format (misal dd/MM/yyyy atau #,##0.00)");
+    private final ComboBox<String> propLabelStyle = new ComboBox<>("Style Label");
     private final Checkbox propSaveOnInsert = new Checkbox("Save on Insert");
     private final Checkbox propSaveOnUpdate = new Checkbox("Save on Edit/Update");
     private final Checkbox propIsAuditLog = new Checkbox("Audit Log");
@@ -139,6 +140,8 @@ public class FormBuilderView extends VerticalLayout {
             VaadinIcon.SHIELD.create());
     private final Button propBtnOnAddScript = new com.vaadinerp.components.SafeButton("⚡ On-Add-Row Script & AI",
             VaadinIcon.CODE.create());
+    private final Button propBtnOnChangeScript = new com.vaadinerp.components.SafeButton("⚡ On-Change Script",
+            VaadinIcon.BOLT.create());
 
     // Temporary Classes to hold builder state
     public static class FieldMetaTemp {
@@ -598,8 +601,14 @@ public class FormBuilderView extends VerticalLayout {
         btnConfigScheduler.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnConfigScheduler.setVisible(false);
 
+        Button btnFormScripts = new com.vaadinerp.components.SafeButton("⚡ Script Form (On-Load / Save)",
+                VaadinIcon.CODE.create());
+        btnFormScripts.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btnFormScripts.getStyle().set("font-weight", "500").set("color", "#3b82f6");
+        btnFormScripts.addClickListener(e -> openFormScriptDialog());
+
         HorizontalLayout actionButtonsLayout = new HorizontalLayout(btnAutoGenerateFields, btnRelayoutCanvas,
-                btnConfigScheduler);
+                btnConfigScheduler, btnFormScripts);
         actionButtonsLayout.setSpacing(true);
         actionButtonsLayout.getStyle().set("margin-top", "10px");
 
@@ -659,7 +668,8 @@ public class FormBuilderView extends VerticalLayout {
                 createPaletteButton("Chosen Box", VaadinIcon.TAGS, "CHOSENBOX"),
                 createPaletteButton("Subform Grid", VaadinIcon.GRID, "SUBFORM_GRID"),
                 createPaletteButton("File Upload", VaadinIcon.UPLOAD, "FILE_UPLOAD"),
-                createPaletteButton("Image Upload", VaadinIcon.PICTURE, "IMAGE_UPLOAD"));
+                createPaletteButton("Image Upload", VaadinIcon.PICTURE, "IMAGE_UPLOAD"),
+                createPaletteButton("Label", VaadinIcon.TAG, "LABEL"));
 
         // COLUMN B: CANVAS PREVIEW
         canvasPanel.setHeightFull();
@@ -872,8 +882,12 @@ public class FormBuilderView extends VerticalLayout {
         temp.colSpan = "SUBFORM_GRID".equalsIgnoreCase(type) ? null : 1;
         temp.isRequired = false;
         temp.isReadonly = false;
-        temp.showInGrid = !"SUBFORM_GRID".equalsIgnoreCase(type);
+        temp.showInGrid = !"SUBFORM_GRID".equalsIgnoreCase(type) && !"LABEL".equalsIgnoreCase(type);
         temp.isSortable = true;
+        if ("LABEL".equalsIgnoreCase(type)) {
+            temp.saveOnInsert = false;
+            temp.saveOnUpdate = false;
+        }
         return temp;
     }
 
@@ -941,7 +955,7 @@ public class FormBuilderView extends VerticalLayout {
 
         propComponentType.setItems("TEXTBOX", "INTBOX", "DECIMALBOX", "DATEBOX", "DATETIMEBOX", "TIMEBOX", "CHECKBOX",
                 "TEXTAREA", "COMBOBOX", "LISTBOX", "BANDBOX", "CHOSENBOX", "SUBFORM_GRID", "FILE_UPLOAD",
-                "IMAGE_UPLOAD");
+                "IMAGE_UPLOAD", "LABEL");
 
         // Configure propLovCode BandboxField
         propLovCode.setGridConfigurator(grid -> {
@@ -1047,12 +1061,20 @@ public class FormBuilderView extends VerticalLayout {
             }
         });
 
+        propBtnOnChangeScript.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_CONTRAST);
+        propBtnOnChangeScript.setWidthFull();
+        propBtnOnChangeScript.addClickListener(e -> {
+            if (!selectedFields.isEmpty()) {
+                openOnChangeScriptDialog(selectedFields.iterator().next());
+            }
+        });
+
         propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov,
                 propBtnFilters, propBtnLovTargets, propRowGroup, propColSpan, propFieldWidth, propReadonlyMode,
-                propFormula, propDisplayFormat, propValidationRule, propSequenceCode, propBtnCustomValidation,
+                propFormula, propDisplayFormat, propLabelStyle, propValidationRule, propSequenceCode, propBtnCustomValidation,
                 propHyperlinkTargetForm, propHyperlinkFilterMapping,
                 checkBoxLayout,
-                propBtnOnAddScript);
+                propBtnOnAddScript, propBtnOnChangeScript);
 
         // Listeners for live sync
         setupPropertiesListeners();
@@ -1176,6 +1198,16 @@ public class FormBuilderView extends VerticalLayout {
                 selectedFields.iterator().next().displayFormat = e.getValue();
             }
         });
+        propLabelStyle.setItems("NORMAL", "BOLD", "HEADING");
+        propLabelStyle.setPlaceholder("Pilih style...");
+        propLabelStyle.setClearButtonVisible(true);
+        propLabelStyle.setVisible(false);
+        propLabelStyle.addValueChangeListener(e -> {
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                String val = e.getValue();
+                selectedFields.iterator().next().displayFormat = "NORMAL".equalsIgnoreCase(val) ? "" : (val != null ? val : "");
+            }
+        });
         propValidationRule.addValueChangeListener(e -> {
             if (!selectedFields.isEmpty() && e.isFromClient()) {
                 selectedFields.iterator().next().validationRule = e.getValue();
@@ -1214,7 +1246,18 @@ public class FormBuilderView extends VerticalLayout {
     }
 
     private void updatePropertyFieldsState(String componentType) {
+        boolean isLabel = "LABEL".equalsIgnoreCase(componentType);
+        propDisplayFormat.setVisible(!isLabel);
+        propLabelStyle.setVisible(isLabel);
+        propFormula.setVisible(!isLabel);
+        propFieldLabel.setLabel(isLabel ? "Teks yang Ditampilkan" : "Field Label / Caption");
+
         boolean isSubform = "SUBFORM_GRID".equalsIgnoreCase(componentType);
+
+        // ON_CHANGE hanya dipicu oleh perubahan dari user (isFromClient). SUBFORM_GRID
+        // dan LABEL tidak pernah menghasilkan perubahan seperti itu, jadi tidak
+        // ditawarkan sebagai pemicu — sama seperti pengecualian di evaluateFormulas().
+        propBtnOnChangeScript.setVisible(!isLabel && !isSubform);
         boolean isSelection = "COMBOBOX".equalsIgnoreCase(componentType) ||
                 "LISTBOX".equalsIgnoreCase(componentType) ||
                 "BANDBOX".equalsIgnoreCase(componentType) ||
@@ -1378,7 +1421,12 @@ public class FormBuilderView extends VerticalLayout {
                     propIsDetail.setVisible("MASTER_DETAIL".equals(formTypeCombo.getValue()));
                     propIsSortable.setValue(first.isSortable);
                     propFormula.setValue(first.formula != null ? first.formula : "");
-                    propDisplayFormat.setValue(first.displayFormat != null ? first.displayFormat : "");
+                    if ("LABEL".equalsIgnoreCase(first.componentType)) {
+                        String fmt = first.displayFormat != null ? first.displayFormat.toUpperCase() : "";
+                        propLabelStyle.setValue(fmt.isEmpty() || "NORMAL".equals(fmt) ? "NORMAL" : fmt);
+                    } else {
+                        propDisplayFormat.setValue(first.displayFormat != null ? first.displayFormat : "");
+                    }
                     propValidationRule.setValue(first.validationRule != null ? first.validationRule : "NONE");
                     propSequenceCode.setValue(first.sequenceCode != null ? first.sequenceCode : "");
                     propHyperlinkTargetForm
@@ -1404,6 +1452,7 @@ public class FormBuilderView extends VerticalLayout {
                     propBtnLovTargets.setVisible(false);
                     propBtnCustomValidation.setVisible(false);
                     propBtnOnAddScript.setVisible(false);
+                    propBtnOnChangeScript.setVisible(false);
                     propHyperlinkTargetForm.setVisible(false);
                     propHyperlinkFilterMapping.setVisible(false);
 
@@ -1810,7 +1859,7 @@ public class FormBuilderView extends VerticalLayout {
 
         String[] components = {"TEXTBOX", "INTBOX", "DECIMALBOX", "DATEBOX", "DATETIMEBOX", "TIMEBOX", "CHECKBOX",
                 "TEXTAREA", "COMBOBOX", "LISTBOX", "BANDBOX", "CHOSENBOX", "SUBFORM_GRID", "FILE_UPLOAD",
-                "IMAGE_UPLOAD"};
+                "IMAGE_UPLOAD", "LABEL"};
 
         for (String type : components) {
             Button btn = new Button(type, VaadinIcon.PLUS.create());
@@ -2502,6 +2551,11 @@ public class FormBuilderView extends VerticalLayout {
             case "IMAGE_UPLOAD":
                 return new FileUploadField(label,
                         dynamicDataService != null ? dynamicDataService.getFileStorageService() : null, true);
+            case "LABEL":
+                return new com.vaadinerp.components.LabelField(
+                        temp.fieldLabel,
+                        temp.formula,
+                        temp.displayFormat);
             default:
                 return new TextField(label);
         }
@@ -2639,6 +2693,333 @@ public class FormBuilderView extends VerticalLayout {
         dialog.add(layout);
         dialog.getFooter().add(btnClear, btnCancel, btnSave);
         dialog.open();
+    }
+
+    /** Keterangan tiap scope level form, ditampilkan di dialog Script Form. */
+    private static String formScopeHelp(String scope) {
+        if (scope == null)
+            return "";
+        switch (scope.toUpperCase()) {
+            case "ON_LOAD_NEW":
+                return "Dijalankan saat tombol New ditekan. Cocok untuk mengisi nilai default record baru.";
+            case "ON_LOAD_EDIT":
+                return "Dijalankan saat record dibuka lewat tombol Edit, setelah readonly dikembalikan ke metadata.";
+            case "ON_LOAD_VIEW":
+                return "Dijalankan saat record dibuka dalam mode View. Perhatikan: script berjalan SETELAH semua "
+                        + "field dikunci, jadi setElementReadonly(false) di sini akan membuka kunci mode lihat-saja.";
+            case "BEFORE_SAVE":
+                return "Dijalankan sebelum data disimpan. Script yang mengembalikan false akan MEMBATALKAN "
+                        + "penyimpanan — dipakai untuk validasi.";
+            case "AFTER_SAVE":
+                return "Dijalankan setelah data tersimpan. Form langsung dikosongkan sesudahnya, jadi jangan "
+                        + "dipakai untuk mengatur tampilan field.";
+            case "ON_DETAIL_ADD":
+                return "Dijalankan saat baris detail ditambahkan. Hanya berlaku untuk form MASTER_DETAIL; "
+                        + "gunakan variabel row untuk baris yang baru dibuat.";
+            default:
+                return "";
+        }
+    }
+
+    /**
+     * Editor script level form untuk scope On-Load dan Save. Toolbar (MASTER_TOOLBAR
+     * / DETAIL_TOOLBAR) sengaja tidak ditangani di sini karena butuh konfigurasi
+     * tombol lengkap — tetap di Form Action Builder.
+     */
+    private void openFormScriptDialog() {
+        String formCode = formCodeField.getValue() != null ? formCodeField.getValue().trim() : "";
+        if (formCode.isEmpty()) {
+            Notification.show("Isi Form Code terlebih dahulu.", 3000, Notification.Position.MIDDLE);
+            return;
+        }
+        FormMeta targetForm = formMetaRepository.findById(formCode).orElse(null);
+        if (targetForm == null) {
+            Notification.show("Simpan form ini dulu (Save Form) sebelum mengatur Script Form.", 5000,
+                    Notification.Position.MIDDLE);
+            return;
+        }
+        com.vaadinerp.meta.FormActionMetaRepository actionRepo = dynamicDataService != null
+                ? dynamicDataService.getFormActionMetaRepository()
+                : null;
+        if (actionRepo == null) {
+            Notification.show("Repository action tidak tersedia.", 3000, Notification.Position.MIDDLE);
+            return;
+        }
+
+        List<String> scopes = new ArrayList<>(
+                java.util.Arrays.asList("ON_LOAD_NEW", "ON_LOAD_EDIT", "ON_LOAD_VIEW", "BEFORE_SAVE", "AFTER_SAVE"));
+        if ("MASTER_DETAIL".equals(formTypeCombo.getValue())) {
+            scopes.add("ON_DETAIL_ADD");
+        }
+
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("⚡ Script Form - " + formCode);
+        dialog.setWidth("860px");
+        dialog.setHeight("660px");
+
+        ComboBox<String> scopeCombo = new ComboBox<>("Scope");
+        scopeCombo.setItems(scopes);
+        scopeCombo.setWidthFull();
+        scopeCombo.setClearButtonVisible(false);
+
+        Span scopeHelp = new Span();
+        scopeHelp.getStyle().set("font-size", "0.85em").set("color", "var(--lumo-secondary-text-color)");
+
+        TextArea scriptArea = new TextArea("Groovy Script");
+        scriptArea.setWidthFull();
+        scriptArea.setHeight("340px");
+        scriptArea.getStyle().set("font-family", "Consolas, 'Courier New', monospace").set("font-size", "14px");
+
+        // Baris yang sedang diedit + isi terakhir yang dimuat, untuk deteksi perubahan
+        // yang belum disimpan saat user berpindah scope.
+        final com.vaadinerp.meta.FormActionMeta[] currentRow = new com.vaadinerp.meta.FormActionMeta[1];
+        final String[] loadedScript = new String[] { "" };
+        final boolean[] locked = new boolean[] { false };
+
+        Runnable loadScope = () -> {
+            String scope = scopeCombo.getValue();
+            scopeHelp.setText(formScopeHelp(scope));
+            currentRow[0] = null;
+            locked[0] = false;
+            if (scope == null) {
+                scriptArea.clear();
+                loadedScript[0] = "";
+                return;
+            }
+            List<com.vaadinerp.meta.FormActionMeta> rows = actionRepo.findByFormMeta_FormCodeAndTargetScope(formCode,
+                    scope);
+            if (rows == null)
+                rows = new ArrayList<>();
+            if (rows.size() > 1) {
+                // Jangan menebak baris mana yang dimaksud — data lama bisa punya beberapa
+                // action untuk satu scope.
+                locked[0] = true;
+                scriptArea.setValue("");
+                scriptArea.setReadOnly(true);
+                loadedScript[0] = "";
+                Notification.show("Scope " + scope + " punya " + rows.size()
+                        + " action di form ini. Edit lewat Form Action Builder supaya tidak salah sasaran.", 6000,
+                        Notification.Position.MIDDLE);
+                return;
+            }
+            scriptArea.setReadOnly(false);
+            if (rows.isEmpty()) {
+                scriptArea.clear();
+                loadedScript[0] = "";
+                return;
+            }
+            com.vaadinerp.meta.FormActionMeta row = rows.get(0);
+            if (row.getActionType() != null && !"GROOVY_SCRIPT".equalsIgnoreCase(row.getActionType())) {
+                // Baris POPUP_PICKER tidak boleh diubah jadi script dari sini.
+                locked[0] = true;
+                scriptArea.setValue("");
+                scriptArea.setReadOnly(true);
+                loadedScript[0] = "";
+                Notification.show("Action '" + row.getActionCode() + "' pada scope " + scope + " bertipe "
+                        + row.getActionType() + ", bukan GROOVY_SCRIPT. Edit lewat Form Action Builder.", 6000,
+                        Notification.Position.MIDDLE);
+                return;
+            }
+            currentRow[0] = row;
+            loadedScript[0] = row.getScriptContent() != null ? row.getScriptContent() : "";
+            scriptArea.setValue(loadedScript[0]);
+        };
+
+        scopeCombo.addValueChangeListener(e -> {
+            String pending = scriptArea.getValue() != null ? scriptArea.getValue() : "";
+            if (!locked[0] && !pending.equals(loadedScript[0])) {
+                Notification.show("Perubahan yang belum disimpan diabaikan.", 3000, Notification.Position.MIDDLE);
+            }
+            loadScope.run();
+        });
+
+        VerticalLayout layout = new VerticalLayout(scopeCombo, scopeHelp, scriptArea);
+        layout.setSizeFull();
+        layout.setPadding(false);
+        layout.setSpacing(true);
+        dialog.add(layout);
+
+        Button saveBtn = new com.vaadinerp.components.SafeButton("Simpan", VaadinIcon.CHECK.create(), ev -> {
+            String scope = scopeCombo.getValue();
+            if (scope == null) {
+                Notification.show("Pilih scope terlebih dahulu.", 3000, Notification.Position.MIDDLE);
+                return;
+            }
+            if (locked[0]) {
+                Notification.show("Scope ini dikunci di sini. Gunakan Form Action Builder.", 4000,
+                        Notification.Position.MIDDLE);
+                return;
+            }
+            String script = scriptArea.getValue() != null ? scriptArea.getValue().trim() : "";
+            try {
+                if (script.isEmpty()) {
+                    if (currentRow[0] != null) {
+                        actionRepo.delete(currentRow[0]);
+                        Notification.show("Script " + scope + " dihapus.", 3000, Notification.Position.MIDDLE);
+                    }
+                    loadScope.run();
+                    return;
+                }
+                com.vaadinerp.meta.FormActionMeta target = currentRow[0];
+                if (target == null) {
+                    target = new com.vaadinerp.meta.FormActionMeta();
+                    target.setFormMeta(targetForm);
+                    target.setActionCode(generateUniqueActionCode(actionRepo, scope + "_" + formCode));
+                    target.setActionLabel("-");
+                    target.setActionType("GROOVY_SCRIPT");
+                    target.setTargetScope(scope);
+                }
+                // Kolom lain (icon, style, menu group, mapping) sengaja tidak disentuh supaya
+                // baris lama yang dibuat lewat Form Action Builder tetap utuh.
+                target.setScriptContent(script);
+                actionRepo.save(target);
+                Notification.show("Script " + scope + " tersimpan.", 3000, Notification.Position.MIDDLE);
+                loadScope.run();
+            } catch (Exception ex) {
+                Notification.show("Gagal menyimpan: " + (ex.getMessage() != null ? ex.getMessage() : ex.toString()),
+                        5000, Notification.Position.MIDDLE);
+            }
+        });
+        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button closeBtn = new com.vaadinerp.components.SafeButton("Tutup", ev -> dialog.close());
+        dialog.getFooter().add(closeBtn, saveBtn);
+
+        scopeCombo.setValue("ON_LOAD_EDIT");
+        loadScope.run();
+        dialog.open();
+    }
+
+    /**
+     * Editor script ON_CHANGE untuk satu field. Berbeda dengan Configure Filters /
+     * LOV Targets yang menyimpan ke objek temp dan baru masuk DB saat Save Form,
+     * dialog ini menulis langsung ke meta_form_action karena FormMeta tidak punya
+     * relasi cascade ke FormActionMeta.
+     */
+    private void openOnChangeScriptDialog(FieldMetaTemp fieldTemp) {
+        if (fieldTemp == null || fieldTemp.fieldName == null || fieldTemp.fieldName.trim().isEmpty()) {
+            Notification.show("Pilih field terlebih dahulu.", 3000, Notification.Position.MIDDLE);
+            return;
+        }
+        String formCode = formCodeField.getValue() != null ? formCodeField.getValue().trim() : "";
+        if (formCode.isEmpty()) {
+            Notification.show("Isi Form Code terlebih dahulu.", 3000, Notification.Position.MIDDLE);
+            return;
+        }
+        // meta_form_action.form_code punya FK ke meta_form, jadi form wajib sudah
+        // tersimpan sebelum action bisa dibuat.
+        FormMeta targetForm = formMetaRepository.findById(formCode).orElse(null);
+        if (targetForm == null) {
+            Notification.show("Simpan form ini dulu (Save Form) sebelum mengatur On-Change Script.", 5000,
+                    Notification.Position.MIDDLE);
+            return;
+        }
+        com.vaadinerp.meta.FormActionMetaRepository actionRepo = dynamicDataService != null
+                ? dynamicDataService.getFormActionMetaRepository()
+                : null;
+        if (actionRepo == null) {
+            Notification.show("Repository action tidak tersedia.", 3000, Notification.Position.MIDDLE);
+            return;
+        }
+
+        final String fieldName = fieldTemp.fieldName.trim();
+        com.vaadinerp.meta.FormActionMeta existing = null;
+        for (com.vaadinerp.meta.FormActionMeta a : actionRepo.findByFormMeta_FormCodeAndTargetScope(formCode,
+                "ON_CHANGE")) {
+            if (a.getTriggerField() != null && fieldName.equalsIgnoreCase(a.getTriggerField().trim())) {
+                existing = a;
+                break;
+            }
+        }
+        final com.vaadinerp.meta.FormActionMeta action = existing;
+
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("⚡ On-Change Script - " + fieldName);
+        dialog.setWidth("820px");
+        dialog.setHeight("620px");
+
+        VerticalLayout layout = new VerticalLayout();
+        layout.setSizeFull();
+        layout.setPadding(false);
+        layout.setSpacing(true);
+
+        Span info = new Span("Script dijalankan saat user mengubah field \"" + fieldName
+                + "\". Perubahan dari sistem (formula, isian target LOV, setElementValue) tidak memicunya. "
+                + "Tersedia: setElementReadonly, setElementEnabled, setElementDisabled, setElementValue, "
+                + "getElementValue, refreshForm, clearForm, db.getValue, db.find, executeProcedure, msgBox, "
+                + "showSuccess, showError, header.*");
+        info.getStyle().set("font-size", "0.85em").set("color", "var(--lumo-secondary-text-color)");
+
+        Span warn = new Span("Jangan setElementValue ke field yang punya Formula — nilainya akan ditimpa "
+                + "perhitungan ulang. Isi field inputnya, biarkan formula yang menghitung.");
+        warn.getStyle().set("font-size", "0.85em").set("color", "var(--lumo-error-text-color)");
+
+        TextArea scriptArea = new TextArea("Groovy Script");
+        scriptArea.setWidthFull();
+        scriptArea.setHeight("330px");
+        scriptArea.getStyle().set("font-family", "Consolas, 'Courier New', monospace").set("font-size", "14px");
+        scriptArea.setPlaceholder("setElementReadonly(\"harga_satuan\", !header." + fieldName + ")");
+        scriptArea.setValue(action != null && action.getScriptContent() != null ? action.getScriptContent() : "");
+
+        layout.add(info, warn, scriptArea);
+        dialog.add(layout);
+
+        Button saveBtn = new com.vaadinerp.components.SafeButton("Simpan", VaadinIcon.CHECK.create(), ev -> {
+            String script = scriptArea.getValue() != null ? scriptArea.getValue().trim() : "";
+            try {
+                if (script.isEmpty()) {
+                    if (action != null) {
+                        actionRepo.delete(action);
+                        Notification.show("On-Change Script dihapus.", 3000, Notification.Position.MIDDLE);
+                    }
+                    dialog.close();
+                    return;
+                }
+                com.vaadinerp.meta.FormActionMeta target = action;
+                if (target == null) {
+                    target = new com.vaadinerp.meta.FormActionMeta();
+                    target.setFormMeta(targetForm);
+                    target.setActionCode(generateUniqueActionCode(actionRepo, "ONCHG_" + formCode + "_" + fieldName));
+                    target.setActionLabel("-");
+                    target.setActionType("GROOVY_SCRIPT");
+                    target.setTargetScope("ON_CHANGE");
+                    target.setTriggerField(fieldName);
+                }
+                target.setScriptContent(script);
+                actionRepo.save(target);
+                Notification.show("On-Change Script tersimpan (langsung ke meta_form_action).", 3000,
+                        Notification.Position.MIDDLE);
+                dialog.close();
+            } catch (Exception ex) {
+                Notification.show("Gagal menyimpan: " + (ex.getMessage() != null ? ex.getMessage() : ex.toString()),
+                        5000, Notification.Position.MIDDLE);
+            }
+        });
+        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button cancelBtn = new com.vaadinerp.components.SafeButton("Batal", ev -> dialog.close());
+        dialog.getFooter().add(cancelBtn, saveBtn);
+        dialog.open();
+    }
+
+    /**
+     * action_code tidak punya unique constraint di DB, tapi findByActionCode
+     * mengembalikan satu objek — duplikat akan meledak saat runtime. Jadi keunikan
+     * dijamin di sini.
+     */
+    private String generateUniqueActionCode(com.vaadinerp.meta.FormActionMetaRepository actionRepo, String rawBase) {
+        String base = rawBase.toUpperCase().replaceAll("[^A-Z0-9_]", "_");
+        if (base.length() > 50) {
+            base = base.substring(0, 50);
+        }
+        String candidate = base;
+        int suffix = 2;
+        while (actionRepo.findByActionCodeIgnoreCase(candidate) != null) {
+            String tail = "_" + suffix;
+            candidate = (base.length() + tail.length() > 50 ? base.substring(0, 50 - tail.length()) : base) + tail;
+            suffix++;
+        }
+        return candidate;
     }
 
     private void openOnAddScriptDialog(FieldMetaTemp fieldTemp) {

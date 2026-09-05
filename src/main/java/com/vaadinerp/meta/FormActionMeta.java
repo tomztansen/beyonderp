@@ -63,4 +63,7 @@ public class FormActionMeta extends BaseAuditableEntity {
 
     @Column(name = "script_content", columnDefinition = "TEXT")
     private String scriptContent; // Groovy/DSL script untuk action_type = GROOVY_SCRIPT
+
+    @Column(name = "trigger_field", length = 100)
+    private String triggerField; // nama field pemicu untuk target_scope = ON_CHANGE
 }
