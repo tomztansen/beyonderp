@@ -534,11 +534,13 @@ public class FormBuilderView extends VerticalLayout {
 
         // Form Metadata Setup Panel
         FormLayout formMetaLayout = new FormLayout();
+        // Pola yang sama dipakai FormLayoutUtils.applyResponsiveSteps di GenericFormView:
+        // kolom penuh sejak 800px. Ambang tinggi tidak lagi diperlukan setelah panelnya
+        // memakai border-box dan berhenti meluber.
         formMetaLayout.setResponsiveSteps(
                 new FormLayout.ResponsiveStep("0", 1),
-                new FormLayout.ResponsiveStep("600px", 2),
-                new FormLayout.ResponsiveStep("1000px", 3),
-                new FormLayout.ResponsiveStep("1300px", 5));
+                new FormLayout.ResponsiveStep("500px", 3),
+                new FormLayout.ResponsiveStep("800px", 5));
         formMetaLayout.setWidthFull();
         pkField.setValue("id");
         labelWidthField.setValue("150px");
