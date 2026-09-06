@@ -33,6 +33,7 @@ public class CodeEditorField extends Div {
     private final String elementId;
 
     private String pendingValue = "";
+    private boolean pendingReadOnly = false;
 
     public CodeEditorField(String mode, String modeScript) {
         this.mode = mode;
@@ -59,7 +60,7 @@ public class CodeEditorField extends Div {
         // ini bisa terpanggil berkali-kali untuk instance yang sama.
         attachEvent.getUI().getPage().executeJs(
                 """
-                        (function(editorId, cmVar, initVal, mode, modeScript, ver) {
+                        (function(editorId, cmVar, initVal, mode, modeScript, ver, readOnly) {
                             function init() {
                                 var el = document.getElementById(editorId);
                                 if (!el) {
@@ -85,6 +86,7 @@ public class CodeEditorField extends Div {
                                     indentUnit: 4,
                                     tabSize: 4,
                                     lineWrapping: true,
+                                    readOnly: readOnly,
                                     extraKeys: {Tab: 'indentMore', 'Shift-Tab': 'indentLess'}
                                 });
                                 window[cmVar] = cm;
@@ -123,9 +125,9 @@ public class CodeEditorField extends Div {
                             }
                             if (typeof CodeMirror !== 'undefined') { withMode(); return; }
                             loadScript(base + 'codemirror.min.js', withMode);
-                        })($0, $1, $2, $3, $4, $5)
+                        })($0, $1, $2, $3, $4, $5, $6)
                         """,
-                elementId, cmVar, pendingValue, mode, modeScript, CM_VERSION);
+                elementId, cmVar, pendingValue, mode, modeScript, CM_VERSION, pendingReadOnly);
     }
 
     @Override
@@ -167,6 +169,16 @@ public class CodeEditorField extends Div {
                 .then(String.class, callback::accept));
     }
 
+    /**
+     * Kunci editor agar hanya bisa dibaca. Disimpan juga sebagai state supaya tetap
+     * berlaku bila editor dibuat ulang saat dialog dibuka kembali.
+     */
+    public void setReadOnly(boolean readOnly) {
+        this.pendingReadOnly = readOnly;
+        getUI().ifPresent(ui -> ui.getPage().executeJs(
+                "if (window[$0]) window[$0].setOption('readOnly', $1)", cmVar, readOnly));
+    }
+
     /** Rapikan indentasi seluruh isi editor memakai indentAuto milik CodeMirror. */
     public void format() {
         getUI().ifPresent(ui -> ui.getPage().executeJs(
@@ -181,6 +193,21 @@ public class CodeEditorField extends Div {
                         }
                         """,
                 cmVar));
+    }
+
+    /** Sisipkan teks tepat di posisi kursor — cocok untuk picker nama variabel. */
+    public void insertAtCursor(String text) {
+        if (text == null || text.isEmpty())
+            return;
+        getUI().ifPresent(ui -> ui.getPage().executeJs(
+                """
+                        if (window[$0]) {
+                            var cm = window[$0];
+                            cm.replaceSelection($1);
+                            cm.focus();
+                        }
+                        """,
+                cmVar, text));
     }
 
     /** Sisipkan potongan kode di akhir editor, dipisahkan baris kosong bila perlu. */
