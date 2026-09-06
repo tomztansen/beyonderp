@@ -31,6 +31,19 @@ di lingkungan pengembangan berbeda dengan produksi.
 gagal saat Spring context naik. Setelah mengubah query repository, jalankan
 aplikasinya (atau test yang memuat context) sebelum menyatakan perubahan aman.
 
+## Bahasa teks yang dilihat pengguna — Inggris
+
+Semua teks yang muncul di layar aplikasi ditulis dalam **bahasa Inggris**: label
+tombol dan field, judul dialog, isi `Notification`, pesan validasi dan error,
+placeholder, tooltip, serta teks badge/status.
+
+Berlaku untuk teks **baru dan yang diubah**. Teks berbahasa Indonesia yang sudah
+ada tidak perlu diterjemahkan massal — biarkan sampai barisnya memang disentuh
+karena alasan lain.
+
+Yang **tidak** termasuk aturan ini dan tetap bahasa Indonesia: komentar di kode,
+pesan commit, dan percakapan dengan pengguna.
+
 ## Aturan lain
 
 @.agents/AGENTS.md
