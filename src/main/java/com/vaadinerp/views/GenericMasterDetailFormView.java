@@ -299,7 +299,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         H4 detailTitle = new H4("Details");
         detailTitle.getStyle().set("margin", "0");
 
-        btnAddRow = new com.vaadinerp.components.SafeButton("Tambah Baris", VaadinIcon.PLUS.create());
+        btnAddRow = new com.vaadinerp.components.SafeButton("Add Row", VaadinIcon.PLUS.create());
         btnAddRow.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         btnAddRow.getStyle().set("font-weight", "500").set("color", "#374151");
         if (btnAddRow.getIcon() instanceof com.vaadin.flow.component.icon.Icon icAdd) {
@@ -323,7 +323,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             if (currentFormDef != null) {
                 dynamicDataService.resetUserGridOrder(currentFormCode, "detailsGrid");
                 buildDetailsGrid(currentFormDef);
-                Notification.show("Layout grid rincian dikembalikan ke default!", 2000,
+                Notification.show("Detail grid layout reset to default!", 2000,
                         Notification.Position.BOTTOM_END);
             }
         });
@@ -447,8 +447,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         btnDeleteRow.addClickListener(e -> {
             java.util.Set<Map<String, Object>> selectedItems = detailsGrid.getSelectedItems();
             if (selectedItems != null && !selectedItems.isEmpty()) {
-                showConfirmDialog("Konfirmasi Hapus Rincian",
-                        "Apakah Anda yakin ingin menghapus " + selectedItems.size() + " baris rincian terpilih ini?",
+                showConfirmDialog("Confirm Detail Deletion",
+                        "Are you sure you want to delete " + selectedItems.size() + " selected detail row(s)?",
                         () -> {
                             detailsList.removeAll(selectedItems);
                             deletedDetailsList.addAll(selectedItems);
@@ -466,7 +466,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     public void setParameter(BeforeEvent event, String formCode) {
         FormMeta formDef = formMetaRepository.findById(formCode).orElse(null);
         if (formDef == null || !"MASTER_DETAIL".equalsIgnoreCase(formDef.getFormType())) {
-            title.setText("Form Master-Detail " + formCode + " tidak ditemukan!");
+            title.setText("Form Master-Detail " + formCode + " not found!");
             return;
         }
 
@@ -875,7 +875,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 }
                 loadAndEditData(selectedItems.iterator().next());
             } else {
-                Notification.show("Silakan pilih data di tab Historis terlebih dahulu.", 3000,
+                Notification.show("Please select a record on the History tab first.", 3000,
                         Notification.Position.MIDDLE);
                 tabSheet.setSelectedTab(historisTab);
             }
@@ -898,7 +898,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 }
                 loadAndViewData(selectedItems.iterator().next());
             } else {
-                Notification.show("Silakan pilih data di tab Historis terlebih dahulu.", 3000,
+                Notification.show("Please select a record on the History tab first.", 3000,
                         Notification.Position.MIDDLE);
                 tabSheet.setSelectedTab(historisTab);
             }
@@ -915,14 +915,14 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             if (tabSheet.getSelectedTab() == historisTab) {
                 java.util.Set<Map<String, Object>> selectedItems = masterGrid.getSelectedItems();
                 if (selectedItems != null && !selectedItems.isEmpty()) {
-                    showConfirmDialog("Confirm Delete", "Apakah Anda yakin ingin menghapus " + selectedItems.size()
-                            + " data Master-Detail yang dipilih ini?", () -> {
+                    showConfirmDialog("Confirm Delete", "Are you sure you want to delete " + selectedItems.size()
+                            + " selected Master-Detail record(s)?", () -> {
                                 toolbar.setEnabled(false);
                                 try {
                                     for (Map<String, Object> selected : selectedItems) {
                                         dynamicDataService.deleteData(formDef, selected);
                                     }
-                                    Notification.show("Data Master-Detail berhasil dihapus!", 3000,
+                                    Notification.show("Master-Detail data deleted successfully!", 3000,
                                             Notification.Position.TOP_CENTER);
                                     refreshMasterGridData();
                                     masterGrid.deselectAll();
@@ -943,11 +943,11 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 if (bean != null && bean.containsKey(pk) && bean.get(pk) != null
                         && !bean.get(pk).toString().trim().isEmpty()) {
                     showConfirmDialog("Confirm Delete",
-                            "Apakah Anda yakin ingin menghapus data transaksi Master-Detail ini?", () -> {
+                            "Are you sure you want to delete this Master-Detail transaction?", () -> {
                                 toolbar.setEnabled(false);
                                 try {
                                     dynamicDataService.deleteData(formDef, bean);
-                                    Notification.show("Data Master-Detail berhasil dihapus!", 3000,
+                                    Notification.show("Master-Detail data deleted successfully!", 3000,
                                             Notification.Position.TOP_CENTER);
                                     formBinder.setBean(new HashMap<>());
                                     clearAllComponents();
@@ -1066,7 +1066,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         }
                     }
 
-                    Notification.show("Data berhasil disimpan secara transactional!", 3000,
+                    Notification.show("Data saved successfully!", 3000,
                             Notification.Position.TOP_CENTER);
                     formBinder.setBean(new HashMap<>());
                     clearAllComponents();
@@ -1081,15 +1081,15 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         formBinder.validate().getValidationErrors().forEach(err -> errMsgs.add(err.getErrorMessage()));
                     }
                     if (!masterRequiredOk) {
-                        errMsgs.add("Kolom master is required belum lengkap");
+                        errMsgs.add("Required master fields are incomplete");
                     }
                     if (!rulesOk) {
-                        errMsgs.add("Aturan validasi kolom master tidak terpenuhi");
+                        errMsgs.add("Master field validation rules are not satisfied");
                     }
                     if (!detailsOk) {
-                        errMsgs.add("Kolom rincian is required belum lengkap");
+                        errMsgs.add("Required detail fields are incomplete");
                     }
-                    String finalMsg = errMsgs.isEmpty() ? "Silakan periksa kembali inputan form Anda."
+                    String finalMsg = errMsgs.isEmpty() ? "Please review your form input."
                             : String.join(" | ", errMsgs);
                     Notification n = Notification.show("⚠️ Gagal Menyimpan: " + finalMsg, 6000,
                             Notification.Position.MIDDLE);
@@ -1109,7 +1109,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         cleanMsg = cleanMsg.substring(0, cleanMsg.indexOf("Where: PL/pgSQL"));
                     cleanMsg = cleanMsg.trim();
                 } else {
-                    cleanMsg = "Terjadi kesalahan internal pada sistem.";
+                    cleanMsg = "An internal system error occurred.";
                 }
                 Notification n = Notification.show("⚠️ " + cleanMsg, 8000, Notification.Position.MIDDLE);
                 n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
@@ -1162,7 +1162,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 buildDetailsActions(currentFormDef);
                 if (tabSheet.getSelectedTab() == historisTab) {
                     refreshMasterGridData();
-                    Notification.show("Data berhasil diperbarui!", 1500, Notification.Position.BOTTOM_END);
+                    Notification.show("Data updated successfully!", 1500, Notification.Position.BOTTOM_END);
                 } else {
                     if (detailsGrid.getEditor().isOpen()) {
                         detailsGrid.getEditor().cancel();
@@ -1186,9 +1186,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                                     formDef.getDetailTableName(), formDef.getDetailForeignKey(), idVal));
                             applyDetailsFilters();
 
-                            Notification.show("Data berhasil direfresh!", 1500, Notification.Position.BOTTOM_END);
+                            Notification.show("Data refreshed successfully!", 1500, Notification.Position.BOTTOM_END);
                         } else {
-                            Notification.show("Gagal merefresh: Data tidak ditemukan di database.", 3000,
+                            Notification.show("Refresh failed: data not found in the database.", 3000,
                                     Notification.Position.MIDDLE);
                         }
                     } else {
@@ -1214,7 +1214,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
 
         if (!auth.canAccessScreen) {
-            com.vaadin.flow.component.html.Span noAccess = new com.vaadin.flow.component.html.Span("Akses Ditolak. Anda tidak memiliki izin untuk melihat layar ini.");
+            com.vaadin.flow.component.html.Span noAccess = new com.vaadin.flow.component.html.Span("Access denied. You do not have permission to view this screen.");
             noAccess.getStyle().set("color", "var(--lumo-error-color)");
             add(noAccess);
             return;
@@ -1904,7 +1904,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             if (currentFormDef != null) {
                 dynamicDataService.resetUserGridOrder(currentFormCode, "masterGrid");
                 buildMasterGrid(formDef);
-                Notification.show("Layout grid master dikembalikan ke default!", 2000,
+                Notification.show("Master grid layout reset to default!", 2000,
                         Notification.Position.BOTTOM_END);
             }
         });
@@ -1941,7 +1941,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     java.util.List<Map<String, Object>> pageItems = dynamicDataService.fetchGridDataPaged(
                             currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
                     masterGrid.asMultiSelect().select(pageItems);
-                    Notification.show("Memilih " + pageItems.size() + " baris di halaman ini.", 1500,
+                    Notification.show("Selected " + pageItems.size() + " rows on this page.", 1500,
                             Notification.Position.BOTTOM_END);
                 } else {
                     if (!cbPilihSemua.getValue()) {
@@ -1961,7 +1961,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                             currentFormDef, 0, Integer.MAX_VALUE, filterValues, currentSortField, currentSortDir);
                     masterGrid.asMultiSelect().select(allItems);
                     cbPilihSemuaHalIni.setValue(true);
-                    Notification.show("Memilih seluruh " + allItems.size() + " baris data.", 2000,
+                    Notification.show("Selected all " + allItems.size() + " rows.", 2000,
                             Notification.Position.BOTTOM_END);
                 } else {
                     cbPilihSemuaHalIni.setValue(false);
@@ -2312,7 +2312,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     col.setFrozen(nextFrozen);
                     event.getSource().setText(nextFrozen ? "Unfreeze Column" : "Freeze Column");
                     com.vaadin.flow.component.notification.Notification.show(
-                            nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000,
+                            nextFrozen ? "Column frozen" : "Column unfrozen", 2000,
                             com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
                 });
 
@@ -2404,7 +2404,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
             try {
                 dynamicDataService.saveUserGridOrder(currentFormCode, "masterGrid", orderedFieldNames);
-                Notification.show("Urutan kolom disimpan", 1500, Notification.Position.BOTTOM_END);
+                Notification.show("Column order saved", 1500, Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
                 Notification.show("Failed to save column order: " + ex.getMessage(), 3000,
                         Notification.Position.MIDDLE);
@@ -2893,7 +2893,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 col.setFrozen(nextFrozen);
                 event.getSource().setText(nextFrozen ? "Unfreeze Column" : "Freeze Column");
                 com.vaadin.flow.component.notification.Notification.show(
-                        nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000,
+                        nextFrozen ? "Column frozen" : "Column unfrozen", 2000,
                         com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
             });
 
@@ -2965,7 +2965,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             }
             try {
                 dynamicDataService.saveUserGridOrder(currentFormCode, "detailsGrid", orderedFieldNames);
-                Notification.show("Urutan kolom disimpan", 1500, Notification.Position.BOTTOM_END);
+                Notification.show("Column order saved", 1500, Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
                 Notification.show("Failed to save column order: " + ex.getMessage(), 3000,
                         Notification.Position.MIDDLE);
@@ -3466,7 +3466,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
             return;
         String baseTitle = formDef.getFormTitle() != null ? formDef.getFormTitle() : "Form: " + formDef.getFormCode();
         if (tabSheet.getSelectedTab() == transaksiTab) {
-            title.setText(baseTitle + (isUpdate ? " - [Mode: Ubah / Update]" : " - [Mode: Tambah / Insert]"));
+            title.setText(baseTitle + (isUpdate ? " - [Mode: Edit]" : " - [Mode: New]"));
         } else {
             title.setText(baseTitle);
         }

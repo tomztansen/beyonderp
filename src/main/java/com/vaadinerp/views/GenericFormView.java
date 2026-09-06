@@ -396,7 +396,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 }
                 loadAndEditData(selectedItems.iterator().next());
             } else {
-                Notification.show("Silakan pilih data di tab Historis terlebih dahulu.", 3000,
+                Notification.show("Please select a record on the History tab first.", 3000,
                         Notification.Position.MIDDLE);
                 tabSheet.setSelectedTab(historisTab);
             }
@@ -419,7 +419,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 }
                 loadAndViewData(selectedItems.iterator().next());
             } else {
-                Notification.show("Silakan pilih data di tab Historis terlebih dahulu.", 3000,
+                Notification.show("Please select a record on the History tab first.", 3000,
                         Notification.Position.MIDDLE);
                 tabSheet.setSelectedTab(historisTab);
             }
@@ -721,7 +721,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         if (!auth.canAccessScreen) {
             com.vaadin.flow.component.html.Span noAccess = new com.vaadin.flow.component.html.Span(
-                    "Akses Ditolak. Anda tidak memiliki izin untuk melihat layar ini.");
+                    "Access denied. You do not have permission to view this screen.");
             noAccess.getStyle().set("color", "var(--lumo-error-color)");
             add(noAccess);
             return;
@@ -795,7 +795,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         freshRow = dbRow;
                     }
                 } catch (Exception ex) {
-                    Notification.show("Error memuat data: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                    Notification.show("Error loading data: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
                 }
             }
             Map<String, Object> formValues = new HashMap<>(freshRow);
@@ -1845,7 +1845,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnResetGridToolbar.addClickListener(e -> {
             dynamicDataService.resetUserGridOrder(currentFormCode, "mainGrid");
             buildInlineEditingGrid(formDef);
-            Notification.show("Layout grid dikembalikan ke default!", 2000, Notification.Position.BOTTOM_END);
+            Notification.show("Grid layout reset to default!", 2000, Notification.Position.BOTTOM_END);
         });
 
         com.vaadin.flow.component.html.Anchor btnExportExcel = com.vaadinerp.components.StandardGridUtils
@@ -1884,7 +1884,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     java.util.List<Map<String, Object>> pageItems = dynamicDataService.fetchGridDataPaged(
                             currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
                     grid.asMultiSelect().select(pageItems);
-                    Notification.show("Memilih " + pageItems.size() + " baris di halaman ini.", 1500,
+                    Notification.show("Selected " + pageItems.size() + " rows on this page.", 1500,
                             Notification.Position.BOTTOM_END);
                 } else {
                     if (!cbPilihSemua.getValue()) {
@@ -1904,7 +1904,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             currentFormDef, 0, Integer.MAX_VALUE, filterValues, currentSortField, currentSortDir);
                     grid.asMultiSelect().select(allItems);
                     cbPilihSemuaHalIni.setValue(true);
-                    Notification.show("Memilih seluruh " + allItems.size() + " baris data.", 2000,
+                    Notification.show("Selected all " + allItems.size() + " rows.", 2000,
                             Notification.Position.BOTTOM_END);
                 } else {
                     cbPilihSemuaHalIni.setValue(false);
@@ -1936,7 +1936,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             } else if (auth.canAccessScreen) {
                 loadAndViewData(event.getItem());
             } else {
-                Notification.show("Anda tidak memiliki akses untuk membuka data ini", 3000,
+                Notification.show("You do not have permission to open this record", 3000,
                         Notification.Position.MIDDLE);
             }
         });
@@ -2294,7 +2294,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     col.setFrozen(nextFrozen);
                     event.getSource().setText(nextFrozen ? "Unfreeze Column" : "Freeze Column");
                     com.vaadin.flow.component.notification.Notification.show(
-                            nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000,
+                            nextFrozen ? "Column frozen" : "Column unfrozen", 2000,
                             com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
                 });
 
@@ -2392,7 +2392,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             }
             try {
                 dynamicDataService.saveUserGridOrder(currentFormCode, "mainGrid", orderedFieldNames);
-                Notification.show("Urutan kolom disimpan", 1500, Notification.Position.BOTTOM_END);
+                Notification.show("Column order saved", 1500, Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
                 Notification.show("Failed to save column order: " + ex.getMessage(),
                         3000, Notification.Position.MIDDLE);
@@ -2942,7 +2942,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             return;
         String baseTitle = formDef.getFormTitle() != null ? formDef.getFormTitle() : "Form: " + formDef.getFormCode();
         if (tabSheet.getSelectedTab() == transaksiTab) {
-            title.setText(baseTitle + (isUpdate ? " - [Mode: Ubah / Update]" : " - [Mode: Tambah / Insert]"));
+            title.setText(baseTitle + (isUpdate ? " - [Mode: Edit]" : " - [Mode: New]"));
             modeBadge.setText(isUpdate ? "Edit" : "New");
             modeBadge.getElement().setAttribute("theme", isUpdate ? "badge contrast" : "badge success");
             modeBadge.setVisible(true);
