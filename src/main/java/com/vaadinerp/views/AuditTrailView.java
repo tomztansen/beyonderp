@@ -236,9 +236,9 @@ public class AuditTrailView extends VerticalLayout {
         content.setSpacing(true);
 
         String oldJson = row.get("old_data_json") != null ? row.get("old_data_json").toString()
-                : "Tidak ada snapshot data lama.";
+                : "No previous data snapshot.";
         String newJson = row.get("new_data_json") != null ? row.get("new_data_json").toString()
-                : "Tidak ada snapshot data baru.";
+                : "No new data snapshot.";
 
         Span lblOld = new Span("Old Data Snapshot (Sebelum Perubahan/Penghapusan):");
         lblOld.getStyle().set("font-weight", "600").set("color", "#dc2626");

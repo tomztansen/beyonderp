@@ -239,7 +239,7 @@ public class LovBuilderView extends VerticalLayout {
     private void saveLovMeta() {
         String code = lovCodeField.getValue().trim();
         if (code.isEmpty()) {
-            Notification.show("LOV Code tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+            Notification.show("LOV Code cannot be empty!", 3000, Notification.Position.MIDDLE);
             return;
         }
 
@@ -259,7 +259,7 @@ public class LovBuilderView extends VerticalLayout {
         try {
             lovMetaRepository.save(lovMeta);
             com.vaadinerp.components.ComponentFactory.clearLovCache(null);
-            Notification.show("LOV berhasil disimpan!", 3000, Notification.Position.TOP_CENTER);
+            Notification.show("LOV saved successfully!", 3000, Notification.Position.TOP_CENTER);
             refreshGrid();
             populateForm(lovMeta);
         } catch (Exception e) {

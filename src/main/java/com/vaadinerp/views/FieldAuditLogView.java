@@ -93,7 +93,7 @@ public class FieldAuditLogView extends VerticalLayout {
         H2 title = new H2("");
         title.getStyle().set("margin", "0").set("font-size", "1.25rem").set("font-weight", "700").set("color",
                 "#1e293b");
-        Span subtitle = new Span("Riwayat perubahan data tingkat kolom (Audit Trail) pada semua tabel & formulir");
+        Span subtitle = new Span("Column-level change history (audit trail) across all tables and forms");
         subtitle.getStyle().set("font-size", "0.85rem").set("color", "#64748b");
 
         textBox.add(title, subtitle);
@@ -256,7 +256,7 @@ public class FieldAuditLogView extends VerticalLayout {
         }).setHeader("Column").setWidth("140px").setFlexGrow(0);
 
         grid.addComponentColumn(row -> {
-            String oldVal = row.get("old_value") != null ? row.get("old_value").toString() : "(kosong)";
+            String oldVal = row.get("old_value") != null ? row.get("old_value").toString() : "(empty)";
             Div box = new Div();
             box.setText(oldVal);
             box.getStyle()
@@ -273,7 +273,7 @@ public class FieldAuditLogView extends VerticalLayout {
         }).setHeader("Nilai Lama (Old Value)").setFlexGrow(1);
 
         grid.addComponentColumn(row -> {
-            String newVal = row.get("new_value") != null ? row.get("new_value").toString() : "(kosong)";
+            String newVal = row.get("new_value") != null ? row.get("new_value").toString() : "(empty)";
             Div box = new Div();
             box.setText(newVal);
             box.getStyle()

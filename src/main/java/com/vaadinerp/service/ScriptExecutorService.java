@@ -380,13 +380,13 @@ public class ScriptExecutorService {
                     if (options.isEmpty()) {
                         options.addAll(standaloneStrings);
                         title = "Pilihan";
-                        message = "Silakan pilih salah satu opsi berikut:";
+                        message = "Please choose one of the following options:";
                     } else {
                         if (standaloneStrings.size() >= 1) title = standaloneStrings.get(0);
                         if (standaloneStrings.size() >= 2) message = standaloneStrings.get(1);
                         
                         if (title == null) title = "Pilihan";
-                        if (message == null) message = "Silakan pilih salah satu opsi berikut:";
+                        if (message == null) message = "Please choose one of the following options:";
                     }
 
                     if (options.size() > 0) {
@@ -524,7 +524,7 @@ public class ScriptExecutorService {
         } catch (Exception e) {
             String cleanMsg = ctx.extractCleanErrorMessage(e);
             System.err.println("Error executing action script [" + act.getActionCode() + "]: " + cleanMsg);
-            ctx.showError("Gagal Eksekusi Script (" + act.getActionCode() + ")", "<b>Pesan Error:</b><br/>" + cleanMsg);
+            ctx.showError("Script execution failed (" + act.getActionCode() + ")", "<b>Pesan Error:</b><br/>" + cleanMsg);
             return false;
         }
     }

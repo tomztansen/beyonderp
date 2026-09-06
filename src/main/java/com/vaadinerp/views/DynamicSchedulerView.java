@@ -1169,7 +1169,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
             tableName = formMeta.getTableName();
         }
         if (tableName == null || tableName.trim().isEmpty()) {
-            Notification.show("Update table belum dikonfigurasi!", 4000, Notification.Position.MIDDLE)
+            Notification.show("Update table is not configured!", 4000, Notification.Position.MIDDLE)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
         }
@@ -2612,7 +2612,7 @@ public class DynamicSchedulerView extends VerticalLayout implements HasUrlParame
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnCancel = new com.vaadinerp.components.SafeButton("Batal", e -> editDialog.close());
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> editDialog.close());
 
         HorizontalLayout actions = new HorizontalLayout(btnCancel, btnSave);
         actions.setJustifyContentMode(FlexComponent.JustifyContentMode.END);

@@ -341,7 +341,7 @@ public class ComponentFactory {
                     String disallowed = rule.substring(9).trim();
                     if (strVal.equalsIgnoreCase(disallowed)) {
                         isInvalid = true;
-                        errMsg = "Pilihan '" + disallowed + "' tidak diperbolehkan!";
+                        errMsg = "Pilihan '" + disallowed + "' is not allowed!";
                     }
                 }
 

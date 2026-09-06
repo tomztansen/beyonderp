@@ -148,7 +148,7 @@ public class BandboxField<T, V> extends CustomField<V> {
         grid.setSelectionMode(Grid.SelectionMode.SINGLE);
         grid.setHeight("340px");
         grid.setPageSize(100);
-        grid.setEmptyStateText("Tidak ada data");
+        grid.setEmptyStateText("No data");
 
         grid.addItemDoubleClickListener(e -> doSelect(e.getItem()));
 

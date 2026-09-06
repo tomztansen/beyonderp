@@ -862,7 +862,7 @@ public class ReportDesignerView extends VerticalLayout {
             
             Notification.show("Penghapusan ditandai. Klik tombol Save untuk menghapus permanen.");
             
-            currentFile.setText("Akan dihapus");
+            currentFile.setText("Will be deleted");
             currentFile.getStyle().set("color", "var(--lumo-error-text-color)");
             currentFileLayout.setVisible(true);
         });

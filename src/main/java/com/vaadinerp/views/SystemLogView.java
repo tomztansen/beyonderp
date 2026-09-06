@@ -225,7 +225,7 @@ public class SystemLogView extends VerticalLayout {
             }
 
             if (!keyword.isEmpty()) {
-                sb.insert(0, "=== [Filter Aktif: '" + keyword + "' -> Ditemukan " + matchCount + " baris cocok] ===\n");
+                sb.insert(0, "=== [Filter Aktif: '" + keyword + "' -> found " + matchCount + " baris cocok] ===\n");
             }
 
             logContainer.setText(sb.toString());

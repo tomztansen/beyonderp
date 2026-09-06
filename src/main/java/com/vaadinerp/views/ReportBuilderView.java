@@ -264,11 +264,11 @@ public class ReportBuilderView extends VerticalLayout {
         btnOpenStimulsoft.addClickListener(e -> {
             String code = reportCodeField.getValue();
             if (code == null || code.trim().isEmpty()) {
-                Notification.show("Harap simpan laporan terlebih dahulu sebelum membuka Designer.", 3000, Notification.Position.MIDDLE);
+                Notification.show("Please save the report before opening the Designer.", 3000, Notification.Position.MIDDLE);
                 return;
             }
             if (!"STIMULSOFT".equalsIgnoreCase(engineTypeSelect.getValue())) {
-                Notification.show("Pilih Engine Type: STIMULSOFT terlebih dahulu.", 3000, Notification.Position.MIDDLE);
+                Notification.show("Select Engine Type: STIMULSOFT first.", 3000, Notification.Position.MIDDLE);
                 return;
             }
             com.vaadin.flow.component.UI.getCurrent().getPage().open("/stimulsoft-java/designer?code=" + code, "_blank");
@@ -984,7 +984,7 @@ public class ReportBuilderView extends VerticalLayout {
                 stimulsoftIFrame.setVisible(true);
                 canvasPanel.setVisible(false);
                 propertiesPanel.setVisible(false);
-                Notification.show("Report tersimpan! Silakan desain laporan di kanvas Stimulsoft di bawah.", 4000, Notification.Position.MIDDLE);
+                Notification.show("Report saved. Design it on the Stimulsoft canvas below.", 4000, Notification.Position.MIDDLE);
             } else {
                 Notification.show("Report " + reportTitle + " saved successfully!", 4000, Notification.Position.TOP_CENTER);
                 // Clear inputs

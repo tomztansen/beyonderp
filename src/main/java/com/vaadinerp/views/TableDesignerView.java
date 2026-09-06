@@ -152,7 +152,7 @@ public class TableDesignerView extends VerticalLayout {
             setupGrid();
             Notification.show("Column grid layout reset", 2000, Notification.Position.BOTTOM_END);
         });
-        HorizontalLayout colHdr = new HorizontalLayout(new H4("Rancang Kolom Tabel"), btnResetColGrid, StandardGridUtils.createExportExcelButton(columnsGrid, "designer_columns_export"));
+        HorizontalLayout colHdr = new HorizontalLayout(new H4("Design Table Columns"), btnResetColGrid, StandardGridUtils.createExportExcelButton(columnsGrid, "designer_columns_export"));
         colHdr.setAlignItems(Alignment.CENTER);
         colHdr.setWidthFull();
         colHdr.addClassName("sticky-toolbar");
@@ -185,7 +185,7 @@ public class TableDesignerView extends VerticalLayout {
             ColumnDefinition dropOverItem = e.getDropTargetItem().orElse(null);
             if (draggedItem != null && dropOverItem != null && !draggedItem.equals(dropOverItem)) {
                 if ("id".equalsIgnoreCase(draggedItem.getColumnName()) || "id".equalsIgnoreCase(dropOverItem.getColumnName())) {
-                    Notification.show("Kolom 'id' sebaiknya tidak dipindah urutannya.", 2000, Notification.Position.MIDDLE);
+                    Notification.show("The 'id' column should not be reordered.", 2000, Notification.Position.MIDDLE);
                     return;
                 }
                 columnsList.remove(draggedItem);
@@ -350,7 +350,7 @@ public class TableDesignerView extends VerticalLayout {
         }
 
         if (columnsList.size() <= 1) {
-            Notification.show("Rancang minimal 1 kolom di luar kolom PK 'id'!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Design at least 1 column besides the 'id' primary key!", 3000, Notification.Position.MIDDLE);
             return;
         }
 

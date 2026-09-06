@@ -282,7 +282,7 @@ public class ProductionSchedulerView extends VerticalLayout {
                         String oldWcCode = (String) draggedSlot.get("work_center_code");
                         if (!targetWcCode.equals(oldWcCode)) {
                             jdbcTemplate.update("UPDATE trx_production_schedule SET work_center_code = ?, status = 'SCHEDULED' WHERE id = ?", targetWcCode, slotId);
-                            Notification.show("✅ WO Schedule #" + draggedSlot.get("wo_no") + " (" + draggedSlot.get("operation_name") + ") berhasil dipindahkan ke Mesin: [" + targetWcCode + "] " + targetWcName, 4000, Notification.Position.BOTTOM_END)
+                            Notification.show("✅ WO Schedule #" + draggedSlot.get("wo_no") + " (" + draggedSlot.get("operation_name") + ") moved to machine: [" + targetWcCode + "] " + targetWcName, 4000, Notification.Position.BOTTOM_END)
                                     .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
                             refreshAllViews();
                         }
@@ -651,7 +651,7 @@ public class ProductionSchedulerView extends VerticalLayout {
 
         Button btnSave = new com.vaadinerp.components.SafeButton("Save Schedule", e -> {
             if (fieldWo.isEmpty() || fieldWc.isEmpty() || fieldOp.isEmpty() || fieldStart.isEmpty() || fieldEnd.isEmpty()) {
-                Notification.show("Mohon lengkapi data SPK, Mesin, Nama Operasi, serta Waktu Mulai & Selesai!", 3000, Notification.Position.MIDDLE)
+                Notification.show("Please complete the work order, machine, operation name, and start/end time!", 3000, Notification.Position.MIDDLE)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }

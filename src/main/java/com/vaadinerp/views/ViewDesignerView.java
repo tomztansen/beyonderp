@@ -206,7 +206,7 @@ public class ViewDesignerView extends VerticalLayout {
             try {
                 String dropSql = "DROP VIEW IF EXISTS \"" + schemaName + "\".\"" + viewName + "\";";
                 dynamicDataService.executeViewScript(dropSql);
-                Notification.show("✅ View '" + viewName + "' berhasil dihapus dari database!", 3000, Notification.Position.BOTTOM_END);
+                Notification.show("✅ View '" + viewName + "' deleted from the database!", 3000, Notification.Position.BOTTOM_END);
                 dialog.close();
                 loadViews();
             } catch (Exception ex) {

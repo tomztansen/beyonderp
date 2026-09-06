@@ -582,7 +582,7 @@ public class ActionContext {
         }
 
         if (message == null)
-            return "Terjadi kesalahan yang tidak diketahui.";
+            return "An unknown error occurred.";
 
         int errIdx = message.indexOf("ERROR:");
         if (errIdx == -1)
