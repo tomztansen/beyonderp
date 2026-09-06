@@ -835,6 +835,21 @@ public class ScriptExecutorService {
     }
 
     // Helper class for safe database queries in script
+    /**
+     * Nama yang tersedia di script field/baris (lihat binding di executeScript).
+     * Dipakai pemeriksa nama di editor; ditaruh di sini supaya ikut berubah bersama
+     * binding-nya dan tidak melenceng diam-diam.
+     */
+    public static final java.util.Set<String> ROW_SCRIPT_NAMES = java.util.Set.of(
+            "dataService", "db", "form", "getElementValue", "header", "items", "log", "msgBox",
+            "params", "row", "rowIndex", "setElementEnabled", "setElementReadonly", "setElementValue",
+            "username");
+
+    /** Nama yang tersedia di action/toolbar script (lihat binding di executeActionScript). */
+    public static final java.util.Set<String> ACTION_SCRIPT_NAMES = java.util.Set.of(
+            "JsonOutput", "JsonSlurper", "ctx", "db", "header", "prompt", "selectedRows",
+            "showOptionsDialog", "showYesNoDialog");
+
     public static class DatabaseHelper {
         private final org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider;
 
