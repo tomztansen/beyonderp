@@ -52,6 +52,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private final HorizontalLayout extraActionsContainer = new HorizontalLayout();
     private HorizontalLayout gridToolbar;
     private H3 title;
+    /** Penanda mode entri (New/Edit) di ujung kanan toolbar. */
+    private final com.vaadin.flow.component.html.Span modeBadge = new com.vaadin.flow.component.html.Span();
 
     private TabSheet tabSheet;
     private Tab historisTab;
@@ -770,8 +772,11 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             com.vaadinerp.components.FormDebugUtils.showDebugDialog(bean);
         });
 
+        modeBadge.getStyle().set("margin-left", "auto");
+        modeBadge.setVisible(false);
+
         toolbar.add(btnView, btnNew, btnEdit, btnDelete, btnSave, btnCancel, btnRefresh, btnPrint, btnDebug,
-                extraActionsContainer);
+                extraActionsContainer, modeBadge);
         refreshExtraToolbarButtons();
     }
 
@@ -2938,8 +2943,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         String baseTitle = formDef.getFormTitle() != null ? formDef.getFormTitle() : "Form: " + formDef.getFormCode();
         if (tabSheet.getSelectedTab() == transaksiTab) {
             title.setText(baseTitle + (isUpdate ? " - [Mode: Ubah / Update]" : " - [Mode: Tambah / Insert]"));
+            modeBadge.setText(isUpdate ? "Edit" : "New");
+            modeBadge.getElement().setAttribute("theme", isUpdate ? "badge contrast" : "badge success");
+            modeBadge.setVisible(true);
         } else {
             title.setText(baseTitle);
+            modeBadge.setVisible(false);
         }
     }
 
