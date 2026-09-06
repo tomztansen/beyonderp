@@ -96,6 +96,10 @@ public class CodeEditorField extends Div {
                                         var h = el.clientHeight;
                                         cm.setSize('100%', h > 50 ? h : 400);
                                         cm.refresh();
+                                        // Buka selalu dari baris pertama, bukan posisi
+                                        // terakhir yang dihitung CodeMirror.
+                                        cm.setCursor({line: 0, ch: 0});
+                                        cm.scrollTo(0, 0);
                                     });
                                 });
                             }
@@ -155,8 +159,18 @@ public class CodeEditorField extends Div {
      */
     public void setValue(String value) {
         this.pendingValue = value != null ? value : "";
+        // setValue menaruh kursor di akhir dokumen dan ikut menggulir ke sana, sehingga
+        // script yang baru dimuat terbuka di tengah-tengah. Kembalikan ke baris pertama.
         getUI().ifPresent(ui -> ui.getPage().executeJs(
-                "if (window[$0]) window[$0].setValue($1)", cmVar, pendingValue));
+                """
+                        if (window[$0]) {
+                            var cm = window[$0];
+                            cm.setValue($1);
+                            cm.setCursor({line: 0, ch: 0});
+                            cm.scrollTo(0, 0);
+                        }
+                        """,
+                cmVar, pendingValue));
     }
 
     /**
