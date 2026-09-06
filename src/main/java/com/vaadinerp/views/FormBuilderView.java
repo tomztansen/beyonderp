@@ -580,8 +580,10 @@ public class FormBuilderView extends VerticalLayout {
         Button btnRelayoutCanvas = new com.vaadinerp.components.SafeButton(
                 "🔀 Rearrange side-by-side layout (3 columns, 4 columns, ...)",
                 VaadinIcon.GRID_BIG_O.create());
-        btnRelayoutCanvas.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        btnRelayoutCanvas.getStyle().set("font-weight", "500").set("color", "#3b82f6");
+        // Tanpa varian tema, Button memakai gaya Secondary bawaan Lumo: berlatar dan
+        // jelas terbaca sebagai tombol. LUMO_TERTIARY plus warna biru membuatnya
+        // tampak seperti tautan teks.
+        btnRelayoutCanvas.getStyle().set("font-weight", "500");
         btnRelayoutCanvas.addClickListener(e -> openRelayoutDialog());
 
         Button btnConfigScheduler = new com.vaadinerp.components.SafeButton("Config Scheduler",
@@ -598,8 +600,7 @@ public class FormBuilderView extends VerticalLayout {
 
         Button btnFormScripts = new com.vaadinerp.components.SafeButton("⚡ Script Form (On-Load / Save)",
                 VaadinIcon.CODE.create());
-        btnFormScripts.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        btnFormScripts.getStyle().set("font-weight", "500").set("color", "#3b82f6");
+        btnFormScripts.getStyle().set("font-weight", "500");
         btnFormScripts.addClickListener(e -> openFormScriptDialog());
 
         HorizontalLayout actionButtonsLayout = new HorizontalLayout(btnAutoGenerateFields, btnRelayoutCanvas,
