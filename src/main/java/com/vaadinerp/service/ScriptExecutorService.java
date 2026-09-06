@@ -836,19 +836,27 @@ public class ScriptExecutorService {
 
     // Helper class for safe database queries in script
     /**
-     * Nama yang tersedia di script field/baris (lihat binding di executeScript).
-     * Dipakai pemeriksa nama di editor; ditaruh di sini supaya ikut berubah bersama
-     * binding-nya dan tidak melenceng diam-diam.
+     * Nama yang tersedia di script baris/subform — lihat binding di
+     * {@link #executeScript}. Dipakai On-Add-Row Script.
+     *
+     * Daftar ini ditaruh tepat di sebelah binding-nya supaya tidak melenceng saat
+     * binding berubah; pemeriksa nama di editor script memakainya.
      */
     public static final java.util.Set<String> ROW_SCRIPT_NAMES = java.util.Set.of(
-            "dataService", "db", "form", "getElementValue", "header", "items", "log", "msgBox",
-            "params", "row", "rowIndex", "setElementEnabled", "setElementReadonly", "setElementValue",
-            "username");
+            "db", "form", "getElementValue", "header", "items", "msgBox", "row", "rowIndex",
+            "setElementEnabled", "setElementReadonly", "setElementValue");
 
-    /** Nama yang tersedia di action/toolbar script (lihat binding di executeActionScript). */
+    /**
+     * Nama yang tersedia di script level form dan toolbar — lihat binding di
+     * {@link #executeActionScript}. Dipakai ON_LOAD_*, BEFORE_SAVE, AFTER_SAVE,
+     * ON_CHANGE, dan Extra Toolbar.
+     */
     public static final java.util.Set<String> ACTION_SCRIPT_NAMES = java.util.Set.of(
-            "JsonOutput", "JsonSlurper", "ctx", "db", "header", "prompt", "selectedRows",
-            "showOptionsDialog", "showYesNoDialog");
+            "JsonOutput", "JsonSlurper", "clearForm", "ctx", "db", "executeProcedure",
+            "getElementValue", "header", "msgBox", "prompt", "refreshForm", "selectedRows",
+            "setElementDisabled", "setElementEnabled", "setElementReadonly", "setElementValue",
+            "showDialog", "showError", "showMainTab", "showOptionsDialog", "showSuccess",
+            "showYesNoDialog");
 
     public static class DatabaseHelper {
         private final org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider;
