@@ -140,7 +140,7 @@ public class ViewDesignerView extends VerticalLayout {
 
                 StringBuilder sb = new StringBuilder();
                 sb.append("CREATE OR REPLACE VIEW \"").append(sch).append("\".\"").append(nm).append("\" AS \n");
-                sb.append("SELECT \n    -- tulis kolom di sini\n");
+                sb.append("SELECT \n    -- write your columns here\n");
                 sb.append("FROM dynamic.table_name\n");
                 sb.append("WHERE 1=1; \n");
                 codeArea.setValue(sb.toString());

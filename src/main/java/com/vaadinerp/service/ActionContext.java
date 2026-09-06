@@ -75,7 +75,7 @@ public class ActionContext {
             }
 
             dialog.setCancelable(true);
-            dialog.setCancelText("No / Batal");
+            dialog.setCancelText("No / Cancel");
             dialog.setConfirmText("Yes / Lanjutkan");
             dialog.setConfirmButtonTheme("primary");
 
