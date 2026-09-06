@@ -2,7 +2,6 @@ package com.vaadinerp.components;
 
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.DetachEvent;
-import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.function.SerializableConsumer;
 
@@ -131,8 +130,20 @@ public class CodeEditorField extends Div {
 
     @Override
     protected void onDetach(DetachEvent detachEvent) {
-        // Lepaskan instance CM supaya tidak menumpuk di objek window.
-        detachEvent.getUI().getPage().executeJs("window[$0] = null", cmVar);
+        // Bersihkan seluruh jejak di browser. Tanpa ini, setiap kali dialog dibuka
+        // akan tertinggal satu properti window, satu <style>, dan satu pohon DOM
+        // CodeMirror yang tidak pernah bisa di-GC.
+        detachEvent.getUI().getPage().executeJs(
+                """
+                        (function(editorId, cmVar) {
+                            var el = document.getElementById(editorId);
+                            if (el) el.innerHTML = '';
+                            var s = document.getElementById('cmstyle-' + editorId);
+                            if (s && s.parentNode) s.parentNode.removeChild(s);
+                            try { delete window[cmVar]; } catch (e) { window[cmVar] = undefined; }
+                        })($0, $1)
+                        """,
+                elementId, cmVar);
         super.onDetach(detachEvent);
     }
 
@@ -142,10 +153,8 @@ public class CodeEditorField extends Div {
      */
     public void setValue(String value) {
         this.pendingValue = value != null ? value : "";
-        if (isAttached()) {
-            UI.getCurrent().getPage().executeJs(
-                    "if (window[$0]) window[$0].setValue($1)", cmVar, pendingValue);
-        }
+        getUI().ifPresent(ui -> ui.getPage().executeJs(
+                "if (window[$0]) window[$0].setValue($1)", cmVar, pendingValue));
     }
 
     /**
@@ -153,14 +162,14 @@ public class CodeEditorField extends Div {
      * dengan string kosong bila editor belum sempat terbentuk.
      */
     public void getValue(SerializableConsumer<String> callback) {
-        UI.getCurrent().getPage()
+        getUI().ifPresent(ui -> ui.getPage()
                 .executeJs("return window[$0] ? window[$0].getValue() : ''", cmVar)
-                .then(String.class, callback::accept);
+                .then(String.class, callback::accept));
     }
 
     /** Rapikan indentasi seluruh isi editor memakai indentAuto milik CodeMirror. */
     public void format() {
-        UI.getCurrent().getPage().executeJs(
+        getUI().ifPresent(ui -> ui.getPage().executeJs(
                 """
                         if (window[$0]) {
                             var cm = window[$0];
@@ -171,14 +180,14 @@ public class CodeEditorField extends Div {
                             cm.focus();
                         }
                         """,
-                cmVar);
+                cmVar));
     }
 
     /** Sisipkan potongan kode di akhir editor, dipisahkan baris kosong bila perlu. */
     public void appendSnippet(String snippet) {
         if (snippet == null || snippet.isEmpty())
             return;
-        UI.getCurrent().getPage().executeJs(
+        getUI().ifPresent(ui -> ui.getPage().executeJs(
                 """
                         if (window[$0]) {
                             var cm = window[$0];
@@ -187,6 +196,6 @@ public class CodeEditorField extends Div {
                             cm.focus();
                         }
                         """,
-                cmVar, snippet);
+                cmVar, snippet));
     }
 }
