@@ -2797,7 +2797,8 @@ public class FormBuilderView extends VerticalLayout {
         Span scopeHelp = new Span();
         scopeHelp.getStyle().set("font-size", "0.85em").set("color", "var(--lumo-secondary-text-color)");
 
-        com.vaadinerp.components.CodeEditorPanel scriptArea = com.vaadinerp.components.CodeEditorPanel.groovy();
+        com.vaadinerp.components.CodeEditorPanel scriptArea = com.vaadinerp.components.CodeEditorPanel.groovy(
+                com.vaadinerp.service.ScriptExecutorService.ROW_SCRIPT_NAMES);
         scriptArea.setWidthFull();
         scriptArea.setHeight("340px");
 
@@ -2988,7 +2989,8 @@ public class FormBuilderView extends VerticalLayout {
                 + "perhitungan ulang. Isi field inputnya, biarkan formula yang menghitung.");
         warn.getStyle().set("font-size", "0.85em").set("color", "var(--lumo-error-text-color)");
 
-        com.vaadinerp.components.CodeEditorPanel scriptArea = com.vaadinerp.components.CodeEditorPanel.groovy();
+        com.vaadinerp.components.CodeEditorPanel scriptArea = com.vaadinerp.components.CodeEditorPanel.groovy(
+                com.vaadinerp.service.ScriptExecutorService.ROW_SCRIPT_NAMES);
         scriptArea.setWidthFull();
         scriptArea.setHeight("330px");
         scriptArea.setValue(action != null && action.getScriptContent() != null ? action.getScriptContent() : "");
@@ -3140,7 +3142,8 @@ public class FormBuilderView extends VerticalLayout {
         pickersLayout.add(templatePicker, rowVarPicker, headerVarPicker);
 
         // 3. Code Editor Area
-        com.vaadinerp.components.CodeEditorPanel scriptArea = com.vaadinerp.components.CodeEditorPanel.groovy();
+        com.vaadinerp.components.CodeEditorPanel scriptArea = com.vaadinerp.components.CodeEditorPanel.groovy(
+                com.vaadinerp.service.ScriptExecutorService.ROW_SCRIPT_NAMES);
         scriptArea.setValue(fieldTemp.onAddScript != null ? fieldTemp.onAddScript : "");
         scriptArea.setWidthFull();
         scriptArea.setHeight("260px");
