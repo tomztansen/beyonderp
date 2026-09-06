@@ -222,7 +222,7 @@ public class AuditTrailView extends VerticalLayout {
             List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql.toString(), args.toArray());
             grid.setItems(rows);
         } catch (Exception ex) {
-            Notification.show("Gagal memuat log audit: " + ex.getMessage(), 4000, Notification.Position.BOTTOM_END);
+            Notification.show("Failed to load the audit log: " + ex.getMessage(), 4000, Notification.Position.BOTTOM_END);
         }
     }
 

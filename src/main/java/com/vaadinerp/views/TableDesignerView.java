@@ -150,7 +150,7 @@ public class TableDesignerView extends VerticalLayout {
             dynamicDataService.resetUserGridOrder("TABLE_DESIGNER", "columnsGrid");
             columnsGrid.removeAllColumns();
             setupGrid();
-            Notification.show("Layout grid kolom di-reset", 2000, Notification.Position.BOTTOM_END);
+            Notification.show("Column grid layout reset", 2000, Notification.Position.BOTTOM_END);
         });
         HorizontalLayout colHdr = new HorizontalLayout(new H4("Rancang Kolom Tabel"), btnResetColGrid, StandardGridUtils.createExportExcelButton(columnsGrid, "designer_columns_export"));
         colHdr.setAlignItems(Alignment.CENTER);
