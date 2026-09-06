@@ -49,6 +49,12 @@ public class CodeEditorPanel extends VerticalLayout {
      * pemeriksaan nama dilewati dan hanya struktur yang diperiksa.
      */
     private Set<String> knownNames = Set.of();
+    /** Potongan kode untuk scope ini; kosong berarti ComboBox snippet disembunyikan. */
+    private java.util.Map<String, String> snippets = java.util.Map.of();
+
+    private final Button cheatBtn = new SafeButton("Cheat Sheet", VaadinIcon.BOOK.create());
+    private final com.vaadin.flow.component.combobox.ComboBox<String> snippetCombo =
+            new com.vaadin.flow.component.combobox.ComboBox<>();
 
     private CodeEditorPanel(CodeEditorField editor, boolean groovy) {
         this.editor = editor;
@@ -66,7 +72,23 @@ public class CodeEditorPanel extends VerticalLayout {
         checkBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         checkBtn.setVisible(groovy);
 
-        HorizontalLayout toolbar = new HorizontalLayout(checkBtn, formatBtn);
+        cheatBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+        cheatBtn.addClickListener(e -> openCheatSheet());
+        cheatBtn.setVisible(false); // dinyalakan saat daftar nama diberikan
+
+        snippetCombo.setPlaceholder("Insert snippet...");
+        snippetCombo.setWidth("260px");
+        snippetCombo.setClearButtonVisible(false);
+        snippetCombo.setVisible(false);
+        snippetCombo.addValueChangeListener(e -> {
+            String label = e.getValue();
+            if (label != null) {
+                editor.appendSnippet(snippets.get(label));
+                snippetCombo.clear();
+            }
+        });
+
+        HorizontalLayout toolbar = new HorizontalLayout(checkBtn, formatBtn, cheatBtn, snippetCombo);
         toolbar.setWidthFull();
         toolbar.setSpacing(false);
         toolbar.setAlignItems(FlexComponent.Alignment.CENTER);
@@ -90,9 +112,57 @@ public class CodeEditorPanel extends VerticalLayout {
      * {@code ScriptExecutorService}.
      */
     public static CodeEditorPanel groovy(Set<String> knownNames) {
+        return groovy(knownNames, java.util.Map.of());
+    }
+
+    /** Editor Groovy dengan pemeriksa nama, cheat sheet, dan daftar snippet. */
+    public static CodeEditorPanel groovy(Set<String> knownNames, java.util.Map<String, String> snippets) {
         CodeEditorPanel panel = new CodeEditorPanel(CodeEditorField.groovy(), true);
         panel.knownNames = knownNames != null ? knownNames : Set.of();
+        panel.snippets = snippets != null ? snippets : java.util.Map.of();
+        panel.cheatBtn.setVisible(!panel.knownNames.isEmpty());
+        panel.snippetCombo.setItems(panel.snippets.keySet());
+        panel.snippetCombo.setVisible(!panel.snippets.isEmpty());
         return panel;
+    }
+
+    /**
+     * Cheat sheet dibangun dari knownNames — daftar yang sama dengan yang dipakai
+     * pemeriksa nama, jadi isinya tidak bisa menyimpang dari yang benar-benar
+     * tersedia di scope ini.
+     */
+    private void openCheatSheet() {
+        com.vaadin.flow.component.dialog.Dialog dlg = new com.vaadin.flow.component.dialog.Dialog();
+        dlg.setHeaderTitle("Available in this script");
+        dlg.setWidth("620px");
+
+        VerticalLayout body = new VerticalLayout();
+        body.setPadding(false);
+        body.setSpacing(false);
+        body.getStyle().set("gap", "10px");
+
+        for (String name : new java.util.TreeSet<>(knownNames)) {
+            Div entry = new Div();
+            Div title = new Div();
+            title.setText(name);
+            title.getStyle().set("font-family", "monospace").set("font-weight", "600")
+                    .set("color", "var(--lumo-primary-text-color)");
+            entry.add(title);
+            String help = GroovyDsl.signature(name);
+            if (!help.isEmpty()) {
+                Div desc = new Div();
+                desc.setText(help);
+                desc.getStyle().set("font-size", "var(--lumo-font-size-s)")
+                        .set("color", "var(--lumo-secondary-text-color)")
+                        .set("white-space", "pre-wrap");
+                entry.add(desc);
+            }
+            body.add(entry);
+        }
+
+        dlg.add(body);
+        dlg.getFooter().add(new SafeButton("Close", e -> dlg.close()));
+        dlg.open();
     }
 
     public static CodeEditorPanel sql() {
