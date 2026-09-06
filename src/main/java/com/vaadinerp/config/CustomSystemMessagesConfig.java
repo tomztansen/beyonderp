@@ -40,16 +40,16 @@ public class CustomSystemMessagesConfig implements VaadinServiceInitListener {
             messages.setSessionExpiredURL("");
 
             // Saat Terjadi Kesalahan Server yang Tidak Tertangani (Internal Error)
-            messages.setInternalErrorCaption("Terjadi Kesalahan Server");
+            messages.setInternalErrorCaption("Server Error");
             messages.setInternalErrorMessage(
-                    "Terjadi kendala teknis pada server atau jaringan. Silakan klik di layar atau tekan F5 untuk memuat ulang halaman.");
+                    "A technical problem occurred on the server or network. Click anywhere or press F5 to reload the page.");
             messages.setInternalErrorNotificationEnabled(true);
             messages.setInternalErrorURL(null);
 
             // Saat Cookie Dinonaktifkan di Browser
-            messages.setCookiesDisabledCaption("Cookie Tidak Aktif");
+            messages.setCookiesDisabledCaption("Cookies Disabled");
             messages.setCookiesDisabledMessage(
-                    "Aplikasi ini membutuhkan cookie agar dapat berfungsi dengan baik. Silakan aktifkan cookie pada browser Anda.");
+                    "This application requires cookies to work properly. Please enable cookies in your browser.");
             messages.setCookiesDisabledNotificationEnabled(true);
             messages.setCookiesDisabledURL(null);
 
@@ -63,11 +63,11 @@ public class CustomSystemMessagesConfig implements VaadinServiceInitListener {
             ReconnectDialogConfiguration reconnectConfig = ui.getReconnectDialogConfiguration();
 
             // Pesan saat sedang mencoba menghubungkan kembali
-            reconnectConfig.setDialogText("⚠️ Koneksi ke server terputus. Sedang mencoba menghubungkan ulang...");
+            reconnectConfig.setDialogText("⚠️ Connection to the server was lost. Trying to reconnect...");
 
             // Pesan saat usaha reconnect gagal total / menyerah
             reconnectConfig.setDialogTextGaveUp(
-                    "❌ Koneksi ke server terputus secara permanen atau server sedang offline. Silakan periksa jaringan Anda dan muat ulang halaman (F5).");
+                    "❌ Connection to the server was permanently lost, or the server is offline. Check your network and reload the page (F5).");
 
             // Interval percobaan reconnect (setiap 3 detik)
             reconnectConfig.setReconnectInterval(3000);
