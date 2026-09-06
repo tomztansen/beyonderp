@@ -2765,10 +2765,9 @@ public class FormBuilderView extends VerticalLayout {
         Span scopeHelp = new Span();
         scopeHelp.getStyle().set("font-size", "0.85em").set("color", "var(--lumo-secondary-text-color)");
 
-        TextArea scriptArea = new TextArea("Groovy Script");
+        com.vaadinerp.components.CodeEditorPanel scriptArea = com.vaadinerp.components.CodeEditorPanel.groovy();
         scriptArea.setWidthFull();
         scriptArea.setHeight("340px");
-        scriptArea.getStyle().set("font-family", "Consolas, 'Courier New', monospace").set("font-size", "14px");
 
         // Baris yang sedang diedit + isi terakhir yang dimuat, untuk deteksi perubahan
         // yang belum disimpan saat user berpindah scope.
@@ -2782,7 +2781,7 @@ public class FormBuilderView extends VerticalLayout {
             currentRow[0] = null;
             locked[0] = false;
             if (scope == null) {
-                scriptArea.clear();
+                scriptArea.setValue("");
                 loadedScript[0] = "";
                 return;
             }
@@ -2804,7 +2803,7 @@ public class FormBuilderView extends VerticalLayout {
             }
             scriptArea.setReadOnly(false);
             if (rows.isEmpty()) {
-                scriptArea.clear();
+                scriptArea.setValue("");
                 loadedScript[0] = "";
                 return;
             }
@@ -2825,13 +2824,14 @@ public class FormBuilderView extends VerticalLayout {
             scriptArea.setValue(loadedScript[0]);
         };
 
-        scopeCombo.addValueChangeListener(e -> {
-            String pending = scriptArea.getValue() != null ? scriptArea.getValue() : "";
-            if (!locked[0] && !pending.equals(loadedScript[0])) {
+        // Isi editor ada di browser, jadi pembacaannya asinkron: peringatan perubahan
+        // yang belum disimpan baru bisa dinilai setelah nilainya sampai ke server.
+        scopeCombo.addValueChangeListener(e -> scriptArea.getValue(pending -> {
+            if (!locked[0] && pending != null && !pending.equals(loadedScript[0])) {
                 Notification.show("Unsaved changes discarded.", 3000, Notification.Position.MIDDLE);
             }
             loadScope.run();
-        });
+        }));
 
         VerticalLayout layout = new VerticalLayout(scopeCombo, scopeHelp, scriptArea);
         layout.setSizeFull();
@@ -2846,43 +2846,45 @@ public class FormBuilderView extends VerticalLayout {
                 return;
             }
             if (locked[0]) {
-                Notification.show("Scope ini dikunci di sini. Gunakan Form Action Builder.", 4000,
+                Notification.show("This scope is locked here. Use the Form Action Builder.", 4000,
                         Notification.Position.MIDDLE);
                 return;
             }
-            String script = scriptArea.getValue() != null ? scriptArea.getValue().trim() : "";
-            try {
-                if (script.isEmpty()) {
-                    if (currentRow[0] != null) {
-                        actionRepo.delete(currentRow[0]);
-                        Notification.show("Script " + scope + " deleted.", 3000, Notification.Position.MIDDLE);
+            scriptArea.getValue(raw -> {
+                String script = raw != null ? raw.trim() : "";
+                try {
+                    if (script.isEmpty()) {
+                        if (currentRow[0] != null) {
+                            actionRepo.delete(currentRow[0]);
+                            Notification.show("Script " + scope + " deleted.", 3000, Notification.Position.MIDDLE);
+                        }
+                        loadScope.run();
+                        return;
                     }
+                    com.vaadinerp.meta.FormActionMeta target = currentRow[0];
+                    if (target == null) {
+                        target = new com.vaadinerp.meta.FormActionMeta();
+                        target.setFormMeta(targetForm);
+                        target.setActionCode(generateUniqueActionCode(actionRepo, scope + "_" + formCode));
+                        target.setActionLabel("-");
+                        target.setActionType("GROOVY_SCRIPT");
+                        target.setTargetScope(scope);
+                    }
+                    // Kolom lain (icon, style, menu group, mapping) sengaja tidak disentuh supaya
+                    // baris lama yang dibuat lewat Form Action Builder tetap utuh.
+                    target.setScriptContent(script);
+                    actionRepo.save(target);
+                    Notification.show("Script " + scope + " saved.", 3000, Notification.Position.MIDDLE);
                     loadScope.run();
-                    return;
+                } catch (Exception ex) {
+                    Notification.show("Failed to save: " + (ex.getMessage() != null ? ex.getMessage() : ex.toString()),
+                            5000, Notification.Position.MIDDLE);
                 }
-                com.vaadinerp.meta.FormActionMeta target = currentRow[0];
-                if (target == null) {
-                    target = new com.vaadinerp.meta.FormActionMeta();
-                    target.setFormMeta(targetForm);
-                    target.setActionCode(generateUniqueActionCode(actionRepo, scope + "_" + formCode));
-                    target.setActionLabel("-");
-                    target.setActionType("GROOVY_SCRIPT");
-                    target.setTargetScope(scope);
-                }
-                // Kolom lain (icon, style, menu group, mapping) sengaja tidak disentuh supaya
-                // baris lama yang dibuat lewat Form Action Builder tetap utuh.
-                target.setScriptContent(script);
-                actionRepo.save(target);
-                Notification.show("Script " + scope + " tersimpan.", 3000, Notification.Position.MIDDLE);
-                loadScope.run();
-            } catch (Exception ex) {
-                Notification.show("Failed to save: " + (ex.getMessage() != null ? ex.getMessage() : ex.toString()),
-                        5000, Notification.Position.MIDDLE);
-            }
+            });
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button closeBtn = new com.vaadinerp.components.SafeButton("Tutup", ev -> dialog.close());
+        Button closeBtn = new com.vaadinerp.components.SafeButton("Close", ev -> dialog.close());
         dialog.getFooter().add(closeBtn, saveBtn);
 
         scopeCombo.setValue("ON_LOAD_EDIT");
@@ -2954,46 +2956,46 @@ public class FormBuilderView extends VerticalLayout {
                 + "perhitungan ulang. Isi field inputnya, biarkan formula yang menghitung.");
         warn.getStyle().set("font-size", "0.85em").set("color", "var(--lumo-error-text-color)");
 
-        TextArea scriptArea = new TextArea("Groovy Script");
+        com.vaadinerp.components.CodeEditorPanel scriptArea = com.vaadinerp.components.CodeEditorPanel.groovy();
         scriptArea.setWidthFull();
         scriptArea.setHeight("330px");
-        scriptArea.getStyle().set("font-family", "Consolas, 'Courier New', monospace").set("font-size", "14px");
-        scriptArea.setPlaceholder("setElementReadonly(\"harga_satuan\", !header." + fieldName + ")");
         scriptArea.setValue(action != null && action.getScriptContent() != null ? action.getScriptContent() : "");
 
         layout.add(info, warn, scriptArea);
         dialog.add(layout);
 
         Button saveBtn = new com.vaadinerp.components.SafeButton("Save", VaadinIcon.CHECK.create(), ev -> {
-            String script = scriptArea.getValue() != null ? scriptArea.getValue().trim() : "";
-            try {
-                if (script.isEmpty()) {
-                    if (action != null) {
-                        actionRepo.delete(action);
-                        Notification.show("On-Change script deleted.", 3000, Notification.Position.MIDDLE);
+            scriptArea.getValue(raw -> {
+                String script = raw != null ? raw.trim() : "";
+                try {
+                    if (script.isEmpty()) {
+                        if (action != null) {
+                            actionRepo.delete(action);
+                            Notification.show("On-Change script deleted.", 3000, Notification.Position.MIDDLE);
+                        }
+                        dialog.close();
+                        return;
                     }
+                    com.vaadinerp.meta.FormActionMeta target = action;
+                    if (target == null) {
+                        target = new com.vaadinerp.meta.FormActionMeta();
+                        target.setFormMeta(targetForm);
+                        target.setActionCode(
+                                generateUniqueActionCode(actionRepo, "ONCHG_" + formCode + "_" + fieldName));
+                        target.setActionLabel("-");
+                        target.setActionType("GROOVY_SCRIPT");
+                        target.setTargetScope("ON_CHANGE");
+                        target.setTriggerField(fieldName);
+                    }
+                    target.setScriptContent(script);
+                    actionRepo.save(target);
+                    Notification.show("On-Change script saved.", 3000, Notification.Position.MIDDLE);
                     dialog.close();
-                    return;
+                } catch (Exception ex) {
+                    Notification.show("Failed to save: " + (ex.getMessage() != null ? ex.getMessage() : ex.toString()),
+                            5000, Notification.Position.MIDDLE);
                 }
-                com.vaadinerp.meta.FormActionMeta target = action;
-                if (target == null) {
-                    target = new com.vaadinerp.meta.FormActionMeta();
-                    target.setFormMeta(targetForm);
-                    target.setActionCode(generateUniqueActionCode(actionRepo, "ONCHG_" + formCode + "_" + fieldName));
-                    target.setActionLabel("-");
-                    target.setActionType("GROOVY_SCRIPT");
-                    target.setTargetScope("ON_CHANGE");
-                    target.setTriggerField(fieldName);
-                }
-                target.setScriptContent(script);
-                actionRepo.save(target);
-                Notification.show("On-Change Script tersimpan (langsung ke meta_form_action).", 3000,
-                        Notification.Position.MIDDLE);
-                dialog.close();
-            } catch (Exception ex) {
-                Notification.show("Failed to save: " + (ex.getMessage() != null ? ex.getMessage() : ex.toString()),
-                        5000, Notification.Position.MIDDLE);
-            }
+            });
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
@@ -3106,11 +3108,10 @@ public class FormBuilderView extends VerticalLayout {
         pickersLayout.add(templatePicker, rowVarPicker, headerVarPicker);
 
         // 3. Code Editor Area
-        TextArea scriptArea = new TextArea("Kode Script (Groovy Syntax):");
+        com.vaadinerp.components.CodeEditorPanel scriptArea = com.vaadinerp.components.CodeEditorPanel.groovy();
         scriptArea.setValue(fieldTemp.onAddScript != null ? fieldTemp.onAddScript : "");
         scriptArea.setWidthFull();
         scriptArea.setHeight("260px");
-        scriptArea.getStyle().set("font-family", "monospace, Courier New").set("font-size", "13px");
 
         // Picker listeners to insert text into scriptArea
         templatePicker.addValueChangeListener(e -> {
@@ -3129,25 +3130,20 @@ public class FormBuilderView extends VerticalLayout {
             } else if (val.startsWith("Kalkulasi Matematika")) {
                 snippet = "// Kalkulasi antar kolom di baris yang sama\nrow.total = (row.qty != null ? row.qty : 0) * (row.price != null ? row.price : 0)\n";
             }
-            String curr = scriptArea.getValue();
-            scriptArea.setValue(curr + (curr.isEmpty() || curr.endsWith("\n") ? "" : "\n") + snippet);
+            scriptArea.appendSnippet(snippet);
             templatePicker.clear();
         });
 
         rowVarPicker.addValueChangeListener(e -> {
             if (e.getValue() != null) {
-                String curr = scriptArea.getValue();
-                scriptArea.setValue(
-                        curr + (curr.isEmpty() || curr.endsWith(" ") || curr.endsWith("\n") ? "" : " ") + e.getValue());
+                scriptArea.insertAtCursor(e.getValue());
                 rowVarPicker.clear();
             }
         });
 
         headerVarPicker.addValueChangeListener(e -> {
             if (e.getValue() != null) {
-                String curr = scriptArea.getValue();
-                scriptArea.setValue(
-                        curr + (curr.isEmpty() || curr.endsWith(" ") || curr.endsWith("\n") ? "" : " ") + e.getValue());
+                scriptArea.insertAtCursor(e.getValue());
                 headerVarPicker.clear();
             }
         });
@@ -3240,12 +3236,7 @@ public class FormBuilderView extends VerticalLayout {
                                 + "\"\n" + aiResponse;
 
                         ui.access(() -> {
-                            String existingScript = scriptArea.getValue() != null ? scriptArea.getValue().trim() : "";
-                            if (!existingScript.isEmpty()) {
-                                scriptArea.setValue(existingScript + "\n\n" + finalCode);
-                            } else {
-                                scriptArea.setValue(finalCode);
-                            }
+                            scriptArea.appendSnippet(finalCode);
                             btnGenerateAi.setEnabled(true);
                             btnGenerateAi.setText("✨ Buatkan Aturan (AI)");
                             Notification.show("✅ Generated from Ollama!", 3000,
@@ -3286,8 +3277,8 @@ public class FormBuilderView extends VerticalLayout {
         simGrid.setVisible(false);
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(simGrid);
 
-        btnSimulate.addClickListener(e -> {
-            String scriptText = scriptArea.getValue().trim();
+        btnSimulate.addClickListener(e -> scriptArea.getValue(rawScript -> {
+            String scriptText = rawScript != null ? rawScript.trim() : "";
             if (scriptText.isEmpty()) {
                 Notification.show("The script is still empty!", 3000, Notification.Position.MIDDLE);
                 return;
@@ -3325,22 +3316,24 @@ public class FormBuilderView extends VerticalLayout {
                 Notification.show("✅ Simulasi sukses! Lihat tabel hasil di bawah.", 3000,
                         Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
-                Notification.show("❌ Error saat simulasi: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                Notification.show("❌ Simulation error: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
             }
-        });
+        }));
 
         layout.add(aiDetails, pickersLayout, scriptArea, btnSimulate, simGrid);
 
         Button btnSave = new com.vaadinerp.components.SafeButton("Save Script", VaadinIcon.CHECK.create(), e -> {
-            fieldTemp.onAddScript = scriptArea.getValue().trim();
-            Notification.show("On-Add-Row script kept in memory - remember to click Save Form!", 4000,
-                    Notification.Position.BOTTOM_END);
-            dialog.close();
+            scriptArea.getValue(raw -> {
+                fieldTemp.onAddScript = raw != null ? raw.trim() : "";
+                Notification.show("On-Add-Row script kept in memory - remember to click Save Form!", 4000,
+                        Notification.Position.BOTTOM_END);
+                dialog.close();
+            });
         });
         btnSave.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         Button btnClear = new com.vaadinerp.components.SafeButton("Delete Script", VaadinIcon.TRASH.create(), e -> {
-            scriptArea.clear();
+            scriptArea.setValue("");
             fieldTemp.onAddScript = null;
             dialog.close();
         });
