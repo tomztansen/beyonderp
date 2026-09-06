@@ -67,6 +67,56 @@ class CodeEditorPanelNameCheckTest {
         assertEquals(List.of(), check("println row.qty"));
     }
 
+    /**
+     * Script BEFORE_SAVE yang benar-benar dipakai di produksi (VALIDATE_QTY). Kalau
+     * pemeriksa mengeluh di sini, daftar nama untuk scope action sudah melenceng dari
+     * binding di ScriptExecutorService.
+     */
+    @Test
+    void scriptBeforeSaveNyataTidakMenimbulkanPeringatan() {
+        String script = """
+                def qtyHeader = header.quantity
+                def detailRows = getElementValue("subform_grid1", false)
+                def totalQty = 0.0
+                if (detailRows.isEmpty()) {
+                    showError("Validation", "Tag Details Not Yet Filled In")
+                    return false
+                }
+                if (detailRows != null) {
+                    for (row in detailRows) {
+                        def qtyDetail = row['quantity']
+                        if (qtyDetail != null && qtyDetail.toString().trim() != "") {
+                            totalQty += new BigDecimal(qtyDetail.toString())
+                        }
+                    }
+                }
+                if (totalQty > qtyHeader) {
+                    showError("Validation", "Save Failed")
+                    return false
+                } else if (totalQty == qtyHeader) {
+                    setElementValue("header.fullqty", true)
+                } else {
+                    setElementValue("header.fullqty", false)
+                }
+                return true
+                """;
+        CompilationUnit cu = new CompilationUnit();
+        cu.addSource("Test", script);
+        cu.compile(Phases.SEMANTIC_ANALYSIS);
+        assertEquals(List.of(),
+                CodeEditorPanel.findUnknownNames(cu, com.vaadinerp.service.ScriptExecutorService.ACTION_SCRIPT_NAMES));
+    }
+
+    /** Script AFTER_SAVE nyata (UPDATE_ST_PRODORDER). */
+    @Test
+    void scriptAfterSaveNyataTidakMenimbulkanPeringatan() {
+        CompilationUnit cu = new CompilationUnit();
+        cu.addSource("Test", "executeProcedure('update_production_order_status', { success -> }, header.id)");
+        cu.compile(Phases.SEMANTIC_ANALYSIS);
+        assertEquals(List.of(),
+                CodeEditorPanel.findUnknownNames(cu, com.vaadinerp.service.ScriptExecutorService.ACTION_SCRIPT_NAMES));
+    }
+
     @Test
     void tanpaDaftarNamaPemeriksaanDilewati() {
         CompilationUnit cu = new CompilationUnit();

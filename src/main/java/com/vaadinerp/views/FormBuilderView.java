@@ -2798,7 +2798,7 @@ public class FormBuilderView extends VerticalLayout {
         scopeHelp.getStyle().set("font-size", "0.85em").set("color", "var(--lumo-secondary-text-color)");
 
         com.vaadinerp.components.CodeEditorPanel scriptArea = com.vaadinerp.components.CodeEditorPanel.groovy(
-                com.vaadinerp.service.ScriptExecutorService.ROW_SCRIPT_NAMES);
+                com.vaadinerp.service.ScriptExecutorService.ACTION_SCRIPT_NAMES);
         scriptArea.setWidthFull();
         scriptArea.setHeight("340px");
 
@@ -2990,7 +2990,7 @@ public class FormBuilderView extends VerticalLayout {
         warn.getStyle().set("font-size", "0.85em").set("color", "var(--lumo-error-text-color)");
 
         com.vaadinerp.components.CodeEditorPanel scriptArea = com.vaadinerp.components.CodeEditorPanel.groovy(
-                com.vaadinerp.service.ScriptExecutorService.ROW_SCRIPT_NAMES);
+                com.vaadinerp.service.ScriptExecutorService.ACTION_SCRIPT_NAMES);
         scriptArea.setWidthFull();
         scriptArea.setHeight("330px");
         scriptArea.setValue(action != null && action.getScriptContent() != null ? action.getScriptContent() : "");
