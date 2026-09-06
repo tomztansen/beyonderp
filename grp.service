@@ -1,0 +1,51 @@
+# GRP Production Service — systemd unit
+#
+# Tujuan: /etc/systemd/system/grp.service
+#
+# LANGKAH 1 — properti Spring (WAJIB, tidak bisa lewat file ini)
+#   ExecStart memakai --spring.config.location, yang MENGGANTIKAN lokasi config
+#   default. Artinya application.properties di dalam JAR tidak dibaca sama sekali.
+#   Graceful shutdown hanya aktif kalau barisnya ada di file eksternal:
+#
+#     echo 'server.shutdown=graceful' >> /opt/grp/application-prod.properties
+#
+# LANGKAH 2 — pasang unit file ini
+#
+#     sudo cp grp.service /etc/systemd/system/grp.service
+#     sudo systemctl daemon-reload
+#     sudo systemctl restart grp
+#
+# LANGKAH 3 — verifikasi
+#
+#     journalctl -u grp -f
+#
+#   Cari baris berikut saat proses berhenti:
+#     "Commencing graceful shutdown. Waiting for active requests to complete"
+#   Kalau tidak muncul, LANGKAH 1 belum berhasil.
+#
+# Catatan opsional:
+#   -Xms10g bisa disamakan jadi -Xms12g supaya AlwaysPreTouch menyentuh seluruh
+#   heap sekaligus. Konsekuensinya 12 GB RAM langsung dipesan saat boot — hanya
+#   lakukan kalau RAM server memang lapang.
+
+[Unit]
+Description=GRP Production Service
+After=syslog.target network.target postgresql.service
+# Berhenti mencoba setelah 5 kali gagal dalam 120 detik, supaya deploy yang gagal
+# (mis. skema DB belum cocok dengan ddl-auto=validate) tidak restart selamanya.
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+User=grp
+Group=grp
+WorkingDirectory=/opt/grp
+ExecStart=/usr/bin/java -Duser.timezone="Asia/Jakarta" -Xms10g -Xmx12g -XX:+UseZGC -XX:MaxMetaspaceSize=512m -XX:+ZGenerational -XX:+AlwaysPreTouch -XX:+DisableExplicitGC -XX:+UseStringDeduplication -jar /opt/grp/vaadinerp.jar --spring.config.location=file:/opt/grp/application-prod.properties
+
+# 143 = 128+15 (SIGTERM). Tanpa ini, shutdown normal tercatat sebagai "failed".
+SuccessExitStatus=143
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

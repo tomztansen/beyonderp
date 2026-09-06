@@ -1,0 +1,94 @@
+# =========================================================
+# GRP Production — template untuk /opt/grp/application-prod.properties
+#
+# Cara pakai:
+#   1. Salin ke server, isi dua password yang ditandai GANTI_*
+#   2. sudo chown grp:grp /opt/grp/application-prod.properties
+#      sudo chmod 600 /opt/grp/application-prod.properties
+#   3. sudo systemctl restart grp
+#
+# File ini dibaca lewat --spring.config.location di unit systemd, yang
+# MENGGANTIKAN lokasi config default. application.properties di dalam JAR
+# tidak dibaca sama sekali di produksi.
+# =========================================================
+
+spring.application.name=vaadinerp
+
+# Port lokal, di-proxy oleh Nginx
+server.port=8080
+server.forward-headers-strategy=native
+
+# Tunggu request yang sedang diproses selesai sebelum JVM berhenti,
+# supaya save/upload tidak terputus di tengah saat systemctl restart.
+server.shutdown=graceful
+
+# --- Koneksi Database Production ---
+spring.datasource.url=jdbc:postgresql://localhost:5432/grp?currentSchema=public,dynamic&stringtype=unspecified
+spring.datasource.username=gaadmin
+spring.datasource.password=GANTI_PASSWORD_DB_BARU
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+spring.datasource.hikari.pool-name=VaadinErpHikariPool
+spring.datasource.hikari.maximum-pool-size=25
+spring.datasource.hikari.minimum-idle=5
+spring.datasource.hikari.connection-timeout=30000
+spring.datasource.hikari.idle-timeout=600000
+spring.datasource.hikari.max-lifetime=1680000
+spring.datasource.hikari.keepalive-time=180000
+spring.datasource.hikari.validation-timeout=5000
+
+# --- Strategi Skema ORM ---
+# 'validate' menolak start kalau skema DB tidak cocok dengan entity.
+# Jalankan DDL di database SEBELUM deploy JAR baru.
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+# show-sql dimatikan di produksi: lihat catatan logging di bawah.
+spring.jpa.show-sql=false
+
+# --- Pengaturan Vaadin & Sesi ---
+vaadin.whitelisted-packages=com.vaadin,org.vaadin,com.vaadinerp
+vaadin.react.enable=false
+vaadin.sendUrls=false
+vaadin.devmode.stats.enable=false
+server.servlet.session.timeout=30m
+vaadin.closeIdleSessions=true
+vaadin.heartbeatInterval=180
+
+# Endpoint Stimulsoft TIDAK perlu didaftarkan di sini: servlet-nya dipetakan
+# eksplisit di StimulsoftConfig.java (mapping spesifik menang atas /* milik
+# Vaadin), dan /stimulsoft-java/** ditangani Spring MVC.
+vaadin.excludeUrls=/actuator/**
+
+# --- Lokasi File Upload Fisik ---
+app.upload.dir=/var/grp/uploads
+spring.servlet.multipart.max-file-size=20MB
+spring.servlet.multipart.max-request-size=100MB
+
+# --- Audit ---
+app.audit.insert.enabled=false
+app.audit.update.enabled=false
+# app.audit.enabled=false
+app.seed-data.enabled=false
+
+# =========================================================
+# LOG FILE TEXT
+# =========================================================
+logging.file.name=/opt/grp/logs/server.log
+logging.logback.rollingpolicy.file-name-pattern=/opt/grp/logs/server-%d{yyyy-MM-dd}.%i.log.gz
+logging.logback.rollingpolicy.max-file-size=10MB
+logging.logback.rollingpolicy.max-history=40
+logging.logback.rollingpolicy.total-size-cap=1GB
+
+logging.level.root=INFO
+logging.level.com.vaadinerp=INFO
+# JANGAN naikkan dua baris ini di produksi.
+# StatementCreatorUtils=TRACE mencatat SETIAP nilai parameter SQL ke file log,
+# dan file log itu bisa diunduh lewat endpoint Actuator /logfile.
+# Naikkan sementara hanya saat menelusuri masalah, lalu kembalikan ke INFO.
+logging.level.org.springframework.jdbc.core.JdbcTemplate=INFO
+logging.level.org.springframework.jdbc.core.StatementCreatorUtils=INFO
+
+# --- Actuator ---
+management.endpoints.web.exposure.include=health,info,logfile
+actuator.security.username=adminlog
+actuator.security.password=GANTI_PASSWORD_ACTUATOR_BARU
