@@ -3946,7 +3946,7 @@ public class DynamicDataService {
         Map<String, Object> masterData = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         masterData.putAll(rawMasterData);
 
-        ensureMasterDetailTablesExist(formMeta);
+        verifyMasterDetailSchemaBeforeSave(formMeta);
 
         String masterPk = formMeta.getPrimaryKey() != null ? formMeta.getPrimaryKey() : "id";
         masterPk = resolveExistingColumn(formMeta.getTableName(), masterPk);
@@ -4433,6 +4433,56 @@ public class DynamicDataService {
             }
         }
         recordFieldAuditLogsBatch(auditBatch);
+    }
+
+    /**
+     * Versi MASTER_DETAIL dari {@link #verifySchemaBeforeSave}. Memeriksa tabel
+     * master dan tabel detail beserta kolomnya, tanpa menjalankan DDL apa pun.
+     * Pembuatan tabel tetap lewat Form Builder / DB Explorer.
+     */
+    private void verifyMasterDetailSchemaBeforeSave(FormMeta formMeta) {
+        if (formMeta == null)
+            return;
+        verifySchemaBeforeSave(formMeta, null);
+
+        if (!"MASTER_DETAIL".equalsIgnoreCase(formMeta.getFormType()))
+            return;
+        String detailTableName = formMeta.getDetailTableName();
+        if (detailTableName == null || detailTableName.trim().isEmpty())
+            return;
+
+        List<String> detailCols = fetchTableColumns(detailTableName);
+        if (detailCols == null || detailCols.isEmpty()) {
+            throw new IllegalStateException("Detail table '" + detailTableName
+                    + "' does not exist in the database. Generate it from the Form Builder before saving data.");
+        }
+        String detailPk = formMeta.getDetailPrimaryKey() != null ? formMeta.getDetailPrimaryKey() : "id";
+        String detailFk = formMeta.getDetailForeignKey();
+
+        java.util.List<String> missing = new java.util.ArrayList<>();
+        if (detailFk != null && !detailFk.trim().isEmpty()
+                && detailCols.stream().noneMatch(detailFk::equalsIgnoreCase)) {
+            missing.add(detailFk);
+        }
+        if (formMeta.getFields() != null) {
+            for (FieldMeta field : formMeta.getFields()) {
+                if (!field.isDetail())
+                    continue;
+                if (!field.isSaveOnInsert() && !field.isSaveOnUpdate())
+                    continue;
+                String colName = field.getFieldName();
+                if (colName == null || colName.trim().isEmpty() || colName.equalsIgnoreCase(detailPk)
+                        || colName.equalsIgnoreCase(detailFk))
+                    continue;
+                if (detailCols.stream().noneMatch(colName::equalsIgnoreCase))
+                    missing.add(colName);
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException("Cannot save: column(s) " + String.join(", ", missing)
+                    + " do not exist in detail table '" + detailTableName
+                    + "'. Create them from the Form Builder or DB Explorer first.");
+        }
     }
 
     public void ensureMasterDetailTablesExist(FormMeta formMeta) {
