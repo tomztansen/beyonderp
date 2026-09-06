@@ -30,6 +30,8 @@ public class CodeEditorField extends Div {
     private final String modeScript;
     /** Kunci instance CodeMirror pada objek window browser. */
     private final String cmVar;
+    /** Id elemen host di DOM. Dipisah dari cmVar supaya keduanya tidak tertukar. */
+    private final String elementId;
 
     private String pendingValue = "";
 
@@ -37,7 +39,8 @@ public class CodeEditorField extends Div {
         this.mode = mode;
         this.modeScript = modeScript;
         this.cmVar = "_cm_" + SEQ.incrementAndGet() + "_" + System.currentTimeMillis();
-        setId("cm-host-" + cmVar);
+        this.elementId = "cm-host-" + cmVar;
+        setId(elementId);
         // Default: isi tinggi kontainer induknya (dialog). Bisa ditimpa pemanggil.
         getStyle().set("flex", "1 1 0").set("min-height", "0").set("overflow", "hidden");
     }
@@ -60,7 +63,11 @@ public class CodeEditorField extends Div {
                         (function(editorId, cmVar, initVal, mode, modeScript, ver) {
                             function init() {
                                 var el = document.getElementById(editorId);
-                                if (!el) return;
+                                if (!el) {
+                                    // Jangan gagal diam-diam: editor kosong tanpa jejak sulit dilacak.
+                                    console.warn('CodeEditorField: host element not found', editorId);
+                                    return;
+                                }
                                 el.innerHTML = '';
                                 // Matikan scroll horizontal — lineWrapping yang menangani baris panjang
                                 var styleId = 'cmstyle-' + editorId;
@@ -119,7 +126,7 @@ public class CodeEditorField extends Div {
                             loadScript(base + 'codemirror.min.js', withMode);
                         })($0, $1, $2, $3, $4, $5)
                         """,
-                cmVar, cmVar, pendingValue, mode, modeScript, CM_VERSION);
+                elementId, cmVar, pendingValue, mode, modeScript, CM_VERSION);
     }
 
     @Override
