@@ -125,7 +125,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         if (comp != null) {
             if (enableUniversalWrapperHiding && comp.getParent().isPresent()) {
                 Component parent = comp.getParent().get();
-                // Jika komponen adalah Checkbox, pembungkus utamanya (cbWrapper) berada 2 tingkat ke atas
+                // Jika komponen adalah Checkbox, pembungkus utamanya (cbWrapper) berada 2
+                // tingkat ke atas
                 if (comp instanceof com.vaadin.flow.component.checkbox.Checkbox && parent.getParent().isPresent()) {
                     if (visible) {
                         parent.getParent().get().getStyle().remove("visibility");
@@ -211,7 +212,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private final Map<String, String> fieldNameToLovCodeMap = new HashMap<>();
 
     // === TOGGLE PENGAMAN HIDE/SHOW ===
-    // Ubah menjadi false jika Anda ingin mengembalikan perilaku lama (hanya hide input-nya saja)
+    // Ubah menjadi false jika Anda ingin mengembalikan perilaku lama (hanya hide
+    // input-nya saja)
     private boolean enableUniversalWrapperHiding = true;
 
     // Flag to prevent cascading filter listeners from clearing child LOV values
@@ -716,7 +718,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
 
         if (!auth.canAccessScreen) {
-            com.vaadin.flow.component.html.Span noAccess = new com.vaadin.flow.component.html.Span("Akses Ditolak. Anda tidak memiliki izin untuk melihat layar ini.");
+            com.vaadin.flow.component.html.Span noAccess = new com.vaadin.flow.component.html.Span(
+                    "Akses Ditolak. Anda tidak memiliki izin untuk melihat layar ini.");
             noAccess.getStyle().set("color", "var(--lumo-error-color)");
             add(noAccess);
             return;
@@ -935,7 +938,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         }
     }
 
-    /** Report yang boleh dicetak dari form ini, untuk baris yang sedang tercentang. */
+    /**
+     * Report yang boleh dicetak dari form ini, untuk baris yang sedang tercentang.
+     */
     private void openPrintDialog() {
         if (currentFormDef == null) {
             Notification.show("Form definition is not loaded yet.", 3000, Notification.Position.MIDDLE);
@@ -992,7 +997,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     }
 
     /**
-     * Kumpulkan nilai parameter dari baris tercentang, tanyakan parameter USER_INPUT
+     * Kumpulkan nilai parameter dari baris tercentang, tanyakan parameter
+     * USER_INPUT
      * bila ada, lalu jalankan. Parameter FORM_FIELD dan SYSTEM tidak ditampilkan -
      * keduanya terisi sendiri.
      */
@@ -1049,7 +1055,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         paramDialog.open();
     }
 
-    /** Isi default untuk parameter kosong, lalu pastikan yang required benar-benar terisi. */
+    /**
+     * Isi default untuk parameter kosong, lalu pastikan yang required benar-benar
+     * terisi.
+     */
     private boolean validateRequired(com.vaadinerp.meta.ReportMeta report, Map<String, Object> values) {
         if (report.getParams() == null)
             return true;
@@ -1085,7 +1094,6 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     4000, Notification.Position.MIDDLE);
         }
     }
-
 
     private void executeToolbarAction(com.vaadinerp.meta.FormActionMeta act) {
         Map<String, Object> headerBean = formBinder != null ? formBinder.getBean() : new HashMap<>();
@@ -1160,7 +1168,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
     }
 
-    /** Memuat action ON_CHANGE satu kali per form, dikelompokkan per field pemicu. */
+    /**
+     * Memuat action ON_CHANGE satu kali per form, dikelompokkan per field pemicu.
+     */
     private void loadOnChangeActions(FormMeta formDef) {
         onChangeActions.clear();
         if (formDef == null || dynamicDataService == null)
@@ -1526,7 +1536,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 Component input = ComponentFactory.create(field, dynamicDataService, updateFieldValue);
 
                 int span = rowConfig.getSpan(field);
-                
+
                 Component componentToAdd;
 
                 // Checkbox: bungkus dengan Div agar label muncul di ATAS (sama persis seperti
@@ -1575,7 +1585,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             .set("width", "100%")
                             .set("display", "flex")
                             .set("align-items", "flex-start");
-                    
+
                     componentToAdd = wrapper;
                 }
 
@@ -1608,6 +1618,15 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 rowLayout.add(emptySpace);
                 rowLayout.setColspan(emptySpace, 1);
                 currentVisCol++;
+            }
+
+            // Field yang disembunyikan memakai visibility:hidden, yang tetap memakan
+            // ruang. Kalau seluruh field di baris ini hidden, barisnya ikut
+            // disembunyikan (display:none) supaya tidak menyisakan baris kosong.
+            // Komponennya tetap dibuat dan di-bind, jadi formula, LOV target dan
+            // setElementValue masih menemukannya lewat formComponents.
+            if (!groupFields.isEmpty() && groupFields.stream().allMatch(FieldMeta::isHideInForm)) {
+                rowLayout.setVisible(false);
             }
 
             if (hasSubformGrid) {
@@ -1810,7 +1829,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         gridToolbar.setWidthFull();
         gridToolbar.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
 
-        com.vaadin.flow.component.html.H4 sectionTitle = new com.vaadin.flow.component.html.H4("Riwayat Data");
+        com.vaadin.flow.component.html.H4 sectionTitle = new com.vaadin.flow.component.html.H4("");
         sectionTitle.getStyle().set("margin", "0");
         sectionTitle.getStyle().set("flex-grow", "1");
 
@@ -2110,10 +2129,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             FilterCriteria criteria = new FilterCriteria();
             filterValues.put(fieldName, criteria);
 
-            com.vaadinerp.meta.FieldMeta field = formDef.getFields().stream().filter(f -> f.getFieldName().equals(fieldName)).findFirst().orElse(null);
-            boolean isBoolean = field != null && ("CHECKBOX".equalsIgnoreCase(field.getComponentType()) 
+            com.vaadinerp.meta.FieldMeta field = formDef.getFields().stream()
+                    .filter(f -> f.getFieldName().equals(fieldName)).findFirst().orElse(null);
+            boolean isBoolean = field != null && ("CHECKBOX".equalsIgnoreCase(field.getComponentType())
                     || "YN".equalsIgnoreCase(field.getLovCode()) || "Y/N".equalsIgnoreCase(field.getLovCode()));
-            String compType = field != null && field.getComponentType() != null ? field.getComponentType().toUpperCase() : "";
+            String compType = field != null && field.getComponentType() != null ? field.getComponentType().toUpperCase()
+                    : "";
             boolean isDate = "DATEBOX".equals(compType) || "DATETIMEBOX".equals(compType);
 
             if (isBoolean) {
@@ -2164,7 +2185,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
                 criteria.operator = "Equals";
 
-                com.vaadin.flow.component.contextmenu.ContextMenu dateCtx = new com.vaadin.flow.component.contextmenu.ContextMenu(filterButton);
+                com.vaadin.flow.component.contextmenu.ContextMenu dateCtx = new com.vaadin.flow.component.contextmenu.ContextMenu(
+                        filterButton);
                 dateCtx.setOpenOnClick(true);
 
                 Runnable applyDateOperatorUI = () -> {
@@ -2797,7 +2819,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     Object storeValue = (editComponent instanceof com.vaadin.flow.component.checkbox.Checkbox
                             && value instanceof Boolean
                             && getValueCaseInsensitive(map, field.getFieldName()) instanceof Number)
-                            ? (Boolean.TRUE.equals(value) ? 1 : 0) : value;
+                                    ? (Boolean.TRUE.equals(value) ? 1 : 0)
+                                    : value;
                     putValueCaseInsensitive(map, field.getFieldName(), storeValue);
                     if (storeValue != null && !(storeValue instanceof Map)) {
                         putValueCaseInsensitive(map, field.getFieldName() + ".id", storeValue);
@@ -2837,7 +2860,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 Object liveValue = (editComponent instanceof com.vaadin.flow.component.checkbox.Checkbox
                         && e.getValue() instanceof Boolean
                         && getValueCaseInsensitive(bean, field.getFieldName()) instanceof Number)
-                        ? (Boolean.TRUE.equals(e.getValue()) ? 1 : 0) : e.getValue();
+                                ? (Boolean.TRUE.equals(e.getValue()) ? 1 : 0)
+                                : e.getValue();
                 putValueCaseInsensitive(bean, field.getFieldName(), liveValue);
                 if (e.getValue() != null && !(e.getValue() instanceof Map)) {
                     putValueCaseInsensitive(bean, field.getFieldName() + ".id", e.getValue());
