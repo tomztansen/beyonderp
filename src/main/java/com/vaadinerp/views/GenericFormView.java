@@ -1894,14 +1894,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         gridToolbar.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
         gridToolbar.getStyle().set("flex-wrap", "nowrap").set("overflow-x", "auto");
-        // Checkbox Select All dipindah ke slot suffix TabSheet supaya sejajar dengan
-        // tab dan baris toolbar grid ini tidak terlalu penuh.
-        HorizontalLayout tabSuffix = new HorizontalLayout(boxHalIni, boxAll);
-        tabSuffix.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
-        tabSuffix.setSpacing(false);
-        tabSheet.setSuffixComponent(tabSuffix);
-
-        gridToolbar.add(btnExportExcel, btnResetGridToolbar);
+        gridToolbar.add(boxHalIni, boxAll, btnExportExcel, btnResetGridToolbar);
 
         // Double Click Listener to load data into form and switch tab
         auth = securityService != null
