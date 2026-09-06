@@ -25,4 +25,12 @@ public interface FormMetaRepository extends JpaRepository<FormMeta, String> {
             + " order by case when lower(f.formCode) = lower(:key) then 0"
             + " when lower(f.tableName) = lower(:key) then 1 else 2 end, f.formCode")
     List<FormMeta> findByReportSourceKey(@Param("key") String key);
+
+    /**
+     * Hanya kode form, terurut. FormMeta.fields dipetakan EAGER, jadi findAll()
+     * ikut menarik seluruh baris meta_field (ratusan) meski pemanggilnya cuma
+     * butuh daftar kode untuk mengisi ComboBox.
+     */
+    @Query("select f.formCode from FormMeta f order by f.formCode")
+    List<String> findAllFormCodes();
 }
