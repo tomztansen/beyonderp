@@ -100,6 +100,8 @@ public class FormBuilderView extends VerticalLayout {
     private boolean isListView = false;
 
     private final VerticalLayout propertiesPanel = new VerticalLayout();
+    /** Panel konfigurasi utama; dibuka/ditutup mengikuti apakah isinya sudah terisi. */
+    private com.vaadin.flow.component.details.Details formMetaDetails;
     private final FormLayout propertiesForm = new FormLayout();
     private final Span propPlaceholderLabel = new Span("Select a component on the canvas to configure its properties.");
 
@@ -849,8 +851,9 @@ public class FormBuilderView extends VerticalLayout {
         formMetaContent.setPadding(false);
         formMetaContent.setSpacing(false);
 
-        Details formMetaDetails = new Details("Main Form Configuration (click to show/hide)",
+        formMetaDetails = new Details("Main Form Configuration (click to show/hide)",
                 formMetaContent);
+        // Terbuka saat memulai form baru — konfigurasi ini memang langkah pertama.
         formMetaDetails.setOpened(true);
         formMetaDetails.setWidthFull();
         formMetaDetails.getStyle()
@@ -4167,6 +4170,9 @@ public class FormBuilderView extends VerticalLayout {
         btnNew.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnNew.getStyle().set("font-weight", "500").set("color", "#374151");
         btnNew.addClickListener(e -> {
+            if (formMetaDetails != null) {
+                formMetaDetails.setOpened(true);
+            }
             formCodeField.clear();
             formCodeField.setReadOnly(false);
             formTitleField.clear();
@@ -4343,6 +4349,9 @@ public class FormBuilderView extends VerticalLayout {
         btnCancel.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnCancel.getStyle().set("font-weight", "500").set("color", "#374151");
         btnCancel.addClickListener(e -> {
+            if (formMetaDetails != null) {
+                formMetaDetails.setOpened(true);
+            }
             formCodeField.clear();
             formCodeField.setReadOnly(false);
             formTitleField.clear();
@@ -4497,6 +4506,11 @@ public class FormBuilderView extends VerticalLayout {
     public void loadFormDefinition(FormMeta selectedForm) {
         if (selectedForm != null) {
             // Populate Form Meta fields
+            // Konfigurasi form lama sudah terisi; yang dikerjakan berikutnya adalah
+            // field-nya, jadi panel ditutup supaya kanvas dapat ruang lebih.
+            if (formMetaDetails != null) {
+                formMetaDetails.setOpened(false);
+            }
             formCodeField.setValue(selectedForm.getFormCode() != null ? selectedForm.getFormCode() : "");
             formCodeField.setReadOnly(true);
             formTitleField.setValue(selectedForm.getFormTitle() != null ? selectedForm.getFormTitle() : "");
