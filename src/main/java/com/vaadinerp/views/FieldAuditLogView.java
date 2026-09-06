@@ -36,7 +36,7 @@ public class FieldAuditLogView extends VerticalLayout {
     private final TextField filterFormCode = new TextField("Form Code");
     private final TextField filterTableName = new TextField("Table Name");
     private final TextField filterRecordId = new TextField("Record ID");
-    private final TextField filterFieldName = new TextField("Kolom (Field)");
+    private final TextField filterFieldName = new TextField("Column (Field)");
     private final TextField filterActionBy = new TextField("User (Action By)");
 
     private final Grid<Map<String, Object>> grid = new Grid<>();
@@ -133,10 +133,10 @@ public class FieldAuditLogView extends VerticalLayout {
         filterRecordId.setClearButtonVisible(true);
         filterRecordId.setWidth("130px");
 
-        filterFieldName.setPlaceholder("Nama kolom...");
+        filterFieldName.setPlaceholder("Column name...");
         filterFieldName.setClearButtonVisible(true);
 
-        filterActionBy.setPlaceholder("Nama user...");
+        filterActionBy.setPlaceholder("User name...");
         filterActionBy.setClearButtonVisible(true);
 
         Button btnSearch = new com.vaadinerp.components.SafeButton("Cari / Filter", VaadinIcon.SEARCH.create());
@@ -253,7 +253,7 @@ public class FieldAuditLogView extends VerticalLayout {
             Span s = new Span(field);
             s.getStyle().set("font-weight", "600").set("color", "#2563eb");
             return s;
-        }).setHeader("Kolom").setWidth("140px").setFlexGrow(0);
+        }).setHeader("Column").setWidth("140px").setFlexGrow(0);
 
         grid.addComponentColumn(row -> {
             String oldVal = row.get("old_value") != null ? row.get("old_value").toString() : "(kosong)";

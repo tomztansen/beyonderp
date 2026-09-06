@@ -176,7 +176,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
         ComboBox<String> operatorSelect = new ComboBox<>();
         TextField valueField = new TextField();
         ComboBox<String> columnRefSelect = new ComboBox<>();
-        Checkbox useColumnRef = new Checkbox("vs Kolom");
+        Checkbox useColumnRef = new Checkbox("vs Column");
         Button btnRemove = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create());
 
         boolean isColumnMode = false;
@@ -356,7 +356,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
             }
         });
         
-        HorizontalLayout aggHeader = new HorizontalLayout(new Span("Kolom Agregasi (Auto Group-By):"), btnAddAggregate);
+        HorizontalLayout aggHeader = new HorizontalLayout(new Span("Aggregate Columns (auto group-by):"), btnAddAggregate);
         aggHeader.setAlignItems(Alignment.CENTER);
         
         VerticalLayout aggSection = new VerticalLayout(aggHeader, aggregateLayout);
@@ -547,7 +547,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
 
     /**
      * Mengumpulkan semua kolom yang tersedia dari tabel dasar + semua tabel yang di-join.
-     * Format: tabel_dasar -> kolom langsung, tabel join -> "t1.kolom", "t2.kolom", dst.
+     * Format: tabel_dasar -> kolom langsung, tabel join -> "t1.column", "t2.column", dst.
      */
     private List<String> getAllAvailableColumns() {
         List<String> allCols = new ArrayList<>();

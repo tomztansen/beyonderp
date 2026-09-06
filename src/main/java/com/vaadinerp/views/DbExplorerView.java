@@ -471,7 +471,7 @@ public class DbExplorerView extends VerticalLayout {
                 boolean nextFrozen = !col.isFrozen();
                 col.setFrozen(nextFrozen);
                 event.getSource().setText(nextFrozen ? "Unfreeze Column" : "Freeze Column");
-                Notification.show(nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000,
+                Notification.show(nextFrozen ? "Column frozen" : "Column unfrozen", 2000,
                         Notification.Position.BOTTOM_END);
             });
 
@@ -588,7 +588,7 @@ public class DbExplorerView extends VerticalLayout {
         typeField.setItems("FOREIGN KEY", "UNIQUE", "CHECK");
         typeField.setValue("UNIQUE");
 
-        ComboBox<String> localColField = new ComboBox<>("Kolom Lokal");
+        ComboBox<String> localColField = new ComboBox<>("Local Column");
         List<String> mergedColumns = new ArrayList<>();
         for (Map<String, Object> map : getMergedSchemaList()) {
             if (!map.containsKey("_pending_delete")) {
@@ -913,7 +913,7 @@ public class DbExplorerView extends VerticalLayout {
         nullableField.setValue(true);
 
         TextField defaultField = new TextField("Default Value (Kosongkan jika tidak ada)");
-        defaultField.setPlaceholder("e.g. '0' atau 'Belum diisi'");
+        defaultField.setPlaceholder("e.g. '0' or 'Not set'");
 
         if (isEdit && existingRow != null) {
             String oldName = existingRow.get("column_name") != null ? existingRow.get("column_name").toString() : "";
@@ -1077,7 +1077,7 @@ public class DbExplorerView extends VerticalLayout {
             triggersGrid.setItems(new ArrayList<>());
         recordCount.setText("Pilih tabel untuk melihat data");
         schemaInfo.setText("Pilih tabel untuk melihat struktur kolom");
-        triggerInfo.setText("Belum ada trigger terdaftar");
+        triggerInfo.setText("No triggers registered yet");
         constraintInfo.setText("Belum ada constraint terdaftar");
     }
 
@@ -1207,7 +1207,7 @@ public class DbExplorerView extends VerticalLayout {
 
                 Button btnDel = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create());
                 btnDel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
-                btnDel.setTooltipText("Hapus Trigger");
+                btnDel.setTooltipText("Delete Trigger");
                 btnDel.addClickListener(e -> dropTrigger(name));
                 btnDel.setVisible(false); // Hidden by user request
 
@@ -1279,7 +1279,7 @@ public class DbExplorerView extends VerticalLayout {
                     .setHeader("Tabel Relasi (FK)");
             Grid.Column<Map<String, Object>> c5 = constraintsGrid
                     .addColumn(row -> row.get("foreign_column") != null ? row.get("foreign_column").toString() : "")
-                    .setHeader("Kolom Relasi (FK)");
+                    .setHeader("Related Column (FK)");
             Grid.Column<Map<String, Object>> c6 = constraintsGrid
                     .addColumn(row -> row.get("check_expression") != null ? row.get("check_expression").toString() : "")
                     .setHeader("Ekspresi (Check)");

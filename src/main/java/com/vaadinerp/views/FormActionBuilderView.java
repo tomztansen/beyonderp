@@ -369,7 +369,7 @@ public class FormActionBuilderView extends VerticalLayout {
                     showYesNoDialog("Konfirmasi Eksekusi", "Apakah Anda yakin ingin melanjutkan proses pada data terpilih?", {
                         executeProcedure(3, { status ->
                             if (status) {
-                                showSuccess("Berhasil", "Prosedur berhasil dijalankan di database!")
+                                showSuccess("Success", "Prosedur berhasil dijalankan di database!")
                             }
                         }, "{}", ctx.userId)
                     })
@@ -389,7 +389,7 @@ public class FormActionBuilderView extends VerticalLayout {
                     showYesNoDialog("Release Confirmation", "Lanjutkan rilis untuk " + ids.size() + " data terpilih?", {
                         executeProcedure(3, { status ->
                             if (status) {
-                                showSuccess("Success", "Data berhasil dirilis!")
+                                showSuccess("Success", "Data released successfully!")
                                 showMainTab(691, "Sales Line - Production Order", null, null)
                             }
                         }, groovy.json.JsonOutput.toJson(ids), ctx.userId)
@@ -1198,7 +1198,7 @@ public class FormActionBuilderView extends VerticalLayout {
         }
         try {
             actionRepository.delete(currentAction);
-            Notification.show("Extra Toolbar berhasil dihapus!", 3000, Notification.Position.BOTTOM_END);
+            Notification.show("Extra Toolbar deleted successfully!", 3000, Notification.Position.BOTTOM_END);
             refreshGrid();
             clearForm();
         } catch (Exception e) {

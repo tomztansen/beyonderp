@@ -814,7 +814,7 @@ public class ReportDesignerView extends VerticalLayout {
         currentFileLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
         currentFileLayout.setVisible(false);
         
-        com.vaadin.flow.component.button.Button deleteBtn = new com.vaadin.flow.component.button.Button("Hapus File", com.vaadin.flow.component.icon.VaadinIcon.TRASH.create());
+        com.vaadin.flow.component.button.Button deleteBtn = new com.vaadin.flow.component.button.Button("Delete File", com.vaadin.flow.component.icon.VaadinIcon.TRASH.create());
         deleteBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_ERROR, com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
         
         currentFileLayout.add(currentFile, deleteBtn);
@@ -847,7 +847,7 @@ public class ReportDesignerView extends VerticalLayout {
                             currentFileLayout.setVisible(true);
                         });
                     } catch (Exception ex) {
-                        ui.access(() -> Notification.show("Gagal memvalidasi file: " + ex.getMessage()));
+                        ui.access(() -> Notification.show("Failed to validate the file: " + ex.getMessage()));
                     }
                 });
         com.vaadin.flow.component.upload.Upload upload = new com.vaadin.flow.component.upload.Upload(handler);
