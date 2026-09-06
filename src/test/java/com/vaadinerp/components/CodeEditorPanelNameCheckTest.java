@@ -117,6 +117,27 @@ class CodeEditorPanelNameCheckTest {
                 CodeEditorPanel.findUnknownNames(cu, com.vaadinerp.service.ScriptExecutorService.ACTION_SCRIPT_NAMES));
     }
 
+    /**
+     * Snippet yang kita sediakan sendiri harus lolos pemeriksa nama. Kalau tidak,
+     * user menyisipkan contoh resmi lalu langsung dapat peringatan.
+     */
+    @Test
+    void semuaSnippetLolosPemeriksaNama() {
+        GroovyDsl.actionSnippets().forEach((label, code) -> assertEquals(
+                List.of(), namesIn(code, com.vaadinerp.service.ScriptExecutorService.ACTION_SCRIPT_NAMES),
+                "snippet action: " + label));
+        GroovyDsl.rowSnippets().forEach((label, code) -> assertEquals(
+                List.of(), namesIn(code, com.vaadinerp.service.ScriptExecutorService.ROW_SCRIPT_NAMES),
+                "snippet row: " + label));
+    }
+
+    private static List<String> namesIn(String script, Set<String> known) {
+        CompilationUnit cu = new CompilationUnit();
+        cu.addSource("Snippet", script);
+        cu.compile(Phases.SEMANTIC_ANALYSIS);
+        return CodeEditorPanel.findUnknownNames(cu, known);
+    }
+
     @Test
     void tanpaDaftarNamaPemeriksaanDilewati() {
         CompilationUnit cu = new CompilationUnit();
