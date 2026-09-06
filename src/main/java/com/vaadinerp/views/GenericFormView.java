@@ -349,7 +349,6 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         toolbar.getStyle()
                 .set("background-color", "#f3f4f6")
                 .set("border", "1px solid #e5e7eb")
-                .set("border-top", "none")
                 .set("border-radius", "6px")
                 .set("padding", "6px 12px")
                 .set("align-items", "center")
@@ -358,10 +357,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // 1. TAMBAH BUTTON
         btnNew = new com.vaadinerp.components.SafeButton("Add");
         Icon iconNew = VaadinIcon.PLUS_CIRCLE.create();
-        iconNew.getStyle().set("color", "var(--lumo-success-color)").set("font-size", "1.2rem");
+        iconNew.getStyle().set("color", "#22c55e").set("font-size", "1.2rem");
         btnNew.setIcon(iconNew);
         btnNew.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
-        btnNew.getStyle().set("font-weight", "500").set("color", "var(--lumo-body-text-color)");
+        btnNew.getStyle().set("font-weight", "500").set("color", "#374151");
         btnNew.addClickListener(e -> {
             formBinder.setBean(new HashMap<>());
             clearAllComponents();
@@ -379,10 +378,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // 1.5. EDIT BUTTON
         btnEdit = new com.vaadinerp.components.SafeButton("Edit");
         Icon iconEdit = VaadinIcon.EDIT.create();
-        iconEdit.getStyle().set("color", "var(--lumo-primary-color)").set("font-size", "1.2rem");
+        iconEdit.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnEdit.setIcon(iconEdit);
         btnEdit.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
-        btnEdit.getStyle().set("font-weight", "500").set("color", "var(--lumo-body-text-color)");
+        btnEdit.getStyle().set("font-weight", "500").set("color", "#374151");
         btnEdit.addClickListener(e -> {
             if (tabSheet.getSelectedTab() == historisTab) {
                 java.util.Set<Map<String, Object>> selectedItems = grid.getSelectedItems();
@@ -402,10 +401,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // 1.6. VIEW BUTTON
         btnView = new com.vaadinerp.components.SafeButton("View");
         Icon iconView = VaadinIcon.SEARCH.create();
-        iconView.getStyle().set("color", "var(--lumo-success-color)").set("font-size", "1.2rem");
+        iconView.getStyle().set("color", "#10b981").set("font-size", "1.2rem");
         btnView.setIcon(iconView);
         btnView.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
-        btnView.getStyle().set("font-weight", "500").set("color", "var(--lumo-body-text-color)");
+        btnView.getStyle().set("font-weight", "500").set("color", "#374151");
         btnView.addClickListener(e -> {
             if (tabSheet.getSelectedTab() == historisTab) {
                 java.util.Set<Map<String, Object>> selectedItems = grid.getSelectedItems();
@@ -425,10 +424,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // 2. HAPUS BUTTON
         btnDelete = new com.vaadinerp.components.SafeButton("Delete");
         Icon iconDelete = VaadinIcon.CLOSE_CIRCLE.create();
-        iconDelete.getStyle().set("color", "var(--lumo-error-color)").set("font-size", "1.2rem");
+        iconDelete.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnDelete.setIcon(iconDelete);
         btnDelete.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
-        btnDelete.getStyle().set("font-weight", "500").set("color", "var(--lumo-body-text-color)");
+        btnDelete.getStyle().set("font-weight", "500").set("color", "#374151");
         btnDelete.addClickListener(e -> {
             if (tabSheet.getSelectedTab() == historisTab) {
                 java.util.Set<Map<String, Object>> selectedItems = grid.getSelectedItems();
@@ -489,10 +488,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // 3. SIMPAN BUTTON
         btnSave = new com.vaadinerp.components.SafeButton("Save");
         Icon iconSave = VaadinIcon.DOWNLOAD.create(); // matches floppy disk design
-        iconSave.getStyle().set("color", "var(--lumo-primary-color)").set("font-size", "1.2rem");
+        iconSave.getStyle().set("color", "#3b82f6").set("font-size", "1.2rem");
         btnSave.setIcon(iconSave);
         btnSave.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
-        btnSave.getStyle().set("font-weight", "600").set("color", "var(--lumo-primary-color)");
+        btnSave.getStyle().set("font-weight", "600").set("color", "#3b82f6");
         btnSave.setDisableOnClick(true);
         btnSave.addClickListener(e -> {
             toolbar.setEnabled(false);
@@ -637,10 +636,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // 4. BATAL BUTTON
         btnCancel = new com.vaadinerp.components.SafeButton("Cancel");
         Icon iconCancel = VaadinIcon.BAN.create();
-        iconCancel.getStyle().set("color", "var(--lumo-error-color)").set("font-size", "1.2rem");
+        iconCancel.getStyle().set("color", "#ef4444").set("font-size", "1.2rem");
         btnCancel.setIcon(iconCancel);
         btnCancel.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
-        btnCancel.getStyle().set("font-weight", "500").set("color", "var(--lumo-body-text-color)");
+        btnCancel.getStyle().set("font-weight", "500").set("color", "#374151");
         btnCancel.addClickListener(e -> {
             formBinder.setBean(new HashMap<>());
             clearAllComponents();
@@ -650,19 +649,19 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // 5. CETAK BUTTON
         btnPrint = new com.vaadinerp.components.SafeButton("Cetak");
         Icon iconPrint = VaadinIcon.PRINT.create();
-        iconPrint.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-size", "1.2rem");
+        iconPrint.getStyle().set("color", "#6b7280").set("font-size", "1.2rem");
         btnPrint.setIcon(iconPrint);
         btnPrint.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
-        btnPrint.getStyle().set("font-weight", "500").set("color", "var(--lumo-body-text-color)");
+        btnPrint.getStyle().set("font-weight", "500").set("color", "#374151");
         btnPrint.addClickListener(e -> openPrintDialog());
 
         // 6. REFRESH BUTTON
         btnRefresh = new com.vaadinerp.components.SafeButton("Refresh");
         Icon iconRefresh = VaadinIcon.REFRESH.create();
-        iconRefresh.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-size", "1.2rem");
+        iconRefresh.getStyle().set("color", "#6b7280").set("font-size", "1.2rem");
         btnRefresh.setIcon(iconRefresh);
         btnRefresh.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
-        btnRefresh.getStyle().set("font-weight", "500").set("color", "var(--lumo-body-text-color)");
+        btnRefresh.getStyle().set("font-weight", "500").set("color", "#374151");
         btnRefresh.setDisableOnClick(true);
         btnRefresh.addClickListener(e -> {
             try {
@@ -761,7 +760,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         iconDebug.getStyle().set("color", "#8b5cf6").set("font-size", "1.2rem");
         btnDebug.setIcon(iconDebug);
         btnDebug.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
-        btnDebug.getStyle().set("font-weight", "500").set("color", "var(--lumo-secondary-text-color)");
+        btnDebug.getStyle().set("font-weight", "500").set("color", "#6b7280");
         btnDebug.setVisible(securityService != null && securityService.isSuperAdmin());
         btnDebug.addClickListener(e -> {
             Map<String, Object> bean = formBinder != null ? formBinder.getBean() : null;
@@ -889,12 +888,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 }
             }
             if (icon != null) {
-                icon.getStyle().set("color", "var(--lumo-primary-color)").set("font-size", "1.2rem");
+                icon.getStyle().set("color", "#2563eb").set("font-size", "1.2rem");
             }
             Button actBtn = icon != null ? new com.vaadinerp.components.SafeButton(act.getActionLabel(), icon)
                     : new com.vaadinerp.components.SafeButton(act.getActionLabel());
             actBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
-            actBtn.getStyle().set("font-weight", "500").set("color", "var(--lumo-body-text-color)");
+            actBtn.getStyle().set("font-weight", "500").set("color", "#374151");
             actBtn.addClickListener(e -> executeToolbarAction(act));
             extraActionsContainer.add(actBtn);
         }
@@ -907,11 +906,11 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             menuBtnLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
             menuBtnLayout.setSpacing(true);
             com.vaadin.flow.component.icon.Icon grpIcon = VaadinIcon.FILE_TEXT.create();
-            grpIcon.getStyle().set("color", "var(--lumo-primary-color)").set("font-size", "1.2rem");
+            grpIcon.getStyle().set("color", "#2563eb").set("font-size", "1.2rem");
             com.vaadin.flow.component.icon.Icon chevronIcon = VaadinIcon.CHEVRON_DOWN.create();
             chevronIcon.setSize("14px");
             com.vaadin.flow.component.html.Span grpSpan = new com.vaadin.flow.component.html.Span(entry.getKey());
-            grpSpan.getStyle().set("font-weight", "500").set("color", "var(--lumo-body-text-color)");
+            grpSpan.getStyle().set("font-weight", "500").set("color", "#374151");
             menuBtnLayout.add(grpIcon, grpSpan, chevronIcon);
             com.vaadin.flow.component.contextmenu.MenuItem parentItem = menuBar.addItem(menuBtnLayout);
 
@@ -927,7 +926,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 if (icon == null) {
                     icon = VaadinIcon.FILE_TEXT.create();
                 }
-                icon.getStyle().set("color", "var(--lumo-primary-color)").set("font-size", "1rem");
+                icon.getStyle().set("color", "#2563eb").set("font-size", "1rem");
                 subMenu.addItem(
                         new HorizontalLayout(icon, new com.vaadin.flow.component.html.Span(act.getActionLabel())),
                         e -> executeToolbarAction(act));

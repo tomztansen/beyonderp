@@ -238,6 +238,7 @@ vaadin-tabsheet::part(content) {
 
 vaadin-tabsheet [slot="tabs"] {
     background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
     padding: 8px 16px 0 16px;
 }
 
@@ -669,13 +670,4 @@ vaadin-text-area[disabled]::part(input-field) {
 vaadin-checkbox[disabled]::part(checkbox) {
     cursor: not-allowed !important;
     background-color: var(--lumo-contrast-10pct) !important;
-}
-/* Rapatkan TabSheet: padding bawaan di sekitar tab dan konten membuat jarak
-   kosong antara toolbar aksi dan grid. */
-vaadin-tabsheet::part(tabs-container) {
-    padding: 0;
-}
-
-vaadin-tabsheet::part(content) {
-    padding: 0;
 }
