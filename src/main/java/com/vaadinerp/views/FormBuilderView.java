@@ -552,14 +552,7 @@ public class FormBuilderView extends VerticalLayout {
             assignedActionsCombo.setItems(dynamicDataService.getFormActionMetaRepository().findAll());
         }
 
-        Button btnOpenActionBuilder = new com.vaadinerp.components.SafeButton(VaadinIcon.EXTERNAL_LINK.create());
-        btnOpenActionBuilder.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY);
-        btnOpenActionBuilder.setTooltipText("Buka Form Action Builder");
-        btnOpenActionBuilder.addClickListener(e -> {
-            com.vaadinerp.service.ActionContext ctx = new com.vaadinerp.service.ActionContext(null, null, null, this);
-            ctx.showMainTab("FORM_ACTION_BUILDER", "Form Action Builder", null, null);
-        });
-        HorizontalLayout actionComboLayout = new HorizontalLayout(assignedActionsCombo, btnOpenActionBuilder);
+        HorizontalLayout actionComboLayout = new HorizontalLayout(assignedActionsCombo);
         actionComboLayout.setAlignItems(Alignment.END);
         actionComboLayout.setWidthFull();
         actionComboLayout.setFlexGrow(1, assignedActionsCombo);
@@ -617,6 +610,14 @@ public class FormBuilderView extends VerticalLayout {
         viewTableField.setWidthFull();
         viewTableField.setMaxHeight("120px");
 
+        // FormLayout menaikkan label komponen ber-label ke atas seperti field lain,
+        // sehingga checkbox tampil dua baris. Dibungkus HorizontalLayout supaya
+        // labelnya kembali sejajar di samping kotaknya.
+        HorizontalLayout autoCreateLayout = new HorizontalLayout(autoCreateDbCheckbox);
+        autoCreateLayout.setAlignItems(Alignment.CENTER);
+        autoCreateLayout.setWidthFull();
+        autoCreateLayout.getStyle().set("margin-top", "10px");
+
         // labelWidthField dinaikkan ke baris pertama supaya keenam kolomnya terisi
         // field pendek semua. viewTableField berisi query panjang, jadi diberi baris
         // sendiri selebar penuh — kalau dicampur, tingginya menarik seluruh baris dan
@@ -624,10 +625,10 @@ public class FormBuilderView extends VerticalLayout {
         formMetaLayout.add(formCodeField, formTitleField, formTypeCombo, pkField, tableNameField, labelWidthField,
                 viewTableField,
                 defaultSortField, defaultSortDirection, actionComboLayout, detailTableNameField, detailPkField,
-                detailFkField, autoCreateDbCheckbox, actionButtonsLayout);
+                detailFkField, autoCreateLayout, actionButtonsLayout);
         formMetaLayout.setColspan(viewTableField, 6);
         formMetaLayout.setColspan(actionComboLayout, 2);
-        formMetaLayout.setColspan(autoCreateDbCheckbox, 2);
+        formMetaLayout.setColspan(autoCreateLayout, 2);
         formMetaLayout.setColspan(actionButtonsLayout, 6);
 
         formTypeCombo.setItems("SINGLE", "MASTER_DETAIL", "SCHEDULER_SPLIT");
