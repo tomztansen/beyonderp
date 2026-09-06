@@ -125,7 +125,6 @@ vaadin-grid {
 vaadin-grid::part(cell) {
     display: flex;
     align-items: center;
-    min-height: unset;
     padding-top: 0;
     padding-bottom: 0;
     /* user-select:none dihapus: user ERP sering butuh copy value cell
@@ -133,7 +132,6 @@ vaadin-grid::part(cell) {
 }
 
 vaadin-grid::part(header-cell) {
-    min-height: unset;
     padding-top: 4px;
     padding-bottom: 4px;
     font-size: 0.82rem;
@@ -141,7 +139,6 @@ vaadin-grid::part(header-cell) {
 }
 
 vaadin-grid::part(body-cell) {
-    min-height: unset;
     padding-top: 3px;
     padding-bottom: 3px;
 }
