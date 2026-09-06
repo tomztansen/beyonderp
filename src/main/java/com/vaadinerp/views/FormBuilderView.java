@@ -537,7 +537,8 @@ public class FormBuilderView extends VerticalLayout {
         formMetaLayout.setResponsiveSteps(
                 new FormLayout.ResponsiveStep("0", 1),
                 new FormLayout.ResponsiveStep("600px", 2),
-                new FormLayout.ResponsiveStep("1000px", 4));
+                new FormLayout.ResponsiveStep("1000px", 3),
+                new FormLayout.ResponsiveStep("1300px", 5));
         formMetaLayout.setWidthFull();
         pkField.setValue("id");
         labelWidthField.setValue("150px");
@@ -615,7 +616,7 @@ public class FormBuilderView extends VerticalLayout {
         autoCreateDbCheckbox.setLabel(null);
         Span autoCreateLabel = new Span("Auto-Generate / Sync Physical Table (DDL)");
         autoCreateLabel.getStyle().set("cursor", "pointer").set("user-select", "none")
-                .set("white-space", "nowrap");
+                .set("line-height", "1.2");
         autoCreateLabel.addClickListener(
                 ev -> autoCreateDbCheckbox.setValue(!Boolean.TRUE.equals(autoCreateDbCheckbox.getValue())));
 
@@ -630,14 +631,11 @@ public class FormBuilderView extends VerticalLayout {
         // selebar penuh — kalau dicampur, tingginya menarik seluruh baris dan
         // menyisakan ruang kosong besar di bawah field-field pendek.
         formMetaLayout.add(
-                formCodeField, formTitleField, formTypeCombo, pkField,
-                tableNameField, labelWidthField, defaultSortField, defaultSortDirection,
+                formCodeField, formTitleField, formTypeCombo, pkField, tableNameField,
+                labelWidthField, defaultSortField, defaultSortDirection, actionComboLayout, autoCreateLayout,
                 viewTableField,
-                actionComboLayout, autoCreateLayout,
                 detailTableNameField, detailPkField, detailFkField);
-        formMetaLayout.setColspan(viewTableField, 4);
-        formMetaLayout.setColspan(actionComboLayout, 2);
-        formMetaLayout.setColspan(autoCreateLayout, 2);
+        formMetaLayout.setColspan(viewTableField, 5);
 
         formTypeCombo.setItems("SINGLE", "MASTER_DETAIL", "SCHEDULER_SPLIT");
         formTypeCombo.setValue("SINGLE");
