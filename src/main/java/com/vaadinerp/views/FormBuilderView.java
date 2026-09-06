@@ -854,7 +854,11 @@ public class FormBuilderView extends VerticalLayout {
                 .set("background-color", "#f8fafc")
                 .set("padding", "0 15px")
                 .set("border", "1px solid #e2e8f0")
-                .set("border-radius", "8px");
+                .set("border-radius", "8px")
+                // setWidthFull() memberi width:100%; tanpa border-box, padding 15px kiri
+                // kanan plus border ditambahkan DI LUAR 100% itu, sehingga panel meluber
+                // ~32px dan kolom terakhir terpotong berapa pun jumlah kolomnya.
+                .set("box-sizing", "border-box");
 
         transaksiLayout.add(formMetaDetails, mainSplit);
         transaksiTab = tabSheet.add("Desain Form", transaksiLayout);
