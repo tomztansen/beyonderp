@@ -220,7 +220,7 @@ public class ProcedureDesignerView extends VerticalLayout {
             try {
                 String dropSql = "DROP " + routineType + " IF EXISTS \"" + schemaName + "\".\"" + procedureName + "\"(" + identityArgs + ")" + ("FUNCTION".equalsIgnoreCase(routineType) ? " CASCADE;" : ";");
                 dynamicDataService.executeProcedureScript(dropSql);
-                Notification.show("✅ " + routineType + " '" + procedureName + "' berhasil dihapus dari database!", 3000, Notification.Position.BOTTOM_END);
+                Notification.show("✅ " + routineType + " '" + procedureName + "' deleted from the database!", 3000, Notification.Position.BOTTOM_END);
                 dialog.close();
                 loadRoutines();
             } catch (Exception ex) {

@@ -62,7 +62,7 @@ public class ActuatorBasicAuthFilter extends OncePerRequestFilter {
             // Kredensial tidak ada atau salah: kirim 401 dan WWW-Authenticate agar browser memunculkan popup Basic Auth
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setHeader("WWW-Authenticate", "Basic realm=\"VaadinERP Actuator Security\"");
-            response.getWriter().write("401 Unauthorized - Kredensial Actuator Tidak Valid");
+            response.getWriter().write("401 Unauthorized - invalid Actuator credentials");
             return;
         }
 

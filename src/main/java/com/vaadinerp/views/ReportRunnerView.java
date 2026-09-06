@@ -194,7 +194,7 @@ public class ReportRunnerView extends VerticalLayout {
         Icon icon = VaadinIcon.BAR_CHART.create();
         icon.getStyle().set("width", "4rem").set("height", "4rem").set("opacity", "0.2")
                 .set("margin-bottom", "var(--lumo-space-m)");
-        Span title = new Span("Pilih laporan dari katalog");
+        Span title = new Span("Select a report from the catalog");
         title.getStyle().set("font-size", "var(--lumo-font-size-l)").set("font-weight", "500");
         Span hint = new Span("Output akan dibuka sebagai tab baru");
         hint.getStyle().set("font-size", "var(--lumo-font-size-s)");

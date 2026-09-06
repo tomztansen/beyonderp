@@ -509,7 +509,7 @@ public class VisualQueryBuilderView extends VerticalLayout {
     private void executeQuery() {
         String sql = sqlEditor.getValue();
         if (sql == null || sql.trim().isEmpty()) {
-            Notification.show("Silakan masukkan query SQL.", 3000, Notification.Position.MIDDLE);
+            Notification.show("Please enter an SQL query.", 3000, Notification.Position.MIDDLE);
             return;
         }
 

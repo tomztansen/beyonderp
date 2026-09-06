@@ -225,8 +225,8 @@ public class FormActionBuilderView extends VerticalLayout {
 
         ComboBox<String> snippetCombo = new ComboBox<>("⚡ Sisipkan Template Cepat");
         snippetCombo.setItems(
-                "1. Cek Pilihan (Hentikan jika tidak ada baris yang dipilih)",
-                "2. Dialog Konfirmasi + Eksekusi Stored Procedure",
+                "1. Check selection (stop when no row is selected)",
+                "2. Confirmation dialog + run stored procedure",
                 "3. Looping ID + Panggil Procedure + Buka Tab Baru",
                 "4. Tampilkan Notifikasi Sukses / Error",
                 "5. Debug Isi Header & Grid (msgBox)",
@@ -360,16 +360,16 @@ public class FormActionBuilderView extends VerticalLayout {
             return """
                     def selectedRows = getElementValue("grid1", true)
                     if (!selectedRows || selectedRows.isEmpty()) {
-                        showError("Warning", "Silakan pilih atau centang minimal satu baris data terlebih dahulu!")
+                        showError("Warning", "Please select at least one row first!")
                         return
                     }
                     """.stripIndent();
         } else if (snippetType.startsWith("2.")) {
             return """
-                    showYesNoDialog("Konfirmasi Eksekusi", "Apakah Anda yakin ingin melanjutkan proses pada data terpilih?", {
+                    showYesNoDialog("Confirm Execution", "Are you sure you want to continue with the selected records?", {
                         executeProcedure(3, { status ->
                             if (status) {
-                                showSuccess("Success", "Prosedur berhasil dijalankan di database!")
+                                showSuccess("Success", "Procedure executed successfully in the database!")
                             }
                         }, "{}", ctx.userId)
                     })
@@ -379,7 +379,7 @@ public class FormActionBuilderView extends VerticalLayout {
             return """
                     def selectedRows = getElementValue("grid1", true)
                     if (!selectedRows || selectedRows.isEmpty()) {
-                        showError("Warning", "Silakan pilih minimal 1 baris data!")
+                        showError("Warning", "Please select at least 1 row!")
                         return
                     }
                     def ids = []
@@ -397,7 +397,7 @@ public class FormActionBuilderView extends VerticalLayout {
                     """.stripIndent();
         } else if (snippetType.startsWith("4.")) {
             return """
-                    showSuccess("Pemberitahuan", "Aksi Groovy berhasil dijalankan tanpa kendala.")
+                    showSuccess("Pemberitahuan", "Groovy action ran successfully.")
                     """.stripIndent();
         } else if (snippetType.startsWith("5.")) {
             return """
@@ -464,8 +464,8 @@ public class FormActionBuilderView extends VerticalLayout {
 
         ComboBox<String> snippetComboModal = new ComboBox<>("⚡ Sisipkan Snippet");
         snippetComboModal.setItems(
-                "1. Cek Pilihan (Hentikan jika tidak ada baris yang dipilih)",
-                "2. Dialog Konfirmasi + Eksekusi Stored Procedure",
+                "1. Check selection (stop when no row is selected)",
+                "2. Confirmation dialog + run stored procedure",
                 "3. Looping ID + Panggil Procedure + Buka Tab Baru",
                 "4. Tampilkan Notifikasi Sukses / Error",
                 "5. Debug Isi Header & Grid (msgBox)",
@@ -591,7 +591,7 @@ public class FormActionBuilderView extends VerticalLayout {
                     scriptContentField.setValue(value);
                     dlg.close();
                     com.vaadin.flow.component.notification.Notification
-                            .show("✅ Script berhasil diterapkan!", 3000,
+                            .show("✅ Script applied successfully!", 3000,
                                     com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
                             .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
                 })
@@ -609,7 +609,7 @@ public class FormActionBuilderView extends VerticalLayout {
             if (statusArea != null) {
                 statusArea.getStyle().set("display", "block").set("background-color", "#fef3c7").set("color", "#92400e")
                         .set("border", "1px solid #f59e0b");
-                statusArea.setText("⚠️ Script masih kosong.");
+                statusArea.setText("⚠️ The script is still empty.");
             }
             return false;
         }
@@ -620,7 +620,7 @@ public class FormActionBuilderView extends VerticalLayout {
             if (statusArea != null) {
                 statusArea.getStyle().set("display", "block").set("background-color", "#dcfce7").set("color", "#166534")
                         .set("border", "1px solid #22c55e");
-                statusArea.setText("✅ Sintaks Groovy Valid! Tidak ada kesalahan penulisan atau struktur kode.");
+                statusArea.setText("✅ Groovy syntax is valid - no syntax or structural errors.");
             }
             return true;
         } catch (Exception e) {
@@ -642,7 +642,7 @@ public class FormActionBuilderView extends VerticalLayout {
     private void checkAndNotifyGroovySyntax(String scriptText) {
         if (scriptText == null || scriptText.isBlank()) {
             com.vaadin.flow.component.notification.Notification
-                    .show("⚠️ Script masih kosong.", 3000,
+                    .show("⚠️ The script is still empty.", 3000,
                             com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
                     .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_WARNING);
             return;
@@ -652,7 +652,7 @@ public class FormActionBuilderView extends VerticalLayout {
             cu.addSource("SyntaxCheck", scriptText);
             cu.compile(org.codehaus.groovy.control.Phases.SEMANTIC_ANALYSIS);
             com.vaadin.flow.component.notification.Notification
-                    .show("✅ Sintaks Groovy VALID! Tidak ada kesalahan struktur.", 4000,
+                    .show("✅ Groovy syntax is VALID - no structural errors.", 4000,
                             com.vaadin.flow.component.notification.Notification.Position.TOP_CENTER)
                     .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
         } catch (Exception e) {
@@ -901,7 +901,7 @@ public class FormActionBuilderView extends VerticalLayout {
         if (formCodeCombo.getValue() != null && !formCodeCombo.getValue().isBlank()) {
             targetForm = formRepository.findById(formCodeCombo.getValue()).orElse(null);
             if (targetForm == null) {
-                Notification.show("Form Code Target tidak ditemukan!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Target Form Code not found!", 3000, Notification.Position.MIDDLE);
                 return;
             }
         }
@@ -929,10 +929,10 @@ public class FormActionBuilderView extends VerticalLayout {
 
         try {
             actionRepository.save(currentAction);
-            Notification.show("Aksi berhasil disimpan!", 3000, Notification.Position.MIDDLE);
+            Notification.show("Action saved successfully!", 3000, Notification.Position.MIDDLE);
             refreshGrid();
         } catch (Exception ex) {
-            Notification.show("Gagal menyimpan: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+            Notification.show("Failed to save: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
         }
     }
 
@@ -1234,7 +1234,7 @@ public class FormActionBuilderView extends VerticalLayout {
             Notification.show("Silakan ubah Action Code / Label lalu tekan Save.", 4000, Notification.Position.MIDDLE);
             actionCodeField.focus();
         } else {
-            Notification.show("Pilih aksi yang ingin di-copy terlebih dahulu.", 3000, Notification.Position.MIDDLE);
+            Notification.show("Select the action you want to copy first.", 3000, Notification.Position.MIDDLE);
         }
     }
 }

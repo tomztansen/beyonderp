@@ -147,7 +147,7 @@ public class FormDebugUtils {
                 sb.append(it.getKey()).append(" = ").append(it.getValue()).append("\n");
             }
             copyAllBtn.getElement().executeJs("navigator.clipboard.writeText($0)", sb.toString());
-            Notification.show("📋 Semua data berhasil disalin ke clipboard!", 2000, Notification.Position.BOTTOM_END);
+            Notification.show("📋 All data copied to the clipboard!", 2000, Notification.Position.BOTTOM_END);
         });
 
         Button closeBtn = new com.vaadinerp.components.SafeButton("Close", e -> dialog.close());

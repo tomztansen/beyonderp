@@ -1091,7 +1091,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     }
                     String finalMsg = errMsgs.isEmpty() ? "Please review your form input."
                             : String.join(" | ", errMsgs);
-                    Notification n = Notification.show("⚠️ Gagal Menyimpan: " + finalMsg, 6000,
+                    Notification n = Notification.show("⚠️ Save failed: " + finalMsg, 6000,
                             Notification.Position.MIDDLE);
                     n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
                 }
@@ -3477,7 +3477,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         dialog.setHeaderTitle(titleText);
         dialog.add(new com.vaadin.flow.component.html.Paragraph(message));
 
-        Button btnConfirm = new com.vaadinerp.components.SafeButton("Ya, Hapus", event -> {
+        Button btnConfirm = new com.vaadinerp.components.SafeButton("Yes, Delete", event -> {
             confirmAction.run();
             dialog.close();
         });

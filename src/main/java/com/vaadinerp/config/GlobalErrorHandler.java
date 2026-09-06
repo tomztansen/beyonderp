@@ -60,7 +60,7 @@ public class GlobalErrorHandler implements VaadinServiceInitListener {
                     if (ui != null) {
                         ui.access(() -> {
                             Notification notification = Notification.show(
-                                    "⚠️ Terjadi Kesalahan: " + errMsg + ". Silakan coba lagi atau pilih menu lain.",
+                                    "⚠️ Terjadi Kesalahan: " + errMsg + ". Please try again or choose another menu.",
                                     5000,
                                     Notification.Position.TOP_CENTER
                             );
