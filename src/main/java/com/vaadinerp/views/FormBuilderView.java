@@ -557,7 +557,6 @@ public class FormBuilderView extends VerticalLayout {
         actionComboLayout.setWidthFull();
         actionComboLayout.setFlexGrow(1, assignedActionsCombo);
 
-        autoCreateDbCheckbox.getStyle().set("margin-top", "10px");
         autoCreateDbCheckbox.addValueChangeListener(e -> {
             boolean checked = Boolean.TRUE.equals(e.getValue());
             tableNameField.setRequiredIndicatorVisible(checked);
