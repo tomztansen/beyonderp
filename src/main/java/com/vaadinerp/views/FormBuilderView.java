@@ -536,8 +536,9 @@ public class FormBuilderView extends VerticalLayout {
         FormLayout formMetaLayout = new FormLayout();
         formMetaLayout.setResponsiveSteps(
                 new FormLayout.ResponsiveStep("0", 1),
-                new FormLayout.ResponsiveStep("600px", 3),
-                new FormLayout.ResponsiveStep("900px", 6));
+                new FormLayout.ResponsiveStep("600px", 2),
+                new FormLayout.ResponsiveStep("1000px", 3),
+                new FormLayout.ResponsiveStep("1400px", 6));
         formMetaLayout.setWidthFull();
         pkField.setValue("id");
         labelWidthField.setValue("150px");
@@ -609,13 +610,21 @@ public class FormBuilderView extends VerticalLayout {
         viewTableField.setWidthFull();
         viewTableField.setMaxHeight("120px");
 
-        // FormLayout menaikkan label komponen ber-label ke atas seperti field lain,
-        // sehingga checkbox tampil dua baris. Dibungkus HorizontalLayout supaya
-        // labelnya kembali sejajar di samping kotaknya.
-        HorizontalLayout autoCreateLayout = new HorizontalLayout(autoCreateDbCheckbox);
+        // FormLayout menaikkan label milik komponen ke baris label seperti field lain,
+        // sehingga checkbox tampil dua baris. Labelnya dilepas dan dipasang sebagai Span
+        // terpisah — pola yang sama dipakai toolbar grid GenericFormView.
+        autoCreateDbCheckbox.setLabel(null);
+        Span autoCreateLabel = new Span("Auto-Generate / Sync Physical Table (DDL)");
+        autoCreateLabel.getStyle().set("cursor", "pointer").set("user-select", "none")
+                .set("white-space", "nowrap");
+        autoCreateLabel.addClickListener(
+                ev -> autoCreateDbCheckbox.setValue(!Boolean.TRUE.equals(autoCreateDbCheckbox.getValue())));
+
+        HorizontalLayout autoCreateLayout = new HorizontalLayout(autoCreateDbCheckbox, autoCreateLabel);
         autoCreateLayout.setAlignItems(Alignment.CENTER);
+        autoCreateLayout.setSpacing(false);
         autoCreateLayout.setWidthFull();
-        autoCreateLayout.getStyle().set("margin-top", "10px");
+        autoCreateLayout.getStyle().set("gap", "6px").set("margin-top", "10px");
 
         // labelWidthField dinaikkan ke baris pertama supaya keenam kolomnya terisi
         // field pendek semua. viewTableField berisi query panjang, jadi diberi baris
