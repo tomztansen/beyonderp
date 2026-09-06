@@ -347,8 +347,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private void buildToolbar(FormMeta formDef) {
         toolbar.removeAll();
         toolbar.getStyle()
-                .set("border-bottom", "1px solid var(--lumo-contrast-10pct)")
-                .set("padding", "6px 0")
+                .set("background-color", "#f3f4f6")
+                .set("border", "1px solid #e5e7eb")
+                .set("border-radius", "6px")
+                .set("padding", "6px 12px")
                 .set("align-items", "center")
                 .set("gap", "15px");
 
@@ -1807,8 +1809,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         gridToolbar.removeAll();
         gridToolbar.setWidthFull();
         gridToolbar.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
-        gridToolbar.setJustifyContentMode(
-                com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode.END);
+
+        com.vaadin.flow.component.html.H4 sectionTitle = new com.vaadin.flow.component.html.H4("Riwayat Data");
+        sectionTitle.getStyle().set("margin", "0");
+        sectionTitle.getStyle().set("flex-grow", "1");
 
         Button btnResetGridToolbar = new com.vaadinerp.components.SafeButton("Reset Layout Grid",
                 VaadinIcon.ROTATE_LEFT.create());
@@ -1894,7 +1898,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         gridToolbar.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
         gridToolbar.getStyle().set("flex-wrap", "nowrap").set("overflow-x", "auto");
-        gridToolbar.add(boxHalIni, boxAll, btnExportExcel, btnResetGridToolbar);
+        gridToolbar.add(sectionTitle, boxHalIni, boxAll, btnExportExcel, btnResetGridToolbar);
 
         // Double Click Listener to load data into form and switch tab
         auth = securityService != null
