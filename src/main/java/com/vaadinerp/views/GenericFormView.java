@@ -52,7 +52,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private final HorizontalLayout extraActionsContainer = new HorizontalLayout();
     private HorizontalLayout gridToolbar;
     private H3 title;
-    /** Penanda mode entri (New/Edit) di ujung kanan toolbar. */
+    /** True saat record dibuka lewat tombol View (semua field readonly). */
+    private boolean viewMode = false;
+    /** Penanda mode entri (New/Edit/View) di ujung kanan toolbar. */
     private final com.vaadin.flow.component.html.Span modeBadge = new com.vaadin.flow.component.html.Span();
 
     private TabSheet tabSheet;
@@ -307,14 +309,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     refreshGridData(currentFormDef);
                     resetToolbarButtonsToInitialState();
                 }
-                boolean isUpdate = false;
-                Map<String, Object> bean = formBinder != null ? formBinder.getBean() : null;
-                String pk = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey() : "id";
-                if (bean != null && bean.containsKey(pk) && bean.get(pk) != null
-                        && !bean.get(pk).toString().trim().isEmpty()) {
-                    isUpdate = true;
-                }
-                updateTitle(currentFormDef, isUpdate);
+                refreshMode();
             }
         });
 
@@ -366,6 +361,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnNew.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
         btnNew.getStyle().set("font-weight", "500").set("color", "#374151");
         btnNew.addClickListener(e -> {
+            viewMode = false;
             formBinder.setBean(new HashMap<>());
             clearAllComponents();
             setAllFieldsReadOnly(false); // Reset forced read-only
@@ -376,6 +372,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 btnEdit.setVisible(auth.canEdit);
             }
             tabSheet.setSelectedTab(transaksiTab);
+            refreshMode();
             executeOnLoadActions("ON_LOAD_NEW");
         });
 
@@ -588,6 +585,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     }
 
                     Notification.show("Data successfully saved!", 3000, Notification.Position.TOP_CENTER);
+                    refreshMode();
 
                     formBinder.setBean(new HashMap<>());
                     clearAllComponents();
@@ -680,6 +678,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 if (tabSheet.getSelectedTab() == historisTab) {
                     refreshGridData(formDef);
                     Notification.show("Data successfully updated!", 1500, Notification.Position.BOTTOM_END);
+                    refreshMode();
                 } else {
                     Map<String, Object> bean = formBinder.getBean();
                     String pk = formDef.getPrimaryKey() != null ? formDef.getPrimaryKey() : "id";
@@ -815,7 +814,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             }
             loadSubformGridData(formValues);
             evaluateFormulas();
+            viewMode = false;
             tabSheet.setSelectedTab(transaksiTab);
+            refreshMode();
             executeOnLoadActions("ON_LOAD_EDIT");
         }
     }
@@ -861,7 +862,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             }
             loadSubformGridData(formValues);
             evaluateFormulas();
+            viewMode = true;
             tabSheet.setSelectedTab(transaksiTab);
+            refreshMode();
             executeOnLoadActions("ON_LOAD_VIEW");
         }
     }
@@ -2937,14 +2940,32 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         return -1;
     }
 
+    /**
+     * Segarkan judul dan badge mode dari isi bean saat ini. Dipanggil dari setiap
+     * transisi mode, bukan hanya dari perubahan tab — menekan New saat sudah berada
+     * di tab entri tidak memicu event tab, sehingga badge dulu tertinggal di nilai
+     * lama.
+     */
+    private void refreshMode() {
+        if (currentFormDef == null)
+            return;
+        Map<String, Object> bean = formBinder != null ? formBinder.getBean() : null;
+        String pk = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey() : "id";
+        boolean isUpdate = bean != null && bean.get(pk) != null
+                && !bean.get(pk).toString().trim().isEmpty();
+        updateTitle(currentFormDef, isUpdate);
+    }
+
     private void updateTitle(FormMeta formDef, boolean isUpdate) {
         if (formDef == null)
             return;
         String baseTitle = formDef.getFormTitle() != null ? formDef.getFormTitle() : "Form: " + formDef.getFormCode();
         if (tabSheet.getSelectedTab() == transaksiTab) {
-            title.setText(baseTitle + (isUpdate ? " - [Mode: Edit]" : " - [Mode: New]"));
-            modeBadge.setText(isUpdate ? "Edit" : "New");
-            modeBadge.getElement().setAttribute("theme", isUpdate ? "badge contrast" : "badge success");
+            String mode = viewMode ? "View" : (isUpdate ? "Edit" : "New");
+            String badgeTheme = viewMode ? "badge" : (isUpdate ? "badge contrast" : "badge success");
+            title.setText(baseTitle + " - [Mode: " + mode + "]");
+            modeBadge.setText(mode);
+            modeBadge.getElement().setAttribute("theme", badgeTheme);
             modeBadge.setVisible(true);
         } else {
             title.setText(baseTitle);
