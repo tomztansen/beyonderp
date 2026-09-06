@@ -537,8 +537,7 @@ public class FormBuilderView extends VerticalLayout {
         formMetaLayout.setResponsiveSteps(
                 new FormLayout.ResponsiveStep("0", 1),
                 new FormLayout.ResponsiveStep("600px", 2),
-                new FormLayout.ResponsiveStep("1000px", 3),
-                new FormLayout.ResponsiveStep("1400px", 6));
+                new FormLayout.ResponsiveStep("1000px", 4));
         formMetaLayout.setWidthFull();
         pkField.setValue("id");
         labelWidthField.setValue("150px");
@@ -626,18 +625,21 @@ public class FormBuilderView extends VerticalLayout {
         autoCreateLayout.setWidthFull();
         autoCreateLayout.getStyle().set("gap", "6px").set("margin-top", "10px");
 
-        // labelWidthField dinaikkan ke baris pertama supaya keenam kolomnya terisi
-        // field pendek semua. viewTableField berisi query panjang, jadi diberi baris
-        // sendiri selebar penuh — kalau dicampur, tingginya menarik seluruh baris dan
+        // Empat field pendek per baris; urutannya disusun supaya tiap baris terisi
+        // penuh. viewTableField berisi query panjang sehingga diberi baris sendiri
+        // selebar penuh — kalau dicampur, tingginya menarik seluruh baris dan
         // menyisakan ruang kosong besar di bawah field-field pendek.
-        formMetaLayout.add(formCodeField, formTitleField, formTypeCombo, pkField, tableNameField, labelWidthField,
+        formMetaLayout.add(
+                formCodeField, formTitleField, formTypeCombo, pkField,
+                tableNameField, labelWidthField, defaultSortField, defaultSortDirection,
                 viewTableField,
-                defaultSortField, defaultSortDirection, actionComboLayout, detailTableNameField, detailPkField,
-                detailFkField, autoCreateLayout, actionButtonsLayout);
-        formMetaLayout.setColspan(viewTableField, 6);
+                actionComboLayout, autoCreateLayout,
+                detailTableNameField, detailPkField, detailFkField,
+                actionButtonsLayout);
+        formMetaLayout.setColspan(viewTableField, 4);
         formMetaLayout.setColspan(actionComboLayout, 2);
         formMetaLayout.setColspan(autoCreateLayout, 2);
-        formMetaLayout.setColspan(actionButtonsLayout, 6);
+        formMetaLayout.setColspan(actionButtonsLayout, 4);
 
         formTypeCombo.setItems("SINGLE", "MASTER_DETAIL", "SCHEDULER_SPLIT");
         formTypeCombo.setValue("SINGLE");
