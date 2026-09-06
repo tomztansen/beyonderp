@@ -96,12 +96,22 @@ public class CodeEditorField extends Div {
                                         var h = el.clientHeight;
                                         cm.setSize('100%', h > 50 ? h : 400);
                                         cm.refresh();
-                                        // Buka selalu dari baris pertama, bukan posisi
-                                        // terakhir yang dihitung CodeMirror.
-                                        cm.setCursor({line: 0, ch: 0});
-                                        cm.scrollTo(0, 0);
+                                        placeCursor(cm);
                                     });
                                 });
+                            }
+                            // Fokuskan editor begitu terbuka supaya user tidak perlu klik
+                            // dulu. Script kosong mulai di baris pertama; script yang sudah
+                            // ada dilanjutkan dari akhir, tempat orang biasanya menambah kode.
+                            function placeCursor(cm) {
+                                if (cm.getValue().trim() === '') {
+                                    cm.setCursor({line: 0, ch: 0});
+                                } else {
+                                    var last = cm.lastLine();
+                                    cm.setCursor({line: last, ch: cm.getLine(last).length});
+                                }
+                                if (!cm.getOption('readOnly')) cm.focus();
+                                cm.scrollIntoView(null);
                             }
                             function loadScript(src, cb) {
                                 var existing = document.querySelector('script[src="' + src + '"]');
@@ -166,8 +176,14 @@ public class CodeEditorField extends Div {
                         if (window[$0]) {
                             var cm = window[$0];
                             cm.setValue($1);
-                            cm.setCursor({line: 0, ch: 0});
-                            cm.scrollTo(0, 0);
+                            if (cm.getValue().trim() === '') {
+                                cm.setCursor({line: 0, ch: 0});
+                            } else {
+                                var last = cm.lastLine();
+                                cm.setCursor({line: last, ch: cm.getLine(last).length});
+                            }
+                            if (!cm.getOption('readOnly')) cm.focus();
+                            cm.scrollIntoView(null);
                         }
                         """,
                 cmVar, pendingValue));
