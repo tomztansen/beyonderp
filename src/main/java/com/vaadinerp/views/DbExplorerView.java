@@ -545,13 +545,13 @@ public class DbExplorerView extends VerticalLayout {
     private void loadTableSchema(String tableName) {
         // Load Column Details
         currentSchemaList = dynamicDataService.fetchTableSchemaDetails(tableName);
-        schemaInfo.setText("Menampilkan " + currentSchemaList.size() + " definisi kolom untuk dynamic." + tableName);
+        schemaInfo.setText("Menampilkan " + currentSchemaList.size() + " column definitions for dynamic." + tableName);
         refreshSchemaGrid();
 
         // Load Constraints
         currentConstraintList = dynamicDataService.fetchTableConstraints(tableName);
         if (currentConstraintList.isEmpty()) {
-            constraintInfo.setText("Tidak ada database constraint aktif pada tabel dynamic." + tableName);
+            constraintInfo.setText("No active database constraints on table dynamic." + tableName);
         } else {
             constraintInfo.setText("Menampilkan " + currentConstraintList.size()
                     + " constraint aktif pada tabel dynamic." + tableName);
@@ -561,7 +561,7 @@ public class DbExplorerView extends VerticalLayout {
         // Load Triggers
         currentTriggerList = dynamicDataService.fetchTableTriggers(tableName);
         if (currentTriggerList.isEmpty()) {
-            triggerInfo.setText("Tidak ada database trigger aktif pada tabel dynamic." + tableName);
+            triggerInfo.setText("No active database triggers on table dynamic." + tableName);
         } else {
             triggerInfo.setText(
                     "Menampilkan " + currentTriggerList.size() + " trigger aktif pada tabel dynamic." + tableName);
@@ -576,7 +576,7 @@ public class DbExplorerView extends VerticalLayout {
 
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(isEdit ? "Edit Constraint: dynamic." + this.currentTable
-                : "Tambah Constraint Baru: dynamic." + this.currentTable);
+                : "New Constraint: dynamic." + this.currentTable);
         dialog.setWidth("500px");
 
         VerticalLayout layout = new VerticalLayout();
@@ -600,7 +600,7 @@ public class DbExplorerView extends VerticalLayout {
         ComboBox<String> refTableField = new ComboBox<>("Tabel Referensi (Target FK)");
         refTableField.setItems(dynamicDataService.fetchDynamicTables());
 
-        ComboBox<String> refColField = new ComboBox<>("Kolom Referensi (Target FK)");
+        ComboBox<String> refColField = new ComboBox<>("Referenced Column (FK target)");
 
         TextField checkExprField = new TextField("Check Expression (SQL)");
         checkExprField.setPlaceholder("e.g. salary_amount > 0");
@@ -693,7 +693,7 @@ public class DbExplorerView extends VerticalLayout {
             String expr = checkExprField.getValue().trim();
 
             if (name.isEmpty()) {
-                Notification.show("Nama constraint tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Constraint name cannot be empty!", 3000, Notification.Position.MIDDLE);
                 return;
             }
 
@@ -723,7 +723,7 @@ public class DbExplorerView extends VerticalLayout {
                 updatePendingUI();
                 dialog.close();
             } catch (Exception ex) {
-                Notification.show("Gagal menambahkan ke draf: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
+                Notification.show("Failed to add to the draft: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
             }
         });
 
@@ -745,7 +745,7 @@ public class DbExplorerView extends VerticalLayout {
                     Notification.Position.BOTTOM_END);
             updatePendingUI();
         } catch (Exception ex) {
-            Notification.show("Gagal menambahkan ke draf: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
+            Notification.show("Failed to add to the draft: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
         }
     }
 
@@ -754,7 +754,7 @@ public class DbExplorerView extends VerticalLayout {
             return;
         boolean isEdit = existingRow != null;
         String trgTitle = isEdit ? "Edit Trigger: dynamic." + this.currentTable
-                : "Tambah Trigger Baru: dynamic." + this.currentTable;
+                : "New Trigger: dynamic." + this.currentTable;
 
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(trgTitle);
@@ -813,7 +813,7 @@ public class DbExplorerView extends VerticalLayout {
 
         layout.add(form, bodyField);
 
-        Button btnApply = new com.vaadinerp.components.SafeButton("Simpan Trigger", VaadinIcon.CHECK.create());
+        Button btnApply = new com.vaadinerp.components.SafeButton("Save Trigger", VaadinIcon.CHECK.create());
         btnApply.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnApply.addClickListener(e -> {
             String name = nameField.getValue().trim();
@@ -822,7 +822,7 @@ public class DbExplorerView extends VerticalLayout {
             String body = bodyField.getValue().trim();
 
             if (name.isEmpty() || evs == null || evs.isEmpty() || body.isEmpty()) {
-                Notification.show("Nama trigger, Event, dan Body tidak boleh kosong!", 3000,
+                Notification.show("Trigger name, event and body cannot be empty!", 3000,
                         Notification.Position.MIDDLE);
                 return;
             }
@@ -854,7 +854,7 @@ public class DbExplorerView extends VerticalLayout {
                 updatePendingUI();
                 dialog.close();
             } catch (Exception ex) {
-                Notification.show("Gagal menambahkan ke draf: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
+                Notification.show("Failed to add to the draft: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
             }
         });
 
@@ -875,7 +875,7 @@ public class DbExplorerView extends VerticalLayout {
                     Notification.Position.BOTTOM_END);
             updatePendingUI();
         } catch (Exception ex) {
-            Notification.show("Gagal menambahkan ke draf: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
+            Notification.show("Failed to add to the draft: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
         }
     }
 
@@ -883,8 +883,8 @@ public class DbExplorerView extends VerticalLayout {
         if (this.currentTable == null)
             return;
         boolean isEdit = existingRow != null;
-        String colTitle = isEdit ? "Edit Kolom: dynamic." + this.currentTable
-                : "Tambah Kolom Baru: dynamic." + this.currentTable;
+        String colTitle = isEdit ? "Edit Column: dynamic." + this.currentTable
+                : "New Column: dynamic." + this.currentTable;
 
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(colTitle);
@@ -909,10 +909,10 @@ public class DbExplorerView extends VerticalLayout {
         lengthField.setHelperText(
                 "Isi angka untuk memperbarui batas panjang karakter (misal: 150 -> menjadi VARCHAR(150))");
 
-        Checkbox nullableField = new Checkbox("Nullable (Bolehkah Kosong?)");
+        Checkbox nullableField = new Checkbox("Nullable");
         nullableField.setValue(true);
 
-        TextField defaultField = new TextField("Default Value (Kosongkan jika tidak ada)");
+        TextField defaultField = new TextField("Default Value (leave blank if none)");
         defaultField.setPlaceholder("e.g. '0' or 'Not set'");
 
         if (isEdit && existingRow != null) {
@@ -949,7 +949,7 @@ public class DbExplorerView extends VerticalLayout {
 
         if (!isEdit) {
             Button btnQuickAudit = new com.vaadinerp.components.SafeButton(
-                    "⚡ Langsung Tambah Semua Kolom Audit Default (inputby, inputdt, updateby, updatedt)",
+                    "⚡ Add all default audit columns (inputby, inputdt, updateby, updatedt)",
                     VaadinIcon.TIME_FORWARD.create());
             btnQuickAudit.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_SMALL);
             btnQuickAudit.setWidthFull();
@@ -960,14 +960,14 @@ public class DbExplorerView extends VerticalLayout {
                     loadTableSchema(this.currentTable);
                     loadTableData(this.currentTable);
                     dialog.close();
-                    Notification.show("Kolom audit default berhasil ditambahkan ke tabel '" + this.currentTable + "'!",
+                    Notification.show("Default audit columns added to table '" + this.currentTable + "'!",
                             3500, Notification.Position.BOTTOM_END);
                 }
             });
             layout.add(new Hr(), btnQuickAudit);
         }
 
-        Button btnApply = new com.vaadinerp.components.SafeButton("Simpan Kolom", VaadinIcon.CHECK.create());
+        Button btnApply = new com.vaadinerp.components.SafeButton("Save Column", VaadinIcon.CHECK.create());
         btnApply.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnApply.addClickListener(e -> {
             String name = nameField.getValue().trim();
@@ -976,7 +976,7 @@ public class DbExplorerView extends VerticalLayout {
             String defVal = defaultField.getValue().trim();
 
             if (name.isEmpty() || type == null || type.isEmpty()) {
-                Notification.show("Nama kolom dan Tipe Data tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Column name and data type cannot be empty!", 3000, Notification.Position.MIDDLE);
                 return;
             }
 
@@ -1003,12 +1003,12 @@ public class DbExplorerView extends VerticalLayout {
                             : "";
                     pendingChanges.add(
                             new PendingSchemaAction(SchemaActionType.EDIT_COLUMN, this.currentTable, oldCol, payload));
-                    Notification.show("Perubahan kolom " + name + " ditambahkan ke draf.", 2000,
+                    Notification.show("Alter column " + name + " ditambahkan ke draf.", 2000,
                             Notification.Position.BOTTOM_END);
                 } else {
                     pendingChanges.add(
                             new PendingSchemaAction(SchemaActionType.ADD_COLUMN, this.currentTable, name, payload));
-                    Notification.show("Penambahan kolom " + name + " ditambahkan ke draf.", 2000,
+                    Notification.show("Add column " + name + " ditambahkan ke draf.", 2000,
                             Notification.Position.BOTTOM_END);
                 }
                 updatePendingUI();
@@ -1019,7 +1019,7 @@ public class DbExplorerView extends VerticalLayout {
                     cause = cause.getCause();
                 }
                 String msg = cause.getMessage() != null ? cause.getMessage() : ex.getMessage();
-                Notification.show("Gagal menambahkan ke draf: " + msg, 5000, Notification.Position.MIDDLE);
+                Notification.show("Failed to add to the draft: " + msg, 5000, Notification.Position.MIDDLE);
             }
         });
 
@@ -1036,11 +1036,11 @@ public class DbExplorerView extends VerticalLayout {
         try {
             pendingChanges
                     .add(new PendingSchemaAction(SchemaActionType.DROP_COLUMN, this.currentTable, columnName, null));
-            Notification.show("Penghapusan kolom " + columnName + " ditambahkan ke draf.", 2000,
+            Notification.show("Drop column " + columnName + " ditambahkan ke draf.", 2000,
                     Notification.Position.BOTTOM_END);
             updatePendingUI();
         } catch (Exception ex) {
-            Notification.show("Gagal menambahkan ke draf: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
+            Notification.show("Failed to add to the draft: " + ex.getMessage(), 4000, Notification.Position.MIDDLE);
         }
     }
 
@@ -1075,10 +1075,10 @@ public class DbExplorerView extends VerticalLayout {
             triggerFilterRefresher.run();
         else
             triggersGrid.setItems(new ArrayList<>());
-        recordCount.setText("Pilih tabel untuk melihat data");
-        schemaInfo.setText("Pilih tabel untuk melihat struktur kolom");
+        recordCount.setText("Select a table to view its data");
+        schemaInfo.setText("Select a table to view its column structure");
         triggerInfo.setText("No triggers registered yet");
-        constraintInfo.setText("Belum ada constraint terdaftar");
+        constraintInfo.setText("No constraints registered yet");
     }
 
     private void refreshSchemaGrid() {
@@ -1123,7 +1123,7 @@ public class DbExplorerView extends VerticalLayout {
                 String colName = row.get("column_name") != null ? row.get("column_name").toString() : "";
                 Button btnEdit = new com.vaadinerp.components.SafeButton(VaadinIcon.EDIT.create());
                 btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
-                btnEdit.setTooltipText("Edit Kolom & Panjang Karakter");
+                btnEdit.setTooltipText("Edit Column & Length");
                 btnEdit.addClickListener(e -> openColumnDialog(row));
 
                 Button btnDel = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create());
@@ -1151,7 +1151,7 @@ public class DbExplorerView extends VerticalLayout {
                 }
                 try {
                     dynamicDataService.saveUserGridOrder("DB_EXPLORER", "schemaGrid", orderedFieldNames);
-                    Notification.show("Urutan kolom skema disimpan", 1500, Notification.Position.BOTTOM_END);
+                    Notification.show("Schema column order saved", 1500, Notification.Position.BOTTOM_END);
                 } catch (Exception ex) {
                     Notification.show("Failed to save column order: " + ex.getMessage(), 3000,
                             Notification.Position.MIDDLE);
@@ -1228,7 +1228,7 @@ public class DbExplorerView extends VerticalLayout {
                 }
                 try {
                     dynamicDataService.saveUserGridOrder("DB_EXPLORER", "triggersGrid", orderedFieldNames);
-                    Notification.show("Urutan kolom trigger disimpan", 1500, Notification.Position.BOTTOM_END);
+                    Notification.show("Trigger column order saved", 1500, Notification.Position.BOTTOM_END);
                 } catch (Exception ex) {
                     Notification.show("Failed to save column order: " + ex.getMessage(), 3000,
                             Notification.Position.MIDDLE);
@@ -1297,7 +1297,7 @@ public class DbExplorerView extends VerticalLayout {
 
                 Button btnDel = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create());
                 btnDel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
-                btnDel.setTooltipText("Hapus Constraint");
+                btnDel.setTooltipText("Delete Constraint");
                 btnDel.setEnabled(!isPk);
                 btnDel.addClickListener(e -> dropConstraint(name));
 
@@ -1321,7 +1321,7 @@ public class DbExplorerView extends VerticalLayout {
                 }
                 try {
                     dynamicDataService.saveUserGridOrder("DB_EXPLORER", "constraintsGrid", orderedFieldNames);
-                    Notification.show("Urutan kolom constraint disimpan", 1500, Notification.Position.BOTTOM_END);
+                    Notification.show("Constraint column order saved", 1500, Notification.Position.BOTTOM_END);
                 } catch (Exception ex) {
                     Notification.show("Failed to save column order: " + ex.getMessage(), 3000,
                             Notification.Position.MIDDLE);
@@ -1345,7 +1345,7 @@ public class DbExplorerView extends VerticalLayout {
         btnCommitChanges.setVisible(hasPending);
         btnDiscardChanges.setVisible(hasPending);
         if (hasPending) {
-            pendingStatusInfo.setText(pendingChanges.size() + " perubahan tertunda (belum disimpan ke DB)");
+            pendingStatusInfo.setText(pendingChanges.size() + " pending change(s) not yet saved to the database");
         } else {
             pendingStatusInfo.setText("");
         }
@@ -1424,7 +1424,7 @@ public class DbExplorerView extends VerticalLayout {
             }
             pendingChanges.clear();
             updatePendingUI();
-            Notification.show("Semua perubahan berhasil disimpan ke database!", 3000, Notification.Position.TOP_CENTER);
+            Notification.show("All changes saved to the database!", 3000, Notification.Position.TOP_CENTER);
             if (this.currentTable != null) {
                 loadTableData(this.currentTable);
                 loadTableSchema(this.currentTable);
@@ -1437,7 +1437,7 @@ public class DbExplorerView extends VerticalLayout {
                 cause = cause.getCause();
                 seen.add(cause);
             }
-            Notification.show("Gagal menyimpan ke database: " + cause.getMessage(), 5000, Notification.Position.MIDDLE);
+            Notification.show("Failed to save to the database: " + cause.getMessage(), 5000, Notification.Position.MIDDLE);
         }
     }
 

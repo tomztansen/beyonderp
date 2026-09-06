@@ -146,7 +146,7 @@ public class PgCronDesignerView extends VerticalLayout {
     private void loadJobs() {
         allJobsList = dynamicDataService.fetchPgCronJobs();
         if (allJobsList.isEmpty() && pendingChanges.isEmpty()) {
-            Notification.show("Tidak ada data pg_cron atau ekstensi pg_cron belum diinstal di server.", 4000,
+            Notification.show("No pg_cron data, or the pg_cron extension is not installed on the server.", 4000,
                     Notification.Position.BOTTOM_END);
         }
         refreshGrid();
@@ -265,7 +265,7 @@ public class PgCronDesignerView extends VerticalLayout {
             String cmd = commandArea.getValue().trim();
 
             if (jName.isEmpty() || cmd.isEmpty()) {
-                Notification.show("Nama Job dan Command tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Job name and command cannot be empty!", 3000, Notification.Position.MIDDLE);
                 return;
             }
 
@@ -319,18 +319,18 @@ public class PgCronDesignerView extends VerticalLayout {
             return;
 
         Dialog confirm = new Dialog();
-        confirm.setHeaderTitle("Konfirmasi Sync Now");
-        confirm.add(new Span("Anda akan mengeksekusi perintah berikut saat ini juga:"));
+        confirm.setHeaderTitle("Confirm Sync Now");
+        confirm.add(new Span("You are about to run the following command right now:"));
         confirm.add(new com.vaadin.flow.component.html.Pre(cmd));
 
         Button btnYes = new com.vaadinerp.components.SafeButton("Jalankan Sekarang", VaadinIcon.PLAY.create(), e -> {
             try {
                 dynamicDataService.executeProcedureScript(cmd);
-                Notification.show("✅ Command berhasil dieksekusi secara instan!", 3000,
+                Notification.show("✅ Command executed successfully!", 3000,
                         Notification.Position.BOTTOM_END);
                 confirm.close();
             } catch (Exception ex) {
-                Notification.show("❌ Gagal mengeksekusi command: " + ex.getMessage(), 5000,
+                Notification.show("❌ Failed to execute the command: " + ex.getMessage(), 5000,
                         Notification.Position.MIDDLE);
             }
         });
@@ -349,7 +349,7 @@ public class PgCronDesignerView extends VerticalLayout {
         } else {
             btnCommitChanges.setVisible(true);
             btnDiscardChanges.setVisible(true);
-            pendingStatusInfo.setText(pendingChanges.size() + " perubahan DRAFT belum disimpan!");
+            pendingStatusInfo.setText(pendingChanges.size() + " draft change(s) not yet saved!");
         }
     }
 
@@ -366,7 +366,7 @@ public class PgCronDesignerView extends VerticalLayout {
                     dynamicDataService.schedulePgCronJob(action.jobName, action.schedule, action.command);
                 }
             }
-            Notification.show("✅ Semua perubahan penjadwalan berhasil disimpan ke database!", 3000,
+            Notification.show("✅ All schedule changes saved to the database!", 3000,
                     Notification.Position.BOTTOM_END);
             pendingChanges.clear();
             loadJobs();
