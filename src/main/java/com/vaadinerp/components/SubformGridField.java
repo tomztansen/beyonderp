@@ -202,7 +202,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         // editorComponents.clear();
         // filterValues.clear();
         // buildGridColumns();
-        // Notification.show("Layout grid subform dikembalikan ke default!", 2000,
+        // Notification.show("Subform grid layout reset to default!", 2000,
         // Notification.Position.BOTTOM_END);
         // }
         // });
@@ -225,7 +225,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 editorComponents.clear();
                 filterValues.clear();
                 buildGridColumns();
-                Notification.show("Layout grid subform dikembalikan ke default!", 2000,
+                Notification.show("Subform grid layout reset to default!", 2000,
                         Notification.Position.BOTTOM_END);
             }
         });
@@ -616,7 +616,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 grid.deselectAll();
                 updateValue();
             } else {
-                Notification.show("Pilih baris rincian terlebih dahulu.", 3000, Notification.Position.MIDDLE);
+                Notification.show("Please select a detail row first.", 3000, Notification.Position.MIDDLE);
             }
         });
     }
@@ -1130,7 +1130,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     col.setFrozen(nextFrozen);
                     event.getSource().setText(nextFrozen ? "Unfreeze Column" : "Freeze Column");
                     com.vaadin.flow.component.notification.Notification.show(
-                            nextFrozen ? "Kolom dibekukan" : "Kolom dilepas", 2000,
+                            nextFrozen ? "Column frozen" : "Column unfrozen", 2000,
                             com.vaadin.flow.component.notification.Notification.Position.BOTTOM_END);
                 });
 
@@ -1202,9 +1202,9 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
             try {
                 dataService.saveUserGridOrder(childFormDef.getFormCode(), "subformGrid", orderedFieldNames);
-                Notification.show("Urutan kolom detail disimpan", 1500, Notification.Position.BOTTOM_END);
+                Notification.show("Detail column order saved", 1500, Notification.Position.BOTTOM_END);
             } catch (Exception ex) {
-                Notification.show("Gagal menyimpan urutan kolom: " + ex.getMessage(), 3000,
+                Notification.show("Failed to save column order: " + ex.getMessage(), 3000,
                         Notification.Position.MIDDLE);
             }
         });
