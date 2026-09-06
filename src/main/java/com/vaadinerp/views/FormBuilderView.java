@@ -610,17 +610,25 @@ public class FormBuilderView extends VerticalLayout {
         HorizontalLayout actionButtonsLayout = new HorizontalLayout(btnAutoGenerateFields, btnRelayoutCanvas,
                 btnConfigScheduler, btnFormScripts);
         actionButtonsLayout.setSpacing(true);
-        actionButtonsLayout.getStyle().set("margin-top", "10px");
+        actionButtonsLayout.setWidthFull();
+        // Empat tombol lebar tidak muat dalam 2 kolom; tanpa wrap ujungnya terpotong.
+        actionButtonsLayout.getStyle().set("margin-top", "10px").set("flex-wrap", "wrap");
 
+        viewTableField.setWidthFull();
         viewTableField.setMaxHeight("120px");
 
-        formMetaLayout.add(formCodeField, formTitleField, formTypeCombo, pkField, tableNameField, viewTableField,
-                labelWidthField,
+        // labelWidthField dinaikkan ke baris pertama supaya keenam kolomnya terisi
+        // field pendek semua. viewTableField berisi query panjang, jadi diberi baris
+        // sendiri selebar penuh — kalau dicampur, tingginya menarik seluruh baris dan
+        // menyisakan ruang kosong besar di bawah field-field pendek.
+        formMetaLayout.add(formCodeField, formTitleField, formTypeCombo, pkField, tableNameField, labelWidthField,
+                viewTableField,
                 defaultSortField, defaultSortDirection, actionComboLayout, detailTableNameField, detailPkField,
                 detailFkField, autoCreateDbCheckbox, actionButtonsLayout);
+        formMetaLayout.setColspan(viewTableField, 6);
         formMetaLayout.setColspan(actionComboLayout, 2);
         formMetaLayout.setColspan(autoCreateDbCheckbox, 2);
-        formMetaLayout.setColspan(actionButtonsLayout, 2);
+        formMetaLayout.setColspan(actionButtonsLayout, 6);
 
         formTypeCombo.setItems("SINGLE", "MASTER_DETAIL", "SCHEDULER_SPLIT");
         formTypeCombo.setValue("SINGLE");
