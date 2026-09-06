@@ -248,7 +248,7 @@ public class DynamicDataService {
             return true;
         } catch (Exception ex) {
             log.error("Gagal melakukan restore dari audit log ID {}: {}", auditId, ex.getMessage(), ex);
-            throw new RuntimeException("Gagal restore data: " + ex.getMessage(), ex);
+            throw new RuntimeException("Failed to restore data: " + ex.getMessage(), ex);
         }
     }
 
@@ -536,13 +536,13 @@ public class DynamicDataService {
             trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
         }
         if (trimmed.contains(";")) {
-            throw new SecurityException("Akses ditolak: Multi-statement / stacked query tidak diizinkan!");
+            throw new SecurityException("Access denied: multi-statement / stacked queries are not allowed!");
         }
 
         // 3. Tolak SQL comment injection (-- dan /* */)
         if (trimmed.contains("--") || trimmed.contains("/*")) {
             throw new SecurityException(
-                    "Akses ditolak: Komentar SQL (-- atau /* */) tidak diizinkan dalam query dinamis!");
+                    "Access denied: SQL comments (-- or /* */) are not allowed in dynamic queries!");
         }
 
         // 4. Blacklist kata kunci DML/DDL dan tabel sistem internal
@@ -577,7 +577,7 @@ public class DynamicDataService {
         if (lower.contains("$$ ") || lower.contains("$$;") || lower.contains("$body$")
                 || lower.contains("$func$") || lower.contains("$tag$")) {
             throw new SecurityException(
-                    "Akses ditolak: Trigger body mengandung dollar-quote escape yang tidak diizinkan!");
+                    "Access denied: the trigger body contains a disallowed dollar-quote escape!");
         }
 
         // Blacklist perintah DDL/sistem berbahaya dalam trigger body
@@ -619,7 +619,7 @@ public class DynamicDataService {
             return "=";
         String upper = op.trim().toUpperCase();
         if (!ALLOWED_COMPARISON_OPS.contains(upper)) {
-            throw new SecurityException("Operator perbandingan tidak diizinkan: " + op);
+            throw new SecurityException("Comparison operator not allowed: " + op);
         }
         return upper;
     }
@@ -632,7 +632,7 @@ public class DynamicDataService {
             return "AND";
         String upper = op.trim().toUpperCase();
         if (!"AND".equals(upper) && !"OR".equals(upper)) {
-            throw new SecurityException("Operator logika tidak diizinkan: " + op);
+            throw new SecurityException("Logical operator not allowed: " + op);
         }
         return upper;
     }
@@ -642,11 +642,11 @@ public class DynamicDataService {
      */
     public static String validateTriggerTiming(String timing) {
         if (timing == null || timing.trim().isEmpty()) {
-            throw new IllegalArgumentException("Trigger timing tidak boleh kosong!");
+            throw new IllegalArgumentException("Trigger timing cannot be empty!");
         }
         String upper = timing.trim().toUpperCase();
         if (!"BEFORE".equals(upper) && !"AFTER".equals(upper) && !"INSTEAD OF".equals(upper)) {
-            throw new SecurityException("Trigger timing tidak diizinkan: " + timing);
+            throw new SecurityException("Trigger timing not allowed: " + timing);
         }
         return upper;
     }
@@ -656,12 +656,12 @@ public class DynamicDataService {
      */
     public static void validateTriggerEvents(List<String> events) {
         if (events == null || events.isEmpty()) {
-            throw new IllegalArgumentException("Trigger events tidak boleh kosong!");
+            throw new IllegalArgumentException("Trigger events cannot be empty!");
         }
         java.util.Set<String> allowed = java.util.Set.of("INSERT", "UPDATE", "DELETE");
         for (String event : events) {
             if (event == null || !allowed.contains(event.trim().toUpperCase())) {
-                throw new SecurityException("Trigger event tidak diizinkan: " + event);
+                throw new SecurityException("Trigger event not allowed: " + event);
             }
         }
     }
@@ -929,7 +929,7 @@ public class DynamicDataService {
     @Transactional
     public void addOrUpdateTableTrigger(String tableName, TriggerDefinition trigger) {
         if (trigger == null || trigger.getTriggerName() == null || trigger.getTriggerName().trim().isEmpty()) {
-            throw new IllegalArgumentException("Nama trigger tidak boleh kosong");
+            throw new IllegalArgumentException("Trigger name cannot be empty");
         }
 
         // Keamanan: hanya SUPER_ADMIN yang boleh membuat/mengubah trigger
@@ -1009,7 +1009,7 @@ public class DynamicDataService {
             sql += " ORDER BY n.nspname, p.proname, identity_args";
             return jdbcTemplate.queryForList(sql);
         } catch (Exception e) {
-            log.error("Gagal memuat list routine/procedure: " + e.getMessage(), e);
+            log.error("Failed to load the routine/procedure list: " + e.getMessage(), e);
             return new ArrayList<>();
         }
     }
@@ -1033,7 +1033,7 @@ public class DynamicDataService {
                     "Akses ditolak: Hanya SUPER_ADMIN yang boleh membuat, mengubah, atau menghapus procedure/function!");
         }
         if (sqlScript == null || sqlScript.trim().isEmpty()) {
-            throw new IllegalArgumentException("Script SQL tidak boleh kosong.");
+            throw new IllegalArgumentException("The SQL script cannot be empty.");
         }
         jdbcTemplate.execute(sqlScript);
     }
@@ -1051,7 +1051,7 @@ public class DynamicDataService {
             sql += " ORDER BY n.nspname, c.relname";
             return jdbcTemplate.queryForList(sql);
         } catch (Exception e) {
-            log.error("Gagal memuat list view: " + e.getMessage(), e);
+            log.error("Failed to load the view list: " + e.getMessage(), e);
             return new ArrayList<>();
         }
     }
@@ -1075,7 +1075,7 @@ public class DynamicDataService {
                     "Akses ditolak: Hanya SUPER_ADMIN yang boleh membuat, mengubah, atau menghapus view!");
         }
         if (sqlScript == null || sqlScript.trim().isEmpty()) {
-            throw new IllegalArgumentException("Script SQL tidak boleh kosong.");
+            throw new IllegalArgumentException("The SQL script cannot be empty.");
         }
         jdbcTemplate.execute(sqlScript);
     }
@@ -1382,7 +1382,7 @@ public class DynamicDataService {
     @Transactional
     public void saveData(FormMeta formMeta, Map<String, Object> rawData, String fkColumn, Object fkValue) {
         if (rawData == null || rawData.isEmpty()) {
-            throw new IllegalArgumentException("Data kosong, tidak ada yang disimpan!");
+            throw new IllegalArgumentException("No data to save!");
         }
         Map<String, Object> data = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         data.putAll(rawData);
@@ -1491,7 +1491,7 @@ public class DynamicDataService {
                     int updatedRows = executeAndLogSql(sql, args);
                     if (updatedRows == 0) {
                         throw new org.springframework.dao.OptimisticLockingFailureException(
-                                "Konflik Data: Data ini telah diubah oleh pengguna lain beberapa saat lalu. Silakan muat ulang (refresh) data terbaru sebelum melakukan perubahan.");
+                                "Data conflict: this record was changed by another user a moment ago. Please refresh to load the latest data before making changes.");
                     }
 
                     if (oldVersion != null) {
@@ -3909,7 +3909,7 @@ public class DynamicDataService {
             List<Map<String, Object>> detailsData,
             List<Map<String, Object>> deletedDetailsData) {
         if (rawMasterData == null || rawMasterData.isEmpty()) {
-            throw new IllegalArgumentException("Data master kosong!");
+            throw new IllegalArgumentException("Master data is empty!");
         }
         Map<String, Object> masterData = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         masterData.putAll(rawMasterData);
@@ -3925,7 +3925,7 @@ public class DynamicDataService {
 
         if (detailTableName == null || detailTableName.trim().isEmpty() || detailFk == null
                 || detailFk.trim().isEmpty()) {
-            throw new IllegalArgumentException("Nama tabel detail dan foreign key harus didefinisikan!");
+            throw new IllegalArgumentException("The detail table name and foreign key must be defined!");
         }
 
         ensureAuditColumnsExist(formMeta.getTableName());
@@ -4005,7 +4005,7 @@ public class DynamicDataService {
                     int updatedRows = executeAndLogSql(sql, args);
                     if (updatedRows == 0) {
                         throw new org.springframework.dao.OptimisticLockingFailureException(
-                                "Konflik Data Master: Data master telah diubah oleh pengguna lain. Silakan muat ulang (refresh) data terbaru.");
+                                "Master data conflict: this record was changed by another user. Please refresh to load the latest data.");
                     }
 
                     if (oldVersion != null) {
@@ -4273,7 +4273,7 @@ public class DynamicDataService {
                         int updatedRows = executeAndLogSql(sql, args);
                         if (updatedRows == 0) {
                             throw new org.springframework.dao.OptimisticLockingFailureException(
-                                    "Konflik Data Rincian: Baris rincian telah diubah oleh pengguna lain. Silakan muat ulang (refresh) data terbaru.");
+                                    "Detail data conflict: this detail row was changed by another user. Please refresh to load the latest data.");
                         }
 
                         if (oldVersion != null) {
@@ -4544,7 +4544,7 @@ public class DynamicDataService {
     public String evaluateFilterMappingDiagnostic(String filterMapping, Map<String, Object> headerRecord,
             Map<String, Object> pickedRecord) {
         if (filterMapping == null || filterMapping.trim().isEmpty()) {
-            return "Tidak ada filter mapping aktif.";
+            return "No active filter mapping.";
         }
         StringBuilder sb = new StringBuilder();
         String cleanMapping = filterMapping.trim();
@@ -4606,16 +4606,16 @@ public class DynamicDataService {
                         sb.append("OK (ekspresi 'header.").append(headerKey).append("' bernilai: ").append(paramVal)
                                 .append(")");
                     } else {
-                        sb.append("⚠️ KOSONG/NULL (ekspresi 'header.").append(headerKey)
-                                .append("' tidak ditemukan atau null di form)");
+                        sb.append("⚠️ EMPTY/NULL (expression 'header.").append(headerKey)
+                                .append("' not found or null in the form)");
                     }
                 } else if (isPicked) {
                     if (paramVal != null) {
                         sb.append("OK (ekspresi 'picked.").append(pickedKey).append("' bernilai: ").append(paramVal)
                                 .append(")");
                     } else {
-                        sb.append("⚠️ KOSONG/NULL (ekspresi 'picked.").append(pickedKey)
-                                .append("' tidak ditemukan atau null di baris terpilih)");
+                        sb.append("⚠️ EMPTY/NULL (expression 'picked.").append(pickedKey)
+                                .append("' not found or null in the selected row)");
                     }
                 } else {
                     sb.append("Literal '").append(paramVal).append("'");
@@ -4626,7 +4626,7 @@ public class DynamicDataService {
         if (headerRecord != null && !headerRecord.isEmpty()) {
             sb.append("💡 Field form aktif saat ini: ").append(headerRecord.keySet());
         } else {
-            sb.append("💡 Data form saat ini kosong.");
+            sb.append("💡 The form currently has no data.");
         }
         return sb.toString().trim();
     }
@@ -4771,7 +4771,7 @@ public class DynamicDataService {
             return jdbcTemplate.queryForList(sql.toString(), params.toArray());
         } catch (Exception e) {
             e.printStackTrace();
-            throw new RuntimeException("Query Gagal: " + sql.toString() + "\nError: " + e.getMessage(), e);
+            throw new RuntimeException("Query failed: " + sql.toString() + "\nError: " + e.getMessage(), e);
         }
     }
 
@@ -4840,7 +4840,7 @@ public class DynamicDataService {
             return jdbcTemplate.queryForList(
                     "SELECT * FROM cron.job_run_details WHERE jobid = ? ORDER BY start_time DESC LIMIT 100", jobId);
         } catch (Exception e) {
-            log.warn("Gagal membaca log pg_cron: " + e.getMessage());
+            log.warn("Failed to read the pg_cron log: " + e.getMessage());
             return new ArrayList<>();
         }
     }
