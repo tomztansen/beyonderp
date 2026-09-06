@@ -674,3 +674,12 @@ vaadin-checkbox[disabled]::part(checkbox) {
     cursor: not-allowed !important;
     background-color: var(--lumo-contrast-10pct) !important;
 }
+/* Grid rapat ke tepi kiri: buang padding kiri pada panel TabSheet.
+   Hanya sisi kiri — padding kanan dibiarkan agar scrollbar tidak menempel. */
+vaadin-tabsheet::part(content) {
+    padding-left: 0;
+}
+
+vaadin-tabsheet>[role="tabpanel"] {
+    padding-left: 0 !important;
+}
