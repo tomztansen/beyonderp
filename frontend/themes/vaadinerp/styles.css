@@ -674,3 +674,12 @@ vaadin-checkbox[disabled]::part(checkbox) {
     cursor: not-allowed !important;
     background-color: var(--lumo-contrast-10pct) !important;
 }
+/* Rapatkan TabSheet: padding bawaan di sekitar tab dan konten membuat jarak
+   kosong antara toolbar aksi dan grid. */
+vaadin-tabsheet::part(tabs-container) {
+    padding: 0;
+}
+
+vaadin-tabsheet::part(content) {
+    padding: 0;
+}
