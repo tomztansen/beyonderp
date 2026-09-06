@@ -683,3 +683,15 @@ vaadin-tabsheet::part(content) {
 vaadin-tabsheet>[role="tabpanel"] {
     padding-left: 0 !important;
 }
+
+/* Rapatkan jarak vertikal TabSheet.
+   ::part(content) padding-top -> menghapus baris kosong di atas toolbar
+   (TabSheet PortalView) sekaligus di atas grid (TabSheet GenericFormView).
+   [slot="tabs"] padding-top -> menghapus baris kosong di atas label tab. */
+vaadin-tabsheet::part(content) {
+    padding-top: 0;
+}
+
+vaadin-tabsheet [slot="tabs"] {
+    padding-top: 0;
+}
