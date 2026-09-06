@@ -349,6 +349,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         toolbar.getStyle()
                 .set("background-color", "#f3f4f6")
                 .set("border", "1px solid #e5e7eb")
+                .set("border-top", "none")
                 .set("border-radius", "6px")
                 .set("padding", "6px 12px")
                 .set("align-items", "center")

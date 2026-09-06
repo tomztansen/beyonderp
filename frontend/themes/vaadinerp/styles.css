@@ -241,7 +241,6 @@ vaadin-tabsheet::part(content) {
 
 vaadin-tabsheet [slot="tabs"] {
     background: #ffffff;
-    border-bottom: 1px solid #e5e7eb;
     padding: 8px 16px 0 16px;
 }
 
