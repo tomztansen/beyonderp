@@ -227,7 +227,7 @@ public class PortalView extends AppLayout {
         header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.getStyle()
                 .set("padding", "0 24px 0 16px")
-                .set("height", "60px")
+                .set("height", "48px")
                 .set("background", "rgba(255, 255, 255, 0.95)")
                 .set("backdrop-filter", "blur(8px)")
                 .set("border-bottom", "1px solid #cbd5e1")
@@ -595,11 +595,11 @@ public class PortalView extends AppLayout {
                 // Context Menu (Klik kanan pada menu yang ada routenya)
                 ContextMenu contextMenu = new ContextMenu(leafRow);
                 if (isFav) {
-                    contextMenu.addItem("❌ Hapus dari Favorit", ev -> {
+                    contextMenu.addItem("❌ Remove from Favorites", ev -> {
                         if (currentUser != null) {
                             appUserFavoriteMenuRepository.deleteByUsernameAndMenuCode(currentUser.getUsername(),
                                     menu.getMenuCode());
-                            Notification.show("Dihapus dari favorit: " + menu.getMenuTitle(), 2500,
+                            Notification.show("Removed from favorites: " + menu.getMenuTitle(), 2500,
                                     Notification.Position.BOTTOM_END);
                             refreshFormMenu();
                         }
@@ -743,7 +743,7 @@ public class PortalView extends AppLayout {
                 placeholder.setSizeFull();
                 placeholder.setAlignItems(Alignment.CENTER);
                 placeholder.setJustifyContentMode(JustifyContentMode.CENTER);
-                Span ph = new Span("Menu '" + title + "' belum memiliki implementasi View.");
+                Span ph = new Span("Menu '" + title + "' has no View implementation yet.");
                 ph.getStyle().set("color", "#64748b");
                 placeholder.add(ph);
                 yield placeholder;

@@ -72,17 +72,17 @@ public class SessionSecurityService {
      */
     public String changePassword(AppUser user, String oldPassword, String newPassword) {
         if (user == null)
-            return "User tidak ditemukan!";
+            return "User not found!";
         if (oldPassword == null)
-            return "Password lama tidak boleh kosong!";
+            return "Current password cannot be empty!";
         if (newPassword == null || newPassword.isBlank())
-            return "Password baru tidak boleh kosong!";
+            return "New password cannot be empty!";
 
         String storedHash = user.getPasswordHash();
         boolean oldMatched = storedHash != null && passwordEncoder.matches(oldPassword, storedHash);
 
         if (!oldMatched)
-            return "Password lama tidak sesuai!";
+            return "Current password is incorrect!";
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);

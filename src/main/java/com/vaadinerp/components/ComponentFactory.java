@@ -287,7 +287,7 @@ public class ComponentFactory {
             if (val == null || val.toString().trim().isEmpty()) {
                 if ("NOT_BLANK".equalsIgnoreCase(rule)) {
                     isInvalid = true;
-                    errMsg = "Kolom ini tidak boleh kosong!";
+                    errMsg = "This field cannot be empty!";
                 }
             } else {
                 String strVal = val.toString().trim();
@@ -296,7 +296,7 @@ public class ComponentFactory {
                 if (rule.equalsIgnoreCase("EMAIL")) {
                     if (!strVal.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
                         isInvalid = true;
-                        errMsg = "Format alamat email tidak valid!";
+                        errMsg = "Invalid email address format!";
                     }
                 } else if (rule.equalsIgnoreCase("ALPHANUMERIC")) {
                     if (!strVal.matches("^[a-zA-Z0-9 ]+$")) {
@@ -311,7 +311,7 @@ public class ComponentFactory {
                             errMsg = "Input terlalu panjang untuk dievaluasi pola regex (maksimal 2000 karakter)!";
                         } else if (!strVal.matches(regex)) {
                             isInvalid = true;
-                            errMsg = "Format input tidak sesuai!";
+                            errMsg = "Input format does not match!";
                         }
                     } catch (java.util.regex.PatternSyntaxException e) {
                         System.err.println(">>> REGEX SYNTAX ERROR in field [" + field.getFieldName() + "]: " + regex);
@@ -359,10 +359,10 @@ public class ComponentFactory {
                 if (!Double.isNaN(d)) {
                     if (rule.equalsIgnoreCase("POSITIVE_NUM") && d <= 0) {
                         isInvalid = true;
-                        errMsg = "Angka harus lebih besar dari 0!";
+                        errMsg = "Value must be greater than 0!";
                     } else if (rule.equalsIgnoreCase("NON_NEGATIVE") && d < 0) {
                         isInvalid = true;
-                        errMsg = "Angka tidak boleh negatif!";
+                        errMsg = "Value cannot be negative!";
                     } else if (rule.toUpperCase().startsWith("MIN:")) {
                         try {
                             double min = Double.parseDouble(rule.substring(4).trim());
@@ -398,7 +398,7 @@ public class ComponentFactory {
                         errMsg = "Tanggal wajib jatuh pada hari Minggu!";
                     } else if (rule.equalsIgnoreCase("NOT_SUNDAY") && dow == java.time.DayOfWeek.SUNDAY) {
                         isInvalid = true;
-                        errMsg = "Tanggal tidak boleh jatuh pada hari Minggu!";
+                        errMsg = "Date cannot fall on a Sunday!";
                     } else if (rule.equalsIgnoreCase("WEEKDAYS")
                             && (dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY)) {
                         isInvalid = true;
@@ -409,10 +409,10 @@ public class ComponentFactory {
                         errMsg = "Tanggal wajib akhir pekan (Sabtu/Minggu)!";
                     } else if (rule.equalsIgnoreCase("PAST_DATE") && date.isAfter(java.time.LocalDate.now())) {
                         isInvalid = true;
-                        errMsg = "Tanggal tidak boleh mendahului hari ini!";
+                        errMsg = "Date cannot be earlier than today!";
                     } else if (rule.equalsIgnoreCase("FUTURE_DATE") && date.isBefore(java.time.LocalDate.now())) {
                         isInvalid = true;
-                        errMsg = "Tanggal harus di masa depan!";
+                        errMsg = "Date must be in the future!";
                     }
                 }
             }
@@ -749,7 +749,7 @@ public class ComponentFactory {
                 TextField textField = new TextField(label);
                 if (field.getSequenceCode() != null && !field.getSequenceCode().trim().isEmpty()) {
                     textField.setPlaceholder("⚡ [AUTO: " + field.getSequenceCode() + "]");
-                    textField.setTooltipText("Nomor akan dibuat otomatis oleh sistem saat data disimpan (Sequence: "
+                    textField.setTooltipText("The number is generated automatically when the record is saved (Sequence: "
                             + field.getSequenceCode() + ")");
                     textField.setReadOnly(true);
                 } else {
@@ -886,7 +886,7 @@ public class ComponentFactory {
                 };
                 select.setLabel(label);
                 select.setEnabled(!field.isReadonly());
-                select.setPlaceholder("Pilih item...");
+                select.setPlaceholder("Select item...");
                 return select;
             case "CHOSENBOX":
                 if (field.getLovCode() != null && !field.getLovCode().trim().isEmpty()) {

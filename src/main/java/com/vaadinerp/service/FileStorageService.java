@@ -50,7 +50,7 @@ public class FileStorageService {
             }
         } catch (Exception e) {
             log.error("Gagal menginisialisasi direktori upload: {}", uploadDirStr, e);
-            throw new RuntimeException("Tidak dapat membuat direktori penyimpanan file!", e);
+            throw new RuntimeException("Could not create the file storage directory!", e);
         }
     }
 
@@ -72,7 +72,7 @@ public class FileStorageService {
         // 2. Validasi ekstensi
         String ext = getFileExtension(cleanName);
         if (!ALLOWED_EXTENSIONS.contains(ext.toLowerCase())) {
-            throw new SecurityException("Akses Ditolak: Ekstensi file '." + ext + "' tidak diizinkan untuk diunggah!");
+            throw new SecurityException("Access denied: file extension '." + ext + "' is not allowed to be uploaded!");
         }
 
         // 3. Generate UUID prefix agar unik dan mencegah overwrite
@@ -85,7 +85,7 @@ public class FileStorageService {
             return storedFilename;
         } catch (IOException e) {
             log.error("Gagal menyimpan file: {}", originalFilename, e);
-            throw new RuntimeException("Gagal menyimpan file " + originalFilename + ". Silakan coba lagi!", e);
+            throw new RuntimeException("Failed to save file " + originalFilename + ". Please try again!", e);
         }
     }
 

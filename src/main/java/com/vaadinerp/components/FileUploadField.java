@@ -55,12 +55,12 @@ public class FileUploadField extends CustomField<String> {
                     currentFiles.add(storedFilename);
                     event.getUI().access(() -> {
                         updateValueAndUI();
-                        Notification.show("Berhasil mengunggah: " + fileName, 3000, Notification.Position.BOTTOM_END);
+                        Notification.show("Uploaded successfully: " + fileName, 3000, Notification.Position.BOTTOM_END);
                     });
                 }
             } catch (Exception e) {
                 event.getUI().access(() -> {
-                    Notification.show("Gagal menyimpan file " + fileName + ": " + e.getMessage(), 5000, Notification.Position.BOTTOM_END);
+                    Notification.show("Failed to save file " + fileName + ": " + e.getMessage(), 5000, Notification.Position.BOTTOM_END);
                 });
             }
         });
@@ -87,13 +87,13 @@ public class FileUploadField extends CustomField<String> {
                     .set("width", "50%");
         } else {
             this.upload.setAcceptedFileTypes(".pdf", ".doc", ".docx", ".xls", ".xlsx", ".txt", ".csv", ".jpg", ".jpeg", ".png", ".webp", ".zip", ".rar");
-            Span dropLabel = new Span("Drag & drop dokumen/file di sini atau klik untuk memilih");
+            Span dropLabel = new Span("Drag & drop a document here, or click to browse");
             dropLabel.getStyle().set("font-size", "13px").set("color", "#64748b");
             this.upload.setDropLabel(dropLabel);
         }
 
         this.upload.addFileRejectedListener(event -> {
-            Notification.show("File ditolak: " + event.getErrorMessage(), 4000, Notification.Position.BOTTOM_END);
+            Notification.show("File rejected: " + event.getErrorMessage(), 4000, Notification.Position.BOTTOM_END);
         });
 
         this.fileListLayout = new VerticalLayout();
@@ -102,13 +102,13 @@ public class FileUploadField extends CustomField<String> {
         this.fileListLayout.setWidthFull();
 
         if (isImageOnly) {
-            this.hapusBtn = new com.vaadinerp.components.SafeButton("Hapus", e -> {
+            this.hapusBtn = new com.vaadinerp.components.SafeButton("Delete", e -> {
                 for (String stored : new ArrayList<>(currentFiles)) {
                     fileStorageService.deleteFile(stored);
                 }
                 currentFiles.clear();
                 updateValueAndUI();
-                Notification.show("Foto berhasil dihapus", 3000, Notification.Position.BOTTOM_END);
+                Notification.show("Photo deleted successfully", 3000, Notification.Position.BOTTOM_END);
             });
             this.hapusBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
             this.hapusBtn.setWidth("50%");
@@ -193,14 +193,14 @@ public class FileUploadField extends CustomField<String> {
                     errIcon.setSize("36px");
                     errIcon.setColor("#ef4444");
                     photoFrame.add(errIcon);
-                    photoFrame.setTitle("File fisik tidak ditemukan di server");
+                    photoFrame.setTitle("File not found on the server");
                 }
             } else {
                 Icon placeholder = VaadinIcon.USER.create();
                 placeholder.setSize("64px");
                 placeholder.setColor("#cbd5e1");
                 photoFrame.add(placeholder);
-                photoFrame.setTitle("Belum ada foto");
+                photoFrame.setTitle("No photo yet");
             }
 
             fileListLayout.add(photoFrame);
@@ -283,8 +283,8 @@ public class FileUploadField extends CustomField<String> {
             downloadAnchor.getElement().setAttribute("target", "_blank");
         } else {
             downloadBtn.setEnabled(false);
-            downloadBtn.setTooltipText("File fisik tidak ditemukan di server");
-            downloadBtn.getElement().setAttribute("title", "File fisik tidak ditemukan di server");
+            downloadBtn.setTooltipText("File not found on the server");
+            downloadBtn.getElement().setAttribute("title", "File not found on the server");
         }
         downloadAnchor.add(downloadBtn);
 
@@ -293,7 +293,7 @@ public class FileUploadField extends CustomField<String> {
             currentFiles.remove(storedFilename);
             fileStorageService.deleteFile(storedFilename);
             updateValueAndUI();
-            Notification.show("File dihapus: " + displayFilename, 3000, Notification.Position.BOTTOM_END);
+            Notification.show("File deleted: " + displayFilename, 3000, Notification.Position.BOTTOM_END);
         });
         deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
         deleteBtn.getStyle().set("cursor", "pointer");
