@@ -634,12 +634,10 @@ public class FormBuilderView extends VerticalLayout {
                 tableNameField, labelWidthField, defaultSortField, defaultSortDirection,
                 viewTableField,
                 actionComboLayout, autoCreateLayout,
-                detailTableNameField, detailPkField, detailFkField,
-                actionButtonsLayout);
+                detailTableNameField, detailPkField, detailFkField);
         formMetaLayout.setColspan(viewTableField, 4);
         formMetaLayout.setColspan(actionComboLayout, 2);
         formMetaLayout.setColspan(autoCreateLayout, 2);
-        formMetaLayout.setColspan(actionButtonsLayout, 4);
 
         formTypeCombo.setItems("SINGLE", "MASTER_DETAIL", "SCHEDULER_SPLIT");
         formTypeCombo.setValue("SINGLE");
@@ -843,8 +841,15 @@ public class FormBuilderView extends VerticalLayout {
         mainSplit.setSizeFull();
         mainSplit.getStyle().set("margin-top", "15px");
 
+        // Tombol aksi dikeluarkan dari grid field: isinya perintah, bukan field, dan
+        // di dalam FormLayout ia memakan satu baris penuh sendiri.
+        VerticalLayout formMetaContent = new VerticalLayout(formMetaLayout, actionButtonsLayout);
+        formMetaContent.setWidthFull();
+        formMetaContent.setPadding(false);
+        formMetaContent.setSpacing(false);
+
         Details formMetaDetails = new Details("Main Form Configuration (click to show/hide)",
-                formMetaLayout);
+                formMetaContent);
         formMetaDetails.setOpened(true);
         formMetaDetails.setWidthFull();
         formMetaDetails.getStyle()
