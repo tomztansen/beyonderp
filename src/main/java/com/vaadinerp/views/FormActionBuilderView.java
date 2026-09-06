@@ -696,7 +696,7 @@ public class FormActionBuilderView extends VerticalLayout {
             scriptContentField.setPlaceholder("// Tulis kode groovy di sini...");
         } else {
             scriptContentField.setLabel("Post-Action Groovy Script (Opsional)");
-            scriptContentField.setPlaceholder("// Dieksekusi otomatis SETELAH popup picker dipilih...");
+            scriptContentField.setPlaceholder("// Runs automatically AFTER an item is picked in the popup...");
         }
 
         sourceLovCodeCombo.setVisible(!isGroovy);
@@ -1231,7 +1231,7 @@ public class FormActionBuilderView extends VerticalLayout {
             // Now populate the form with our cloned data
             populateForm(clone);
             
-            Notification.show("Silakan ubah Action Code / Label lalu tekan Save.", 4000, Notification.Position.MIDDLE);
+            Notification.show("Change the Action Code / Label, then press Save.", 4000, Notification.Position.MIDDLE);
             actionCodeField.focus();
         } else {
             Notification.show("Select the action you want to copy first.", 3000, Notification.Position.MIDDLE);

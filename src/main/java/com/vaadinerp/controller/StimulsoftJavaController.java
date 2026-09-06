@@ -65,7 +65,7 @@ public class StimulsoftJavaController {
         }
         if (!file.exists()) {
             writeError(response, "Report Template Missing",
-                    "File template (" + code + ".mrt) tidak ditemukan di server.\n" +
+                    "File template (" + code + ".mrt) was not found on the server.\n" +
                     "Make sure you have saved it through the Report Builder.");
             return;
         }

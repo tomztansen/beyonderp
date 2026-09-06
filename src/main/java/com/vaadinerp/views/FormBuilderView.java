@@ -2664,7 +2664,7 @@ public class FormBuilderView extends VerticalLayout {
 
             String val = ruleField.getValue().trim();
             if (!prefix.equals("EMAIL") && !prefix.equals("NOT_BLANK") && val.isEmpty()) {
-                Notification.show("Rumus / Nilai tidak boleh kosong!", 3000, Notification.Position.MIDDLE);
+                Notification.show("Formula / value cannot be empty!", 3000, Notification.Position.MIDDLE);
                 return;
             }
 
@@ -2798,7 +2798,7 @@ public class FormBuilderView extends VerticalLayout {
                 scriptArea.setReadOnly(true);
                 loadedScript[0] = "";
                 Notification.show("Scope " + scope + " punya " + rows.size()
-                        + " action di form ini. Edit lewat Form Action Builder supaya tidak salah sasaran.", 6000,
+                        + " action(s) on this form. Edit them in the Form Action Builder to avoid hitting the wrong target.", 6000,
                         Notification.Position.MIDDLE);
                 return;
             }
@@ -2944,7 +2944,7 @@ public class FormBuilderView extends VerticalLayout {
         layout.setSpacing(true);
 
         Span info = new Span("Script dijalankan saat user mengubah field \"" + fieldName
-                + "\". Perubahan dari sistem (formula, isian target LOV, setElementValue) tidak memicunya. "
+                + "\". Changes made by the system (formula, LOV target fill, setElementValue) do not trigger it. "
                 + "Tersedia: setElementReadonly, setElementEnabled, setElementDisabled, setElementValue, "
                 + "getElementValue, refreshForm, clearForm, db.getValue, db.find, executeProcedure, msgBox, "
                 + "showSuccess, showError, header.*");
@@ -3254,7 +3254,7 @@ public class FormBuilderView extends VerticalLayout {
                         });
                     } else {
                         ui.access(() -> {
-                            scriptArea.setValue("// ❌ Gagal memanggil Ollama.\n// HTTP Status: " + response.statusCode()
+                            scriptArea.setValue("// ❌ Failed to call Ollama.\n// HTTP Status: " + response.statusCode()
                                     + "\n// Response:\n" + response.body());
                             btnGenerateAi.setEnabled(true);
                             btnGenerateAi.setText("✨ Buatkan Aturan (AI)");
@@ -4741,18 +4741,18 @@ public class FormBuilderView extends VerticalLayout {
         Select<String> layoutSelect = new Select<>();
         layoutSelect.setLabel("Select Display Layout Mode:");
         layoutSelect.setItems(
-                "Standar Form (1 Kolom / Vertikal)",
-                "Standar Form (2 Kolom / Berjejer)",
-                "Standar Form (3 Kolom / Berjejer)",
-                "Standar Form (4 Kolom / Berjejer)",
-                "Standar Form (5 Kolom / Berjejer)",
-                "Standar Form (6 Kolom / Berjejer)",
-                "Standar Form (8 Kolom / Berjejer)",
-                "Standar Form (10 Kolom / Berjejer)",
-                "Standar Form (12 Kolom / Berjejer)",
+                "Standard Form (1 Column / vertical)",
+                "Standard Form (2 Columns / side by side)",
+                "Standard Form (3 Columns / side by side)",
+                "Standard Form (4 Columns / side by side)",
+                "Standard Form (5 Columns / side by side)",
+                "Standard Form (6 Columns / side by side)",
+                "Standard Form (8 Columns / side by side)",
+                "Standard Form (10 Columns / side by side)",
+                "Standard Form (12 Columns / side by side)",
                 "Memanjang Horizontal (Inline / Grid-Like)",
                 "Custom (enter number of columns...)");
-        layoutSelect.setValue("Standar Form (2 Kolom / Berjejer)");
+        layoutSelect.setValue("Standard Form (2 Columns / side by side)");
         layoutSelect.setWidthFull();
 
         com.vaadin.flow.component.textfield.IntegerField customColsInput = new com.vaadin.flow.component.textfield.IntegerField(
@@ -4771,7 +4771,7 @@ public class FormBuilderView extends VerticalLayout {
         chkIsDetail.setValue(availableTables.get(0).contains("(Detail Table)"));
 
         Checkbox chkExcludeAudit = new Checkbox(
-                "Sembunyikan / Lewati Kolom Audit Default (inputby, inputdt, updateby, updatedt, dll)", true);
+                "Hide / skip default audit columns (inputby, inputdt, updateby, updatedt, ...)", true);
 
         tableSelect.addValueChangeListener(e -> {
             if (e.getValue() != null) {
@@ -4837,9 +4837,9 @@ public class FormBuilderView extends VerticalLayout {
                 targetCols = (customColsInput.getValue() != null && customColsInput.getValue() > 0)
                         ? customColsInput.getValue()
                         : 2;
-            } else if (layoutMode != null && layoutMode.startsWith("Standar Form (")) {
+            } else if (layoutMode != null && layoutMode.startsWith("Standard Form (")) {
                 try {
-                    String numStr = layoutMode.substring("Standar Form (".length(), layoutMode.indexOf(" Columns"));
+                    String numStr = layoutMode.substring("Standard Form (".length(), layoutMode.indexOf(" Column"));
                     targetCols = Integer.parseInt(numStr.trim());
                 } catch (Exception ignored) {
                     targetCols = 2;
@@ -4943,13 +4943,13 @@ public class FormBuilderView extends VerticalLayout {
         arahUrutan.setItems("Horizontal (Kiri-Kanan)", "Vertikal (Atas-Bawah)");
         arahUrutan.setValue("Horizontal (Kiri-Kanan)");
 
-        Span infoSpan = new Span("💡 Sistem akan mengurutkan ulang kolom form yang ada di kanvas ke dalam "
+        Span infoSpan = new Span("💡 The fields currently on the canvas will be rearranged into "
                 + colsSelect.getValue() + " columns.");
         infoSpan.getStyle().set("color", "#64748b").set("font-size", "0.85rem");
 
         colsSelect.addValueChangeListener(e -> {
             if (e.getValue() != null) {
-                infoSpan.setText("💡 Sistem akan mengurutkan ulang kolom form yang ada di kanvas ke dalam "
+                infoSpan.setText("💡 The fields currently on the canvas will be rearranged into "
                         + e.getValue() + " columns.");
             }
         });
