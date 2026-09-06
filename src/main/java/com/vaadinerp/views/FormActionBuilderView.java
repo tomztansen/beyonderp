@@ -137,10 +137,9 @@ public class FormActionBuilderView extends VerticalLayout {
     }
 
     private void setupFilterAndCombos() {
-        List<String> formCodes = new ArrayList<>(formRepository.findAll().stream()
-                .map(f -> f.getFormCode())
-                .sorted()
-                .toList());
+        // findAll() ikut memuat seluruh meta_field karena FormMeta.fields EAGER;
+        // di sini yang dibutuhkan hanya kode formnya.
+        List<String> formCodes = new ArrayList<>(formRepository.findAllFormCodes());
 
         List<String> filterItems = new ArrayList<>();
         filterItems.add("[Katalog Global Reusable]");
@@ -189,9 +188,10 @@ public class FormActionBuilderView extends VerticalLayout {
 
         List<String> sources = new ArrayList<>();
         lovRepository.findAll().forEach(l -> sources.add(l.getLovCode()));
-        formRepository.findAll().forEach(f -> {
-            if (!sources.contains(f.getFormCode())) {
-                sources.add(f.getFormCode());
+        // Pakai ulang daftar kode yang sudah diambil di atas, jangan query lagi.
+        formCodes.forEach(code -> {
+            if (!sources.contains(code)) {
+                sources.add(code);
             }
         });
         sources.sort((s1, s2) -> s1.compareToIgnoreCase(s2));
