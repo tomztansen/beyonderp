@@ -53,20 +53,20 @@ public class StimulsoftJavaController {
 
         if (!isValidReportCode(code)) {
             writeError(response, "Invalid Report Code",
-                    "Kode laporan mengandung karakter yang tidak diizinkan: " + code);
+                    "The report code contains disallowed characters: " + code);
             return;
         }
 
         File base = new File(uploadDir).getCanonicalFile();
         File file = new File(base, "stimulsoft/" + code + ".mrt").getCanonicalFile();
         if (!file.toPath().startsWith(base.toPath())) {
-            writeError(response, "Invalid Report Path", "Path tidak valid.");
+            writeError(response, "Invalid Report Path", "Invalid path.");
             return;
         }
         if (!file.exists()) {
             writeError(response, "Report Template Missing",
                     "File template (" + code + ".mrt) tidak ditemukan di server.\n" +
-                    "Pastikan Anda sudah menyimpannya melalui Report Builder.");
+                    "Make sure you have saved it through the Report Builder.");
             return;
         }
 
@@ -133,7 +133,7 @@ public class StimulsoftJavaController {
 
         if (!isValidReportCode(code)) {
             writeError(response, "Invalid Report Code",
-                    "Kode laporan mengandung karakter yang tidak diizinkan: " + code);
+                    "The report code contains disallowed characters: " + code);
             return;
         }
 
