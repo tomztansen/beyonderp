@@ -1387,20 +1387,7 @@ public class DynamicDataService {
         Map<String, Object> data = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         data.putAll(rawData);
 
-        generatePhysicalTable(formMeta);
-
-        if (fkColumn != null) {
-            String tableName = getQualifiedTableName(formMeta.getTableName());
-            List<String> existingCols = fetchTableColumns(formMeta.getTableName());
-            if (!existingCols.stream().anyMatch(fkColumn::equalsIgnoreCase)) {
-                try {
-                    jdbcTemplate
-                            .execute("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS " + fkColumn + " INTEGER");
-                } catch (Exception ex) {
-                    log.warn("Gagal menambah kolom FK '{}' ke tabel '{}': {}", fkColumn, tableName, ex.getMessage());
-                }
-            }
-        }
+        verifySchemaBeforeSave(formMeta, fkColumn);
 
         String pk = formMeta.getPrimaryKey() != null ? formMeta.getPrimaryKey() : "id";
         pk = resolveExistingColumn(formMeta.getTableName(), pk);
@@ -2317,6 +2304,51 @@ public class DynamicDataService {
             String sql = "DELETE FROM " + getQualifiedTableName(formMeta.getTableName()) + " WHERE CAST(" + pk
                     + " AS text) = ?";
             jdbcTemplate.update(sql, pkVal);
+        }
+    }
+
+    /**
+     * Pastikan tabel dan seluruh kolomnya sudah ada SEBELUM menyimpan data.
+     *
+     * Dulu saveData() memanggil generatePhysicalTable(), sehingga kolom yang hilang
+     * dibuat diam-diam setiap kali user menekan Save. Menjalankan DDL di jalur simpan
+     * data menyembunyikan kesalahan metadata dan mengubah skema produksi tanpa jejak,
+     * jadi sekarang kondisi itu dilaporkan sebagai error. Pembuatan tabel/kolom tetap
+     * tersedia lewat Form Builder dan DB Explorer.
+     */
+    private void verifySchemaBeforeSave(FormMeta formMeta, String fkColumn) {
+        if (formMeta == null || formMeta.getTableName() == null || formMeta.getTableName().trim().isEmpty()) {
+            return;
+        }
+        List<String> existingCols = fetchTableColumns(formMeta.getTableName());
+        if (existingCols == null || existingCols.isEmpty()) {
+            throw new IllegalStateException("Table '" + formMeta.getTableName()
+                    + "' does not exist in the database. Generate it from the Form Builder before saving data.");
+        }
+        String pk = formMeta.getPrimaryKey() != null ? formMeta.getPrimaryKey() : "id";
+        java.util.List<String> missing = new java.util.ArrayList<>();
+        if (formMeta.getFields() != null) {
+            for (FieldMeta field : formMeta.getFields()) {
+                if (field.isDetail() && "MASTER_DETAIL".equalsIgnoreCase(formMeta.getFormType()))
+                    continue;
+                if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType()))
+                    continue;
+                if (!field.isSaveOnInsert() && !field.isSaveOnUpdate())
+                    continue;
+                String colName = field.getFieldName();
+                if (colName == null || colName.trim().isEmpty() || colName.equalsIgnoreCase(pk))
+                    continue;
+                if (existingCols.stream().noneMatch(colName::equalsIgnoreCase))
+                    missing.add(colName);
+            }
+        }
+        if (fkColumn != null && existingCols.stream().noneMatch(fkColumn::equalsIgnoreCase)) {
+            missing.add(fkColumn);
+        }
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException("Cannot save: column(s) " + String.join(", ", missing)
+                    + " do not exist in table '" + formMeta.getTableName()
+                    + "'. Create them from the Form Builder or DB Explorer first.");
         }
     }
 
