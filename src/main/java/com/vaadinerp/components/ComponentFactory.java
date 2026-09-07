@@ -1089,11 +1089,11 @@ public class ComponentFactory {
                         }
                         return dataService.fetchLovDataPaged(lovMeta.getTableName(), searchCol, keyword,
                                 bandbox.getActiveFilters().values(), query.getOffset(), query.getLimit(), sortField,
-                                sortDir).stream();
+                                sortDir, lovCode).stream();
                     }, query -> {
                         String keyword = query.getFilter().orElse("");
                         return dataService.countLovData(lovMeta.getTableName(), searchCol, keyword,
-                                bandbox.getActiveFilters().values());
+                                bandbox.getActiveFilters().values(), lovCode);
                     });
 
                     // Item Finder untuk memulihkan record berdasarkan value/key-nya

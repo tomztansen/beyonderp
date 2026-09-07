@@ -13,11 +13,16 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
 
     private final String lovCode;
     private final DynamicDataService dataService;
+    /**
+     * Batas label yang ditahan. Combo ini lazy: baris diambil per halaman, dan dulu
+     * setiap baris yang pernah digulir tersimpan permanen selama form dibuka.
+     */
+    private static final int MAX_LABELS = 2000;
+
     private final Map<String, String> valueToLabelMap = new HashMap<>();
+    /** Hanya berisi record yang sedang terpilih; sisanya diambil saat diminta. */
     private final Map<String, Map<String, Object>> valueToRecordMap = new HashMap<>();
     private final Map<String, FilterCondition> activeFilters = new HashMap<>();
-
-    private final List<String> currentItems = new ArrayList<>();
 
     public LovChosenBox(String label, String lovCode, DynamicDataService dataService) {
         super(label);
@@ -72,12 +77,26 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
 
                         if (!val.isEmpty()) {
                             valueToLabelMap.put(val, lbl);
-                            valueToRecordMap.put(val, rec);
-                            if (!currentItems.contains(val)) {
-                                currentItems.add(val);
-                            }
                             pageItems.add(val);
                         }
+                    }
+                    // Gulir jauh di LOV besar tidak boleh menumpuk label tanpa batas.
+                    // Label nilai yang sedang terpilih dipertahankan supaya chip-nya
+                    // tidak berubah jadi angka; sisanya terisi lagi dari halaman
+                    // berikutnya.
+                    if (valueToLabelMap.size() > MAX_LABELS) {
+                        java.util.Set<String> selected = getValue();
+                        Map<String, String> keep = new HashMap<>();
+                        if (selected != null) {
+                            for (String s : selected) {
+                                String lbl = valueToLabelMap.get(s);
+                                if (lbl != null) {
+                                    keep.put(s, lbl);
+                                }
+                            }
+                        }
+                        valueToLabelMap.clear();
+                        valueToLabelMap.putAll(keep);
                     }
                     return pageItems.stream();
                 },
@@ -160,11 +179,28 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
         java.util.Set<String> vals = getValue();
         List<Map<String, Object>> list = new ArrayList<>();
         if (vals != null) {
+            LovMeta lovMeta = null;
             for (String val : vals) {
-                if (valueToRecordMap.containsKey(val)) {
-                    list.add(valueToRecordMap.get(val));
+                Map<String, Object> rec = valueToRecordMap.get(val);
+                if (rec == null && dataService != null && lovCode != null) {
+                    // Record tidak lagi ditahan untuk setiap baris yang digulir, jadi
+                    // yang dipilih user dari dropdown diambil di sini saat dibutuhkan.
+                    if (lovMeta == null) {
+                        lovMeta = dataService.getLovMeta(lovCode).orElse(null);
+                    }
+                    if (lovMeta != null) {
+                        rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), val);
+                        if (rec != null) {
+                            valueToRecordMap.put(val, rec);
+                        }
+                    }
+                }
+                if (rec != null) {
+                    list.add(rec);
                 }
             }
+            // Buang record milik pilihan lama.
+            valueToRecordMap.keySet().retainAll(vals);
         }
         return list;
     }

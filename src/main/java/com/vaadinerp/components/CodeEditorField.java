@@ -69,12 +69,16 @@ public class CodeEditorField extends Div {
                                     return;
                                 }
                                 el.innerHTML = '';
-                                // Matikan scroll horizontal — lineWrapping yang menangani baris panjang
+                                // Kunci font monospace, ukuran, dan tinggi baris agar konsisten di semua baris
                                 var styleId = 'cmstyle-' + editorId;
                                 if (!document.getElementById(styleId)) {
                                     var s = document.createElement('style');
                                     s.id = styleId;
-                                    s.textContent = '#' + editorId + ' .CodeMirror-scroll{overflow-x:hidden!important}';
+                                    s.textContent = '#' + editorId + ' .CodeMirror { font-family: Consolas, "Fira Code", Monaco, "Courier New", monospace !important; font-size: 13px !important; line-height: 20px !important; }' +
+                                                    '#' + editorId + ' .CodeMirror pre.CodeMirror-line, #' + editorId + ' .CodeMirror pre.CodeMirror-line-like { font-family: inherit !important; font-size: inherit !important; line-height: 20px !important; }' +
+                                                    '#' + editorId + ' .CodeMirror-lines { padding: 4px 0 !important; }' +
+                                                    '#' + editorId + ' .CodeMirror-cursor { height: 20px !important; border-left: 2px solid #000 !important; }' +
+                                                    '#' + editorId + ' .CodeMirror-scroll { overflow-x: hidden !important; }';
                                     document.head.appendChild(s);
                                 }
                                 var cm = CodeMirror(el, {
@@ -90,20 +94,51 @@ public class CodeEditorField extends Div {
                                     extraKeys: {Tab: 'indentMore', 'Shift-Tab': 'indentLess'}
                                 });
                                 window[cmVar] = cm;
-                                // Tunggu browser selesai layout, baru samakan tinggi CM dengan kontainernya
+
+                                function syncLayout() {
+                                    if (!el || !document.getElementById(editorId)) return;
+                                    var h = el.clientHeight;
+                                    cm.setSize('100%', h > 50 ? h : 400);
+                                    cm.refresh();
+                                    placeCursor(cm);
+                                }
+
+                                // 1. Sinkronisasi awal di frame pertama
                                 requestAnimationFrame(function() {
-                                    requestAnimationFrame(function() {
+                                    requestAnimationFrame(syncLayout);
+                                });
+
+                                // 2. Sinkronisasi bertahap untuk menunggu animasi dialog Vaadin selesai stabil
+                                setTimeout(syncLayout, 150);
+                                setTimeout(syncLayout, 300);
+                                setTimeout(syncLayout, 500);
+
+                                // 3. Sinkronisasi saat font browser selesai dimuat
+                                if (document.fonts && document.fonts.ready) {
+                                    document.fonts.ready.then(syncLayout);
+                                }
+
+                                // 4. Segarkan saat menerima fokus
+                                cm.on('focus', function() {
+                                    cm.refresh();
+                                });
+
+                                // 5. Segarkan saat jendela diubah ukurannya
+                                var onResize = function() {
+                                    if (document.getElementById(editorId)) {
                                         var h = el.clientHeight;
                                         cm.setSize('100%', h > 50 ? h : 400);
                                         cm.refresh();
-                                        placeCursor(cm);
-                                    });
-                                });
+                                    }
+                                };
+                                window.addEventListener('resize', onResize);
+                                window[cmVar + '_resize'] = onResize;
                             }
                             // Fokuskan editor begitu terbuka supaya user tidak perlu klik
                             // dulu. Script kosong mulai di baris pertama; script yang sudah
                             // ada dilanjutkan dari akhir, tempat orang biasanya menambah kode.
                             function placeCursor(cm) {
+                                cm.refresh();
                                 if (cm.getValue().trim() === '') {
                                     cm.setCursor({line: 0, ch: 0});
                                 } else {
@@ -156,6 +191,10 @@ public class CodeEditorField extends Div {
                             if (el) el.innerHTML = '';
                             var s = document.getElementById('cmstyle-' + editorId);
                             if (s && s.parentNode) s.parentNode.removeChild(s);
+                            if (window[cmVar + '_resize']) {
+                                window.removeEventListener('resize', window[cmVar + '_resize']);
+                                try { delete window[cmVar + '_resize']; } catch (e) { window[cmVar + '_resize'] = undefined; }
+                            }
                             try { delete window[cmVar]; } catch (e) { window[cmVar] = undefined; }
                         })($0, $1)
                         """,
@@ -176,6 +215,7 @@ public class CodeEditorField extends Div {
                         if (window[$0]) {
                             var cm = window[$0];
                             cm.setValue($1);
+                            cm.refresh();
                             if (cm.getValue().trim() === '') {
                                 cm.setCursor({line: 0, ch: 0});
                             } else {

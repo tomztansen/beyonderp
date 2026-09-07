@@ -911,11 +911,32 @@ public class ScriptExecutorService {
                 DynamicDataService dataService = dataServiceProvider.getIfAvailable();
                 if (dataService == null)
                     return null;
-                return dataService.getJdbcTemplate().queryForObject(sql, Object.class, args);
+
+                // Unwrap SmartHeaderNode agar objek header.field aman dipassing langsung ke PreparedStatement JDBC
+                Object[] cleanArgs = null;
+                if (args != null && args.length > 0) {
+                    cleanArgs = new Object[args.length];
+                    for (int i = 0; i < args.length; i++) {
+                        Object a = args[i];
+                        if (a instanceof SmartHeaderNode shn) {
+                            a = shn.getPrimaryValue();
+                        }
+                        cleanArgs[i] = a;
+                    }
+                }
+
+                if (cleanArgs != null && cleanArgs.length > 0) {
+                    return dataService.getJdbcTemplate().queryForObject(sql, Object.class, cleanArgs);
+                } else {
+                    return dataService.getJdbcTemplate().queryForObject(sql, Object.class);
+                }
+            } catch (org.springframework.dao.EmptyResultDataAccessException e) {
+                return null;
             } catch (Exception e) {
                 if (e instanceof IllegalArgumentException) {
                     throw e;
                 }
+                System.err.println("SQL Error di db.getValue: " + sql + " | Error: " + e.getMessage());
                 return null;
             }
         }
