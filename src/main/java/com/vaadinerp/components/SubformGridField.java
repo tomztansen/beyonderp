@@ -107,8 +107,13 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             name = name.substring(name.indexOf('.') + 1);
         }
         Component comp = editorComponents.get(name);
-        if (comp != null && comp instanceof com.vaadin.flow.component.HasEnabled hasEnabled) {
-            hasEnabled.setEnabled(enabled);
+        if (comp != null) {
+            // Field yang "dimatikan" tetap harus terbaca. Vaadin sengaja merender
+            // komponen disabled dengan kontras rendah -- tidak layak untuk
+            // menampilkan informasi -- jadi pakai readonly, yang mengunci tanpa
+            // memudarkan. Komponen yang bukan field tetap jatuh ke setEnabled di
+            // cabang terakhir setComponentReadOnly.
+            com.vaadinerp.components.ComponentFactory.setComponentReadOnly(comp, !enabled);
         }
     }
 
