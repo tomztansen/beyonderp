@@ -380,7 +380,7 @@ public class FormBuilderView extends VerticalLayout {
                         "      position: absolute;" +
                         "      top: -12px;" +
                         "      right: 8px;" +
-                        "      background: #4f46e5;" +
+                        "      background: var(--card-label-bg, #4f46e5);" +
                         "      color: #ffffff;" +
                         "      font-size: 10px;" +
                         "      font-weight: 700;" +
@@ -2068,8 +2068,6 @@ public class FormBuilderView extends VerticalLayout {
     private Component buildFieldCard(FieldMetaTemp temp, int sequence) {
         VerticalLayout card = new VerticalLayout();
         card.addClassName("field-card");
-        card.getElement().setAttribute("data-card-label",
-                "🎯 Gabung ke Baris " + temp.rowGroup + " (Row Group " + temp.rowGroup + ")");
         card.setPadding(true);
         card.setSpacing(false);
 
@@ -2301,45 +2299,61 @@ public class FormBuilderView extends VerticalLayout {
         rightTarget.setActive(true);
         centerTarget.setActive(true);
 
-        // Visual Cues
-        leftHitbox.getElement().addEventListener("dragenter", e -> {
-            card.getStyle().set("border-left", "4px solid #10b981");
-            card.getStyle().set("background-color", "#d1fae5");
-        });
-        leftHitbox.getElement().addEventListener("dragleave", e -> {
-            card.getStyle()
-                    .set("border-left", "")
-                    .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
-                    .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
-        });
+        // Petunjuk visual. Sebelumnya kiri dan kanan sama-sama hijau, tengah ungu,
+        // dan tidak ada teks sama sekali — padahal ungu juga dipakai zona "baris
+        // baru", sehingga tidak ada cara memastikan drop di tengah akan menukar.
+        // Sekarang tiap zona punya warna sendiri plus label yang menyebut aksinya.
+        String cardName = (temp.fieldName != null && !temp.fieldName.isBlank())
+                ? temp.fieldName
+                : String.valueOf(temp.componentType);
 
-        rightHitbox.getElement().addEventListener("dragenter", e -> {
-            card.getStyle().set("border-right", "4px solid #10b981");
-            card.getStyle().set("background-color", "#d1fae5");
-        });
-        rightHitbox.getElement().addEventListener("dragleave", e -> {
-            card.getStyle()
-                    .set("border-right", "")
-                    .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
-                    .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
-        });
-
-        centerHitbox.getElement().addEventListener("dragenter", e -> {
-            card.getStyle().set("border", "2px dashed #6366f1");
-            card.getStyle().set("background-color", "#e0e7ff");
-        });
-        centerHitbox.getElement().addEventListener("dragleave", e -> {
-            card.getStyle()
-                    .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
-                    .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
-        });
-
-        // Drop Logic Helper
-        com.vaadin.flow.function.SerializableConsumer<Boolean> handleInsert = (isBefore) -> {
+        com.vaadin.flow.function.SerializableBiConsumer<String, String> showCue = (label, color) -> {
+            card.getElement().setAttribute("data-card-label", label);
+            card.getStyle().set("--card-label-bg", color);
+            card.addClassName("card-drag-over");
+        };
+        com.vaadin.flow.function.SerializableRunnable clearCue = () -> {
+            card.removeClassName("card-drag-over");
             card.getStyle()
                     .set("border-left", "").set("border-right", "")
                     .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
                     .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
+        };
+
+        leftHitbox.getElement().addEventListener("dragenter", e -> {
+            if (draggedFields.contains(temp))
+                return;
+            card.getStyle().set("border-left", "4px solid #10b981").set("background-color", "#d1fae5");
+            showCue.accept("⬅ Insert before " + cardName, "#10b981");
+        });
+        leftHitbox.getElement().addEventListener("dragleave", e -> clearCue.run());
+
+        rightHitbox.getElement().addEventListener("dragenter", e -> {
+            if (draggedFields.contains(temp))
+                return;
+            card.getStyle().set("border-right", "4px solid #10b981").set("background-color", "#d1fae5");
+            showCue.accept("➡ Insert after " + cardName, "#10b981");
+        });
+        rightHitbox.getElement().addEventListener("dragleave", e -> clearCue.run());
+
+        centerHitbox.getElement().addEventListener("dragenter", e -> {
+            if (draggedFields.contains(temp))
+                return;
+            // Komponen baru dari palet tidak bisa ditukar. Katakan sekarang, bukan
+            // lewat notifikasi setelah user terlanjur melepasnya.
+            if (draggedPaletteType != null) {
+                card.getStyle().set("border", "2px dashed #94a3b8").set("background-color", "#f1f5f9");
+                showCue.accept("⛔ Swap needs an existing field", "#64748b");
+                return;
+            }
+            card.getStyle().set("border", "3px solid #f59e0b").set("background-color", "#fef3c7");
+            showCue.accept("⇄ Swap with " + cardName, "#f59e0b");
+        });
+        centerHitbox.getElement().addEventListener("dragleave", e -> clearCue.run());
+
+        // Drop Logic Helper
+        com.vaadin.flow.function.SerializableConsumer<Boolean> handleInsert = (isBefore) -> {
+            clearCue.run();
 
             if (draggedPaletteType != null) {
                 draggedFields.clear();
@@ -2374,9 +2388,7 @@ public class FormBuilderView extends VerticalLayout {
         rightTarget.addDropListener(e -> handleInsert.accept(false));
 
         centerTarget.addDropListener(e -> {
-            card.getStyle()
-                    .set("border", isSelected ? "2px solid #6366f1" : "1px dashed #cbd5e1")
-                    .set("background-color", isSelected ? "#f8fafc" : "#ffffff");
+            clearCue.run();
 
             boolean droppedFromPalette = false;
             if (draggedPaletteType != null) {
