@@ -28,6 +28,7 @@ public class BandboxField<T, V> extends CustomField<V> {
 
     private Consumer<Grid<T>> gridConfigurator;
 
+    private boolean readOnly;
     private V selectedValue;
     private T selectedItem;
 
@@ -271,7 +272,9 @@ public class BandboxField<T, V> extends CustomField<V> {
     }
 
     private void openPopup() {
-        if (!isEnabled()) {
+        // Klik pada kotak teks juga membuka popup, jadi penjagaannya harus di sini --
+        // mematikan tombol panah saja tidak cukup.
+        if (!isEnabled() || isReadOnly()) {
             return;
         }
         buildPopupIfNeeded();
@@ -329,6 +332,11 @@ public class BandboxField<T, V> extends CustomField<V> {
                 grid.setItems(dataFetchCallback.fetch(keyword));
             }
         }
+    }
+
+    @Override
+    public boolean isReadOnly() {
+        return readOnly;
     }
 
     public Grid<T> getGrid() {
@@ -426,6 +434,10 @@ public class BandboxField<T, V> extends CustomField<V> {
 
     @Override
     public void setReadOnly(boolean readOnly) {
+        // CustomField tidak menyediakan implementasi konkret setReadOnly, jadi
+        // statusnya disimpan sendiri -- tanpa ini isReadOnly() selalu false dan
+        // openPopup() tidak punya apa pun untuk diperiksa.
+        this.readOnly = readOnly;
         getElement().setProperty("readonly", readOnly);
         dropdownBtn.setEnabled(!readOnly);
         clearBtn.setEnabled(!readOnly);

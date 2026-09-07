@@ -104,8 +104,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             name = name.substring(7);
         }
         Component comp = formComponents != null ? formComponents.get(name) : null;
-        if (comp != null && comp instanceof com.vaadin.flow.component.HasEnabled hasEnabled) {
-            hasEnabled.setEnabled(enabled);
+        if (comp != null) {
+            // Field yang "dimatikan" tetap harus terbaca. Vaadin sengaja merender
+            // komponen disabled dengan kontras rendah -- tidak layak untuk
+            // menampilkan informasi -- jadi pakai readonly, yang mengunci tanpa
+            // memudarkan. Komponen yang bukan field tetap jatuh ke setEnabled di
+            // cabang terakhir setComponentReadOnly.
+            com.vaadinerp.components.ComponentFactory.setComponentReadOnly(comp, !enabled);
         }
     }
 

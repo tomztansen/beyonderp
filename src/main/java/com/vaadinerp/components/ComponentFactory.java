@@ -1165,8 +1165,6 @@ public class ComponentFactory {
             return;
         if (component instanceof com.vaadin.flow.component.HasValueAndElement hve) {
             hve.setReadOnly(ro);
-        } else if (component instanceof com.vaadin.flow.component.select.Select<?> sel) {
-            sel.setEnabled(!ro);
         } else if (component instanceof SubformGridField sg) {
             sg.setReadOnly(ro);
         } else if (component instanceof BandboxField bf) {
@@ -1207,7 +1205,9 @@ public class ComponentFactory {
         } else if (component instanceof com.vaadin.flow.component.combobox.ComboBox<?> cob) {
             cob.setReadOnly(ro);
         } else if (component instanceof com.vaadin.flow.component.select.Select<?> sel) {
-            sel.setEnabled(!ro);
+            // Bukan setEnabled: field disabled dirender pudar dan tidak layak untuk
+            // menampilkan informasi. Tema sudah punya aturan vaadin-select[readonly].
+            sel.setReadOnly(ro);
         } else if (component instanceof com.vaadin.flow.component.combobox.MultiSelectComboBox<?> mcb) {
             mcb.setReadOnly(ro);
         } else if (component instanceof SubformGridField sg) {
