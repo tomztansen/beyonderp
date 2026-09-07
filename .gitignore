@@ -29,6 +29,13 @@ uploads/
 logs/
 *.log
 
+# Dokumen & skrip bantu (bukan bagian aplikasi)
+*.py
+*.txt
+*.md
+# Kecuali lisensi font — SIL OFL mewajibkan lisensinya ikut didistribusikan
+!frontend/fonts/outfit/OFL.txt
+
 # Dokumen & arsip (bukan bagian aplikasi)
 *.pdf
 *.zip
