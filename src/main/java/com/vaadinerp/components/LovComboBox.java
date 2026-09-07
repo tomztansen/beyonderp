@@ -13,11 +13,16 @@ public class LovComboBox extends ComboBox<String> {
 
     private final String lovCode;
     private final DynamicDataService dataService;
+    /**
+     * Batas label yang ditahan. Combo ini lazy: baris diambil per halaman, dan dulu
+     * setiap baris yang pernah digulir tersimpan permanen selama form dibuka.
+     */
+    private static final int MAX_LABELS = 2000;
+
     private final Map<String, String> valueToLabelMap = new HashMap<>();
+    /** Hanya berisi record yang sedang terpilih; sisanya diambil ulang saat diminta. */
     private final Map<String, Map<String, Object>> valueToRecordMap = new HashMap<>();
     private final Map<String, FilterCondition> activeFilters = new HashMap<>();
-
-    private final List<String> currentItems = new ArrayList<>();
 
     public LovComboBox(String label, String lovCode, DynamicDataService dataService) {
         super(label);
@@ -73,11 +78,18 @@ public class LovComboBox extends ComboBox<String> {
 
                         if (!val.isEmpty()) {
                             valueToLabelMap.put(val, lbl);
-                            valueToRecordMap.put(val, rec);
-                            if (!currentItems.contains(val)) {
-                                currentItems.add(val);
-                            }
                             pageItems.add(val);
+                        }
+                    }
+                    // Gulir jauh di LOV besar tidak boleh menumpuk label tanpa batas.
+                    // Nilai yang sedang terpilih dipertahankan supaya kotaknya tidak
+                    // berubah jadi angka; sisanya terisi lagi dari halaman berikutnya.
+                    if (valueToLabelMap.size() > MAX_LABELS) {
+                        String selected = getValue();
+                        String selectedLabel = selected != null ? valueToLabelMap.get(selected) : null;
+                        valueToLabelMap.clear();
+                        if (selected != null && selectedLabel != null) {
+                            valueToLabelMap.put(selected, selectedLabel);
                         }
                     }
                     return pageItems.stream();
@@ -108,9 +120,6 @@ public class LovComboBox extends ComboBox<String> {
     @Override
     public void setValue(String value) {
         if (value != null && !value.isEmpty()) {
-            if (!currentItems.contains(value)) {
-                currentItems.add(value);
-            }
             if (!valueToLabelMap.containsKey(value)) {
                 LovMeta lovMeta = dataService != null && lovCode != null ? dataService.getLovMeta(lovCode).orElse(null)
                         : null;
@@ -118,6 +127,9 @@ public class LovComboBox extends ComboBox<String> {
                     Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(),
                             lovMeta.getValueColumn(), value);
                     if (rec != null) {
+                        // Hanya record terpilih yang pernah dibaca, jadi jangan simpan
+                        // pilihan-pilihan sebelumnya.
+                        valueToRecordMap.clear();
                         valueToRecordMap.put(value, rec);
                         Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
                         valueToLabelMap.put(value, lblObj != null ? lblObj.toString() : value);

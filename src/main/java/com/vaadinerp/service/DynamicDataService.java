@@ -2845,6 +2845,149 @@ public class DynamicDataService {
         }
     }
 
+    /** Klausa pencarian popup LOV; bentuknya tetap, hanya nilai parameternya berubah. */
+    private record LovSearchClause(String sql, int paramCount) {
+    }
+
+    /**
+     * Menyusun klausa ini butuh beberapa kali baca metadata dan sekali baca kolom
+     * hasil query, sementara pencarian dipanggil setiap ketikan. Bentuk klausanya
+     * tidak bergantung pada kata yang dicari, jadi cukup disusun sekali.
+     * Umurnya pendek supaya perubahan di Form Builder cepat terlihat.
+     */
+    private final com.github.benmanes.caffeine.cache.Cache<String, LovSearchClause> lovSearchClauseCache = com.github.benmanes.caffeine.cache.Caffeine
+            .newBuilder().maximumSize(200)
+            .expireAfterWrite(java.time.Duration.ofSeconds(60)).build();
+
+    /**
+     * Klausa WHERE untuk pencarian di popup LOV.
+     *
+     * search_column menentukan <b>kolom mana</b> yang dicari; metadata field
+     * menentukan <b>cara mencocokkannya</b>. Kolom yang punya LOV sendiri dicari
+     * lewat label LOV itu memakai subquery IN, karena yang tersimpan di kolom
+     * tersebut adalah kunci sedangkan yang dilihat user adalah labelnya. Kolom lain
+     * dicari apa adanya.
+     *
+     * Bila search_column kosong, kolomnya diambil dari field yang tampil di grid.
+     *
+     * Mengembalikan null bila metadata tidak memadai, supaya pemanggil kembali ke
+     * perilaku lama.
+     */
+    private String buildMetaSearchClause(String lovCode, String tableName, String searchBy, String searchTerm,
+            List<Object> params) {
+        if (lovCode == null || lovCode.trim().isEmpty() || tableName == null)
+            return null;
+        String cols = searchBy != null ? searchBy.trim() : "";
+        LovSearchClause built = lovSearchClauseCache.get(lovCode.trim() + " @ " + tableName.trim() + " @ " + cols,
+                k -> buildMetaSearchSql(lovCode.trim(), tableName.trim(), cols));
+        if (built == null || built.sql() == null)
+            return null;
+        String like = "%" + searchTerm + "%";
+        for (int i = 0; i < built.paramCount(); i++) {
+            params.add(like);
+        }
+        return built.sql();
+    }
+
+    private LovSearchClause buildMetaSearchSql(String lovCode, String tableName, String searchBy) {
+        LovSearchClause none = new LovSearchClause(null, 0);
+        try {
+            FormMeta form = formMetaRepository.findById(lovCode).orElse(null);
+            if (form == null || form.getFields() == null || form.getFields().isEmpty())
+                return none;
+
+            // Kolom yang tidak ada di hasil query membuat SQL gagal, dan kegagalannya
+            // ditelan jadi "hasil kosong" -- jadi saring dulu.
+            java.util.Set<String> outCols = new java.util.HashSet<>();
+            for (String c : getColumnsForQueryOrTable(tableName)) {
+                if (c != null)
+                    outCols.add(c.toLowerCase());
+            }
+            if (outCols.isEmpty())
+                return none;
+
+            List<String> wanted = new ArrayList<>();
+            if (!searchBy.isEmpty()) {
+                // search_column diisi: hormati daftarnya.
+                for (String c : searchBy.split(",")) {
+                    wanted.add(c.trim());
+                }
+            } else {
+                // Kosong: ikuti apa yang benar-benar tampil di grid popup.
+                for (FieldMeta field : form.getFields()) {
+                    if (!field.isDetail() && field.isShowInGrid())
+                        wanted.add(field.getFieldName());
+                }
+            }
+
+            int[] paramCount = { 0 };
+            java.util.StringJoiner orJoiner = new java.util.StringJoiner(" OR ");
+            for (String col : wanted) {
+                if (col == null || !col.matches("^[a-zA-Z0-9_]+$") || !outCols.contains(col.toLowerCase()))
+                    continue;
+                // Kolom yang tidak dikenal di meta_field -- alias seperti customercode
+                // atau oc -- tetap dicari sebagai teks biasa.
+                String childCode = null;
+                for (FieldMeta field : form.getFields()) {
+                    if (col.equalsIgnoreCase(field.getFieldName())) {
+                        childCode = field.getLovCode();
+                        break;
+                    }
+                }
+                String viaLabel = (childCode != null && !childCode.trim().isEmpty())
+                        ? buildLovLabelSubquery(col, childCode.trim(), paramCount)
+                        : null;
+                if (viaLabel != null) {
+                    orJoiner.add(viaLabel);
+                } else {
+                    orJoiner.add("CAST(" + col + " AS text) ILIKE ?");
+                    paramCount[0]++;
+                }
+            }
+            if (orJoiner.length() == 0)
+                return none;
+            return new LovSearchClause("(" + orJoiner + ")", paramCount[0]);
+        } catch (Exception e) {
+            // Jangan sampai popup ikut mati hanya karena metadata satu kolom aneh.
+            return none;
+        }
+    }
+
+    /** {@code kolom IN (SELECT kunci FROM lov WHERE label ILIKE ?)} */
+    private String buildLovLabelSubquery(String col, String childLovCode, int[] paramCount) {
+        com.vaadinerp.meta.LovMeta child = getLovMeta(childLovCode).orElse(null);
+        if (child == null || child.getTableName() == null || child.getTableName().trim().isEmpty())
+            return null;
+        String valCol = child.getValueColumn() != null ? child.getValueColumn().trim() : "";
+        if (!valCol.matches("^[a-zA-Z0-9_]+$"))
+            return null;
+
+        java.util.Set<String> labelCols = new java.util.LinkedHashSet<>();
+        if (child.getLabelColumn() != null && child.getLabelColumn().trim().matches("^[a-zA-Z0-9_]+$"))
+            labelCols.add(child.getLabelColumn().trim());
+        if (child.getSearchColumn() != null) {
+            for (String sc : child.getSearchColumn().split(",")) {
+                if (sc.trim().matches("^[a-zA-Z0-9_]+$"))
+                    labelCols.add(sc.trim());
+            }
+        }
+        if (labelCols.isEmpty())
+            return null;
+
+        String childTable = child.getTableName().trim();
+        String childSql = isCustomSelectQuery(childTable)
+                ? "( " + validateAndSanitizeSelectQuery(childTable) + " ) AS lov_sub"
+                : getLovQualifiedTableName(childTable);
+
+        java.util.StringJoiner inner = new java.util.StringJoiner(" OR ");
+        for (String lc : labelCols) {
+            inner.add("CAST(" + lc + " AS text) ILIKE ?");
+            paramCount[0]++;
+        }
+        return "CAST(" + col + " AS text) IN (SELECT CAST(" + valCol + " AS text) FROM " + childSql
+                + " WHERE " + inner + ")";
+    }
+
     public List<Map<String, Object>> fetchLovDataPaged(String tableName, String searchBy, String searchTerm,
             java.util.Collection<com.vaadinerp.components.FilterCondition> filters, int offset, int limit) {
         return fetchLovDataPaged(tableName, searchBy, searchTerm, filters, offset, limit, null, null);
@@ -2853,6 +2996,16 @@ public class DynamicDataService {
     public List<Map<String, Object>> fetchLovDataPaged(String tableName, String searchBy, String searchTerm,
             java.util.Collection<com.vaadinerp.components.FilterCondition> filters, int offset, int limit,
             String sortField, String sortDir) {
+        return fetchLovDataPaged(tableName, searchBy, searchTerm, filters, offset, limit, sortField, sortDir, null);
+    }
+
+    /**
+     * Varian dengan lovCode supaya pencarian bisa mengikuti kolom yang benar-benar
+     * tampil di popup. Tanpa lovCode perilakunya sama seperti sebelumnya.
+     */
+    public List<Map<String, Object>> fetchLovDataPaged(String tableName, String searchBy, String searchTerm,
+            java.util.Collection<com.vaadinerp.components.FilterCondition> filters, int offset, int limit,
+            String sortField, String sortDir, String lovCode) {
         if (tableName == null || tableName.trim().isEmpty()) {
             return new ArrayList<>();
         }
@@ -2928,13 +3081,25 @@ public class DynamicDataService {
             }
         }
 
-        if (searchBy == null || searchBy.trim().isEmpty()) {
-            if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+        // Kolom yang nilainya diterjemahkan lewat LOV lain dicari lewat label LOV itu,
+        // bukan lewat kunci yang tersimpan -- tanpa ini kolom seperti "Product Code"
+        // mustahil dicocokkan dengan yang dilihat user. Berlaku baik saat search_column
+        // diisi maupun kosong. Bila metadata tidak memadai, kembali ke perilaku lama.
+        String metaSearch = null;
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            metaSearch = buildMetaSearchClause(lovCode, trimmed, searchBy, searchTerm, params);
+            if (metaSearch == null && (searchBy == null || searchBy.trim().isEmpty())) {
                 List<String> allCols = getColumnsForQueryOrTable(trimmed);
                 if (!allCols.isEmpty()) {
                     searchBy = String.join(",", allCols);
                 }
             }
+        }
+        if (metaSearch != null) {
+            sql.append(hasWhere ? " AND " : " WHERE ").append(metaSearch);
+            hasWhere = true;
+            // Kondisinya sudah lengkap; jangan ditambah lagi oleh blok di bawah.
+            searchBy = null;
         }
 
         if (searchBy != null && !searchBy.trim().isEmpty() && searchTerm != null && !searchTerm.trim().isEmpty()) {
@@ -2988,6 +3153,11 @@ public class DynamicDataService {
 
     public int countLovData(String tableName, String searchBy, String searchTerm,
             java.util.Collection<com.vaadinerp.components.FilterCondition> filters) {
+        return countLovData(tableName, searchBy, searchTerm, filters, null);
+    }
+
+    public int countLovData(String tableName, String searchBy, String searchTerm,
+            java.util.Collection<com.vaadinerp.components.FilterCondition> filters, String lovCode) {
         if (tableName == null || tableName.trim().isEmpty()) {
             return 0;
         }
@@ -3064,13 +3234,25 @@ public class DynamicDataService {
             }
         }
 
-        if (searchBy == null || searchBy.trim().isEmpty()) {
-            if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+        // Kolom yang nilainya diterjemahkan lewat LOV lain dicari lewat label LOV itu,
+        // bukan lewat kunci yang tersimpan -- tanpa ini kolom seperti "Product Code"
+        // mustahil dicocokkan dengan yang dilihat user. Berlaku baik saat search_column
+        // diisi maupun kosong. Bila metadata tidak memadai, kembali ke perilaku lama.
+        String metaSearch = null;
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            metaSearch = buildMetaSearchClause(lovCode, trimmed, searchBy, searchTerm, params);
+            if (metaSearch == null && (searchBy == null || searchBy.trim().isEmpty())) {
                 List<String> allCols = getColumnsForQueryOrTable(trimmed);
                 if (!allCols.isEmpty()) {
                     searchBy = String.join(",", allCols);
                 }
             }
+        }
+        if (metaSearch != null) {
+            sql.append(hasWhere ? " AND " : " WHERE ").append(metaSearch);
+            hasWhere = true;
+            // Kondisinya sudah lengkap; jangan ditambah lagi oleh blok di bawah.
+            searchBy = null;
         }
 
         if (searchBy != null && !searchBy.trim().isEmpty() && searchTerm != null && !searchTerm.trim().isEmpty()) {
