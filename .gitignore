@@ -20,9 +20,29 @@ Thumbs.db
 
 # Sql
 sql/
+*.sql
 
 # Uploads
 uploads/
+
+# Logs
+logs/
+*.log
+
+# Dokumen & arsip (bukan bagian aplikasi)
+*.pdf
+*.zip
+*.xlsx
+*.xls
+*.docx
+*.bak
+
+# Test
+src/test/
+*Test.java
+*Tests.java
+Test*.java
+test.groovy
 
 # Vaadin Generated
 frontend/generated/
@@ -35,7 +55,7 @@ webpack.generated.js
 vite.config.ts
 vite.generated.ts
 tsconfig.json
-types.d.tss r c / m a i n / r e s o u r c e s / s t i m u l s o f t . p r o p e r t i e s  
+types.d.ts
 
 # Graphify
 graphify-out/
