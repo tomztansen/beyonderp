@@ -6,7 +6,6 @@ import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.IFrame;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.streams.DownloadHandler;
 import com.vaadin.flow.server.streams.DownloadResponse;
 import com.vaadinerp.meta.ReportMeta;
@@ -65,14 +64,17 @@ public final class ReportLauncher {
             box.setFlexGrow(1, ifr);
             return box;
         }
-        // StreamResource menghindari pengiriman byte lewat WebSocket — browser mengambil via HTTP.
+        // Byte-nya diambil browser lewat HTTP, bukan dikirim lewat WebSocket.
+        // inline() memasang Content-Disposition: inline -- tanpa itu IFrame akan
+        // mengunduh berkasnya, bukan menampilkannya.
         ReportOutput out = res.output();
         byte[] bytes = out.bytes();
-        StreamResource sr = new StreamResource(
-                outputFilename(out.contentType()), () -> new ByteArrayInputStream(bytes));
-        sr.setContentType(out.contentType());
+        String previewName = outputFilename(out.contentType());
         IFrame ifr = new IFrame();
-        ifr.getElement().setAttribute("src", sr);
+        ifr.getElement().setAttribute("src", DownloadHandler
+                .fromInputStream(e -> new DownloadResponse(
+                        new ByteArrayInputStream(bytes), previewName, out.contentType(), bytes.length))
+                .inline());
         ifr.setSizeFull();
         ifr.getStyle().set("border", "none");
         box.add(ifr);
