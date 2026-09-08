@@ -62,6 +62,9 @@ public class DynamicPickerPopupDialog extends Dialog {
         searchField.addValueChangeListener(e -> {
             String term = e.getValue() != null ? e.getValue().toLowerCase() : "";
             if (grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
+                // instanceof di atas hanya memeriksa jenis mentahnya; parameter generiknya
+                // dijamin oleh Grid<Map<String, Object>>, bukan oleh javac.
+                @SuppressWarnings("unchecked")
                 com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) grid
                         .getDataProvider();
                 dp.setFilter(row -> {
@@ -207,6 +210,9 @@ public class DynamicPickerPopupDialog extends Dialog {
             // Terapkan ulang filter lokal jika teks pencarian tidak kosong
             String term = searchField.getValue() != null ? searchField.getValue().toLowerCase() : "";
             if (!term.isEmpty() && grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
+                // instanceof di atas hanya memeriksa jenis mentahnya; parameter generiknya
+                // dijamin oleh Grid<Map<String, Object>>, bukan oleh javac.
+                @SuppressWarnings("unchecked")
                 com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) grid
                         .getDataProvider();
                 dp.setFilter(row -> {
