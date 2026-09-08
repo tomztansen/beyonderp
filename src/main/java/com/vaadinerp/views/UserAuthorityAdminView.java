@@ -608,7 +608,9 @@ public class UserAuthorityAdminView extends VerticalLayout {
 
         TextField routeField = new TextField("Route Path");
         routeField.setWidthFull();
-        routeField.setVisible(false);
+        routeField.setHelperText(
+                "Leave empty for a normal menu. Fill with another form code to make this entry an alias, "
+                        + "so the same form can appear under more than one parent.");
 
         IntegerField orderField = new IntegerField("Display Order");
         orderField.setWidthFull();

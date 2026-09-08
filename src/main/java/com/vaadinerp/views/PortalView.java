@@ -656,8 +656,29 @@ public class PortalView extends AppLayout {
         openMenuTab(menu, extra, null);
     }
 
-    public void openMenuTab(AppMenu menu, Object extra, String forceTabId) {
+    /**
+     * Menu alias: satu form boleh muncul di beberapa induk. Baris alias memakai
+     * menu_code sendiri (primary key) dan menunjuk form aslinya lewat route_path.
+     *
+     * Fallback hanya dipakai bila menu_code memang tidak punya form DAN route_path
+     * benar-benar sebuah form. Menu bawaan (SECURITY_ADMIN, FORM_BUILDER, dsb.)
+     * route_path-nya berupa slug URL, bukan form code, jadi tidak ikut terpengaruh.
+     */
+    private String resolveMenuTargetCode(AppMenu menu) {
         String code = menu.getMenuCode();
+        String route = menu.getRoutePath();
+        if (route == null || route.isBlank() || route.trim().equals(code)) {
+            return code;
+        }
+        if (formMetaRepository.findById(code).isPresent()) {
+            return code;
+        }
+        String target = route.trim();
+        return formMetaRepository.findById(target).isPresent() ? target : code;
+    }
+
+    public void openMenuTab(AppMenu menu, Object extra, String forceTabId) {
+        String code = resolveMenuTargetCode(menu);
         String title = menu.getMenuTitle();
         String activeTabId = forceTabId != null ? forceTabId : code;
 
