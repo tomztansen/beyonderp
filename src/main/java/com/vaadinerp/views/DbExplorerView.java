@@ -64,6 +64,9 @@ public class DbExplorerView extends VerticalLayout {
     private String currentTable;
     private final SessionSecurityService securityService;
 
+    /** Baris skema yang sedang diseret saat mengatur ulang urutan tampilan kolom. */
+    private Map<String, Object> draggedSchemaRow;
+
     private Runnable schemaFilterRefresher;
     private Runnable triggerFilterRefresher;
     private Runnable constraintFilterRefresher;
@@ -123,7 +126,7 @@ public class DbExplorerView extends VerticalLayout {
 
         tableSelect.setWidth("350px");
         tableSelect.setPlaceholder("Search Table..");
-        tableSelect.setItems(dynamicDataService.fetchDynamicTables());
+        tableSelect.setItems(dynamicDataService.fetchDynamicBaseTables());
 
         tableSelect.addValueChangeListener(event -> {
             String selectedTable = event.getValue();
@@ -545,6 +548,7 @@ public class DbExplorerView extends VerticalLayout {
     private void loadTableSchema(String tableName) {
         // Load Column Details
         currentSchemaList = dynamicDataService.fetchTableSchemaDetails(tableName);
+        applySavedSchemaRowOrder(tableName);
         schemaInfo.setText("Menampilkan " + currentSchemaList.size() + " column definitions for dynamic." + tableName);
         refreshSchemaGrid();
 
@@ -598,7 +602,7 @@ public class DbExplorerView extends VerticalLayout {
         localColField.setItems(mergedColumns);
 
         ComboBox<String> refTableField = new ComboBox<>("Tabel Referensi (Target FK)");
-        refTableField.setItems(dynamicDataService.fetchDynamicTables());
+        refTableField.setItems(dynamicDataService.fetchDynamicBaseTables());
 
         ComboBox<String> refColField = new ComboBox<>("Referenced Column (FK target)");
 
@@ -1141,6 +1145,27 @@ public class DbExplorerView extends VerticalLayout {
             schemaColMap.put(c3, "is_nullable");
             schemaColMap.put(c4, "column_default");
 
+            // Seret baris untuk mengatur urutan tampilan kolom. PostgreSQL tidak bisa
+            // memindahkan kolom fisik, jadi urutan ini hanya disimpan sebagai preferensi
+            // dan dipakai saat menampilkan skema di layar ini.
+            schemaGrid.setRowsDraggable(true);
+            schemaGrid.addDragStartListener(event -> {
+                draggedSchemaRow = event.getDraggedItems().isEmpty() ? null : event.getDraggedItems().get(0);
+                schemaGrid.setDropMode(com.vaadin.flow.component.grid.dnd.GridDropMode.BETWEEN);
+            });
+            schemaGrid.addDragEndListener(event -> {
+                draggedSchemaRow = null;
+                schemaGrid.setDropMode(null);
+            });
+            schemaGrid.addDropListener(event -> {
+                Map<String, Object> target = event.getDropTargetItem().orElse(null);
+                if (draggedSchemaRow == null || target == null)
+                    return;
+                boolean below = event
+                        .getDropLocation() == com.vaadin.flow.component.grid.dnd.GridDropLocation.BELOW;
+                moveSchemaRow(schemaColumnName(draggedSchemaRow), schemaColumnName(target), below);
+            });
+
             schemaGrid.setColumnReorderingAllowed(true);
             schemaGrid.addColumnReorderListener(event -> {
                 List<String> orderedFieldNames = new ArrayList<>();
@@ -1168,6 +1193,100 @@ public class DbExplorerView extends VerticalLayout {
         }
         List<String> userOrder = dynamicDataService.getUserGridOrder("DB_EXPLORER", "schemaGrid");
         StandardGridUtils.applySafeColumnOrder(schemaGrid, schemaColMap, userOrder);
+    }
+
+    private static String schemaColumnName(Map<String, Object> row) {
+        Object v = row != null ? row.get("column_name") : null;
+        return v != null ? v.toString() : "";
+    }
+
+    /** Kunci preferensi urutan kolom, satu per tabel. */
+    private static String schemaOrderGridId(String tableName) {
+        return "schemaRows:" + (tableName != null ? tableName : "");
+    }
+
+    private static int indexOfColumn(List<Map<String, Object>> rows, String columnName) {
+        for (int i = 0; i < rows.size(); i++) {
+            if (schemaColumnName(rows.get(i)).equals(columnName))
+                return i;
+        }
+        return -1;
+    }
+
+    /**
+     * Pindahkan kolom yang diseret ke sisi atas/bawah kolom tujuan. Mengubah isi
+     * {@code rows} di tempat dan mengembalikan true bila urutannya benar-benar berubah.
+     */
+    static boolean reorderColumns(List<Map<String, Object>> rows, String draggedName, String targetName,
+            boolean below) {
+        if (draggedName == null || draggedName.isEmpty() || draggedName.equals(targetName))
+            return false;
+
+        int from = indexOfColumn(rows, draggedName);
+        if (from < 0)
+            return false;
+        Map<String, Object> moved = rows.remove(from);
+
+        int to = indexOfColumn(rows, targetName);
+        if (to < 0) {
+            rows.add(from, moved); // urungkan bila tujuan hilang
+            return false;
+        }
+        rows.add(below ? to + 1 : to, moved);
+        return true;
+    }
+
+    /** Pindahkan kolom yang diseret ke sisi atas/bawah kolom tujuan, lalu simpan urutannya. */
+    private void moveSchemaRow(String draggedName, String targetName, boolean below) {
+        if (currentTable == null || !reorderColumns(currentSchemaList, draggedName, targetName, below))
+            return;
+
+        List<String> order = new ArrayList<>();
+        for (Map<String, Object> row : currentSchemaList)
+            order.add(schemaColumnName(row));
+        try {
+            dynamicDataService.saveUserGridOrder("DB_EXPLORER", schemaOrderGridId(currentTable), order);
+        } catch (Exception ex) {
+            Notification.show("Failed to save column order: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
+        }
+
+        if (schemaFilterRefresher != null)
+            schemaFilterRefresher.run();
+        else
+            schemaGrid.setItems(currentSchemaList);
+    }
+
+    /**
+     * Terapkan urutan tampilan yang tersimpan. Kolom yang belum pernah diurutkan
+     * (mis. baru ditambah) tetap muncul di belakang dengan urutan fisiknya.
+     */
+    private void applySavedSchemaRowOrder(String tableName) {
+        List<String> saved;
+        try {
+            saved = dynamicDataService.getUserGridOrder("DB_EXPLORER", schemaOrderGridId(tableName));
+        } catch (Exception ex) {
+            return;
+        }
+        if (saved == null || saved.isEmpty())
+            return;
+        currentSchemaList = orderColumnsByNames(currentSchemaList, saved);
+    }
+
+    /**
+     * Susun ulang baris sesuai daftar nama tersimpan. Nama yang kolomnya sudah tidak
+     * ada diabaikan; kolom yang belum pernah diurutkan ditaruh di belakang dengan
+     * urutan aslinya.
+     */
+    static List<Map<String, Object>> orderColumnsByNames(List<Map<String, Object>> rows, List<String> savedNames) {
+        List<Map<String, Object>> ordered = new ArrayList<>();
+        List<Map<String, Object>> rest = new ArrayList<>(rows);
+        for (String name : savedNames) {
+            int idx = indexOfColumn(rest, name);
+            if (idx >= 0)
+                ordered.add(rest.remove(idx));
+        }
+        ordered.addAll(rest);
+        return ordered;
     }
 
     private void refreshTriggersGrid() {
@@ -1559,6 +1678,6 @@ public class DbExplorerView extends VerticalLayout {
     }
 
     public void refreshTables() {
-        tableSelect.setItems(dynamicDataService.fetchDynamicTables());
+        tableSelect.setItems(dynamicDataService.fetchDynamicBaseTables());
     }
 }

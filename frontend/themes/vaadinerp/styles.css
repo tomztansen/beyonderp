@@ -329,7 +329,9 @@ vaadin-form-item vaadin-checkbox {
 
 /* 1. Editable Fields */
 vaadin-text-field:not([readonly])::part(input-field),
-vaadin-text-field:not(.bandbox-readonly):not([readonly])::part(input-field),
+/* Bandbox: kotak teksnya selalu readonly (nilai dipilih lewat popup), jadi status
+   aktifnya hanya bisa dibedakan lewat .bandbox-readonly, bukan atribut [readonly]. */
+vaadin-text-field.bandbox-display:not(.bandbox-readonly)::part(input-field),
 vaadin-text-area:not([readonly])::part(input-field),
 vaadin-combo-box:not([readonly])::part(input-field),
 vaadin-date-picker:not([readonly])::part(input-field),
@@ -348,7 +350,7 @@ vaadin-custom-field:not([readonly])::part(input-field) {
 }
 
 /* 2. Read-Only Fields */
-vaadin-text-field[readonly]::part(input-field),
+vaadin-text-field[readonly]:not(.bandbox-display)::part(input-field),
 vaadin-text-field.bandbox-readonly::part(input-field),
 vaadin-text-area[readonly]::part(input-field),
 vaadin-combo-box[readonly]::part(input-field),

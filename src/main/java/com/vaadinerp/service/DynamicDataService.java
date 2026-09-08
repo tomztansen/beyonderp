@@ -739,6 +739,21 @@ public class DynamicDataService {
         }
     }
 
+    /**
+     * Hanya tabel fisik, tanpa view. Dipakai layar yang menjalankan DDL: view tidak
+     * bisa di-ALTER, dan tidak bisa jadi tujuan foreign key.
+     */
+    public List<String> fetchDynamicBaseTables() {
+        try {
+            return jdbcTemplate.queryForList(
+                    "SELECT table_name FROM information_schema.tables "
+                            + "WHERE table_schema = 'dynamic' AND table_type = 'BASE TABLE' ORDER BY table_name",
+                    String.class);
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+
     public List<String> fetchTableColumns(String tableName) {
         if (tableName == null || tableName.trim().isEmpty()) {
             return new ArrayList<>();
