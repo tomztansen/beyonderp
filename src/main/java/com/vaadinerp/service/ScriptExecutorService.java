@@ -129,13 +129,15 @@ public class ScriptExecutorService {
     }
 
     /**
-     * @param selfField nama kolom pemicu; nilainya diikat ke variabel {@code self}
-     *                  supaya script tidak perlu menyebut nama kolomnya sendiri.
-     *                  Null untuk script yang tidak punya pemicu (On-Add-Row).
+     * @param selfField field pemicu; nilainya diikat ke variabel {@code self} supaya
+     *                  script tidak perlu menyebut nama kolomnya sendiri. Kalau
+     *                  fieldnya LOV, {@code self} juga bisa dibaca propertinya
+     *                  ({@code self.itemname}) tanpa db.find. Null untuk script yang
+     *                  tidak punya pemicu (On-Add-Row).
      */
     public void executeScript(String scriptId, String scriptText, Map<String, Object> newRow, int rowIndex,
             Map<String, Object> headerData, List<Map<String, Object>> items,
-            com.vaadin.flow.component.Component currentView, String selfField) {
+            com.vaadin.flow.component.Component currentView, FieldMeta selfField) {
         try {
             if (scriptText != null) {
                 scriptText = scriptText.replaceAll(
@@ -168,7 +170,24 @@ public class ScriptExecutorService {
             Binding binding = new Binding();
             binding.setVariable("row", newRow);
             binding.setVariable("rowIndex", rowIndex);
-            binding.setVariable("self", selfField != null ? rawValue(newRow, selfField) : null);
+            binding.setVariable("self", selfField != null
+                    ? buildSelf(rawValue(newRow, selfField.getFieldName()), selfField.getLovCode())
+                    : null);
+            // lov('kolom') -> record LOV kolom itu di baris ini, tanpa perlu tahu nama
+            // tabel maupun kolom kuncinya. Query hanya terjadi kalau benar dipanggil.
+            binding.setVariable("lov", new groovy.lang.Closure<Map<String, Object>>(null) {
+                @SuppressWarnings("unused")
+                public Map<String, Object> doCall(String fieldName) {
+                    FieldMeta target = currentView instanceof com.vaadinerp.components.SubformGridField sub
+                            ? sub.findChildField(fieldName)
+                            : null;
+                    if (target == null) {
+                        return null;
+                    }
+                    return lovRecord(dataServiceProvider, target.getLovCode(),
+                            rawValue(newRow, target.getFieldName()));
+                }
+            });
             Map<String, Object> smartHeader = headerData != null ? prepareHeaderForScript(headerData) : new HashMap<>();
             binding.setVariable("header", smartHeader);
             binding.setVariable("form", smartHeader);
@@ -306,10 +325,20 @@ public class ScriptExecutorService {
             binding.setVariable("ctx", ctx);
             binding.setVariable("header", headerBean != null ? prepareHeaderForScript(headerBean) : new HashMap<>());
             // Nilai mentah, bukan SmartHeaderNode, supaya `if (self)` berperilaku wajar.
+            // Untuk field LOV dibungkus LovValueNode: tetap berperilaku seperti nilainya,
+            // tapi propertinya bisa dibaca tanpa db.find.
+            String trigger = act.getTriggerField() != null ? act.getTriggerField().trim() : "";
             binding.setVariable("self",
-                    act.getTriggerField() != null && !act.getTriggerField().isBlank()
-                            ? rawValue(headerBean, act.getTriggerField().trim())
+                    !trigger.isEmpty()
+                            ? buildSelf(rawValue(headerBean, trigger), findLovCode(act.getFormMeta(), trigger))
                             : null);
+            binding.setVariable("lov", new groovy.lang.Closure<Map<String, Object>>(null) {
+                @SuppressWarnings("unused")
+                public Map<String, Object> doCall(String fieldName) {
+                    return lovRecord(dataServiceProvider, findLovCode(act.getFormMeta(), fieldName),
+                            rawValue(headerBean, fieldName));
+                }
+            });
             binding.setVariable("selectedRows", selectedGridRows != null ? selectedGridRows : new ArrayList<>());
             binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
             binding.setVariable("JsonOutput", groovy.json.JsonOutput.class);
@@ -840,8 +869,170 @@ public class ScriptExecutorService {
      * binding berubah; pemeriksa nama di editor script memakainya.
      */
     public static final java.util.Set<String> ROW_SCRIPT_NAMES = java.util.Set.of(
-            "db", "form", "getElementValue", "header", "items", "msgBox", "row", "rowIndex", "self",
+            "db", "form", "getElementValue", "header", "items", "lov", "msgBox", "row", "rowIndex", "self",
             "setElementEnabled", "setElementReadonly", "setElementValue");
+
+    /**
+     * Nilai field pemicu untuk variabel {@code self}. Berperilaku seperti nilai
+     * aslinya untuk truthiness, perbandingan, dan toString — jadi {@code if (self)}
+     * dan {@code self == 'Y'} tetap menilai isinya, bukan objeknya. Properti lain
+     * (mis. {@code self.itemname}) diambil dari record LOV, di-resolve sekali saat
+     * pertama diakses. Script yang hanya memeriksa nilainya tidak menyentuh
+     * database sama sekali.
+     */
+    public static class LovValueNode implements groovy.lang.GroovyObject {
+        private final Object primaryValue;
+        private final String lovCode;
+        private final org.springframework.beans.factory.ObjectProvider<DynamicDataService> provider;
+        private Map<String, Object> record;
+        private boolean resolved;
+        private transient groovy.lang.MetaClass metaClass;
+
+        LovValueNode(Object primaryValue, String lovCode,
+                org.springframework.beans.factory.ObjectProvider<DynamicDataService> provider) {
+            this.primaryValue = primaryValue;
+            this.lovCode = lovCode;
+            this.provider = provider;
+        }
+
+        public Object getPrimaryValue() {
+            return primaryValue;
+        }
+
+        /** Groovy truth mengikuti nilai aslinya, bukan keberadaan objek ini. */
+        public boolean asBoolean() {
+            return org.codehaus.groovy.runtime.typehandling.DefaultTypeTransformation.castToBoolean(primaryValue);
+        }
+
+        private Map<String, Object> record() {
+            if (resolved) {
+                return record;
+            }
+            resolved = true;
+            record = lovRecord(provider, lovCode, primaryValue);
+            return record;
+        }
+
+        @Override
+        public Object getProperty(String property) {
+            if ("value".equals(property) || "id".equals(property)) {
+                return primaryValue;
+            }
+            // Jalan untuk melihat kolom apa saja yang tersedia: msgBox(self._lov).
+            // Diawali underscore supaya tidak bentrok dengan nama kolom nyata; kalau
+            // toh ada kolom bernama sama, kolom aslinya yang menang.
+            if ("_lov".equals(property) || "_record".equals(property)) {
+                Map<String, Object> full = record();
+                if (full == null || !full.containsKey(property)) {
+                    return full;
+                }
+            }
+            Map<String, Object> rec = record();
+            if (rec == null) {
+                return null;
+            }
+            if (rec.containsKey(property)) {
+                return rec.get(property);
+            }
+            for (Map.Entry<String, Object> e : rec.entrySet()) {
+                if (e.getKey() != null && e.getKey().equalsIgnoreCase(property)) {
+                    return e.getValue();
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public void setProperty(String property, Object newValue) {
+            // self hanya untuk dibaca; menulis balik ke record LOV tidak masuk akal.
+        }
+
+        @Override
+        public Object invokeMethod(String name, Object args) {
+            return getMetaClass().invokeMethod(this, name, args);
+        }
+
+        @Override
+        public groovy.lang.MetaClass getMetaClass() {
+            if (metaClass == null) {
+                metaClass = groovy.lang.GroovySystem.getMetaClassRegistry().getMetaClass(LovValueNode.class);
+            }
+            return metaClass;
+        }
+
+        @Override
+        public void setMetaClass(groovy.lang.MetaClass metaClass) {
+            this.metaClass = metaClass;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            Object right = other instanceof LovValueNode node ? node.primaryValue : other;
+            try {
+                return org.codehaus.groovy.runtime.typehandling.DefaultTypeTransformation.compareEqual(primaryValue, right);
+            } catch (Exception ex) {
+                return primaryValue != null && primaryValue.equals(right);
+            }
+        }
+
+        @Override
+        public int hashCode() {
+            return primaryValue != null ? primaryValue.hashCode() : 0;
+        }
+
+        @Override
+        public String toString() {
+            return primaryValue != null ? primaryValue.toString() : "";
+        }
+    }
+
+    /** Ambil satu record LOV berdasarkan lovCode dan nilai kuncinya. */
+    private static Map<String, Object> lovRecord(
+            org.springframework.beans.factory.ObjectProvider<DynamicDataService> provider, String lovCode,
+            Object value) {
+        DynamicDataService dataService = provider != null ? provider.getIfAvailable() : null;
+        if (dataService == null || value == null || lovCode == null || lovCode.trim().isEmpty()) {
+            return null;
+        }
+        // Nilai multi-pilih (dipisah koma) tidak menunjuk satu record.
+        if (value.toString().contains(",")) {
+            return null;
+        }
+        try {
+            com.vaadinerp.meta.LovMeta lov = dataService.getLovMeta(lovCode.trim()).orElse(null);
+            if (lov != null) {
+                return dataService.fetchLovRecord(lov.getTableName(), lov.getValueColumn(), value);
+            }
+        } catch (Exception ignored) {
+            // Script tidak boleh mati hanya karena LOV-nya tidak bisa dibaca.
+        }
+        return null;
+    }
+
+    /** Cari lovCode field pemicu di definisi form; null kalau bukan field LOV. */
+    private String findLovCode(com.vaadinerp.meta.FormMeta formMeta, String fieldName) {
+        if (formMeta == null || formMeta.getFields() == null || fieldName == null) {
+            return null;
+        }
+        String clean = fieldName.trim();
+        if (clean.startsWith("header.") || clean.startsWith("form.") || clean.startsWith("row.")) {
+            clean = clean.substring(clean.indexOf('.') + 1);
+        }
+        for (FieldMeta field : formMeta.getFields()) {
+            if (field.getFieldName() != null && field.getFieldName().trim().equalsIgnoreCase(clean)) {
+                return field.getLovCode();
+            }
+        }
+        return null;
+    }
+
+    /** Bungkus nilai pemicu hanya kalau fieldnya memang LOV. */
+    private Object buildSelf(Object value, String lovCode) {
+        if (lovCode == null || lovCode.trim().isEmpty()) {
+            return value;
+        }
+        return new LovValueNode(value, lovCode.trim(), dataServiceProvider);
+    }
 
     /** Ambil nilai dari map, exact dulu lalu case-insensitive. */
     private static Object rawValue(Map<String, Object> map, String key) {
@@ -863,7 +1054,7 @@ public class ScriptExecutorService {
      */
     public static final java.util.Set<String> ACTION_SCRIPT_NAMES = java.util.Set.of(
             "JsonOutput", "JsonSlurper", "clearForm", "ctx", "db", "executeProcedure",
-            "getElementValue", "header", "msgBox", "prompt", "refreshForm", "selectedRows", "self",
+            "getElementValue", "header", "lov", "msgBox", "prompt", "refreshForm", "selectedRows", "self",
             "setElementDisabled", "setElementEnabled", "setElementReadonly", "setElementValue",
             "showDialog", "showError", "showMainTab", "showOptionsDialog", "showSuccess",
             "showYesNoDialog");

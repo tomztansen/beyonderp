@@ -50,7 +50,15 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
      * dijalankan per baris saat user mengubah sel di editor grid. Key = nama field
      * pemicu (lowercase).
      */
-    private final Map<String, com.vaadinerp.meta.FormActionMeta> rowChangeActions = new HashMap<>();
+    private final Map<String, com.vaadinerp.meta.FormActionMeta> rowChangeActions = new LinkedHashMap<>();
+
+    /**
+     * Status readonly yang dipasang script (toolbar, on-add, on-change). Editor grid
+     * hanya punya satu komponen per kolom dan applyReadonlyMode mengembalikan semua
+     * kolom ke default metadata setiap baris dibuka, jadi tanpa catatan ini efek
+     * script hilang begitu user mengklik baris. Berlaku sampai record lain dimuat.
+     */
+    private final Map<String, Boolean> scriptReadonlyOverrides = new LinkedHashMap<>();
 
     /**
      * Baris yang terakhir dibuka di editor. Editor non-buffered melakukan commit
@@ -131,6 +139,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             // memudarkan. Komponen yang bukan field tetap jatuh ke setEnabled di
             // cabang terakhir setComponentReadOnly.
             com.vaadinerp.components.ComponentFactory.setComponentReadOnly(comp, !enabled);
+            scriptReadonlyOverrides.put(name, !enabled);
         }
     }
 
@@ -161,7 +170,30 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         Component comp = findEditorComponent(name);
         if (comp != null) {
             com.vaadinerp.components.ComponentFactory.setComponentReadOnly(comp, readOnly);
+            scriptReadonlyOverrides.put(name, readOnly);
         }
+    }
+
+    /**
+     * Pasang default readonly dari metadata untuk semua kolom, lalu pasang ulang
+     * status yang sudah dipilih script. Urutannya wajib begini: metadata dulu,
+     * script belakangan, supaya script selalu punya kata terakhir.
+     */
+    private void applyRowReadonlyModes(boolean isNewRecord) {
+        if (childFormDef == null || childFormDef.getFields() == null)
+            return;
+        for (com.vaadinerp.meta.FieldMeta field : childFormDef.getFields()) {
+            Component comp = editorComponents.get(field.getFieldName());
+            if (comp != null) {
+                com.vaadinerp.components.ComponentFactory.applyReadonlyMode(comp, field, isNewRecord);
+            }
+        }
+        scriptReadonlyOverrides.forEach((name, readOnly) -> {
+            Component comp = findEditorComponent(name);
+            if (comp != null) {
+                com.vaadinerp.components.ComponentFactory.setComponentReadOnly(comp, readOnly);
+            }
+        });
     }
 
     /**
@@ -184,6 +216,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 return e.getValue();
             }
         }
+        System.out.println("[SUBFORM-SCRIPT] komponen '" + name + "' TIDAK ketemu. Tersedia: "
+                + editorComponents.keySet());
         return null;
     }
 
@@ -511,7 +545,10 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     private void setupGridListeners() {
-        grid.getEditor().addOpenListener(event -> editingItem = event.getItem());
+        grid.getEditor().addOpenListener(event -> {
+            editingItem = event.getItem();
+            replayRowChangeScripts(editingItem);
+        });
 
         grid.addItemClickListener(event -> {
             if (isReadOnly()) {
@@ -525,14 +562,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 }
                 
                 boolean isNewRecord = item.containsKey("_tempId") || (item.get("id") == null && item.get("ID") == null);
-                if (childFormDef != null && childFormDef.getFields() != null) {
-                    for (com.vaadinerp.meta.FieldMeta field : childFormDef.getFields()) {
-                        com.vaadin.flow.component.Component comp = editorComponents.get(field.getFieldName());
-                        if (comp != null) {
-                            com.vaadinerp.components.ComponentFactory.applyReadonlyMode(comp, field, isNewRecord);
-                        }
-                    }
-                }
+                applyRowReadonlyModes(isNewRecord);
 
                 editor.editItem(item);
             }
@@ -550,6 +580,13 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             if (headerRecordSupplier != null) {
                 headerData = headerRecordSupplier.get();
             }
+            // Default readonly dari metadata dipasang LEBIH DULU, baru script jalan.
+            // Kalau dibalik, setElementReadonly/setElementEnabled di dalam script
+            // langsung ditimpa applyReadonlyMode -- dulu tidak terasa karena script
+            // dieksekusi di thread lain sehingga efeknya mendarat setelah handler ini
+            // selesai. Sekarang script jalan inline, jadi urutannya harus benar.
+            applyRowReadonlyModes(true);
+
             if (dataService != null && dataService.getScriptExecutorService() != null && this.fieldMeta != null
                     && this.fieldMeta.getOnAddScript() != null) {
                 try {
@@ -564,15 +601,6 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
             items.add(newRow);
             grid.getDataProvider().refreshAll();
-
-            if (childFormDef != null && childFormDef.getFields() != null) {
-                for (com.vaadinerp.meta.FieldMeta field : childFormDef.getFields()) {
-                    com.vaadin.flow.component.Component comp = editorComponents.get(field.getFieldName());
-                    if (comp != null) {
-                        com.vaadinerp.components.ComponentFactory.applyReadonlyMode(comp, field, true);
-                    }
-                }
-            }
 
             grid.getEditor().editItem(newRow);
 
@@ -1541,11 +1569,49 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
      * dengan On-Add-Row Script: row, rowIndex, header, items, db.
      */
     private void runRowChangeScript(com.vaadinerp.meta.FormActionMeta act) {
-        if (dataService == null || dataService.getScriptExecutorService() == null)
-            return;
         Map<String, Object> row = grid.getEditor().getItem();
         if (row == null)
             row = editingItem;
+        runRowChangeScript(act, row);
+    }
+
+    /**
+     * Putar ulang semua script ON_CHANGE untuk baris yang baru dibuka di editor.
+     * Aturan status kolom (setElementReadonly/setElementEnabled) tidak bisa
+     * dititipkan pada script sekali jalan, karena applyReadonlyMode menetapkan
+     * ulang semua kolom setiap baris dibuka. Dijalankan dari openListener, jadi
+     * selalu sesudah reset itu.
+     */
+    /** FieldMeta kolom child form; dipakai untuk menyiapkan variabel `self`. */
+    public FieldMeta findChildField(String fieldName) {
+        if (childFormDef == null || childFormDef.getFields() == null || fieldName == null) {
+            return null;
+        }
+        String clean = fieldName.trim();
+        // Script sering ditulis 'row.serialid' / 'detail.serialid' mengikuti gaya
+        // setElementReadonly; tanpa ini hasilnya null tanpa penjelasan.
+        if (clean.startsWith("row.") || clean.startsWith("detail.")) {
+            clean = clean.substring(clean.indexOf('.') + 1);
+        }
+        for (FieldMeta field : childFormDef.getFields()) {
+            if (field.getFieldName() != null && field.getFieldName().trim().equalsIgnoreCase(clean)) {
+                return field;
+            }
+        }
+        return null;
+    }
+
+    private void replayRowChangeScripts(Map<String, Object> row) {
+        if (row == null || rowChangeActions.isEmpty())
+            return;
+        for (com.vaadinerp.meta.FormActionMeta act : rowChangeActions.values()) {
+            runRowChangeScript(act, row);
+        }
+    }
+
+    private void runRowChangeScript(com.vaadinerp.meta.FormActionMeta act, Map<String, Object> row) {
+        if (dataService == null || dataService.getScriptExecutorService() == null)
+            return;
         // Baris yang sudah dihapus tidak perlu diproses.
         int rowIndex = findIndexByReference(items, row);
         if (row == null || rowIndex < 0)
@@ -1558,7 +1624,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     "rowchg_" + (act.getId() != null ? act.getId() : act.getActionCode()) + "_"
                             + act.getScriptContent().hashCode(),
                     act.getScriptContent(), row, rowIndex + 1, headerData, items, this,
-                    act.getTriggerField());
+                    findChildField(act.getTriggerField()));
         } catch (Exception ex) {
             Notification.show(
                     "On-Change script [" + act.getActionCode() + "]: "
@@ -1640,6 +1706,9 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     protected void setPresentationValue(List<Map<String, Object>> newPresentationValue) {
         items.clear();
         deletedItems.clear();
+        // Record lain dimuat: status pilihan script dari record sebelumnya tidak
+        // berlaku lagi, biarkan default metadata yang menentukan.
+        scriptReadonlyOverrides.clear();
         if (newPresentationValue != null) {
             for (Map<String, Object> row : newPresentationValue) {
                 if (row != null) {
