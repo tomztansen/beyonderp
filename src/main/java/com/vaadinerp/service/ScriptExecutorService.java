@@ -11,7 +11,6 @@ import org.codehaus.groovy.control.customizers.SecureASTCustomizer;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.concurrent.*;
 
 @Service
 public class ScriptExecutorService {
@@ -23,21 +22,6 @@ public class ScriptExecutorService {
             .build();
 
     private CompilerConfiguration compilerConfiguration;
-    private final ExecutorService executorService = new ThreadPoolExecutor(
-            10, 50, 60L, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(100),
-            r -> {
-                Thread t = new Thread(r, "groovy-script-exec");
-                t.setDaemon(true);
-                return t;
-            });
-
-    @jakarta.annotation.PreDestroy
-    public void shutdown() {
-        if (executorService != null) {
-            executorService.shutdownNow();
-        }
-    }
 
     public ScriptExecutorService(
             org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider) {
@@ -141,6 +125,17 @@ public class ScriptExecutorService {
     public void executeScript(String scriptId, String scriptText, Map<String, Object> newRow, int rowIndex,
             Map<String, Object> headerData, List<Map<String, Object>> items,
             com.vaadin.flow.component.Component currentView) {
+        executeScript(scriptId, scriptText, newRow, rowIndex, headerData, items, currentView, null);
+    }
+
+    /**
+     * @param selfField nama kolom pemicu; nilainya diikat ke variabel {@code self}
+     *                  supaya script tidak perlu menyebut nama kolomnya sendiri.
+     *                  Null untuk script yang tidak punya pemicu (On-Add-Row).
+     */
+    public void executeScript(String scriptId, String scriptText, Map<String, Object> newRow, int rowIndex,
+            Map<String, Object> headerData, List<Map<String, Object>> items,
+            com.vaadin.flow.component.Component currentView, String selfField) {
         try {
             if (scriptText != null) {
                 scriptText = scriptText.replaceAll(
@@ -173,6 +168,7 @@ public class ScriptExecutorService {
             Binding binding = new Binding();
             binding.setVariable("row", newRow);
             binding.setVariable("rowIndex", rowIndex);
+            binding.setVariable("self", selfField != null ? rawValue(newRow, selfField) : null);
             Map<String, Object> smartHeader = headerData != null ? prepareHeaderForScript(headerData) : new HashMap<>();
             binding.setVariable("header", smartHeader);
             binding.setVariable("form", smartHeader);
@@ -232,16 +228,12 @@ public class ScriptExecutorService {
 
             scriptInstance.setBinding(binding);
 
-            Future<?> future = executorService.submit((Runnable) () -> scriptInstance.run());
-            try {
-                future.get(60, TimeUnit.SECONDS);
-            } catch (TimeoutException te) {
-                future.cancel(true);
-                throw new RuntimeException("Script Execution Timeout: exceeded 60 seconds maximum limit.");
-            } catch (ExecutionException ee) {
-                Throwable cause = ee.getCause() != null ? ee.getCause() : ee;
-                throw new RuntimeException("Script Error: " + cause.getMessage(), cause);
-            }
+            // Dijalankan di thread pemanggil, sama seperti executeActionScript. Kalau
+            // dilempar ke thread lain, DSL yang menyentuh UI (msgBox, setElementValue,
+            // setElementReadonly) gagal dengan "Cannot access state in VaadinSession or UI
+            // without locking the session" karena lock session dipegang thread UI.
+            // Batas 60 detik tetap berlaku lewat @TimedInterrupt di compilerConfiguration.
+            scriptInstance.run();
         } catch (Exception e) {
             System.err.println("Error executing script [" + scriptId + "]: " + e.getMessage());
             if (e instanceof RuntimeException) {
@@ -313,6 +305,11 @@ public class ScriptExecutorService {
             Binding binding = new Binding();
             binding.setVariable("ctx", ctx);
             binding.setVariable("header", headerBean != null ? prepareHeaderForScript(headerBean) : new HashMap<>());
+            // Nilai mentah, bukan SmartHeaderNode, supaya `if (self)` berperilaku wajar.
+            binding.setVariable("self",
+                    act.getTriggerField() != null && !act.getTriggerField().isBlank()
+                            ? rawValue(headerBean, act.getTriggerField().trim())
+                            : null);
             binding.setVariable("selectedRows", selectedGridRows != null ? selectedGridRows : new ArrayList<>());
             binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
             binding.setVariable("JsonOutput", groovy.json.JsonOutput.class);
@@ -843,8 +840,21 @@ public class ScriptExecutorService {
      * binding berubah; pemeriksa nama di editor script memakainya.
      */
     public static final java.util.Set<String> ROW_SCRIPT_NAMES = java.util.Set.of(
-            "db", "form", "getElementValue", "header", "items", "msgBox", "row", "rowIndex",
+            "db", "form", "getElementValue", "header", "items", "msgBox", "row", "rowIndex", "self",
             "setElementEnabled", "setElementReadonly", "setElementValue");
+
+    /** Ambil nilai dari map, exact dulu lalu case-insensitive. */
+    private static Object rawValue(Map<String, Object> map, String key) {
+        if (map == null || key == null)
+            return null;
+        if (map.containsKey(key))
+            return map.get(key);
+        for (Map.Entry<String, Object> e : map.entrySet()) {
+            if (e.getKey() != null && e.getKey().equalsIgnoreCase(key))
+                return e.getValue();
+        }
+        return null;
+    }
 
     /**
      * Nama yang tersedia di script level form dan toolbar — lihat binding di
@@ -853,7 +863,7 @@ public class ScriptExecutorService {
      */
     public static final java.util.Set<String> ACTION_SCRIPT_NAMES = java.util.Set.of(
             "JsonOutput", "JsonSlurper", "clearForm", "ctx", "db", "executeProcedure",
-            "getElementValue", "header", "msgBox", "prompt", "refreshForm", "selectedRows",
+            "getElementValue", "header", "msgBox", "prompt", "refreshForm", "selectedRows", "self",
             "setElementDisabled", "setElementEnabled", "setElementReadonly", "setElementValue",
             "showDialog", "showError", "showMainTab", "showOptionsDialog", "showSuccess",
             "showYesNoDialog");

@@ -1368,6 +1368,45 @@ public class DynamicDataService {
         saveData(formMeta, data, null, null);
     }
 
+    /**
+     * Nilai yang ditulis balik ke map milik pemanggil — PK hasil INSERT, version
+     * hasil UPDATE — tidak ikut ter-rollback saat transaksi gagal. Akibatnya form
+     * di layar menyimpan PK atau version yang tidak ada di database, lalu simpan
+     * ulang berikutnya menganggapnya UPDATE ke baris yang sudah hilang dan gagal
+     * sebagai "data conflict" padahal tidak ada user lain. Pemulihan didaftarkan ke
+     * transaksi supaya menangkap semua jalur gagal, bukan hanya yang tertangkap
+     * catch di sini.
+     */
+    private void restoreOnRollback(Map<String, Object> target, String... keys) {
+        if (target == null || keys == null || keys.length == 0)
+            return;
+        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive())
+            return;
+
+        Map<String, Object> previous = new HashMap<>();
+        List<String> wasAbsent = new ArrayList<>();
+        for (String key : keys) {
+            if (key == null)
+                continue;
+            if (target.containsKey(key)) {
+                previous.put(key, target.get(key));
+            } else {
+                wasAbsent.add(key);
+            }
+        }
+
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        if (status == STATUS_COMMITTED)
+                            return;
+                        previous.forEach(target::put);
+                        wasAbsent.forEach(target::remove);
+                    }
+                });
+    }
+
     private int executeAndLogSql(String sql, List<Object> args) {
         System.out.println("=================================================");
         System.out.println("EXECUTING SQL: " + sql);
@@ -1605,6 +1644,7 @@ public class DynamicDataService {
                 String sql = "INSERT INTO " + qMasterTable + " (" + columns.toString() + ") VALUES ("
                         + valuesParam.toString() + ")";
                 final String finalMasterPk = pk;
+                restoreOnRollback(rawData, pk, "id");
                 try {
                     String returningSql = sql + " RETURNING " + finalMasterPk;
                     System.out.println("EXECUTING INSERT WITH RETURNING: " + returningSql);
@@ -4323,6 +4363,7 @@ public class DynamicDataService {
                 String qMasterTable = getQualifiedTableName(formMeta.getTableName());
                 String sql = "INSERT INTO " + qMasterTable + " (" + columns.toString() + ") VALUES ("
                         + valuesParam.toString() + ")";
+                restoreOnRollback(rawMasterData, masterPk, "id");
                 try {
                     String returningSql = sql + " RETURNING " + finalMasterPk;
                     System.out.println("EXECUTING MASTER INSERT WITH RETURNING: " + returningSql);
@@ -4478,6 +4519,7 @@ public class DynamicDataService {
                     setClause.add("updatedt = ?");
                     args.add(nowTs);
                     setClause.add("version = COALESCE(version, 0) + 1");
+                    restoreOnRollback(row, "version", "updateby", "updatedt");
                     row.put("updateby", currentUser);
                     row.put("updatedt", nowTs);
 

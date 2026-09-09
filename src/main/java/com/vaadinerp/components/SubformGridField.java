@@ -45,6 +45,23 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private final HorizontalLayout extraActionsContainer = new HorizontalLayout();
     private final Map<String, Component> editorComponents = new HashMap<>();
 
+    /**
+     * Script ON_CHANGE milik field child form (meta_form_action, scope ON_CHANGE),
+     * dijalankan per baris saat user mengubah sel di editor grid. Key = nama field
+     * pemicu (lowercase).
+     */
+    private final Map<String, com.vaadinerp.meta.FormActionMeta> rowChangeActions = new HashMap<>();
+
+    /**
+     * Baris yang terakhir dibuka di editor. Editor non-buffered melakukan commit
+     * saat blur, dan blur karena klik baris lain bisa saja sampai ke server setelah
+     * editor ditutup — saat itu {@code editor.getItem()} sudah null. Referensi ini
+     * sengaja tidak dikosongkan saat editor tutup supaya script ON_CHANGE tetap
+     * dapat barisnya. Aman karena hanya komponen editor yang menghasilkan
+     * value-change, dan editItem berikutnya akan menimpanya.
+     */
+    private Map<String, Object> editingItem;
+
     private final Map<String, FilterCriteria> filterValues = new HashMap<>();
     private final Map<Grid.Column<Map<String, Object>>, String> columnToFieldNameMap = new HashMap<>();
     private final Map<Grid.Column<Map<String, Object>>, java.util.function.Function<Map<String, Object>, String>> colGetterMap = new java.util.concurrent.ConcurrentHashMap<>();
@@ -106,7 +123,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         if (name.startsWith("detail.") || name.startsWith("row.")) {
             name = name.substring(name.indexOf('.') + 1);
         }
-        Component comp = editorComponents.get(name);
+        Component comp = findEditorComponent(name);
         if (comp != null) {
             // Field yang "dimatikan" tetap harus terbaca. Vaadin sengaja merender
             // komponen disabled dengan kontras rendah -- tidak layak untuk
@@ -141,10 +158,33 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         if (name.startsWith("detail.") || name.startsWith("row.")) {
             name = name.substring(name.indexOf('.') + 1);
         }
-        Component comp = editorComponents.get(name);
+        Component comp = findEditorComponent(name);
         if (comp != null) {
             com.vaadinerp.components.ComponentFactory.setComponentReadOnly(comp, readOnly);
         }
+    }
+
+    /**
+     * Cari komponen editor kolom. Script ditulis manusia, jadi pencocokan nama
+     * dilonggarkan seperti di subformUpdateFieldValue: exact dulu, lalu abaikan
+     * besar-kecil huruf dan pemisah (_, spasi, -).
+     */
+    private Component findEditorComponent(String name) {
+        if (name == null)
+            return null;
+        Component comp = editorComponents.get(name);
+        if (comp != null)
+            return comp;
+        String clean = name.replaceAll("[_\\s-]+", "");
+        for (Map.Entry<String, Component> e : editorComponents.entrySet()) {
+            if (e.getKey() == null)
+                continue;
+            if (e.getKey().equalsIgnoreCase(name)
+                    || e.getKey().replaceAll("[_\\s-]+", "").equalsIgnoreCase(clean)) {
+                return e.getValue();
+            }
+        }
+        return null;
     }
 
     private static class FilterCriteria {
@@ -471,6 +511,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     private void setupGridListeners() {
+        grid.getEditor().addOpenListener(event -> editingItem = event.getItem());
+
         grid.addItemClickListener(event -> {
             if (isReadOnly()) {
                 return;
@@ -779,6 +821,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         editor.setBinder(gridBinder);
         editor.setBuffered(false);
 
+        loadRowChangeActions();
+
         Map<String, Grid.Column<Map<String, Object>>> columnsMap = new LinkedHashMap<>();
 
         java.util.function.BiConsumer<String, Object> subformUpdateFieldValue = (targetFieldName, val) -> {
@@ -954,6 +998,19 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                         }
                         updateValue();
                     });
+
+            // Listener didaftarkan SETELAH binder.bind(), jadi saat script jalan nilai baru
+            // sudah tertulis ke map baris. Hanya perubahan dari user yang memicu — nilai
+            // yang ditulis server (formula, target LOV, sinkronisasi hasil script) diabaikan
+            // supaya tidak terjadi pemicuan berantai.
+            com.vaadinerp.meta.FormActionMeta changeAct = rowChangeActions.get(fieldName.toLowerCase());
+            if (changeAct != null) {
+                hasValue.addValueChangeListener(ev -> {
+                    if (ev.isFromClient()) {
+                        runRowChangeScript(changeAct);
+                    }
+                });
+            }
 
             // Setup Comparator and Sortable AFTER editor binding to prevent override
             col.setComparator((map1, map2) -> {
@@ -1456,6 +1513,92 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
 
+
+    /**
+     * Memuat script ON_CHANGE milik child form. Konfigurasinya lewat Form Builder
+     * child form (tombol ⚡ On-Change Script), sama seperti form biasa — bedanya di
+     * sini scope-nya baris grid, bukan header.
+     */
+    private void loadRowChangeActions() {
+        rowChangeActions.clear();
+        if (dataService == null || childFormDef == null)
+            return;
+        for (com.vaadinerp.meta.FormActionMeta act : dataService.getFormActions(childFormDef.getFormCode(),
+                "ON_CHANGE")) {
+            // getFormActions ikut meloloskan action tanpa scope, jadi disaring ulang.
+            if (!"ON_CHANGE".equalsIgnoreCase(act.getTargetScope()))
+                continue;
+            if (act.getTriggerField() == null || act.getTriggerField().trim().isEmpty())
+                continue;
+            if (act.getScriptContent() == null || act.getScriptContent().trim().isEmpty())
+                continue;
+            rowChangeActions.putIfAbsent(act.getTriggerField().trim().toLowerCase(), act);
+        }
+    }
+
+    /**
+     * Menjalankan script ON_CHANGE untuk baris yang sedang diedit. Binding-nya sama
+     * dengan On-Add-Row Script: row, rowIndex, header, items, db.
+     */
+    private void runRowChangeScript(com.vaadinerp.meta.FormActionMeta act) {
+        if (dataService == null || dataService.getScriptExecutorService() == null)
+            return;
+        Map<String, Object> row = grid.getEditor().getItem();
+        if (row == null)
+            row = editingItem;
+        // Baris yang sudah dihapus tidak perlu diproses.
+        int rowIndex = findIndexByReference(items, row);
+        if (row == null || rowIndex < 0)
+            return;
+        Map<String, Object> headerData = headerRecordSupplier != null ? headerRecordSupplier.get() : null;
+        try {
+            // Script dieksekusi di dalam value-change listener; exception yang lolos akan
+            // mematikan sesi Vaadin, jadi wajib ditahan di sini.
+            dataService.getScriptExecutorService().executeScript(
+                    "rowchg_" + (act.getId() != null ? act.getId() : act.getActionCode()) + "_"
+                            + act.getScriptContent().hashCode(),
+                    act.getScriptContent(), row, rowIndex + 1, headerData, items, this,
+                    act.getTriggerField());
+        } catch (Exception ex) {
+            Notification.show(
+                    "On-Change script [" + act.getActionCode() + "]: "
+                            + (ex.getMessage() != null ? ex.getMessage() : ex.toString()),
+                    5000, Notification.Position.MIDDLE);
+            return;
+        }
+        refreshEditorFromRow(row);
+    }
+
+    /** Menyalin nilai baris (yang mungkin diubah script) balik ke editor & grid. */
+    private void refreshEditorFromRow(Map<String, Object> row) {
+        if (childFormDef == null || row == null)
+            return;
+        for (FieldMeta field : childFormDef.getFields()) {
+            Component comp = editorComponents.get(field.getFieldName());
+            if (!(comp instanceof HasValue))
+                continue;
+            @SuppressWarnings("unchecked")
+            HasValue<?, Object> hasValue = (HasValue<?, Object>) comp;
+            Object converted = convertToFieldValue(getCaseInsensitiveVal(row, field.getFieldName()), comp);
+            Object current = hasValue.getValue();
+            if (converted == null ? current != null : !converted.equals(current)) {
+                hasValue.setValue(converted);
+            }
+        }
+        evaluateRowFormulas(row);
+        // Baris yang sedang dibuka di editor sengaja TIDAK di-refresh: refresh membuat
+        // Vaadin merender ulang barisnya, dan status komponen yang baru dipasang script
+        // (setElementReadonly / setElementEnabled) ikut hilang. Nilainya sudah terlihat
+        // lewat setValue di atas, dan sel grid ikut diperbarui saat editor ditutup.
+        // Penjaga yang sama dipakai setter binder di buildGridColumns().
+        boolean editingThisRow = grid.getEditor().isOpen() && grid.getEditor().getItem() == row;
+        if (!editingThisRow && grid.getDataProvider() instanceof ListDataProvider) {
+            @SuppressWarnings("unchecked")
+            ListDataProvider<Map<String, Object>> dp = (ListDataProvider<Map<String, Object>>) grid.getDataProvider();
+            dp.refreshItem(row);
+        }
+        updateValue();
+    }
 
     private void evaluateRowFormulas(Map<String, Object> row) {
         if (childFormDef == null)

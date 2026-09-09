@@ -2995,7 +2995,10 @@ public class FormBuilderView extends VerticalLayout {
                 + "\". Changes made by the system (formula, LOV target fill, setElementValue) do not trigger it. "
                 + "Tersedia: setElementReadonly, setElementEnabled, setElementDisabled, setElementValue, "
                 + "getElementValue, refreshForm, clearForm, db.getValue, db.find, executeProcedure, msgBox, "
-                + "showSuccess, showError, header.*");
+                + "showSuccess, showError, header.*. "
+                + "Kalau form ini dipakai sebagai child form di Subform Grid, script yang sama jalan per baris "
+                + "saat sel diedit — di sana tersedia row.*, rowIndex, items, dan perubahan row.* langsung "
+                + "tersalin ke editor grid.");
         info.getStyle().set("font-size", "0.85em").set("color", "var(--lumo-secondary-text-color)");
 
         Span warn = new Span("Jangan setElementValue ke field yang punya Formula — nilainya akan ditimpa "
