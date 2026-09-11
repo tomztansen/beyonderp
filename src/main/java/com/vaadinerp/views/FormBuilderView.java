@@ -3834,7 +3834,12 @@ public class FormBuilderView extends VerticalLayout {
         }
     }
 
-    private List<String> getLovColumns(String lovCode) {
+    /**
+     * Kolom nyata sumber LOV. Dipakai untuk konteks yang langsung masuk SQL, mis.
+     * Configure Filters -- kolom semu <field>_label tidak ada di database dan
+     * membuat seluruh query gagal, bukan cuma filternya.
+     */
+    private List<String> getLovColumnsBase(String lovCode) {
         List<String> list = new ArrayList<>();
         list.add("_label");
         if (lovCode == null || lovCode.trim().isEmpty())
@@ -3922,6 +3927,12 @@ public class FormBuilderView extends VerticalLayout {
             }
         }
 
+        return list;
+    }
+
+    /** Kolom nyata plus kolom semu <field>_label, hanya untuk LOV Target. */
+    private List<String> getLovColumns(String lovCode) {
+        List<String> list = getLovColumnsBase(lovCode);
         enrichLovColumnsWithLabels(lovCode, list);
         return list;
     }

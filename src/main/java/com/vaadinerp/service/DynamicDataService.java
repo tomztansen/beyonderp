@@ -1882,7 +1882,163 @@ public class DynamicDataService {
         return colTypes.getOrDefault(columnName.toLowerCase(), "");
     }
 
+    /**
+     * Apakah kolom benar-benar ada di tabel atau query sumber. Dipakai untuk menolak
+     * kolom semu sebelum masuk SQL. Kalau daftar kolom tidak terbaca, dianggap ada --
+     * lebih baik query apa adanya daripada diam-diam membuang filter yang sah.
+     */
+    /**
+     * Terjemahkan filter pada kolom semu {@code <kolom>_label} menjadi subquery ke
+     * tabel lookup-nya, mis. {@code CAST(msresourceid AS text) IN (SELECT id FROM
+     * mdlookup WHERE description ILIKE ?)}. Label bukan kolom di sumber data LOV --
+     * ia hanya bisa dipetakan lewat definisi form sumber, yang ditemukan dari
+     * lovCode. Mengembalikan null kalau tidak bisa dipetakan; pemanggil yang
+     * memutuskan apa yang dilakukan.
+     */
+    /**
+     * Maksimum 200 kombinasi; umurnya pendek supaya perubahan LOV di Form Builder
+     * cepat terlihat. String kosong berarti "sudah dicoba, tidak bisa dipetakan" --
+     * negatifnya ikut di-cache supaya popup tidak mengulang penelusuran metadata di
+     * setiap ketikan.
+     */
+    private final com.github.benmanes.caffeine.cache.Cache<String, String> labelFilterSqlCache = com.github.benmanes.caffeine.cache.Caffeine
+            .newBuilder().maximumSize(200)
+            .expireAfterWrite(java.time.Duration.ofSeconds(60)).build();
+
+    private String buildLabelFilterSql(String sourceTableOrQuery, String lovCode, String labelColumn, String compOp,
+            Object value, List<Object> outArgs) {
+        String cacheKey = sourceTableOrQuery + "|" + lovCode + "|" + labelColumn + "|" + compOp;
+        String sql = labelFilterSqlCache.get(cacheKey, k -> {
+            String built = resolveLabelFilterSql(sourceTableOrQuery, lovCode, labelColumn, compOp);
+            return built != null ? built : "";
+        });
+        if (sql == null || sql.isEmpty()) {
+            return null;
+        }
+        String val = value != null ? value.toString().trim() : "";
+        // LIKE/ILIKE dibungkus %..% seperti cabang biasa; operator lain dicocokkan utuh.
+        outArgs.add("LIKE".equals(compOp) || "ILIKE".equals(compOp) ? "%" + val + "%" : val);
+        return sql;
+    }
+
+    private String resolveLabelFilterSql(String sourceTableOrQuery, String lovCode, String labelColumn,
+            String compOp) {
+        if (labelColumn == null || labelColumn.length() <= 6 || !labelColumn.toLowerCase().endsWith("_label")) {
+            return null;
+        }
+        String baseCol = labelColumn.substring(0, labelColumn.length() - 6);
+        if (!baseCol.matches("^[a-zA-Z0-9_]+$") || !columnExistsIn(sourceTableOrQuery, baseCol)) {
+            return null;
+        }
+
+        FormMeta sourceForm = null;
+        for (String candidate : new String[] { lovCode, lovCode != null ? lovCode.toLowerCase() : null,
+                lovCode != null ? lovCode.toUpperCase() : null, sourceTableOrQuery }) {
+            if (candidate == null || candidate.isBlank())
+                continue;
+            sourceForm = formMetaRepository.findById(candidate.trim()).orElse(null);
+            if (sourceForm != null)
+                break;
+        }
+        if (sourceForm == null || sourceForm.getFields() == null) {
+            log.warn("[LOV-FILTER] '{}' tidak dipetakan: definisi form sumber tidak ketemu (lovCode={}). "
+                    + "Kolom label hanya bisa dipetakan lewat form sumber.", labelColumn, lovCode);
+            return null;
+        }
+
+        String nestedLovCode = null;
+        for (com.vaadinerp.meta.FieldMeta f : sourceForm.getFields()) {
+            if (baseCol.equalsIgnoreCase(f.getFieldName()) && f.getLovCode() != null
+                    && !f.getLovCode().trim().isEmpty()) {
+                nestedLovCode = f.getLovCode().trim();
+                break;
+            }
+        }
+        if (nestedLovCode == null) {
+            log.warn("[LOV-FILTER] '{}' tidak dipetakan: field '{}' di form {} tidak punya LOV, "
+                    + "jadi labelnya tidak berasal dari tabel mana pun.", labelColumn, baseCol,
+                    sourceForm.getFormCode());
+            return null;
+        }
+
+        com.vaadinerp.meta.LovMeta nested = getLovMeta(nestedLovCode).orElse(null);
+        if (nested == null || nested.getTableName() == null || nested.getTableName().isBlank()) {
+            log.warn("[LOV-FILTER] '{}' tidak dipetakan: LOV '{}' tidak punya tabel.", labelColumn, nestedLovCode);
+            return null;
+        }
+
+        String valCol = nested.getValueColumn() != null && !nested.getValueColumn().isBlank()
+                ? nested.getValueColumn().trim()
+                : "id";
+        String lblCol = nested.getLabelColumn() != null && !nested.getLabelColumn().isBlank()
+                ? nested.getLabelColumn().trim()
+                : valCol;
+        if (!valCol.matches("^[a-zA-Z0-9_]+$") || !lblCol.matches("^[a-zA-Z0-9_]+$")) {
+            return null;
+        }
+
+        String nestedTable = nested.getTableName().trim();
+        String nestedSql = isCustomSelectQuery(nestedTable)
+                ? " (" + validateAndSanitizeSelectQuery(nestedTable) + ") AS lov_lbl "
+                : getLovQualifiedTableName(nestedTable);
+
+        boolean negative = "!=".equals(compOp) || "<>".equals(compOp);
+
+        return "CAST(" + baseCol + " AS text) " + (negative ? "NOT IN" : "IN")
+                + " (SELECT CAST(" + valCol + " AS text) FROM " + nestedSql
+                + " WHERE CAST(" + lblCol + " AS text) ILIKE ?)";
+    }
+
+    /**
+     * Maksimum 200 sumber data. Untuk sumber berupa custom query, pengambilan daftar
+     * kolom menjalankan SELECT ke query itu -- tanpa cache, setiap kondisi filter di
+     * setiap ketikan popup akan mengulangnya.
+     */
+    private final com.github.benmanes.caffeine.cache.Cache<String, java.util.Set<String>> filterColumnCache = com.github.benmanes.caffeine.cache.Caffeine
+            .newBuilder().maximumSize(200)
+            .expireAfterWrite(java.time.Duration.ofMinutes(5)).build();
+
+    private boolean columnExistsIn(String tableOrQuery, String column) {
+        if (tableOrQuery == null || column == null || column.isBlank()) {
+            return true;
+        }
+        try {
+            java.util.Set<String> cols = filterColumnCache.get(tableOrQuery.trim(), key -> {
+                java.util.Set<String> set = new java.util.HashSet<>();
+                List<String> list = getColumnsForQueryOrTable(key);
+                if (list != null) {
+                    for (String c : list) {
+                        if (c != null) {
+                            set.add(c.toLowerCase());
+                        }
+                    }
+                }
+                // null = jangan di-cache. Daftar kosong berarti probe-nya gagal, dan
+                // kegagalan sesaat tidak boleh diingat selama 5 menit.
+                return set.isEmpty() ? null : set;
+            });
+            // Tidak terbaca: jangan buang filter yang sah.
+            if (cols == null || cols.isEmpty()) {
+                return true;
+            }
+            return cols.contains(column.toLowerCase());
+        } catch (Exception ex) {
+            return true;
+        }
+    }
+
     private Object sanitizeJdbcValue(String tableName, String columnName, Object val) {
+        if (val == null)
+            return null;
+
+        // Script bisa menugaskan nilai bungkusan ke kolom (mis. row.qty = header.qty
+        // atau row.itemid = self). Yang boleh masuk ke JDBC hanya nilai aslinya --
+        // objek bungkusnya membuat driver gagal menebak tipe SQL.
+        if (val instanceof ScriptExecutorService.SmartHeaderNode headerNode) {
+            val = headerNode.getPrimaryValue();
+        } else if (val instanceof ScriptExecutorService.LovValueNode lovNode) {
+            val = lovNode.getPrimaryValue();
+        }
         if (val == null)
             return null;
         if (val instanceof java.util.Collection<?> col) {
@@ -2787,6 +2943,11 @@ public class DynamicDataService {
 
     public List<Map<String, Object>> fetchLovDataWithFilters(String tableName, String searchBy, String searchTerm,
             java.util.Collection<com.vaadinerp.components.FilterCondition> filters) {
+        return fetchLovDataWithFilters(tableName, searchBy, searchTerm, filters, null);
+    }
+
+    public List<Map<String, Object>> fetchLovDataWithFilters(String tableName, String searchBy, String searchTerm,
+            java.util.Collection<com.vaadinerp.components.FilterCondition> filters, String lovCode) {
         if (tableName == null || tableName.trim().isEmpty()) {
             return new ArrayList<>();
         }
@@ -2811,18 +2972,38 @@ public class DynamicDataService {
                 boolean isNullOp = "IS NULL".equalsIgnoreCase(condition.getComparisonOperator())
                         || "IS NOT NULL".equalsIgnoreCase(condition.getComparisonOperator());
                 if (isNullOp || (resolvedValue != null && !resolvedValue.toString().trim().isEmpty())) {
+                    String safeFilterCol = condition.getFilterColumn() != null ? condition.getFilterColumn().trim()
+                            : "";
+                    validateSqlIdentifier(safeFilterCol, "filter column");
+                    // Kolom semu seperti <field>_label tidak ada di sumber data LOV. Kalau
+                    // masih bisa diterjemahkan jadi subquery ke tabel lookup-nya, pakai itu;
+                    // kalau tidak, kondisinya dilewati -- membiarkannya masuk WHERE membuat
+                    // seluruh query gagal, bukan cuma filternya. Penjaga ini ditaruh sebelum
+                    // operator logika ditempel supaya tidak meninggalkan " AND " menggantung.
+                    String phantomSql = null;
+                    List<Object> phantomArgs = new ArrayList<>();
+                    if (!columnExistsIn(trimmed, safeFilterCol)) {
+                        phantomSql = buildLabelFilterSql(trimmed, lovCode, safeFilterCol,
+                                validateComparisonOperator(condition.getComparisonOperator()), resolvedValue,
+                                phantomArgs);
+                        if (phantomSql == null) {
+                            log.warn("[LOV-FILTER] kondisi dilewati: kolom '{}' tidak ada di sumber data.",
+                                    safeFilterCol);
+                            continue;
+                        }
+                    }
+
                     if (!isFirst) {
                         String logOp = validateLogicalOperator(condition.getLogicalOperator());
                         filterBuilder.append(" ").append(logOp).append(" ");
                     }
                     isFirst = false;
-
-                    String safeFilterCol = condition.getFilterColumn() != null ? condition.getFilterColumn().trim()
-                            : "";
-                    validateSqlIdentifier(safeFilterCol, "filter column");
                     String compOp = validateComparisonOperator(condition.getComparisonOperator());
 
-                    if ("IS NULL".equals(compOp) || "IS NOT NULL".equals(compOp)) {
+                    if (phantomSql != null) {
+                        filterBuilder.append(phantomSql);
+                        params.addAll(phantomArgs);
+                    } else if ("IS NULL".equals(compOp) || "IS NOT NULL".equals(compOp)) {
                         filterBuilder.append(safeFilterCol).append(" ").append(compOp);
                     } else if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
                         filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp)
@@ -3085,18 +3266,38 @@ public class DynamicDataService {
                 boolean isNullOp = "IS NULL".equalsIgnoreCase(condition.getComparisonOperator())
                         || "IS NOT NULL".equalsIgnoreCase(condition.getComparisonOperator());
                 if (isNullOp || (resolvedValue != null && !resolvedValue.toString().trim().isEmpty())) {
+                    String safeFilterCol = condition.getFilterColumn() != null ? condition.getFilterColumn().trim()
+                            : "";
+                    validateSqlIdentifier(safeFilterCol, "filter column");
+                    // Kolom semu seperti <field>_label tidak ada di sumber data LOV. Kalau
+                    // masih bisa diterjemahkan jadi subquery ke tabel lookup-nya, pakai itu;
+                    // kalau tidak, kondisinya dilewati -- membiarkannya masuk WHERE membuat
+                    // seluruh query gagal, bukan cuma filternya. Penjaga ini ditaruh sebelum
+                    // operator logika ditempel supaya tidak meninggalkan " AND " menggantung.
+                    String phantomSql = null;
+                    List<Object> phantomArgs = new ArrayList<>();
+                    if (!columnExistsIn(trimmed, safeFilterCol)) {
+                        phantomSql = buildLabelFilterSql(trimmed, lovCode, safeFilterCol,
+                                validateComparisonOperator(condition.getComparisonOperator()), resolvedValue,
+                                phantomArgs);
+                        if (phantomSql == null) {
+                            log.warn("[LOV-FILTER] kondisi dilewati: kolom '{}' tidak ada di sumber data.",
+                                    safeFilterCol);
+                            continue;
+                        }
+                    }
+
                     if (!isFirst) {
                         String logOp = validateLogicalOperator(condition.getLogicalOperator());
                         filterBuilder.append(" ").append(logOp).append(" ");
                     }
                     isFirst = false;
-
-                    String safeFilterCol = condition.getFilterColumn() != null ? condition.getFilterColumn().trim()
-                            : "";
-                    validateSqlIdentifier(safeFilterCol, "filter column");
                     String compOp = validateComparisonOperator(condition.getComparisonOperator());
 
-                    if ("IS NULL".equals(compOp) || "IS NOT NULL".equals(compOp)) {
+                    if (phantomSql != null) {
+                        filterBuilder.append(phantomSql);
+                        params.addAll(phantomArgs);
+                    } else if ("IS NULL".equals(compOp) || "IS NOT NULL".equals(compOp)) {
                         filterBuilder.append(safeFilterCol).append(" ").append(compOp);
                     } else if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
                         filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp)
@@ -3238,18 +3439,38 @@ public class DynamicDataService {
                 boolean isNullOp = "IS NULL".equalsIgnoreCase(condition.getComparisonOperator())
                         || "IS NOT NULL".equalsIgnoreCase(condition.getComparisonOperator());
                 if (isNullOp || (resolvedValue != null && !resolvedValue.toString().trim().isEmpty())) {
+                    String safeFilterCol = condition.getFilterColumn() != null ? condition.getFilterColumn().trim()
+                            : "";
+                    validateSqlIdentifier(safeFilterCol, "filter column");
+                    // Kolom semu seperti <field>_label tidak ada di sumber data LOV. Kalau
+                    // masih bisa diterjemahkan jadi subquery ke tabel lookup-nya, pakai itu;
+                    // kalau tidak, kondisinya dilewati -- membiarkannya masuk WHERE membuat
+                    // seluruh query gagal, bukan cuma filternya. Penjaga ini ditaruh sebelum
+                    // operator logika ditempel supaya tidak meninggalkan " AND " menggantung.
+                    String phantomSql = null;
+                    List<Object> phantomArgs = new ArrayList<>();
+                    if (!columnExistsIn(trimmed, safeFilterCol)) {
+                        phantomSql = buildLabelFilterSql(trimmed, lovCode, safeFilterCol,
+                                validateComparisonOperator(condition.getComparisonOperator()), resolvedValue,
+                                phantomArgs);
+                        if (phantomSql == null) {
+                            log.warn("[LOV-FILTER] kondisi dilewati: kolom '{}' tidak ada di sumber data.",
+                                    safeFilterCol);
+                            continue;
+                        }
+                    }
+
                     if (!isFirst) {
                         String logOp = validateLogicalOperator(condition.getLogicalOperator());
                         filterBuilder.append(" ").append(logOp).append(" ");
                     }
                     isFirst = false;
-
-                    String safeFilterCol = condition.getFilterColumn() != null ? condition.getFilterColumn().trim()
-                            : "";
-                    validateSqlIdentifier(safeFilterCol, "filter column");
                     String compOp = validateComparisonOperator(condition.getComparisonOperator());
 
-                    if ("IS NULL".equals(compOp) || "IS NOT NULL".equals(compOp)) {
+                    if (phantomSql != null) {
+                        filterBuilder.append(phantomSql);
+                        params.addAll(phantomArgs);
+                    } else if ("IS NULL".equals(compOp) || "IS NOT NULL".equals(compOp)) {
                         filterBuilder.append(safeFilterCol).append(" ").append(compOp);
                     } else if ("LIKE".equals(compOp) || "ILIKE".equals(compOp)) {
                         filterBuilder.append("CAST(").append(safeFilterCol).append(" AS text) ").append(compOp)
@@ -3591,6 +3812,18 @@ public class DynamicDataService {
             if (!colName.matches("^[a-zA-Z0-9_]+$"))
                 continue; // SQL injection protection
 
+            // Kolom <field>_label tidak ada di database -- labelnya baru ditempelkan
+            // sesudah query jalan. Filternya diarahkan ke field LOV aslinya, yang memang
+            // sudah bisa dicari lewat subquery ke tabel LOV.
+            String labelBase = resolveLabelBaseColumn(formMeta, colName);
+            if (labelBase != null) {
+                colName = labelBase;
+            } else if (colName.toLowerCase().endsWith("_label")) {
+                System.err.println("Filter dilewati: kolom semu '" + colName
+                        + "' tidak punya field LOV pasangannya di form ini.");
+                continue;
+            }
+
             String op = "Contains";
             String val = "";
             try {
@@ -3643,6 +3876,37 @@ public class DynamicDataService {
                 }
             }
         }
+    }
+
+    /**
+     * Kalau colName berbentuk {@code <field>_label} dan {@code <field>} memang field
+     * LOV di form ini, kembalikan nama field aslinya. Selain itu null.
+     */
+    private String resolveLabelBaseColumn(FormMeta formMeta, String colName) {
+        if (formMeta == null || formMeta.getFields() == null || colName == null
+                || !colName.toLowerCase().endsWith("_label") || colName.length() <= 6) {
+            return null;
+        }
+        // Kalau tabelnya benar-benar punya kolom bernama sama (mis. label yang sudah
+        // didenormalisasi ke tabel), itu kolom asli -- jangan dibelokkan ke LOV.
+        try {
+            for (String existing : getColumnsForQueryOrTable(formMeta.getTableName())) {
+                if (existing != null && existing.equalsIgnoreCase(colName)) {
+                    return null;
+                }
+            }
+        } catch (Exception ignored) {
+            // Daftar kolom tidak terbaca: lanjut ke pemetaan LOV.
+        }
+
+        String base = colName.substring(0, colName.length() - 6);
+        for (com.vaadinerp.meta.FieldMeta f : formMeta.getFields()) {
+            if (base.equalsIgnoreCase(f.getFieldName()) && f.getLovCode() != null
+                    && !f.getLovCode().trim().isEmpty()) {
+                return f.getFieldName();
+            }
+        }
+        return null;
     }
 
     private void appendConditionWithLov(StringBuilder where, List<Object> args, String colName, String op, String val,
@@ -3823,9 +4087,16 @@ public class DynamicDataService {
 
         StringBuilder sql = new StringBuilder("SELECT * " + baseFrom + where.toString());
 
-        if (sortField != null && !sortField.trim().isEmpty() && sortField.matches("^[a-zA-Z0-9_]+$")) {
+        // Sama seperti filter: <field>_label bukan kolom database, jadi urutkan lewat
+        // field LOV aslinya supaya ORDER BY tidak menabrak kolom yang tidak ada.
+        String sortCol = sortField;
+        if (sortCol != null && sortCol.toLowerCase().trim().endsWith("_label")) {
+            sortCol = resolveLabelBaseColumn(formMeta, sortCol.trim());
+        }
+
+        if (sortCol != null && !sortCol.trim().isEmpty() && sortCol.matches("^[a-zA-Z0-9_]+$")) {
             String dir = "DESC".equalsIgnoreCase(sortDir) ? "DESC" : "ASC";
-            sql.append(" ORDER BY ").append(sortField).append(" ").append(dir);
+            sql.append(" ORDER BY ").append(sortCol).append(" ").append(dir);
         } else if (formMeta.getPrimaryKey() != null && !formMeta.getPrimaryKey().trim().isEmpty()
                 && formMeta.getPrimaryKey().matches("^[a-zA-Z0-9_]+$")) {
             sql.append(" ORDER BY ").append(formMeta.getPrimaryKey()).append(" DESC");
@@ -3963,7 +4234,10 @@ public class DynamicDataService {
                 ? " (" + validateAndSanitizeSelectQuery(resolveSqlKeywords(trimmed)) + ") AS subquery "
                 : getQualifiedTableName(trimmed);
         StringBuilder sql = new StringBuilder("SELECT * FROM " + fromSql + where.toString());
-        if (sortField != null && !sortField.trim().isEmpty() && sortField.matches("^[a-zA-Z0-9_]+$")) {
+        // Tanpa FormMeta tidak ada cara memetakan <field>_label ke kolom aslinya, jadi
+        // pengurutannya dilewati -- lebih baik urutan default daripada query gagal.
+        if (sortField != null && !sortField.trim().toLowerCase().endsWith("_label")
+                && !sortField.trim().isEmpty() && sortField.matches("^[a-zA-Z0-9_]+$")) {
             String dir = "DESC".equalsIgnoreCase(sortDir) ? "DESC" : "ASC";
             sql.append(" ORDER BY ").append(sortField).append(" ").append(dir);
         }
