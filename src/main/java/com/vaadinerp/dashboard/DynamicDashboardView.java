@@ -73,6 +73,7 @@ public class DynamicDashboardView extends VerticalLayout {
 
         for (ParamDef p : def.params()) declaredParams.add(p.name());
         for (ItemDef it : def.items()) if (it.widget().options().emit() != null) declaredParams.add(it.widget().options().emit());
+        for (ItemDef it : def.items()) it.widget().options().listen().stream().filter(s -> s != null && !s.isBlank()).forEach(declaredParams::add);
 
         add(buildFilterBar());
         chips.getStyle().set("gap", "6px").set("flex-wrap", "wrap").set("margin", "6px 0");
