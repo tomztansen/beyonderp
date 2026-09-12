@@ -9,7 +9,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +51,8 @@ public class DynamicDashboardView extends VerticalLayout {
 
     private final FilterState filters = new FilterState();
     private final Set<String> declaredParams = new LinkedHashSet<>();
-    private final Map<String, Supplier<Object>> paramReaders = new LinkedHashMap<>();
+    private final Map<String, HasValue<?, ?>> paramControlByDim = new LinkedHashMap<>();
+    private boolean clearing;
     private final FlexLayout chips = new FlexLayout();
     private final Div grid = new Div();
     private final List<CardEntry> cards = new ArrayList<>();
@@ -96,7 +96,11 @@ public class DynamicDashboardView extends VerticalLayout {
         }
         Button refresh = new Button("Refresh", VaadinIcon.REFRESH.create(), e -> reloadAll());
         refresh.addThemeVariants(ButtonVariant.LUMO_SMALL);
-        Button clear = new Button("Clear filters", e -> { filters.clear(); resetParamControls(); reloadAll(); });
+        Button clear = new Button("Clear filters", e -> {
+            clearing = true;
+            try { filters.clear(); resetParamControls(); } finally { clearing = false; }
+            reloadAll();
+        });
         clear.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         bar.add(refresh, clear);
         return bar;
@@ -116,7 +120,7 @@ public class DynamicDashboardView extends VerticalLayout {
                 cb.setItemLabelGenerator(d -> d.format(DateTimeFormatter.ofPattern("MMM yyyy")));
                 if ("current".equalsIgnoreCase(p.defaultValue())) cb.setValue(months.get(0));
                 cb.addValueChangeListener(e -> onParam(p.name(), e.getValue(), e.getValue() == null ? null : cb.getItemLabelGenerator().apply(e.getValue())));
-                paramReaders.put(p.name(), cb::getValue);
+                paramControlByDim.put(p.name(), cb);
                 paramControls.add(cb);
                 if (cb.getValue() != null) filters.put(p.name(), cb.getValue(), cb.getItemLabelGenerator().apply(cb.getValue()));
                 return cb;
@@ -125,7 +129,7 @@ public class DynamicDashboardView extends VerticalLayout {
                 DatePicker dp = new DatePicker(label);
                 if ("today".equalsIgnoreCase(p.defaultValue())) dp.setValue(LocalDate.now());
                 dp.addValueChangeListener(e -> onParam(p.name(), e.getValue(), String.valueOf(e.getValue())));
-                paramReaders.put(p.name(), dp::getValue);
+                paramControlByDim.put(p.name(), dp);
                 paramControls.add(dp);
                 if (dp.getValue() != null) filters.put(p.name(), dp.getValue(), String.valueOf(dp.getValue()));
                 return dp;
@@ -137,6 +141,8 @@ public class DynamicDashboardView extends VerticalLayout {
                 declaredParams.add(p.name() + "_to");
                 from.addValueChangeListener(e -> onParam(p.name() + "_from", e.getValue(), String.valueOf(e.getValue())));
                 to.addValueChangeListener(e -> onParam(p.name() + "_to", e.getValue(), String.valueOf(e.getValue())));
+                paramControlByDim.put(p.name() + "_from", from);
+                paramControlByDim.put(p.name() + "_to", to);
                 paramControls.add(from);
                 paramControls.add(to);
                 Div d = new Div(from, to);
@@ -153,6 +159,7 @@ public class DynamicDashboardView extends VerticalLayout {
                 if (c instanceof HasValue<?, ?> hv) {
                     hv.addValueChangeListener(e -> onParam(p.name(), e.getValue(),
                             c instanceof ComboBox<?> cb && e.getValue() != null ? labelOf(cb, e.getValue()) : String.valueOf(e.getValue())));
+                    paramControlByDim.put(p.name(), hv);
                     paramControls.add(hv);
                 }
                 return c;
@@ -161,6 +168,7 @@ public class DynamicDashboardView extends VerticalLayout {
                 TextField tf = new TextField(label);
                 tf.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.LAZY);
                 tf.addValueChangeListener(e -> onParam(p.name(), e.getValue(), e.getValue()));
+                paramControlByDim.put(p.name(), tf);
                 paramControls.add(tf);
                 return tf;
             }
@@ -181,6 +189,7 @@ public class DynamicDashboardView extends VerticalLayout {
     }
 
     private void onParam(String dim, Object value, String label) {
+        if (clearing) { filters.put(dim, value, label); return; }
         filters.put(dim, value, label);
         applyFilters(dim);
     }
@@ -248,9 +257,10 @@ public class DynamicDashboardView extends VerticalLayout {
             chip.getStyle().set("background", "#e0e7ff").set("color", "#3730a3").set("border-radius", "999px")
                     .set("padding", "2px 10px").set("font-size", "0.8rem").set("cursor", "pointer");
             chip.addClickListener(ev -> {
-                filters.remove(e.getKey());
-                paramReaders.remove(e.getKey());
-                applyFilters(e.getKey());
+                String dim = e.getKey();
+                HasValue<?, ?> hv = paramControlByDim.get(dim);
+                if (hv != null) hv.clear();
+                else { filters.remove(dim); applyFilters(dim); }
             });
             chips.add(chip);
         }
