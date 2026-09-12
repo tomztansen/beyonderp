@@ -216,6 +216,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     // untuk menerjemahkan urutan Column kembali ke nama field metadata.
     private Map<Grid.Column<Map<String, Object>>, String> columnToFieldNameMap = new HashMap<>();
     private String currentFormCode;
+    // Kode menu yang diklik (alias bisa beda dari form code); otoritas diambil dari sini
+    private String authorityMenuCode;
+
+    public void setAuthorityMenuCode(String menuCode) {
+        this.authorityMenuCode = menuCode;
+    }
     private FormMeta currentFormDef;
 
     private final Map<String, String> fieldNameToLovCodeMap = new HashMap<>();
@@ -575,6 +581,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         return;
                     }
 
+                    stripSubformDataIfDetailLocked(formDef, parentData);
                     dynamicDataService.saveData(formDef, parentData);
 
                     // === AFTER_SAVE scripts ===
@@ -720,7 +727,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // Retrieve Security Otoritas
         auth = securityService != null
                 && currentFormCode != null
-                        ? securityService.getAuthorityForMenu(currentFormCode)
+                        ? securityService.getAuthorityForMenu(authorityMenuCode != null ? authorityMenuCode : currentFormCode)
                         : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
 
         if (!auth.canAccessScreen) {
@@ -1935,7 +1942,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         // Double Click Listener to load data into form and switch tab
         auth = securityService != null
                 && currentFormCode != null
-                        ? securityService.getAuthorityForMenu(currentFormCode)
+                        ? securityService.getAuthorityForMenu(authorityMenuCode != null ? authorityMenuCode : currentFormCode)
                         : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
 
         grid.addItemDoubleClickListener(event -> {
@@ -3056,12 +3063,36 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         updateFieldsReadonlyStatus(true);
     }
 
+    /**
+     * Guard sisi server untuk hak "Edit Detail": saat mengedit record lama, baris subform
+     * (aktif maupun yang dihapus) dibuang dari map sebelum saveData sehingga hanya header
+     * yang ditulis -- meski script BEFORE_SAVE atau UI mencoba menyisipkan detail.
+     */
+    private void stripSubformDataIfDetailLocked(FormMeta formDef, Map<String, Object> data) {
+        if (auth == null || auth.canEditDetail) return;
+        String pk = formDef.getPrimaryKey() != null ? formDef.getPrimaryKey() : "id";
+        Object pkVal = data.get(pk);
+        boolean isNewRecord = pkVal == null || pkVal.toString().trim().isEmpty() || "0".equals(pkVal.toString().trim())
+                || pkVal.toString().trim().startsWith("[AUTO");
+        if (isNewRecord) return;
+        for (FieldMeta field : formDef.getFields()) {
+            if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType())) {
+                data.remove(field.getFieldName());
+                data.remove(field.getFieldName() + "_deleted");
+            }
+        }
+    }
+
     private void updateFieldsReadonlyStatus(boolean isNewRecord) {
         if (currentFormDef != null && formComponents != null) {
             for (FieldMeta field : currentFormDef.getFields()) {
                 Component comp = formComponents.get(field.getFieldName());
                 if (comp != null) {
                     com.vaadinerp.components.ComponentFactory.applyReadonlyMode(comp, field, isNewRecord);
+                    // Hak "Edit Detail" hanya membatasi record lama; record baru mengikuti hak Add
+                    if (comp instanceof SubformGridField sgf && !isNewRecord && auth != null && !auth.canEditDetail) {
+                        sgf.setReadOnly(true);
+                    }
                 }
             }
         }

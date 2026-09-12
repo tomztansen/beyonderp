@@ -732,6 +732,7 @@ public class PortalView extends AppLayout {
                     if ("MASTER_DETAIL".equalsIgnoreCase(form.getFormType())) {
                         GenericMasterDetailFormView mdView = new GenericMasterDetailFormView(formMetaRepository,
                                 dynamicDataService, securityService);
+                        mdView.setAuthorityMenuCode(menu.getMenuCode());
                         mdView.setParameter(null, code);
                         mdView.hideTitle();
                         mdView.getStyle().set("padding", "4px");
@@ -751,6 +752,7 @@ public class PortalView extends AppLayout {
                     } else {
                         GenericFormView gView = new GenericFormView(formMetaRepository, dynamicDataService,
                                 securityService);
+                        gView.setAuthorityMenuCode(menu.getMenuCode());
                         gView.setParameter(null, code);
                         gView.hideTitle();
                         gView.getStyle().set("padding", "4px");

@@ -35,4 +35,8 @@ public class RoleMenuPermission extends com.vaadinerp.meta.BaseAuditableEntity {
 
     @Column(name = "can_view")
     private Boolean canView = true;
+
+    // Boleh ubah baris detail/subform saat mengedit record lama. NULL = true (kolom ditambah belakangan).
+    @Column(name = "can_edit_detail")
+    private Boolean canEditDetail = true;
 }
