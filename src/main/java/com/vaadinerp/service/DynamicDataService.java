@@ -2563,6 +2563,62 @@ public class DynamicDataService {
         }
     }
 
+    /**
+     * Dependensi form untuk dialog konfirmasi hapus: menu (menu_code = form atau alias
+     * route_path = form), permission role atas menu-menu itu, dan action milik form.
+     * Kunci: "menus", "permissions", "actions" -> daftar kode/nama.
+     */
+    public Map<String, List<String>> describeFormDependencies(String formCode) {
+        Map<String, List<String>> out = new java.util.LinkedHashMap<>();
+        List<String> menus = new ArrayList<>();
+        for (com.vaadinerp.security.entity.AppMenu m : com.vaadinerp.config.SpringContextHolder
+                .getBean(com.vaadinerp.security.repository.AppMenuRepository.class).findAll()) {
+            if (formCode.equalsIgnoreCase(m.getMenuCode())
+                    || (m.getRoutePath() != null && formCode.equalsIgnoreCase(m.getRoutePath().trim())))
+                menus.add(m.getMenuCode());
+        }
+        List<String> perms = new ArrayList<>();
+        com.vaadinerp.security.repository.RoleMenuPermissionRepository permRepo = com.vaadinerp.config.SpringContextHolder
+                .getBean(com.vaadinerp.security.repository.RoleMenuPermissionRepository.class);
+        for (String menu : menus)
+            for (com.vaadinerp.security.entity.RoleMenuPermission p : permRepo.findByMenuCode(menu))
+                perms.add(p.getRoleCode() + "/" + menu);
+        List<String> actions = new ArrayList<>();
+        for (com.vaadinerp.meta.FormActionMeta a : formActionMetaRepository.findByFormMeta_FormCodeIgnoreCase(formCode))
+            actions.add(a.getActionCode());
+        out.put("menus", menus);
+        out.put("permissions", perms);
+        out.put("actions", actions);
+        return out;
+    }
+
+    /**
+     * Hapus form beserta field (cascade JPA), menu & alias-nya, dan permission role-nya
+     * dalam satu transaksi. Action TIDAK dihapus: hanya dilepas (formMeta = null) supaya
+     * script Groovy-nya tetap ada di Action Builder. Semua entity beraudit, jadi bisa
+     * dipulihkan dari Audit Trail & Restore Center.
+     */
+    @Transactional
+    public void deleteFormCascade(FormMeta form) {
+        String formCode = form.getFormCode();
+        for (com.vaadinerp.meta.FormActionMeta a : formActionMetaRepository.findByFormMeta_FormCodeIgnoreCase(formCode)) {
+            a.setFormMeta(null);
+            formActionMetaRepository.save(a);
+        }
+        com.vaadinerp.security.repository.AppMenuRepository menuRepo = com.vaadinerp.config.SpringContextHolder
+                .getBean(com.vaadinerp.security.repository.AppMenuRepository.class);
+        com.vaadinerp.security.repository.RoleMenuPermissionRepository permRepo = com.vaadinerp.config.SpringContextHolder
+                .getBean(com.vaadinerp.security.repository.RoleMenuPermissionRepository.class);
+        for (com.vaadinerp.security.entity.AppMenu m : menuRepo.findAll()) {
+            if (formCode.equalsIgnoreCase(m.getMenuCode())
+                    || (m.getRoutePath() != null && formCode.equalsIgnoreCase(m.getRoutePath().trim()))) {
+                permRepo.deleteAll(permRepo.findByMenuCode(m.getMenuCode())); // deleteAll -> @PreRemove per baris
+                menuRepo.delete(m);
+            }
+        }
+        formMetaRepository.delete(form);
+    }
+
     public void generatePhysicalTable(FormMeta formMeta) {
         if (formMeta == null || formMeta.getTableName() == null || formMeta.getTableName().trim().isEmpty()) {
             return;

@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
+@EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Table(name = "app_menus", schema = "public")
 @Getter
 @Setter
