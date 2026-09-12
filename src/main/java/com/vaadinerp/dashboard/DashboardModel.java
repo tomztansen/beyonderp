@@ -36,6 +36,10 @@ public final class DashboardModel {
 
     public record WidgetOptions(String x, String y, String series, String emit, List<String> listen,
             String compare, String good, String format, List<String> columns) {
+        public WidgetOptions {
+            if (listen == null) listen = List.of();
+            if (columns == null) columns = List.of();
+        }
         public static WidgetOptions parse(String json) {
             JsonNode n = read(json);
             return new WidgetOptions(text(n, "x"), text(n, "y"), text(n, "series"), text(n, "emit"),
@@ -64,7 +68,17 @@ public final class DashboardModel {
     }
 
     public record DashboardDef(String dashboardCode, String title, String roleCode, int displayOrder,
-            int refreshSeconds, List<ParamDef> params, List<ItemDef> items) {}
+            int refreshSeconds, List<ParamDef> params, List<ItemDef> items) {
+        public DashboardDef {
+            if (params == null) params = List.of();
+            if (items == null) items = List.of();
+        }
+    }
 
-    public record MergedDashboard(String title, int refreshSeconds, List<ParamDef> params, List<ItemDef> items) {}
+    public record MergedDashboard(String title, int refreshSeconds, List<ParamDef> params, List<ItemDef> items) {
+        public MergedDashboard {
+            if (params == null) params = List.of();
+            if (items == null) items = List.of();
+        }
+    }
 }
