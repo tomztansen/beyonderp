@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +16,7 @@ import com.vaadinerp.dashboard.DashboardModel.*;
 /** Baca metadata dashboard lewat JDBC (tanpa entity: ddl-auto=validate). Dipanggil per buka tab; tidak di-cache. */
 @Service
 public class DashboardMetaService {
+    private static final Logger log = LoggerFactory.getLogger(DashboardMetaService.class);
     private final JdbcTemplate jdbc;
 
     public DashboardMetaService(JdbcTemplate jdbc) {
@@ -31,15 +34,25 @@ public class DashboardMetaService {
     }
 
     public Optional<DashboardDef> find(String code) {
-        List<DashboardDef> l = load("WHERE d.dashboard_code = ?", code);
-        return l.isEmpty() ? Optional.empty() : Optional.of(l.get(0));
+        try {
+            List<DashboardDef> l = load("WHERE d.dashboard_code = ?", code);
+            return l.isEmpty() ? Optional.empty() : Optional.of(l.get(0));
+        } catch (Exception e) {
+            log.warn("Dashboard metadata unavailable, run sql/dashboard.sql: {}", e.getMessage());
+            return Optional.empty();
+        }
     }
 
     public List<DashboardDef> forRoles(Set<String> roles, boolean superAdmin) {
-        if (superAdmin) return load("", new Object[0]);
-        if (roles == null || roles.isEmpty()) return List.of();
-        String in = String.join(",", roles.stream().map(r -> "?").toList());
-        return load("WHERE d.role_code IN (" + in + ")", roles.toArray());
+        try {
+            if (superAdmin) return load("", new Object[0]);
+            if (roles == null || roles.isEmpty()) return List.of();
+            String in = String.join(",", roles.stream().map(r -> "?").toList());
+            return load("WHERE d.role_code IN (" + in + ")", roles.toArray());
+        } catch (Exception e) {
+            log.warn("Dashboard metadata unavailable, run sql/dashboard.sql: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     private List<DashboardDef> load(String where, Object... args) {
