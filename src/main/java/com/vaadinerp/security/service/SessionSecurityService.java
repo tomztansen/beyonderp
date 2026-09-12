@@ -20,10 +20,13 @@ public class SessionSecurityService {
     private final AppUserRepository userRepository;
     private final RoleMenuPermissionRepository permissionRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final LoginHistoryService loginHistory;
 
-    public SessionSecurityService(AppUserRepository userRepository, RoleMenuPermissionRepository permissionRepository) {
+    public SessionSecurityService(AppUserRepository userRepository, RoleMenuPermissionRepository permissionRepository,
+            LoginHistoryService loginHistory) {
         this.userRepository = userRepository;
         this.permissionRepository = permissionRepository;
+        this.loginHistory = loginHistory;
     }
 
     /**
@@ -34,15 +37,19 @@ public class SessionSecurityService {
             return false;
 
         Optional<AppUser> opt = userRepository.findByUsernameIgnoreCaseAndIsActiveTrue(username.trim());
-        if (opt.isEmpty())
+        if (opt.isEmpty()) {
+            loginHistory.recordLogin(username.trim(), false);
             return false;
+        }
 
         AppUser u = opt.get();
         String storedHash = u.getPasswordHash();
         boolean matched = storedHash != null && passwordEncoder.matches(password, storedHash);
 
-        if (!matched)
+        if (!matched) {
+            loginHistory.recordLogin(u.getUsername(), false);
             return false;
+        }
 
         VaadinSession session = VaadinSession.getCurrent();
         if (session != null) {
@@ -61,6 +68,7 @@ public class SessionSecurityService {
             if (VaadinService.getCurrentRequest() != null) {
                 VaadinService.getCurrentRequest().getWrappedSession().setAttribute("SPRING_MVC_USER", u);
             }
+            loginHistory.recordLogin(u.getUsername(), true);
         }
         return true;
     }
@@ -111,6 +119,7 @@ public class SessionSecurityService {
     public void logout() {
         VaadinSession session = VaadinSession.getCurrent();
         if (session != null) {
+            loginHistory.recordLogout();
             session.setAttribute(SESSION_USER_KEY, null);
             if (VaadinService.getCurrentRequest() != null) {
                 VaadinService.getCurrentRequest().getWrappedSession().setAttribute("SPRING_MVC_USER", null);
