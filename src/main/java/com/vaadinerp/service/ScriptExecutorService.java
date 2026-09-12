@@ -16,6 +16,7 @@ import java.util.*;
 public class ScriptExecutorService {
 
     private final org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider;
+    private final org.springframework.beans.factory.ObjectProvider<com.vaadinerp.security.service.LoginHistoryService> loginHistoryProvider;
     private final com.github.benmanes.caffeine.cache.Cache<String, Class<? extends Script>> scriptCache = com.github.benmanes.caffeine.cache.Caffeine
             .newBuilder()
             .maximumSize(500)
@@ -24,8 +25,10 @@ public class ScriptExecutorService {
     private CompilerConfiguration compilerConfiguration;
 
     public ScriptExecutorService(
-            org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider) {
+            org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider,
+            org.springframework.beans.factory.ObjectProvider<com.vaadinerp.security.service.LoginHistoryService> loginHistoryProvider) {
         this.dataServiceProvider = dataServiceProvider;
+        this.loginHistoryProvider = loginHistoryProvider;
         initCompilerConfig();
     }
 
@@ -340,6 +343,8 @@ public class ScriptExecutorService {
                 }
             });
             binding.setVariable("selectedRows", selectedGridRows != null ? selectedGridRows : new ArrayList<>());
+            // sessions.kick(header.id, ctx.getUserId()) dari action toolbar form Login History
+            binding.setVariable("sessions", loginHistoryProvider.getIfAvailable());
             binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
             binding.setVariable("JsonOutput", groovy.json.JsonOutput.class);
             binding.setVariable("JsonSlurper", groovy.json.JsonSlurper.class);

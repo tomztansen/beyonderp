@@ -135,24 +135,7 @@ public class PortalView extends AppLayout {
         rightSection.getStyle().set("margin-left", "auto").set("gap", "14px");
 
         // 1. IP Address Badge
-        String ip = "127.0.0.1";
-        try {
-            if (com.vaadin.flow.server.VaadinSession.getCurrent() != null
-                    && com.vaadin.flow.server.VaadinSession.getCurrent().getBrowser() != null
-                    && com.vaadin.flow.server.VaadinSession.getCurrent().getBrowser().getAddress() != null) {
-                ip = com.vaadin.flow.server.VaadinSession.getCurrent().getBrowser().getAddress();
-            } else if (com.vaadin.flow.server.VaadinRequest.getCurrent() != null) {
-                String xff = com.vaadin.flow.server.VaadinRequest.getCurrent().getHeader("X-Forwarded-For");
-                if (xff != null && !xff.isEmpty()) {
-                    ip = xff.split(",")[0].trim();
-                } else {
-                    ip = com.vaadin.flow.server.VaadinRequest.getCurrent().getRemoteAddr();
-                }
-            }
-            if ("0:0:0:0:0:0:0:1".equals(ip))
-                ip = "127.0.0.1";
-        } catch (Exception ignored) {
-        }
+        String ip = com.vaadinerp.security.service.LoginHistoryService.clientIp();
 
         Div ipBadge = new Div();
         Icon globeIcon = VaadinIcon.GLOBE.create();

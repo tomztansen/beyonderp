@@ -9,6 +9,7 @@ import com.vaadin.flow.theme.lumo.Lumo;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
+@org.springframework.scheduling.annotation.EnableScheduling
 @Theme(value = "vaadinerp", variant = Lumo.LIGHT)
 @Push(value = PushMode.AUTOMATIC, transport = Transport.WEBSOCKET_XHR)
 public class Application implements AppShellConfigurator {
