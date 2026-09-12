@@ -197,11 +197,13 @@ public class DynamicDashboardView extends VerticalLayout {
             DashboardCard card = new DashboardCard(it, widget, () -> load(holder[0]));
             card.setDrill(null); // drill-down: tahap 3
             holder[0] = new CardEntry(it, widget, card, report);
-            widget.addSelectListener((v, label) -> {
+            if (it.widget().options().emit() != null) {
                 String dim = it.widget().options().emit();
-                filters.toggle(dim, v, label);
-                applyFilters(dim);
-            });
+                widget.addSelectListener((v, label) -> {
+                    filters.toggle(dim, v, label);
+                    applyFilters(dim);
+                });
+            }
             cards.add(holder[0]);
             grid.add(card);
         }
