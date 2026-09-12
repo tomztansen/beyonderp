@@ -711,18 +711,6 @@ public class PortalView extends AppLayout {
                     roleMenuPermissionRepository, appUserFavoriteMenuRepository, formMetaRepository,
                     reportMetaRepository, securityService);
             default -> {
-                com.vaadinerp.dashboard.DashboardMetaService dashMeta = com.vaadinerp.config.SpringContextHolder
-                        .getBean(com.vaadinerp.dashboard.DashboardMetaService.class);
-                java.util.Optional<com.vaadinerp.dashboard.DashboardModel.DashboardDef> dash = dashMeta.find(code);
-                if (dash.isPresent()) {
-                    com.vaadinerp.dashboard.DynamicDashboardView dv = new com.vaadinerp.dashboard.DynamicDashboardView(
-                            com.vaadinerp.dashboard.DashboardMerger.merge(java.util.List.of(dash.get())),
-                            com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportDataService.class),
-                            reportMetaRepository,
-                            com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportAccessService.class),
-                            dynamicDataService);
-                    yield dv;
-                }
                 Optional<FormMeta> optForm = formMetaRepository.findById(code);
                 if (optForm.isPresent()) {
                     FormMeta form = optForm.get();
@@ -757,6 +745,19 @@ public class PortalView extends AppLayout {
                         gView.setCloseHandler(() -> closeTabById(activeTabId));
                         yield gView;
                     }
+                }
+
+                com.vaadinerp.dashboard.DashboardMetaService dashMeta = com.vaadinerp.config.SpringContextHolder
+                        .getBean(com.vaadinerp.dashboard.DashboardMetaService.class);
+                java.util.Optional<com.vaadinerp.dashboard.DashboardModel.DashboardDef> dash = dashMeta.find(code);
+                if (dash.isPresent()) {
+                    com.vaadinerp.dashboard.DynamicDashboardView dv = new com.vaadinerp.dashboard.DynamicDashboardView(
+                            com.vaadinerp.dashboard.DashboardMerger.merge(java.util.List.of(dash.get())),
+                            com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportDataService.class),
+                            reportMetaRepository,
+                            com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportAccessService.class),
+                            dynamicDataService);
+                    yield dv;
                 }
 
                 VerticalLayout placeholder = new VerticalLayout();
