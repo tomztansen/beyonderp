@@ -1729,6 +1729,20 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     @Override
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
+        syncReadOnlyState();
+    }
+
+    // setReadOnly bisa dipanggil setelah attach (mis. role tanpa hak Edit Detail),
+    // jadi tombol dan editor harus disinkronkan di sini juga, bukan hanya di onAttach.
+    // Bukan super.setReadOnly(): CustomField hanya mewarisi default method HasValueAndElement,
+    // dan compiler Eclipse menolak super-call ke default method interface. Isinya sama persis.
+    @Override
+    public void setReadOnly(boolean readOnly) {
+        getElement().setProperty("readonly", readOnly);
+        syncReadOnlyState();
+    }
+
+    private void syncReadOnlyState() {
         boolean readOnly = isReadOnly();
         btnAdd.setEnabled(!readOnly);
         btnDelete.setEnabled(!readOnly);

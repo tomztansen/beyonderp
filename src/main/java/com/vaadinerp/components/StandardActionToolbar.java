@@ -27,6 +27,7 @@ public class StandardActionToolbar extends HorizontalLayout {
         public boolean canDelete = true;
         public boolean canPrint = true;
         public boolean canView = true;
+        public boolean canEditDetail = true;
 
         public static MenuAccessAuthority fullAccess() {
             return new MenuAccessAuthority();
@@ -38,6 +39,7 @@ public class StandardActionToolbar extends HorizontalLayout {
             auth.canAdd = false;
             auth.canEdit = false;
             auth.canDelete = false;
+            auth.canEditDetail = false;
             return auth;
         }
 

@@ -66,6 +66,26 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     private H3 title;
 
     private String currentFormCode;
+    // Kode menu yang diklik (alias bisa beda dari form code); otoritas diambil dari sini
+    private String authorityMenuCode;
+
+    public void setAuthorityMenuCode(String menuCode) {
+        this.authorityMenuCode = menuCode;
+    }
+
+    /**
+     * Hak "Edit Detail" hanya membatasi record lama (header sudah punya PK); record baru
+     * mengikuti hak Add. Dipakai oleh UI (tombol baris, editor grid) dan guard sebelum save.
+     */
+    private boolean isDetailLocked() {
+        if (auth == null || auth.canEditDetail || currentFormDef == null || formBinder == null
+                || formBinder.getBean() == null)
+            return false;
+        String pk = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey() : "id";
+        Object pkVal = formBinder.getBean().get(pk);
+        return pkVal != null && !pkVal.toString().trim().isEmpty() && !"0".equals(pkVal.toString().trim())
+                && !pkVal.toString().trim().startsWith("[AUTO");
+    }
     private FormMeta currentFormDef;
     private Button btnNew;
     private Button btnEdit;
@@ -1057,8 +1077,11 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         return;
                     }
 
-                    dynamicDataService.saveMasterDetailData(formDef, formBinder.getBean(), detailsList,
-                            deletedDetailsList);
+                    // Guard sisi server: detail terkunci -> hanya header yang ditulis, dalam transaksi yang sama
+                    boolean detailLocked = isDetailLocked();
+                    dynamicDataService.saveMasterDetailData(formDef, formBinder.getBean(),
+                            detailLocked ? java.util.Collections.emptyList() : detailsList,
+                            detailLocked ? java.util.Collections.emptyList() : deletedDetailsList);
 
                     // === AFTER_SAVE scripts ===
                     if (saveActions != null) {
@@ -1215,7 +1238,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         // Retrieve Security Otoritas
         auth = securityService != null
                 && currentFormCode != null
-                        ? securityService.getAuthorityForMenu(currentFormCode)
+                        ? securityService.getAuthorityForMenu(authorityMenuCode != null ? authorityMenuCode : currentFormCode)
                         : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
 
         if (!auth.canAccessScreen) {
@@ -1323,8 +1346,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 btnCancel.setVisible(auth.canAdd || auth.canEdit);
                 btnEdit.setVisible(auth.canEdit);
             }
-            if (btnAddRow != null) btnAddRow.setVisible(true);
-            if (btnDeleteRow != null) btnDeleteRow.setVisible(true);
+            boolean detailLocked = isDetailLocked();
+            if (btnAddRow != null) btnAddRow.setVisible(!detailLocked);
+            if (btnDeleteRow != null) btnDeleteRow.setVisible(!detailLocked);
             tabSheet.setSelectedTab(transaksiTab);
             executeOnLoadActions("ON_LOAD_EDIT");
         }
@@ -1992,7 +2016,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority auth = securityService != null
                 && currentFormCode != null
-                        ? securityService.getAuthorityForMenu(currentFormCode)
+                        ? securityService.getAuthorityForMenu(authorityMenuCode != null ? authorityMenuCode : currentFormCode)
                         : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
 
         if (auth.canEdit) {
@@ -2817,6 +2841,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         detailsGrid.addItemClickListener(event -> {
             Map<String, Object> item = event.getItem();
             if (item != null) {
+                if (isDetailLocked()) {
+                    return;
+                }
                 if (editor.isOpen()) {
                     Map<String, Object> prevItem = editor.getItem();
                     if (prevItem == item) {

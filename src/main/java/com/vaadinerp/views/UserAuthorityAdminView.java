@@ -771,6 +771,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
                     newP.setCanEdit(p.getCanEdit());
                     newP.setCanDelete(p.getCanDelete());
                     newP.setCanPrint(p.getCanPrint());
+                    newP.setCanEditDetail(p.getCanEditDetail());
                     permissionRepository.save(newP);
                 }
 
@@ -862,6 +863,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
                             perm.setCanEdit(false);
                             perm.setCanDelete(false);
                             perm.setCanPrint(false);
+                            perm.setCanEditDetail(false);
                         }
                         permissionRepository.save(perm);
                     }
@@ -903,6 +905,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         matrixTreeGrid.addComponentColumn(m -> createPermissionCheckbox(m, roleSelect, "VIEW")).setHeader("View");
         matrixTreeGrid.addComponentColumn(m -> createPermissionCheckbox(m, roleSelect, "ADD")).setHeader("Add");
         matrixTreeGrid.addComponentColumn(m -> createPermissionCheckbox(m, roleSelect, "EDIT")).setHeader("Edit");
+        matrixTreeGrid.addComponentColumn(m -> createPermissionCheckbox(m, roleSelect, "EDIT_DETAIL")).setHeader("Edit Detail");
         matrixTreeGrid.addComponentColumn(m -> createPermissionCheckbox(m, roleSelect, "DELETE")).setHeader("Delete");
         matrixTreeGrid.addComponentColumn(m -> createPermissionCheckbox(m, roleSelect, "PRINT")).setHeader("Print");
 
@@ -974,6 +977,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
                     newPerm.setCanEdit(false);
                     newPerm.setCanDelete(false);
                     newPerm.setCanPrint(false);
+                    newPerm.setCanEditDetail(false);
                     newPerm = permissionRepository.save(newPerm);
                     currentRolePermissions.put(m.getMenuCode(), newPerm);
                 } else {
@@ -1014,6 +1018,12 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 case "EDIT" -> cb.setValue(Boolean.TRUE.equals(perm.getCanEdit()));
                 case "DELETE" -> cb.setValue(Boolean.TRUE.equals(perm.getCanDelete()));
                 case "PRINT" -> cb.setValue(Boolean.TRUE.equals(perm.getCanPrint()));
+                case "EDIT_DETAIL" -> {
+                    // Edit Detail mengikuti Edit: tanpa Edit, tidak ada artinya
+                    boolean canEdit = Boolean.TRUE.equals(perm.getCanEdit());
+                    cb.setValue(canEdit && !Boolean.FALSE.equals(perm.getCanEditDetail()));
+                    cb.setEnabled(canEdit);
+                }
             }
         } else {
             cb.setValue(false);
@@ -1028,12 +1038,19 @@ public class UserAuthorityAdminView extends VerticalLayout {
                     switch (actionType) {
                         case "VIEW" -> latest.setCanView(ev.getValue());
                         case "ADD" -> latest.setCanAdd(ev.getValue());
-                        case "EDIT" -> latest.setCanEdit(ev.getValue());
+                        case "EDIT" -> {
+                            latest.setCanEdit(ev.getValue());
+                            latest.setCanEditDetail(ev.getValue()); // centang/lepas Edit ikut menyeret Edit Detail
+                        }
                         case "DELETE" -> latest.setCanDelete(ev.getValue());
                         case "PRINT" -> latest.setCanPrint(ev.getValue());
+                        case "EDIT_DETAIL" -> latest.setCanEditDetail(ev.getValue());
                     }
                     latest = permissionRepository.save(latest);
                     currentRolePermissions.put(m.getMenuCode(), latest);
+                    if ("EDIT".equals(actionType)) {
+                        matrixTreeGrid.getDataProvider().refreshItem(m); // render ulang checkbox Edit Detail
+                    }
                 }
             }
         });
@@ -1091,6 +1108,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
                     newPerm.setCanEdit(sPerm.getCanEdit());
                     newPerm.setCanDelete(sPerm.getCanDelete());
                     newPerm.setCanPrint(sPerm.getCanPrint());
+                    newPerm.setCanEditDetail(sPerm.getCanEditDetail());
                     permissionRepository.save(newPerm);
                     copiedCount++;
                 }

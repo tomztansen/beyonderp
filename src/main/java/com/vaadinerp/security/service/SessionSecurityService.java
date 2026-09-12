@@ -168,6 +168,7 @@ public class SessionSecurityService {
         auth.canDelete = false;
         auth.canPrint = false;
         auth.canView = false;
+        auth.canEditDetail = false;
         
         for (String role : user.getRoles()) {
             Optional<RoleMenuPermission> perm = permissionRepository.findByRoleCodeAndMenuCode(role, menuCode);
@@ -179,6 +180,7 @@ public class SessionSecurityService {
                 if (Boolean.TRUE.equals(p.getCanDelete())) auth.canDelete = true;
                 if (Boolean.TRUE.equals(p.getCanPrint())) auth.canPrint = true;
                 if (Boolean.TRUE.equals(p.getCanView())) auth.canView = true;
+                if (!Boolean.FALSE.equals(p.getCanEditDetail())) auth.canEditDetail = true;
             }
         }
         
