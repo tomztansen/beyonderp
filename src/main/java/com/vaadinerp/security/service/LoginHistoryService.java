@@ -123,10 +123,15 @@ public class LoginHistoryService implements VaadinServiceInitListener {
     /** Baris yang masih terbuka saat app start = session yang hilang bersama JVM sebelumnya. */
     @EventListener(ApplicationReadyEvent.class)
     public void closeOrphans() {
-        int n = jdbc.update("UPDATE public.app_login_history SET logout_at = now(), logout_reason = 'SERVER_RESTART'"
-                + " WHERE logout_at IS NULL");
-        if (n > 0)
-            log.info("Closed {} orphan login sessions (SERVER_RESTART)", n);
+        try {
+            int n = jdbc.update("UPDATE public.app_login_history SET logout_at = now(), logout_reason = 'SERVER_RESTART'"
+                    + " WHERE logout_at IS NULL");
+            if (n > 0)
+                log.info("Closed {} orphan login sessions (SERVER_RESTART)", n);
+        } catch (Exception ex) {
+            // Tabel belum dibuat (sql/login_history.sql belum dijalankan) tidak boleh menjatuhkan app
+            log.warn("Login history unavailable, run sql/login_history.sql: {}", ex.getMessage());
+        }
     }
 
     private void onSessionDestroy(VaadinSession s) {

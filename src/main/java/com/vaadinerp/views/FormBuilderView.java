@@ -613,6 +613,8 @@ public class FormBuilderView extends VerticalLayout {
         actionButtonsLayout.getStyle().set("margin-top", "10px").set("flex-wrap", "wrap");
 
         viewTableField.setWidthFull();
+        viewTableField.setHelperText(
+                "Table name or a SELECT. $CURRENT_USER / $CURRENT_ROLE are replaced at runtime, e.g. WHERE userid IN ($CURRENT_ROLE). Validated on save.");
         viewTableField.setMaxHeight("120px");
 
         // FormLayout menaikkan label milik komponen ke baris label seperti field lain,
@@ -3651,6 +3653,18 @@ public class FormBuilderView extends VerticalLayout {
         formMeta.setFormType(formTypeCombo.getValue());
         formMeta.setTableName(tableName.isEmpty() ? null : tableName);
         String viewTable = viewTableField.getValue().trim();
+        if (!viewTable.isEmpty() && DynamicDataService.isCustomSelectQuery(viewTable)) {
+            // Query yang ditolak validator atau salah sintaks tadinya lolos tersimpan dan grid diam-diam
+            // jatuh ke SELECT 1 -- cek di sini supaya penyebabnya terlihat.
+            try {
+                String sql = DynamicDataService.validateAndSanitizeSelectQuery(dynamicDataService.resolveSqlKeywords(viewTable));
+                dynamicDataService.getJdbcTemplate().queryForList("SELECT * FROM (" + sql + ") AS q LIMIT 0");
+            } catch (Exception ex) {
+                Notification.show("View Table / Query is invalid: " + rootMessage(ex), 8000, Notification.Position.MIDDLE)
+                        .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+                return;
+            }
+        }
         formMeta.setViewTable(viewTable.isEmpty() ? null : viewTable);
         formMeta.setPrimaryKey(pk.isEmpty() ? "id" : pk);
         formMeta.setLabelWidth(labelWidth.isEmpty() ? "150px" : labelWidth);
@@ -4259,10 +4273,24 @@ public class FormBuilderView extends VerticalLayout {
             if (tabSheet.getSelectedTab() == historisTab) {
                 java.util.Set<FormMeta> selectedItems = historyGrid.getSelectedItems();
                 if (selectedItems != null && !selectedItems.isEmpty()) {
-                    showConfirmDialog("Confirm Delete",
-                            "Are you sure you want to delete " + selectedItems.size() + " form definitions?", () -> {
+                    // Sebut dependensi yang ikut terhapus / dilepas supaya tidak ada yang yatim diam-diam
+                    StringBuilder msg = new StringBuilder(
+                            "Are you sure you want to delete " + selectedItems.size() + " form definition(s)?");
+                    for (FormMeta fm : selectedItems) {
+                        java.util.Map<String, java.util.List<String>> dep = dynamicDataService
+                                .describeFormDependencies(fm.getFormCode());
+                        if (!dep.get("menus").isEmpty())
+                            msg.append("\n").append(fm.getFormCode()).append(": removes menu ").append(dep.get("menus"))
+                                    .append(" and ").append(dep.get("permissions").size()).append(" role permission(s)");
+                        if (!dep.get("actions").isEmpty())
+                            msg.append("\n").append(fm.getFormCode()).append(": action ").append(dep.get("actions"))
+                                    .append(" will be kept and detached");
+                    }
+                    msg.append("\nEverything removed can be restored from Audit Trail & Restore Center.");
+                    showConfirmDialog("Confirm Delete", msg.toString(), () -> {
                                 try {
-                                    formMetaRepository.deleteAll(selectedItems);
+                                    for (FormMeta fm : selectedItems)
+                                        dynamicDataService.deleteFormCascade(fm);
                                     Notification.show("Form definitions deleted successfully!", 3000,
                                             Notification.Position.TOP_CENTER);
                                     refreshHistoryGrid();
@@ -4517,10 +4545,19 @@ public class FormBuilderView extends VerticalLayout {
         historyGrid.setItems(filtered);
     }
 
+    /** Pesan root cause (PostgreSQL menaruh detail di cause terdalam). */
+    private static String rootMessage(Throwable t) {
+        while (t.getCause() != null && t.getCause() != t)
+            t = t.getCause();
+        return t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
+    }
+
     private void showConfirmDialog(String titleText, String message, Runnable confirmAction) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(titleText);
-        dialog.add(new com.vaadin.flow.component.html.Paragraph(message));
+        com.vaadin.flow.component.html.Paragraph p = new com.vaadin.flow.component.html.Paragraph(message);
+        p.getStyle().set("white-space", "pre-line");
+        dialog.add(p);
 
         Button btnConfirm = new com.vaadinerp.components.SafeButton("Yes, Delete", event -> {
             confirmAction.run();

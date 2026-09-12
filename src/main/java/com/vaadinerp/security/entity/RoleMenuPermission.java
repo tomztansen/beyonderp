@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
+@EntityListeners(com.vaadinerp.service.AuditEntityListener.class)
 @Table(name = "app_role_menu_permissions", schema = "public", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"role_code", "menu_code"})
 })
