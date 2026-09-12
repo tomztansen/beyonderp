@@ -18,6 +18,7 @@ public class DashboardCard extends Div {
     private final Div error = new Div();
     private final Button drill = new Button(VaadinIcon.EXPAND_SQUARE.create());
     private final Button retry = new Button("Retry");
+    private com.vaadin.flow.shared.Registration drillReg;
 
     public DashboardCard(ItemDef item, DashboardWidget widget, Runnable onRetry) {
         getStyle().set("background", "#fff").set("border", "1px solid #e5e7eb").set("border-radius", "10px")
@@ -55,8 +56,9 @@ public class DashboardCard extends Div {
     }
 
     public void setDrill(Runnable action) {
+        if (drillReg != null) { drillReg.remove(); drillReg = null; }
         drill.setVisible(action != null);
-        if (action != null) drill.addClickListener(e -> action.run());
+        if (action != null) drillReg = drill.addClickListener(e -> action.run());
     }
 
     public static String rootMessage(Throwable t) {
