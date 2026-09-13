@@ -1,7 +1,9 @@
 package com.vaadinerp.dashboard;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -34,16 +36,36 @@ public final class DashboardModel {
         return out;
     }
 
+    public record ChartOptions(boolean stacked, boolean horizontal, Map<String, String> seriesTypes, Double max,
+            List<String> colors) {
+        public static final ChartOptions EMPTY = new ChartOptions(false, false, Map.of(), null, List.of());
+        public ChartOptions {
+            if (seriesTypes == null) seriesTypes = Map.of();
+            if (colors == null) colors = List.of();
+        }
+        static ChartOptions parse(JsonNode n) {
+            if (n == null) return EMPTY;
+            Map<String, String> st = new LinkedHashMap<>();
+            if (n.get("series_types") != null && n.get("series_types").isObject())
+                n.get("series_types").fields().forEachRemaining(e -> st.put(e.getKey(), e.getValue().asText()));
+            Double max = n.hasNonNull("max") && n.get("max").isNumber() ? n.get("max").asDouble() : null;
+            return new ChartOptions(n.path("stacked").asBoolean(false), n.path("horizontal").asBoolean(false), st, max,
+                    list(n, "colors"));
+        }
+    }
+
     public record WidgetOptions(String x, String y, String series, String emit, List<String> listen,
-            String compare, String good, String format, List<String> columns) {
+            String compare, String good, String format, List<String> columns, ChartOptions chart) {
         public WidgetOptions {
             if (listen == null) listen = List.of();
             if (columns == null) columns = List.of();
+            if (chart == null) chart = ChartOptions.EMPTY;
         }
         public static WidgetOptions parse(String json) {
             JsonNode n = read(json);
             return new WidgetOptions(text(n, "x"), text(n, "y"), text(n, "series"), text(n, "emit"),
-                    list(n, "listen"), text(n, "compare"), text(n, "good"), text(n, "format"), list(n, "columns"));
+                    list(n, "listen"), text(n, "compare"), text(n, "good"), text(n, "format"), list(n, "columns"),
+                    ChartOptions.parse(n));
         }
     }
 
@@ -66,6 +88,11 @@ public final class DashboardModel {
             return out;
         }
     }
+
+    public record ChartSeries(String name, String type, List<Object> data) {}
+
+    public record ChartConfig(String type, List<String> categories, List<ChartSeries> series, List<Object> emitValues,
+            boolean stacked, boolean horizontal, Double max, List<String> colors) {}
 
     public record DashboardDef(String dashboardCode, String title, String roleCode, int displayOrder,
             int refreshSeconds, List<ParamDef> params, List<ItemDef> items) {
