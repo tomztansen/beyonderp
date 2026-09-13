@@ -500,8 +500,10 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         // Cek otoritas SEBELUM membangun form/grid: tanpa hak layar, tidak ada komponen maupun data yang dibuat
         // (sebelumnya cek ada di buildToolbar dan hanya keluar dari toolbar; grid tetap terisi data).
-        if (securityService != null && !securityService.getAuthorityForMenu(
-                authorityMenuCode != null ? authorityMenuCode : formCode).canAccessScreen) {
+        if (securityService != null) {
+            auth = securityService.getAuthorityForMenu(authorityMenuCode != null ? authorityMenuCode : formCode);
+        }
+        if (auth != null && !auth.canAccessScreen) {
             title.setText(formDef.getFormTitle() != null ? formDef.getFormTitle() : formCode);
             com.vaadin.flow.component.html.Span noAccess = new com.vaadin.flow.component.html.Span(
                     "Access denied. You do not have permission to view this screen.");
@@ -1248,10 +1250,12 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         });
 
         // Retrieve Security Otoritas
-        auth = securityService != null
-                && currentFormCode != null
-                        ? securityService.getAuthorityForMenu(authorityMenuCode != null ? authorityMenuCode : currentFormCode)
-                        : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
+        // Sudah dihitung di setParameter; hitung di sini hanya bila view dibangun tanpa setParameter
+        if (auth == null) {
+            auth = securityService != null && currentFormCode != null
+                    ? securityService.getAuthorityForMenu(authorityMenuCode != null ? authorityMenuCode : currentFormCode)
+                    : com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority.fullAccess();
+        }
 
         if (!auth.canAccessScreen) {
             com.vaadin.flow.component.html.Span noAccess = new com.vaadin.flow.component.html.Span("Access denied. You do not have permission to view this screen.");
