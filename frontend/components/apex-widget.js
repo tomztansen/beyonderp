@@ -43,7 +43,7 @@ class ApexWidget extends LitElement {
     if (!this.chart || !this.cfg) return;
     try {
       const opts = this._options();
-      if (this._ready) { this._pending = opts; } else { this.chart.updateOptions(opts, false, true); }
+      if (this._ready) { this._pending = opts; } else { this.chart.updateOptions(opts, true, false); }
     } catch (e) { console.error('[apex-widget] highlight error', e); }
   }
 
@@ -57,12 +57,12 @@ class ApexWidget extends LitElement {
     try {
       const opts = this._options();
       if (this.chart) {
-        if (this._ready) { this._pending = opts; } else { this.chart.updateOptions(opts, false, true); }
+        if (this._ready) { this._pending = opts; } else { this.chart.updateOptions(opts, true, false); }
       } else {
         this.chart = new this._Apex(el, opts);
         this._ready = this.chart.render().then(() => {
           this._ready = null;
-          if (this._pending) { const p = this._pending; this._pending = null; this.chart.updateOptions(p, false, true); }
+          if (this._pending) { const p = this._pending; this._pending = null; this.chart.updateOptions(p, true, false); }
         });
       }
     } catch (e) { console.error('[apex-widget] _apply error', e); }
