@@ -97,7 +97,7 @@ class ApexWidget extends LitElement {
       states: { active: { filter: { type: 'none' } } },
       dataLabels: { enabled: type === 'pie' || type === 'radialBar' },
       legend: { position: 'bottom', show: c.series.length > 1 || type === 'pie' },
-      tooltip: { shared: type !== 'pie' }
+      tooltip: { shared: type !== 'pie', intersect: false }
     };
     if (type === 'pie') {
       return Object.assign(base, {
