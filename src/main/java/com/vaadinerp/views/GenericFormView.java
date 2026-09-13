@@ -660,8 +660,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             tabSheet.setSelectedTab(historisTab);
         });
 
-        // 5. CETAK BUTTON
-        btnPrint = new com.vaadinerp.components.SafeButton("Cetak");
+        // 5. CETAK / PRINT BUTTON
+        btnPrint = new com.vaadinerp.components.SafeButton("Print");
         Icon iconPrint = VaadinIcon.PRINT.create();
         iconPrint.getStyle().set("color", "#6b7280").set("font-size", "1.2rem");
         btnPrint.setIcon(iconPrint);
