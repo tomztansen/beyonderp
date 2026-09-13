@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -13,7 +14,9 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.HasValue;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -22,9 +25,11 @@ import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.shared.Registration;
 
 import com.vaadinerp.components.ComponentFactory;
 import com.vaadinerp.dashboard.DashboardModel.*;
@@ -33,6 +38,8 @@ import com.vaadinerp.meta.ReportMeta;
 import com.vaadinerp.meta.ReportMetaRepository;
 import com.vaadinerp.report.ReportAccessService;
 import com.vaadinerp.report.ReportDataService;
+import com.vaadinerp.report.ReportRunService;
+import com.vaadinerp.security.service.SessionSecurityService;
 import com.vaadinerp.service.DynamicDataService;
 
 /**
@@ -48,6 +55,8 @@ public class DynamicDashboardView extends VerticalLayout {
     private final ReportMetaRepository reportRepo;
     private final ReportAccessService access;
     private final DynamicDataService dynamicDataService;
+    private final ReportRunService reportRunService;
+    private final SessionSecurityService securityService;
 
     private final FilterState filters = new FilterState();
     private final Set<String> declaredParams = new LinkedHashSet<>();
@@ -57,15 +66,23 @@ public class DynamicDashboardView extends VerticalLayout {
     private final Div grid = new Div();
     private final List<CardEntry> cards = new ArrayList<>();
 
-    private record CardEntry(ItemDef item, DashboardWidget widget, DashboardCard card, ReportMeta report) {}
+    private Registration pollReg;
+    private Registration tabReg;
+    private final Map<String, Integer> failures = new HashMap<>();
+
+    private record CardEntry(ItemDef item, DashboardWidget widget, DashboardCard card, ReportMeta report,
+            Runnable drill, boolean drillNeedsRow) {}
 
     public DynamicDashboardView(MergedDashboard def, ReportDataService reportData, ReportMetaRepository reportRepo,
-            ReportAccessService access, DynamicDataService dynamicDataService) {
+            ReportAccessService access, DynamicDataService dynamicDataService,
+            ReportRunService reportRunService, SessionSecurityService securityService) {
         this.def = def;
         this.reportData = reportData;
         this.reportRepo = reportRepo;
         this.access = access;
         this.dynamicDataService = dynamicDataService;
+        this.reportRunService = reportRunService;
+        this.securityService = securityService;
         setSizeFull();
         setPadding(true);
         setSpacing(false);
@@ -86,6 +103,71 @@ public class DynamicDashboardView extends VerticalLayout {
         buildCards();
     }
 
+    // ---------- lifecycle (poll + tab selection) ----------
+    // Vaadin 24.10 TabSheet TIDAK melepas konten tab non-aktif; onAttach/onDetach hanya saat tab dibuka/ditutup.
+    // Poll dikendalikan lewat SelectedChangeListener agar berjalan hanya saat tab ini yang dipilih.
+
+    private void startPolling(com.vaadin.flow.component.UI ui) {
+        if (def.refreshSeconds() <= 0) return;
+        ui.setPollInterval(def.refreshSeconds() * 1000);
+        if (pollReg == null) pollReg = ui.addPollListener(ev -> { if (isSelectedTab()) reloadAll(true); });
+    }
+
+    /** @param resetInterval false ketika tab yang baru dipilih adalah dashboard poller lain — biarkan ia yang set intervalnya sendiri */
+    private void stopPolling(com.vaadin.flow.component.UI ui, boolean resetInterval) {
+        if (def.refreshSeconds() <= 0) return;
+        if (pollReg != null) { pollReg.remove(); pollReg = null; }
+        if (resetInterval) ui.setPollInterval(-1);
+    }
+
+    private boolean isSelectedTab() {
+        com.vaadin.flow.component.Component p = this;
+        while (p.getParent().isPresent()) {
+            p = p.getParent().get();
+            if (p instanceof com.vaadin.flow.component.tabs.TabSheet ts) {
+                return ts.getSelectedTab() != null && ts.getComponent(ts.getSelectedTab()) == this;
+            }
+        }
+        return true; // tidak dalam TabSheet → selalu aktif
+    }
+
+    @Override
+    protected void onAttach(AttachEvent e) {
+        super.onAttach(e);
+        if (!e.isInitialAttach()) reloadAll(false);
+        com.vaadin.flow.component.Component p = this;
+        com.vaadin.flow.component.tabs.TabSheet ts = null;
+        while (p.getParent().isPresent()) {
+            p = p.getParent().get();
+            if (p instanceof com.vaadin.flow.component.tabs.TabSheet found) { ts = found; break; }
+        }
+        if (ts != null && tabReg == null) {
+            final com.vaadin.flow.component.tabs.TabSheet tsF = ts;
+            tabReg = ts.addSelectedChangeListener(ev -> {
+                boolean sel = ev.getSelectedTab() != null && tsF.getComponent(ev.getSelectedTab()) == this;
+                if (sel) {
+                    startPolling(e.getUI());
+                } else {
+                    com.vaadin.flow.component.Component newContent = ev.getSelectedTab() == null ? null : tsF.getComponent(ev.getSelectedTab());
+                    boolean otherPolls = newContent instanceof DynamicDashboardView d && d != this && d.def.refreshSeconds() > 0;
+                    stopPolling(e.getUI(), !otherPolls);
+                }
+                if (sel && ev.isFromClient()) reloadAll(false);
+            });
+        }
+        if (isSelectedTab()) startPolling(e.getUI()); else stopPolling(e.getUI(), false);
+    }
+
+    @Override
+    protected void onDetach(DetachEvent e) {
+        if (tabReg != null) { tabReg.remove(); tabReg = null; }
+        // Reset interval hanya bila view ini sedang aktif poll; tab background sudah pollReg==null
+        // (dimatikan saat deseleksi) — jangan reset interval milik dashboard lain yang sedang aktif.
+        boolean wasActive = pollReg != null;
+        stopPolling(e.getUI(), wasActive);
+        super.onDetach(e);
+    }
+
     // ---------- filter bar ----------
     private Component buildFilterBar() {
         FlexLayout bar = new FlexLayout();
@@ -94,12 +176,12 @@ public class DynamicDashboardView extends VerticalLayout {
             Component c = buildParamControl(p);
             if (c != null) bar.add(c);
         }
-        Button refresh = new Button("Refresh", VaadinIcon.REFRESH.create(), e -> reloadAll());
+        Button refresh = new Button("Refresh", VaadinIcon.REFRESH.create(), e -> reloadAll(false));
         refresh.addThemeVariants(ButtonVariant.LUMO_SMALL);
         Button clear = new Button("Clear filters", e -> {
             clearing = true;
             try { filters.clear(); resetParamControls(); } finally { clearing = false; }
-            reloadAll();
+            reloadAll(false);
         });
         clear.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         bar.add(refresh, clear);
@@ -205,15 +287,27 @@ public class DynamicDashboardView extends VerticalLayout {
                 default -> new KpiWidget(it.widget().options());
             };
             CardEntry[] holder = new CardEntry[1];
-            DashboardCard card = new DashboardCard(it, widget, () -> load(holder[0]));
-            card.setDrill(null); // drill-down: tahap 3
-            holder[0] = new CardEntry(it, widget, card, report);
+            DashboardCard card = new DashboardCard(it, widget, () -> load(holder[0], false));
+            Runnable drill = buildDrill(it.widget(), widget);
+            // Mapping yang memakai row.* butuh baris/bar terpilih: ikon ⤢ baru tampil setelah ada seleksi
+            boolean needsRow = drill != null && it.widget().drillFilterMapping() != null
+                    && it.widget().drillFilterMapping().contains("row.");
+            card.setDrill(needsRow ? null : drill);
+            if (drill != null && "KPI".equals(it.widget().widgetType())) {
+                widget.asComponent().getElement().getStyle().set("cursor", "pointer");
+                widget.asComponent().getElement().addEventListener("click", ev -> { if (!widget.selectedRow().isEmpty()) drill.run(); }); // sekali saat build
+            }
+            holder[0] = new CardEntry(it, widget, card, report, drill, needsRow);
             if (it.widget().options().emit() != null) {
                 String dim = it.widget().options().emit();
                 widget.addSelectListener((v, label) -> {
                     filters.toggle(dim, v, label);
                     applyFilters(dim);
                 });
+            }
+            // Didaftarkan SETELAH listener emit: chart menandai baris terpilih (lastIdx) di highlight() yang dipicu applyFilters
+            if (needsRow) {
+                widget.addSelectListener((v, label) -> card.setDrill(widget.selectedRow().isEmpty() ? null : drill));
             }
             cards.add(holder[0]);
             grid.add(card);
@@ -226,19 +320,52 @@ public class DynamicDashboardView extends VerticalLayout {
         reloadAll();
     }
 
-    public void reloadAll() {
-        for (CardEntry c : cards) load(c);
+    /** Null bila widget tidak punya tujuan drill atau user tidak berhak ke tujuannya (ikon ⤢ disembunyikan). */
+    private Runnable buildDrill(WidgetDef w, DashboardWidget widget) {
+        String form = w.drillFormCode() != null && !w.drillFormCode().isBlank() ? w.drillFormCode().trim() : null;
+        String rpt = w.drillReportCode() != null && !w.drillReportCode().isBlank() ? w.drillReportCode().trim() : null;
+        if (form != null) {
+            if (securityService == null || !securityService.hasMenuAccess(form)) return null;
+            return () -> {
+                DrillMapping.DrillTarget t = DrillMapping.resolve(w.drillFilterMapping(), widget.selectedRow(), filters.paramsFor(List.of()));
+                com.vaadinerp.views.PortalView portal = com.vaadinerp.report.ReportLauncher.findPortal(this);
+                if (portal == null) { Notification.show("Cannot find app shell to open the form."); return; }
+                portal.openTabByCode(form, form + ":" + w.widgetCode(), t.tabTitle(), t.extra().isEmpty() ? null : t.extra());
+            };
+        }
+        if (rpt != null) {
+            ReportMeta report = reportRepo.findById(rpt).orElse(null);
+            if (report == null || !access.canAccess(report)) return null;
+            return () -> {
+                DrillMapping.DrillTarget t = DrillMapping.resolve(w.drillFilterMapping(), widget.selectedRow(), filters.paramsFor(List.of()));
+                com.vaadinerp.report.ReportLauncher.runAndOpenTab(this, reportRunService, report, new java.util.HashMap<>(t.extra()), "PDF", null);
+            };
+        }
+        return null;
     }
 
-    private void load(CardEntry c) {
+    public void reloadAll() {
+        reloadAll(false);
+    }
+
+    public void reloadAll(boolean fromPoll) {
+        for (CardEntry c : cards) load(c, fromPoll);
+    }
+
+    private void load(CardEntry c, boolean fromPoll) {
+        String code = c.item().widget().widgetCode();
+        if (fromPoll && failures.getOrDefault(code, 0) >= 3) return;
         try {
             List<Map<String, Object>> rows = reportData.fetchData(c.report(), filters.paramsFor(declaredParams), false);
             c.widget().setData(rows == null ? List.of() : rows);
+            if (c.drillNeedsRow()) c.card().setDrill(c.widget().selectedRow().isEmpty() ? null : c.drill()); // seleksi hilang setelah reload
             c.widget().highlight(filters.get(c.item().widget().options().emit()));
             c.card().showLoaded();
+            failures.remove(code);
         } catch (Exception ex) {
-            log.warn("Dashboard widget {} failed: {}", c.item().widget().widgetCode(), DashboardCard.rootMessage(ex));
+            log.warn("Dashboard widget {} failed: {}", code, DashboardCard.rootMessage(ex));
             c.card().showError(DashboardCard.rootMessage(ex));
+            failures.merge(code, 1, Integer::sum);
         }
     }
 
@@ -246,7 +373,7 @@ public class DynamicDashboardView extends VerticalLayout {
         renderChips();
         for (CardEntry c : cards) {
             WidgetDef w = c.item().widget();
-            if (FilterState.reloads(w, changedDim)) load(c);
+            if (FilterState.reloads(w, changedDim)) load(c, false);
             else if (FilterState.highlights(w, changedDim)) c.widget().highlight(filters.get(changedDim));
         }
     }
