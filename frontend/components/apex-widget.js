@@ -1,15 +1,17 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html } from 'lit';
 
 // Palet seragam dashboard (tanpa merah, dicadangkan untuk error/late)
 const PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1', '#14b8a6'];
 
 class ApexWidget extends LitElement {
-  static get styles() {
-    return css`:host { display: block; width: 100%; } #c { width: 100%; min-height: 240px; }`;
-  }
-
   createRenderRoot() { return this; }
-  render() { return html`<div id="c"></div>`; }
+  render() { return html`<div id="c" style="width:100%;min-height:240px"></div>`; }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.style.display = 'block';
+    this.style.width = '100%';
+  }
 
   constructor() {
     super();
@@ -106,7 +108,7 @@ class ApexWidget extends LitElement {
       series,
       xaxis: { categories: c.categories },
       plotOptions: { bar: { horizontal: !!c.horizontal, columnWidth: '60%' } },
-      stroke: { width: type === 'line' ? 2 : 0, curve: 'smooth' },
+      stroke: { width: series.map(s => (s.type === 'line' || type === 'line') ? 2 : 0), curve: 'smooth' },
       colors: colors
     });
     if (sel >= 0) {
