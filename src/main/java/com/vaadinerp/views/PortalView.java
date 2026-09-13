@@ -657,7 +657,9 @@ public class PortalView extends AppLayout {
             return code;
         }
         String target = route.trim();
-        return formMetaRepository.findById(target).isPresent() ? target : code;
+        if (formMetaRepository.findById(target).isPresent()) return target;
+        return com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.dashboard.DashboardMetaService.class)
+                .exists(target) ? target : code;
     }
 
     public void openMenuTab(AppMenu menu, Object extra, String forceTabId) {
@@ -743,6 +745,19 @@ public class PortalView extends AppLayout {
                         gView.setCloseHandler(() -> closeTabById(activeTabId));
                         yield gView;
                     }
+                }
+
+                com.vaadinerp.dashboard.DashboardMetaService dashMeta = com.vaadinerp.config.SpringContextHolder
+                        .getBean(com.vaadinerp.dashboard.DashboardMetaService.class);
+                java.util.Optional<com.vaadinerp.dashboard.DashboardModel.DashboardDef> dash = dashMeta.find(code);
+                if (dash.isPresent()) {
+                    com.vaadinerp.dashboard.DynamicDashboardView dv = new com.vaadinerp.dashboard.DynamicDashboardView(
+                            com.vaadinerp.dashboard.DashboardMerger.merge(java.util.List.of(dash.get())),
+                            com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportDataService.class),
+                            reportMetaRepository,
+                            com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportAccessService.class),
+                            dynamicDataService);
+                    yield dv;
                 }
 
                 VerticalLayout placeholder = new VerticalLayout();
