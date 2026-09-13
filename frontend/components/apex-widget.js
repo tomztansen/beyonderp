@@ -5,12 +5,21 @@ const PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4
 
 class ApexWidget extends LitElement {
   createRenderRoot() { return this; }
-  render() { return html`<div id="c" style="width:100%;min-height:240px"></div>`; }
+  render() { return html`<div class="apex-c" style="width:100%;min-height:240px"></div>`; }
 
   connectedCallback() {
     super.connectedCallback();
     this.style.display = 'block';
     this.style.width = '100%';
+    if (!this._ro) {
+      this._ro = new ResizeObserver(() => {
+        const el = this.querySelector('.apex-c');
+        if (!el || !el.clientWidth) return;
+        if (this._needsApply || !this.chart) { this._needsApply = false; if (this.cfg && this._Apex) this._apply(); return; }
+        if (!this._ready) this.chart.updateOptions(this._options(), true, false); // re-measure after size change
+      });
+      this._ro.observe(this);
+    }
   }
 
   constructor() {
@@ -20,6 +29,8 @@ class ApexWidget extends LitElement {
     this.selected = -1;
     this._ready = null;
     this._pending = null;
+    this._needsApply = false;
+    this._ro = null;
   }
 
   async firstUpdated() {
@@ -30,6 +41,7 @@ class ApexWidget extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    if (this._ro) { this._ro.disconnect(); this._ro = null; }
     this.destroyChart();
   }
 
@@ -52,8 +64,9 @@ class ApexWidget extends LitElement {
   }
 
   _apply() {
-    const el = this.querySelector('#c');
+    const el = this.querySelector('.apex-c');
     if (!el) return;
+    if (!el.clientWidth) { this._needsApply = true; return; }
     try {
       const opts = this._options();
       if (this.chart) {
@@ -63,7 +76,7 @@ class ApexWidget extends LitElement {
         this._ready = this.chart.render().then(() => {
           this._ready = null;
           if (this._pending) { const p = this._pending; this._pending = null; this.chart.updateOptions(p, true, false); }
-        });
+        }).catch(e => { console.error('[apex-widget] render', e); this._ready = null; });
       }
     } catch (e) { console.error('[apex-widget] _apply error', e); }
   }
