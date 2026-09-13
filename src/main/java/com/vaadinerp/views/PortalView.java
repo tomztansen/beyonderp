@@ -756,7 +756,9 @@ public class PortalView extends AppLayout {
                             com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportDataService.class),
                             reportMetaRepository,
                             com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportAccessService.class),
-                            dynamicDataService);
+                            dynamicDataService,
+                            com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportRunService.class),
+                            securityService);
                     yield dv;
                 }
 
