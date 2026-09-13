@@ -1175,4 +1175,17 @@ public class UserAuthorityAdminView extends VerticalLayout {
         if (matrixFilterRefresher != null)
             matrixFilterRefresher.run();
     }
+
+    /**
+     * Explicit memory cleanup called by PortalView when the tab is closed.
+     */
+    public void cleanup() {
+        menuTitleCache.clear();
+        currentRolePermissions.clear();
+        userGrid.setItems(new java.util.ArrayList<>());
+        roleGrid.setItems(new java.util.ArrayList<>());
+        matrixTreeGrid.setItems(new java.util.ArrayList<>());
+        menuTreeGrid.setItems(new java.util.ArrayList<>());
+        this.removeAll();
+    }
 }

@@ -67,6 +67,16 @@ public class PortalView extends AppLayout {
     private final StandardFormatService standardFormatService;
     private final SchedulerConfigRepository schedulerConfigRepository;
 
+    public static final int MAX_OPEN_TABS = 15;
+
+    /** Batas tab terbuka per session: tiap tab = satu view lengkap di heap; cek O(1). */
+    private boolean tabLimitReached() {
+        if (openTabs.size() < MAX_OPEN_TABS) return false;
+        Notification n = Notification.show("Maximum " + MAX_OPEN_TABS + " open tabs reached. Close unused tabs first.",
+                4000, Notification.Position.TOP_CENTER);
+        n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_WARNING);
+        return true;
+    }
     private String menuSearchText = "";
     private boolean showFavoritesOnly = false;
 
@@ -680,6 +690,8 @@ public class PortalView extends AppLayout {
             return;
         }
 
+        if (tabLimitReached()) return;
+
         Component content = switch (code) {
             case "FORM_BUILDER" -> {
                 FormBuilderView fb = new FormBuilderView(formMetaRepository, lovMetaRepository, dynamicDataService,
@@ -1013,6 +1025,8 @@ public class PortalView extends AppLayout {
             return;
         }
 
+        if (tabLimitReached()) return;
+
         Div headerLayout = new Div();
         headerLayout.getStyle()
                 .set("display", "flex")
@@ -1104,6 +1118,8 @@ public class PortalView extends AppLayout {
     public void openComponentTab(String tabId, String title, Component content) {
         if (openTabs.containsKey(tabId)) {
             closeTabById(tabId); // refresh isi
+        } else if (tabLimitReached()) {
+            return;
         }
         Div header = new Div();
         header.getStyle().set("display", "flex").set("align-items", "center").set("gap", "6px");
@@ -1140,6 +1156,10 @@ public class PortalView extends AppLayout {
                     vqbView.cleanup();
                 } else if (content instanceof DynamicSchedulerView schedulerView) {
                     schedulerView.cleanup();
+                } else if (content instanceof DbExplorerView dbExplorerView) {
+                    dbExplorerView.cleanup();
+                } else if (content instanceof UserAuthorityAdminView userAdminView) {
+                    userAdminView.cleanup();
                 }
             }
         }
@@ -1148,6 +1168,7 @@ public class PortalView extends AppLayout {
             clearActiveLeaves();
         }
     }
+
 
     private void refreshFormMenu() {
         buildMenuTreeInMemory();
