@@ -1,12 +1,14 @@
 package com.vaadinerp.dashboard;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.DomEvent;
@@ -41,6 +43,7 @@ public class ApexChartWidget extends Component implements DashboardWidget, HasSi
     private final WidgetOptions opt;
     private final List<BiConsumer<Object, String>> listeners = new ArrayList<>();
     private ChartConfig last = ChartData.build("BAR", WidgetOptions.parse(null), List.of());
+    private int lastIdx = -1; // F1: simpan highlight terakhir untuk re-send saat re-attach
 
     public ApexChartWidget(String widgetType, WidgetOptions opt) {
         this.widgetType = widgetType;
@@ -61,8 +64,22 @@ public class ApexChartWidget extends Component implements DashboardWidget, HasSi
     @Override
     public void setData(List<Map<String, Object>> rows) {
         last = ChartData.build(widgetType, opt, rows);
+        push();
+    }
+
+    // F1: extracted dari setData agar bisa dipanggil ulang di onAttach
+    private void push() {
+        // F5: kirim hanya field yang dibutuhkan JS; emitValues tidak dibaca browser
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("type", last.type());
+        payload.put("categories", last.categories());
+        payload.put("series", last.series());
+        payload.put("stacked", last.stacked());
+        payload.put("horizontal", last.horizontal());
+        payload.put("max", last.max());
+        payload.put("colors", last.colors());
         try {
-            getElement().callJsFunction("setConfig", JSON.writeValueAsString(last));
+            getElement().callJsFunction("setConfig", JSON.writeValueAsString(payload));
         } catch (Exception e) {
             throw new IllegalStateException("Chart config serialization failed: " + e.getMessage(), e);
         }
@@ -70,12 +87,22 @@ public class ApexChartWidget extends Component implements DashboardWidget, HasSi
 
     @Override
     public void highlight(Object value) {
-        int idx = -1;
+        lastIdx = -1;
         if (value != null) {
             for (int i = 0; i < last.emitValues().size(); i++)
-                if (sameValue(last.emitValues().get(i), value)) { idx = i; break; }
+                if (sameValue(last.emitValues().get(i), value)) { lastIdx = i; break; }
         }
-        getElement().callJsFunction("highlight", idx);
+        getElement().callJsFunction("highlight", lastIdx);
+    }
+
+    // F1: TabSheet detach/re-attach — Flow tidak replay callJsFunction; kirim ulang manual
+    @Override
+    protected void onAttach(AttachEvent e) {
+        super.onAttach(e);
+        if (!e.isInitialAttach()) { // TabSheet memasang ulang elemen: kirim ulang config + highlight
+            push();
+            getElement().callJsFunction("highlight", lastIdx);
+        }
     }
 
     /** 13L vs 13 vs "13" dianggap sama (nilai datang dari JDBC, klik, atau LOV string). */
