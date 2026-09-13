@@ -12,11 +12,15 @@ class ApexWidget extends LitElement {
     this.style.display = 'block';
     this.style.width = '100%';
     if (!this._ro) {
-      this._ro = new ResizeObserver(() => {
-        const el = this.querySelector('.apex-c');
-        if (!el || !el.clientWidth) return;
-        if (this._needsApply || !this.chart) { this._needsApply = false; if (this.cfg && this._Apex) this._apply(); return; }
-        if (!this._ready) this.chart.updateOptions(this._options(), true, false); // re-measure after size change
+      this._ro = new ResizeObserver(entries => {
+        const w = entries[0]?.contentRect.width || this.clientWidth;
+        if (!w || w === this._lastW) return;
+        this._lastW = w;
+        if (this._needsApply || !this.chart) {
+          this._needsApply = false;
+          if (this.cfg && this._Apex) this._apply();
+        }
+        // else: ApexCharts handles window resize itself; tidak perlu re-create
       });
       this._ro.observe(this);
     }
@@ -27,9 +31,8 @@ class ApexWidget extends LitElement {
     this.chart = null;
     this.cfg = null;
     this.selected = -1;
-    this._ready = null;
-    this._pending = null;
     this._needsApply = false;
+    this._lastW = 0;
     this._ro = null;
   }
 
@@ -52,11 +55,7 @@ class ApexWidget extends LitElement {
 
   highlight(index) {
     this.selected = index == null ? -1 : Number(index);
-    if (!this.chart || !this.cfg) return;
-    try {
-      const opts = this._options();
-      if (this._ready) { this._pending = opts; } else { this.chart.updateOptions(opts, true, false); }
-    } catch (e) { console.error('[apex-widget] highlight error', e); }
+    if (this.cfg && this._Apex) this._apply();
   }
 
   destroyChart() {
@@ -69,15 +68,11 @@ class ApexWidget extends LitElement {
     if (!el.clientWidth) { this._needsApply = true; return; }
     try {
       const opts = this._options();
-      if (this.chart) {
-        if (this._ready) { this._pending = opts; } else { this.chart.updateOptions(opts, true, false); }
-      } else {
-        this.chart = new this._Apex(el, opts);
-        this._ready = this.chart.render().then(() => {
-          this._ready = null;
-          if (this._pending) { const p = this._pending; this._pending = null; this.chart.updateOptions(p, true, false); }
-        }).catch(e => { console.error('[apex-widget] render', e); this._ready = null; });
-      }
+      if (this.chart) this.destroyChart();
+      this.chart = new this._Apex(el, opts);
+      this._ready = this.chart.render()
+        .then(() => { this._ready = null; })
+        .catch(e => { console.error('[apex-widget] render', e); this._ready = null; });
     } catch (e) { console.error('[apex-widget] _apply error', e); }
   }
 
