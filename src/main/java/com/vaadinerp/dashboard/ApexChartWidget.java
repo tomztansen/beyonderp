@@ -44,6 +44,7 @@ public class ApexChartWidget extends Component implements DashboardWidget, HasSi
     private final List<BiConsumer<Object, String>> listeners = new ArrayList<>();
     private ChartConfig last = ChartData.build("BAR", WidgetOptions.parse(null), List.of());
     private int lastIdx = -1; // F1: simpan highlight terakhir untuk re-send saat re-attach
+    private List<Map<String, Object>> rows = List.of();
 
     public ApexChartWidget(String widgetType, WidgetOptions opt) {
         this.widgetType = widgetType;
@@ -63,8 +64,23 @@ public class ApexChartWidget extends Component implements DashboardWidget, HasSi
 
     @Override
     public void setData(List<Map<String, Object>> rows) {
+        this.rows = rows == null ? List.of() : new ArrayList<>(rows);
         last = ChartData.build(widgetType, opt, rows);
         push();
+    }
+
+    @Override
+    public Map<String, Object> selectedRow() {
+        if (lastIdx < 0 || lastIdx >= rows.size()) return Map.of();
+        if (opt.x() == null) return rows.get(lastIdx);
+        String cat = last.categories().size() > lastIdx ? last.categories().get(lastIdx) : null;
+        if (cat == null) return Map.of();
+        for (Map<String, Object> row : rows) {
+            if (row == null) continue;
+            Object xVal = KpiWidget.pick(row, opt.x());
+            if (cat.equals(String.valueOf(xVal))) return row;
+        }
+        return Map.of();
     }
 
     // F1: extracted dari setData agar bisa dipanggil ulang di onAttach
