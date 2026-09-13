@@ -1680,4 +1680,37 @@ public class DbExplorerView extends VerticalLayout {
     public void refreshTables() {
         tableSelect.setItems(dynamicDataService.fetchDynamicBaseTables());
     }
+
+    /**
+     * Explicit memory cleanup called by PortalView when the tab is closed.
+     */
+    public void cleanup() {
+        if (dataGridReorderReg != null) {
+            dataGridReorderReg.remove();
+            dataGridReorderReg = null;
+        }
+        if (currentDataList != null) {
+            currentDataList.clear();
+        }
+        if (currentSchemaList != null) {
+            currentSchemaList.clear();
+        }
+        if (currentConstraintList != null) {
+            currentConstraintList.clear();
+        }
+        if (currentTriggerList != null) {
+            currentTriggerList.clear();
+        }
+        if (pendingChanges != null) {
+            pendingChanges.clear();
+        }
+        if (dataFilterValues != null) {
+            dataFilterValues.clear();
+        }
+        dataGrid.setItems(new java.util.ArrayList<>());
+        schemaGrid.setItems(new java.util.ArrayList<>());
+        triggersGrid.setItems(new java.util.ArrayList<>());
+        constraintsGrid.setItems(new java.util.ArrayList<>());
+        this.removeAll();
+    }
 }

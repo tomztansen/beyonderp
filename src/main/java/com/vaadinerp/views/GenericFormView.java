@@ -660,8 +660,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             tabSheet.setSelectedTab(historisTab);
         });
 
-        // 5. CETAK BUTTON
-        btnPrint = new com.vaadinerp.components.SafeButton("Cetak");
+        // 5. CETAK / PRINT BUTTON
+        btnPrint = new com.vaadinerp.components.SafeButton("Print");
         Icon iconPrint = VaadinIcon.PRINT.create();
         iconPrint.getStyle().set("color", "#6b7280").set("font-size", "1.2rem");
         btnPrint.setIcon(iconPrint);
@@ -1412,13 +1412,21 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     // (jika ada)
                     if (historisTab != null && !historisTab.isVisible() && grid != null) {
                         try {
-                            com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) grid
-                                    .getDataProvider();
-                            if (dp != null && dp.getItems() != null && !dp.getItems().isEmpty()) {
-                                loadAndEditData(dp.getItems().iterator().next());
+                            // Grid memakai CallbackDataProvider (berhalaman), jadi ambil 1 baris terfilter
+                            // langsung dari service -- cast ke ListDataProvider yang lama selalu gagal diam-diam.
+                            java.util.List<Map<String, Object>> firstPage = dynamicDataService.fetchGridDataPaged(
+                                    currentFormDef, 0, 1, filterValues, currentSortField, currentSortDir);
+                            if (firstPage != null && !firstPage.isEmpty()) {
+                                // Ikuti otoritas: tanpa hak Edit -> mode View (field readonly, tanpa Save)
+                                if (auth != null && !auth.canEdit) {
+                                    loadAndViewData(firstPage.get(0));
+                                } else {
+                                    loadAndEditData(firstPage.get(0));
+                                }
                             }
-                        } catch (Exception ignored) {
-                            // ignore cast exception if not ListDataProvider
+                        } catch (Exception ex) {
+                            Notification.show("Cannot open record: " + ex.getMessage(), 4000,
+                                    Notification.Position.BOTTOM_END);
                         }
                     }
                 }

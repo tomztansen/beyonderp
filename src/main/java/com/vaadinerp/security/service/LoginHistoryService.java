@@ -88,6 +88,7 @@ public class LoginHistoryService implements VaadinServiceInitListener {
         VaadinSession s = VaadinSession.getCurrent();
         if (s != null && s.getAttribute(ATTR_HISTORY_ID) instanceof Long id) {
             close(id, "LOGOUT", null);
+            live.remove(id);
         }
     }
 
@@ -95,7 +96,7 @@ public class LoginHistoryService implements VaadinServiceInitListener {
     public void kick(Object historyId, String by) {
         Long id = historyId instanceof Number n ? n.longValue() : Long.valueOf(String.valueOf(historyId));
         close(id, "KICKED", by);
-        VaadinSession s = live.get(id);
+        VaadinSession s = live.remove(id);
         if (s != null)
             invalidate(s);
     }
@@ -105,11 +106,22 @@ public class LoginHistoryService implements VaadinServiceInitListener {
     public void sweep() {
         for (Map.Entry<Long, VaadinSession> e : live.entrySet()) {
             VaadinSession s = e.getValue();
+            if (s == null) {
+                live.remove(e.getKey());
+                continue;
+            }
+            // Jika sesi sudah tidak OPEN (CLOSED atau CLOSING), segera bersihkan dari map
+            if (s.getState() != VaadinSessionState.OPEN) {
+                close(e.getKey(), "BROWSER_CLOSED", null);
+                live.remove(e.getKey());
+                continue;
+            }
             if (!s.getLockInstance().tryLock())
                 continue; // sedang dipakai request user -> jelas masih hidup
             try {
-                if (s.getState() == VaadinSessionState.OPEN && heartbeatStale(s)) {
+                if (heartbeatStale(s)) {
                     close(e.getKey(), "BROWSER_CLOSED", null);
+                    live.remove(e.getKey());
                     invalidate(s);
                 }
             } catch (Exception ex) {
@@ -135,13 +147,21 @@ public class LoginHistoryService implements VaadinServiceInitListener {
     }
 
     private void onSessionDestroy(VaadinSession s) {
-        if (!(s.getAttribute(ATTR_HISTORY_ID) instanceof Long id))
-            return;
-        live.remove(id);
-        // Saat listener ini jalan UI-nya sudah dilepas Vaadin, jadi heartbeat tidak bisa dibaca lagi.
-        // Browser-tutup sudah ditangkap sweep() jauh sebelum timeout 30 menit; LOGOUT/KICKED sudah
-        // menutup barisnya (WHERE logout_at IS NULL) -> sisanya pasti idle timeout.
-        close(id, "TIMEOUT", null);
+        Long id = null;
+        try {
+            if (s.getAttribute(ATTR_HISTORY_ID) instanceof Long attrId) {
+                id = attrId;
+            }
+        } catch (Exception ignored) {
+        }
+
+        if (id != null) {
+            live.remove(id);
+            close(id, "TIMEOUT", null);
+        } else {
+            // Fallback jika container sudah menghapus attribute sebelum event ini
+            live.entrySet().removeIf(entry -> entry.getValue() == s);
+        }
     }
 
     private void close(Long id, String reason, String by) {
@@ -168,7 +188,9 @@ public class LoginHistoryService implements VaadinServiceInitListener {
 
     private static void invalidate(VaadinSession s) {
         try {
-            s.getSession().invalidate(); // memicu SessionDestroyListener -> live.remove
+            if (s != null && s.getSession() != null) {
+                s.getSession().invalidate(); // memicu SessionDestroyListener -> live.remove
+            }
         } catch (Exception ignored) {
             // sudah invalid
         }

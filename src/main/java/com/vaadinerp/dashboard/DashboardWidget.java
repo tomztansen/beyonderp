@@ -14,4 +14,7 @@ public interface DashboardWidget {
     void highlight(Object value);
     /** (nilai kolom emit, label untuk chip). */
     void addSelectListener(BiConsumer<Object, String> listener);
+
+    /** Baris yang sedang dipilih/aktif di widget ini. Kosong bila tidak ada. */
+    default java.util.Map<String, Object> selectedRow() { return java.util.Map.of(); }
 }

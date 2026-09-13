@@ -24,8 +24,9 @@ public class TableWidget implements DashboardWidget {
         grid.setHeight("260px");
         grid.setSelectionMode(Grid.SelectionMode.SINGLE);
         grid.addItemClickListener(e -> {
-            if (opt.emit() == null || e.getItem() == null) return;
-            Object v = cell(e.getItem(), opt.emit());
+            if (e.getItem() == null) return;
+            // Tanpa emit tetap beri tahu (v = null) supaya drill-down tahu ada baris terpilih
+            Object v = opt.emit() == null ? null : cell(e.getItem(), opt.emit());
             String label = opt.x() != null ? String.valueOf(cell(e.getItem(), opt.x())) : String.valueOf(v);
             for (BiConsumer<Object, String> l : listeners) l.accept(v, label);
         });
@@ -62,5 +63,6 @@ public class TableWidget implements DashboardWidget {
         grid.getListDataView().getItems().filter(r -> value.equals(cell(r, opt.emit()))).findFirst().ifPresent(grid::select);
     }
 
+    @Override public Map<String, Object> selectedRow() { return grid.getSelectedItems().stream().findFirst().orElse(Map.of()); }
     @Override public void addSelectListener(BiConsumer<Object, String> l) { listeners.add(l); }
 }
