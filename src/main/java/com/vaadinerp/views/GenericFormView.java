@@ -1417,7 +1417,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             java.util.List<Map<String, Object>> firstPage = dynamicDataService.fetchGridDataPaged(
                                     currentFormDef, 0, 1, filterValues, currentSortField, currentSortDir);
                             if (firstPage != null && !firstPage.isEmpty()) {
-                                loadAndEditData(firstPage.get(0));
+                                // Ikuti otoritas: tanpa hak Edit -> mode View (field readonly, tanpa Save)
+                                if (auth != null && !auth.canEdit) {
+                                    loadAndViewData(firstPage.get(0));
+                                } else {
+                                    loadAndEditData(firstPage.get(0));
+                                }
                             }
                         } catch (Exception ex) {
                             Notification.show("Cannot open record: " + ex.getMessage(), 4000,
