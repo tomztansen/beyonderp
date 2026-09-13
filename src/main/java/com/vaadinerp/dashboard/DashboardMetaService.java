@@ -55,6 +55,19 @@ public class DashboardMetaService {
         }
     }
 
+    /** Dashboard untuk Home: hanya yang show_on_home, milik role user (SUPER_ADMIN: semua). Kosong bila tabel belum ada. */
+    public List<DashboardDef> forHome(Set<String> roles, boolean superAdmin) {
+        try {
+            if (superAdmin) return load("WHERE d.show_on_home", new Object[0]);
+            if (roles == null || roles.isEmpty()) return List.of();
+            String in = String.join(",", roles.stream().map(r -> "?").toList());
+            return load("WHERE d.show_on_home AND d.role_code IN (" + in + ")", roles.toArray());
+        } catch (Exception e) {
+            log.warn("Dashboard metadata unavailable, run sql/dashboard.sql: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
     private List<DashboardDef> load(String where, Object... args) {
         List<Map<String, Object>> heads = jdbc.queryForList(
                 "SELECT d.dashboard_code, d.title, d.role_code, d.display_order, d.refresh_seconds, d.params_json"

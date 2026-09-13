@@ -999,7 +999,34 @@ public class PortalView extends AppLayout {
 
         // welcomeContent.add(portalIcon, mainTitle, desc, cards);
         welcomeContent.add(portalIcon, mainTitle);
-        tabSheet.add("Home", welcomeContent);
+        tabSheet.add("Home", buildHomeDashboard().orElse(welcomeContent));
+    }
+
+    /**
+     * Home = gabungan dashboard (show_on_home) dari semua role user, dedupe widget (DashboardMerger).
+     * Kosong bila user tidak punya dashboard atau tabel belum ada -> tampilan Welcome lama.
+     */
+    private java.util.Optional<com.vaadin.flow.component.Component> buildHomeDashboard() {
+        try {
+            AppUser u = securityService.getCurrentUser();
+            if (u == null || u.getRoles() == null || u.getRoles().isEmpty()) return java.util.Optional.empty();
+            java.util.List<com.vaadinerp.dashboard.DashboardModel.DashboardDef> defs = com.vaadinerp.config.SpringContextHolder
+                    .getBean(com.vaadinerp.dashboard.DashboardMetaService.class)
+                    .forHome(u.getRoles(), u.getRoles().contains("SUPER_ADMIN"));
+            if (defs.isEmpty()) return java.util.Optional.empty();
+            com.vaadinerp.dashboard.DynamicDashboardView dv = new com.vaadinerp.dashboard.DynamicDashboardView(
+                    com.vaadinerp.dashboard.DashboardMerger.merge(defs),
+                    com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportDataService.class),
+                    reportMetaRepository,
+                    com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportAccessService.class),
+                    dynamicDataService,
+                    com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportRunService.class),
+                    securityService);
+            dv.getStyle().set("padding", "4px");
+            return java.util.Optional.of(dv);
+        } catch (Exception ex) {
+            return java.util.Optional.empty(); // Home tidak boleh gagal karena dashboard
+        }
     }
 
     private HorizontalLayout createFeatureCard(String title, String desc, VaadinIcon icon) {

@@ -673,6 +673,16 @@ public class UserAuthorityAdminView extends VerticalLayout {
                         "report-viewer/" + code, "PRINT", "Report", "GRP_REPORTS"));
             }
         }
+        // Dashboard dinamis (meta_dashboard): menu_code = route_path = dashboard_code
+        try {
+            for (com.vaadinerp.dashboard.DashboardModel.DashboardDef d : com.vaadinerp.config.SpringContextHolder
+                    .getBean(com.vaadinerp.dashboard.DashboardMetaService.class).forRoles(java.util.Set.of(), true)) {
+                availableList.add(new AvailableMenuItem(d.dashboardCode(), d.title() != null ? d.title() : d.dashboardCode(),
+                        d.dashboardCode(), "DASHBOARD", "Dashboard", "SYS_FORM"));
+            }
+        } catch (Exception ignored) {
+            // tabel dashboard belum ada -> daftar tanpa dashboard
+        }
         availableList.add(new AvailableMenuItem("REPORT_DESIGNER", "Report Designer", "report-designer", "EDIT", "System",
                 "GRP_REPORTS"));
         availableList.add(new AvailableMenuItem("REPORT_RUNNER", "Run Report", "report-runner", "PLAY", "System",
@@ -1180,12 +1190,10 @@ public class UserAuthorityAdminView extends VerticalLayout {
      * Explicit memory cleanup called by PortalView when the tab is closed.
      */
     public void cleanup() {
+        // Cukup lepas cache; grid ikut GC bersama view setelah tab dihapus. TreeGrid.setItems(List) tidak sah
+        // (butuh HierarchicalDataProvider) dan sempat melempar error saat tab ditutup.
         menuTitleCache.clear();
         currentRolePermissions.clear();
-        userGrid.setItems(new java.util.ArrayList<>());
-        roleGrid.setItems(new java.util.ArrayList<>());
-        matrixTreeGrid.setItems(new java.util.ArrayList<>());
-        menuTreeGrid.setItems(new java.util.ArrayList<>());
         this.removeAll();
     }
 }
