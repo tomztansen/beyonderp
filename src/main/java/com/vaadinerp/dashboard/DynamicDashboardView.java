@@ -161,7 +161,10 @@ public class DynamicDashboardView extends VerticalLayout {
     @Override
     protected void onDetach(DetachEvent e) {
         if (tabReg != null) { tabReg.remove(); tabReg = null; }
-        stopPolling(e.getUI(), true); // tab ditutup: selalu reset interval
+        // Reset interval hanya bila view ini sedang aktif poll; tab background sudah pollReg==null
+        // (dimatikan saat deseleksi) — jangan reset interval milik dashboard lain yang sedang aktif.
+        boolean wasActive = pollReg != null;
+        stopPolling(e.getUI(), wasActive);
         super.onDetach(e);
     }
 
