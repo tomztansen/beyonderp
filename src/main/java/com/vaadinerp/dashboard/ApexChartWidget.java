@@ -72,7 +72,7 @@ public class ApexChartWidget extends Component implements DashboardWidget, HasSi
     @Override
     public Map<String, Object> selectedRow() {
         if (lastIdx < 0 || lastIdx >= rows.size()) return Map.of();
-        if (opt.x() == null) return rows.get(lastIdx);
+        if (opt.x() == null) return Map.of();
         String cat = last.categories().size() > lastIdx ? last.categories().get(lastIdx) : null;
         if (cat == null) return Map.of();
         for (Map<String, Object> row : rows) {
