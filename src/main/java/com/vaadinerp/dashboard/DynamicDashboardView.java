@@ -115,8 +115,12 @@ public class DynamicDashboardView extends VerticalLayout {
 
     @Override
     protected void onDetach(DetachEvent e) {
-        if (pollReg != null) { pollReg.remove(); pollReg = null; }
-        e.getUI().setPollInterval(-1);
+        // Hanya matikan poll yang kita nyalakan sendiri -- jangan ganggu poller komponen lain di UI yang sama
+        if (pollReg != null) {
+            pollReg.remove();
+            pollReg = null;
+            e.getUI().setPollInterval(-1);
+        }
         super.onDetach(e);
     }
 
