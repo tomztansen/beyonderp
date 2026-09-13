@@ -107,15 +107,17 @@ public class DynamicDashboardView extends VerticalLayout {
     // Vaadin 24.10 TabSheet TIDAK melepas konten tab non-aktif; onAttach/onDetach hanya saat tab dibuka/ditutup.
     // Poll dikendalikan lewat SelectedChangeListener agar berjalan hanya saat tab ini yang dipilih.
 
-    private void setPolling(boolean on, com.vaadin.flow.component.UI ui) {
+    private void startPolling(com.vaadin.flow.component.UI ui) {
         if (def.refreshSeconds() <= 0) return;
-        if (on) {
-            ui.setPollInterval(def.refreshSeconds() * 1000);
-            if (pollReg == null) pollReg = ui.addPollListener(ev -> { if (isSelectedTab()) reloadAll(true); });
-        } else {
-            if (pollReg != null) { pollReg.remove(); pollReg = null; }
-            ui.setPollInterval(-1);
-        }
+        ui.setPollInterval(def.refreshSeconds() * 1000);
+        if (pollReg == null) pollReg = ui.addPollListener(ev -> { if (isSelectedTab()) reloadAll(true); });
+    }
+
+    /** @param resetInterval false ketika tab yang baru dipilih adalah dashboard poller lain — biarkan ia yang set intervalnya sendiri */
+    private void stopPolling(com.vaadin.flow.component.UI ui, boolean resetInterval) {
+        if (def.refreshSeconds() <= 0) return;
+        if (pollReg != null) { pollReg.remove(); pollReg = null; }
+        if (resetInterval) ui.setPollInterval(-1);
     }
 
     private boolean isSelectedTab() {
@@ -143,17 +145,23 @@ public class DynamicDashboardView extends VerticalLayout {
             final com.vaadin.flow.component.tabs.TabSheet tsF = ts;
             tabReg = ts.addSelectedChangeListener(ev -> {
                 boolean sel = ev.getSelectedTab() != null && tsF.getComponent(ev.getSelectedTab()) == this;
-                setPolling(sel, e.getUI());
+                if (sel) {
+                    startPolling(e.getUI());
+                } else {
+                    com.vaadin.flow.component.Component newContent = ev.getSelectedTab() == null ? null : tsF.getComponent(ev.getSelectedTab());
+                    boolean otherPolls = newContent instanceof DynamicDashboardView d && d != this && d.def.refreshSeconds() > 0;
+                    stopPolling(e.getUI(), !otherPolls);
+                }
                 if (sel && ev.isFromClient()) reloadAll(false);
             });
         }
-        setPolling(isSelectedTab(), e.getUI());
+        if (isSelectedTab()) startPolling(e.getUI()); else stopPolling(e.getUI(), false);
     }
 
     @Override
     protected void onDetach(DetachEvent e) {
         if (tabReg != null) { tabReg.remove(); tabReg = null; }
-        setPolling(false, e.getUI());
+        stopPolling(e.getUI(), true); // tab ditutup: selalu reset interval
         super.onDetach(e);
     }
 
