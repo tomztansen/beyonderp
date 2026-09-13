@@ -201,7 +201,8 @@ public class DynamicDashboardView extends VerticalLayout {
             if (report == null || !access.canAccess(report)) continue; // tidak berhak / report hilang -> dilewati diam-diam
             DashboardWidget widget = switch (it.widget().widgetType()) {
                 case "TABLE" -> new TableWidget(it.widget().options());
-                default -> new KpiWidget(it.widget().options()); // KPI; tipe chart menyusul tahap 2 (sementara tampil sebagai KPI)
+                case "BAR", "LINE", "PIE", "COMBO", "GAUGE" -> new ApexChartWidget(it.widget().widgetType(), it.widget().options());
+                default -> new KpiWidget(it.widget().options());
             };
             CardEntry[] holder = new CardEntry[1];
             DashboardCard card = new DashboardCard(it, widget, () -> load(holder[0]));
