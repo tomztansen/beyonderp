@@ -110,15 +110,14 @@ public class LoginHistoryService implements VaadinServiceInitListener {
                 live.remove(e.getKey());
                 continue;
             }
-            // Jika sesi sudah tidak OPEN (CLOSED atau CLOSING), segera bersihkan dari map
-            if (s.getState() != VaadinSessionState.OPEN) {
-                close(e.getKey(), "BROWSER_CLOSED", null);
-                live.remove(e.getKey());
-                continue;
-            }
             if (!s.getLockInstance().tryLock())
                 continue; // sedang dipakai request user -> jelas masih hidup
             try {
+                // getState() dan getUIs() WAJIB di bawah lock session (Vaadin melempar IllegalStateException bila tidak)
+                if (s.getState() != VaadinSessionState.OPEN) {
+                    live.remove(e.getKey()); // baris DB sudah ditutup oleh SessionDestroyListener
+                    continue;
+                }
                 if (heartbeatStale(s)) {
                     close(e.getKey(), "BROWSER_CLOSED", null);
                     live.remove(e.getKey());
