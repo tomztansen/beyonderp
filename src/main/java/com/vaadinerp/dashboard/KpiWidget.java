@@ -18,6 +18,7 @@ public class KpiWidget implements DashboardWidget {
     private final Div root = new Div();
     private final Span value = new Span("–");
     private final Span delta = new Span();
+    private Map<String, Object> first = Map.of();
 
     public KpiWidget(WidgetOptions opt) {
         this.opt = opt;
@@ -31,8 +32,9 @@ public class KpiWidget implements DashboardWidget {
 
     @Override
     public void setData(List<Map<String, Object>> rows) {
-        if (rows == null || rows.isEmpty()) { value.setText("–"); delta.setText(""); return; }
+        if (rows == null || rows.isEmpty()) { value.setText("–"); delta.setText(""); first = Map.of(); return; }
         Map<String, Object> r = rows.get(0);
+        first = r;
         Object v = pick(r, opt.y());
         value.setText(format(v));
         delta.setText("");
@@ -68,6 +70,7 @@ public class KpiWidget implements DashboardWidget {
         return String.valueOf(v);
     }
 
+    @Override public Map<String, Object> selectedRow() { return first; }
     @Override public void highlight(Object v) { /* KPI tidak punya titik untuk disorot */ }
     @Override public void addSelectListener(BiConsumer<Object, String> l) { /* KPI tidak memancarkan; drill lewat kartu */ }
 }

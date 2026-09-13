@@ -62,5 +62,6 @@ public class TableWidget implements DashboardWidget {
         grid.getListDataView().getItems().filter(r -> value.equals(cell(r, opt.emit()))).findFirst().ifPresent(grid::select);
     }
 
+    @Override public Map<String, Object> selectedRow() { return grid.getSelectedItems().stream().findFirst().orElse(Map.of()); }
     @Override public void addSelectListener(BiConsumer<Object, String> l) { listeners.add(l); }
 }
