@@ -64,6 +64,15 @@ public class SecurityNavigationGuard implements VaadinServiceInitListener {
                     Notification.show("Access denied. You do not have permission to open this page.", 4000,
                             Notification.Position.TOP_CENTER);
                     enterEvent.rerouteTo("");
+                    return;
+                }
+
+                // Form dinamis tidak pernah bisa dibuat langsung sebagai rute (view-nya dibangun PortalView
+                // sebagai komponen, bukan bean Spring) -> deep link: titipkan kodenya, portal yang membuka tab.
+                String[] seg = location.split("/");
+                if (("generic".equalsIgnoreCase(seg[0]) || "masterdetail".equalsIgnoreCase(seg[0])) && seg.length > 1) {
+                    session.setAttribute(com.vaadinerp.views.PortalView.PENDING_OPEN_CODE, seg[1]);
+                    enterEvent.rerouteTo("");
                 }
             });
         });
