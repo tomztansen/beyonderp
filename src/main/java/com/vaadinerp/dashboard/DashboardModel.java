@@ -37,8 +37,8 @@ public final class DashboardModel {
     }
 
     public record ChartOptions(boolean stacked, boolean horizontal, Map<String, String> seriesTypes, Double max,
-            List<String> colors) {
-        public static final ChartOptions EMPTY = new ChartOptions(false, false, Map.of(), null, List.of());
+            String maxColumn, List<String> colors) {
+        public static final ChartOptions EMPTY = new ChartOptions(false, false, Map.of(), null, null, List.of());
         public ChartOptions {
             if (seriesTypes == null) seriesTypes = Map.of();
             if (colors == null) colors = List.of();
@@ -49,8 +49,9 @@ public final class DashboardModel {
             if (n.get("series_types") != null && n.get("series_types").isObject())
                 n.get("series_types").fields().forEachRemaining(e -> st.put(e.getKey(), e.getValue().asText()));
             Double max = n.hasNonNull("max") && n.get("max").isNumber() ? n.get("max").asDouble() : null;
+            String maxColumn = n.hasNonNull("max") && n.get("max").isTextual() ? n.get("max").asText() : null;
             return new ChartOptions(n.path("stacked").asBoolean(false), n.path("horizontal").asBoolean(false), st, max,
-                    list(n, "colors"));
+                    maxColumn, list(n, "colors"));
         }
     }
 
