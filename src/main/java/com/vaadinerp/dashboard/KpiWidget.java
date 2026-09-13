@@ -34,7 +34,7 @@ public class KpiWidget implements DashboardWidget {
     public void setData(List<Map<String, Object>> rows) {
         if (rows == null || rows.isEmpty()) { value.setText("–"); delta.setText(""); first = Map.of(); return; }
         Map<String, Object> r = rows.get(0);
-        first = r;
+        first = r != null ? r : Map.of();
         Object v = pick(r, opt.y());
         value.setText(format(v));
         delta.setText("");
