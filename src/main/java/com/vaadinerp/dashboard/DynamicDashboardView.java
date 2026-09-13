@@ -69,7 +69,8 @@ public class DynamicDashboardView extends VerticalLayout {
     private Registration pollReg;
     private final Map<String, Integer> failures = new HashMap<>();
 
-    private record CardEntry(ItemDef item, DashboardWidget widget, DashboardCard card, ReportMeta report) {}
+    private record CardEntry(ItemDef item, DashboardWidget widget, DashboardCard card, ReportMeta report,
+            Runnable drill, boolean drillNeedsRow) {}
 
     public DynamicDashboardView(MergedDashboard def, ReportDataService reportData, ReportMetaRepository reportRepo,
             ReportAccessService access, DynamicDataService dynamicDataService,
@@ -240,18 +241,25 @@ public class DynamicDashboardView extends VerticalLayout {
             CardEntry[] holder = new CardEntry[1];
             DashboardCard card = new DashboardCard(it, widget, () -> load(holder[0], false));
             Runnable drill = buildDrill(it.widget(), widget);
-            card.setDrill(drill);
+            // Mapping yang memakai row.* butuh baris/bar terpilih: ikon ⤢ baru tampil setelah ada seleksi
+            boolean needsRow = drill != null && it.widget().drillFilterMapping() != null
+                    && it.widget().drillFilterMapping().contains("row.");
+            card.setDrill(needsRow ? null : drill);
             if (drill != null && "KPI".equals(it.widget().widgetType())) {
                 widget.asComponent().getElement().getStyle().set("cursor", "pointer");
                 widget.asComponent().getElement().addEventListener("click", ev -> drill.run()); // sekali saat build
             }
-            holder[0] = new CardEntry(it, widget, card, report);
+            holder[0] = new CardEntry(it, widget, card, report, drill, needsRow);
             if (it.widget().options().emit() != null) {
                 String dim = it.widget().options().emit();
                 widget.addSelectListener((v, label) -> {
                     filters.toggle(dim, v, label);
                     applyFilters(dim);
                 });
+            }
+            // Didaftarkan SETELAH listener emit: chart menandai baris terpilih (lastIdx) di highlight() yang dipicu applyFilters
+            if (needsRow) {
+                widget.addSelectListener((v, label) -> card.setDrill(widget.selectedRow().isEmpty() ? null : drill));
             }
             cards.add(holder[0]);
             grid.add(card);
@@ -302,6 +310,7 @@ public class DynamicDashboardView extends VerticalLayout {
         try {
             List<Map<String, Object>> rows = reportData.fetchData(c.report(), filters.paramsFor(declaredParams), false);
             c.widget().setData(rows == null ? List.of() : rows);
+            if (c.drillNeedsRow()) c.card().setDrill(c.widget().selectedRow().isEmpty() ? null : c.drill()); // seleksi hilang setelah reload
             c.widget().highlight(filters.get(c.item().widget().options().emit()));
             c.card().showLoaded();
             failures.remove(code);
