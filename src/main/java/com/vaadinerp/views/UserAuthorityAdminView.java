@@ -1190,12 +1190,10 @@ public class UserAuthorityAdminView extends VerticalLayout {
      * Explicit memory cleanup called by PortalView when the tab is closed.
      */
     public void cleanup() {
+        // Cukup lepas cache; grid ikut GC bersama view setelah tab dihapus. TreeGrid.setItems(List) tidak sah
+        // (butuh HierarchicalDataProvider) dan sempat melempar error saat tab ditutup.
         menuTitleCache.clear();
         currentRolePermissions.clear();
-        userGrid.setItems(new java.util.ArrayList<>());
-        roleGrid.setItems(new java.util.ArrayList<>());
-        matrixTreeGrid.setItems(new java.util.ArrayList<>());
-        menuTreeGrid.setItems(new java.util.ArrayList<>());
         this.removeAll();
     }
 }
