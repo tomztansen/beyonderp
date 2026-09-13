@@ -948,6 +948,19 @@ public class PortalView extends AppLayout {
         openWelcomeTab();
     }
 
+    /** Kunci atribut session untuk deep link: SecurityNavigationGuard menaruh kode form dari URL /generic/{kode}. */
+    public static final String PENDING_OPEN_CODE = "PENDING_OPEN_CODE";
+
+    @Override
+    protected void onAttach(com.vaadin.flow.component.AttachEvent e) {
+        super.onAttach(e);
+        com.vaadin.flow.server.VaadinSession s = com.vaadin.flow.server.VaadinSession.getCurrent();
+        if (s != null && s.getAttribute(PENDING_OPEN_CODE) instanceof String code) {
+            s.setAttribute(PENDING_OPEN_CODE, null);
+            openTabByCode(code, null);
+        }
+    }
+
     private void openWelcomeTab() {
         VerticalLayout welcomeContent = new VerticalLayout();
         welcomeContent.setSizeFull();
