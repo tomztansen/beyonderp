@@ -18,6 +18,8 @@ class ApexWidget extends LitElement {
     this.chart = null;
     this.cfg = null;
     this.selected = -1;
+    this._ready = null;
+    this._pending = null;
   }
 
   async firstUpdated() {
@@ -38,7 +40,11 @@ class ApexWidget extends LitElement {
 
   highlight(index) {
     this.selected = index == null ? -1 : Number(index);
-    if (this.chart && this.cfg) this.chart.updateOptions(this._options(), false, true);
+    if (!this.chart || !this.cfg) return;
+    try {
+      const opts = this._options();
+      if (this._ready) { this._pending = opts; } else { this.chart.updateOptions(opts, false, true); }
+    } catch (e) { console.error('[apex-widget] highlight error', e); }
   }
 
   destroyChart() {
@@ -48,13 +54,18 @@ class ApexWidget extends LitElement {
   _apply() {
     const el = this.querySelector('#c');
     if (!el) return;
-    const opts = this._options();
-    if (this.chart) {
-      this.chart.updateOptions(opts, false, true);
-    } else {
-      this.chart = new this._Apex(el, opts);
-      this.chart.render();
-    }
+    try {
+      const opts = this._options();
+      if (this.chart) {
+        if (this._ready) { this._pending = opts; } else { this.chart.updateOptions(opts, false, true); }
+      } else {
+        this.chart = new this._Apex(el, opts);
+        this._ready = this.chart.render().then(() => {
+          this._ready = null;
+          if (this._pending) { const p = this._pending; this._pending = null; this.chart.updateOptions(p, false, true); }
+        });
+      }
+    } catch (e) { console.error('[apex-widget] _apply error', e); }
   }
 
   _colors() {
