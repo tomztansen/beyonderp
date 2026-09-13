@@ -77,10 +77,13 @@ public final class ChartData {
                 opt.chart().max(), opt.chart().colors());
     }
 
-    /** radialBar: persen = y / max (max default 100). */
+    /** radialBar: persen = y / max (max default 100). max bisa kolom via maxColumn. */
     private static ChartConfig gauge(WidgetOptions opt, List<Map<String, Object>> rows) {
         double value = rows.isEmpty() ? 0 : toDouble(KpiWidget.pick(rows.get(0), opt.y()));
-        double max = opt.chart().max() != null && opt.chart().max() > 0 ? opt.chart().max() : 100;
+        double max = opt.chart().maxColumn() != null && !rows.isEmpty()
+                ? toDouble(KpiWidget.pick(rows.get(0), opt.chart().maxColumn()))
+                : (opt.chart().max() != null && opt.chart().max() > 0 ? opt.chart().max() : 100);
+        if (max <= 0) max = 100;
         double pct = Math.max(0, Math.min(100, value / max * 100));
         return new ChartConfig("radialBar", List.of(), List.of(new ChartSeries(opt.y() != null ? opt.y() : "value", null, List.of(pct))),
                 List.of(), false, false, max, opt.chart().colors());
