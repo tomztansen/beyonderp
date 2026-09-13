@@ -53,9 +53,10 @@ public class ApexChartWidget extends Component implements DashboardWidget, HasSi
         // Listener DOM didaftarkan sekali di sini; refresh hanya setConfig
         addListener(SelectEvent.class, e -> {
             int i = e.getIndex();
-            if (opt.emit() == null || i < 0 || i >= last.emitValues().size()) return;
-            Object v = last.emitValues().get(i);
-            String label = i < last.categories().size() ? last.categories().get(i) : String.valueOf(v);
+            if (i < 0 || i >= last.categories().size()) return;
+            lastIdx = i;
+            Object v = opt.emit() != null && i < last.emitValues().size() ? last.emitValues().get(i) : null;
+            String label = last.categories().get(i);
             for (BiConsumer<Object, String> l : listeners) l.accept(v, label);
         });
     }
