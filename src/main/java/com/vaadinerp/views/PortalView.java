@@ -362,6 +362,20 @@ public class PortalView extends AppLayout {
         addToDrawer(sidebar);
     }
 
+    /** GROUP tampil hanya jika ada ITEM keturunan (di kedalaman berapa pun) yang boleh diakses. */
+    private static boolean hasAccessibleLeaf(AppMenu menu, Map<String, List<AppMenu>> menuChildrenMap,
+            Set<String> allowedMenus) {
+        for (AppMenu c : menuChildrenMap.getOrDefault(menu.getMenuCode(), java.util.Collections.emptyList())) {
+            if ("FORM".equalsIgnoreCase(c.getMenuType()))
+                continue;
+            if ("GROUP".equalsIgnoreCase(c.getMenuType())
+                    ? hasAccessibleLeaf(c, menuChildrenMap, allowedMenus)
+                    : allowedMenus.contains(c.getMenuCode()))
+                return true;
+        }
+        return false;
+    }
+
     private boolean matchesSearchOrFav(AppMenu menu, Set<String> favMenuCodes,
             Map<String, List<AppMenu>> menuChildrenMap, Set<String> allowedMenus) {
         if ("FORM".equalsIgnoreCase(menu.getMenuType())) {
@@ -441,8 +455,9 @@ public class PortalView extends AppLayout {
 
             if (isGroup) {
                 // GROUP: tampilkan hanya jika punya minimal 1 child yang accessible
-                if (accessibleChildren.isEmpty()) {
-                    System.out.println("[MENU-TREE]   → EMPTY GROUP (tetap ditampilkan sesuai request)");
+                if (!hasAccessibleLeaf(menu, menuChildrenMap, allowedMenus)) {
+                    System.out.println("[MENU-TREE]   → SKIPPED (group tanpa item yang boleh diakses)");
+                    continue;
                 }
             } else {
                 // ITEM: cek permission langsung
