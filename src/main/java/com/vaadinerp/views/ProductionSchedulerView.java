@@ -766,7 +766,7 @@ public class ProductionSchedulerView extends VerticalLayout {
             }
 
             jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS mst_work_center (" +
-                    "id SERIAL PRIMARY KEY, " +
+                    "id BIGSERIAL PRIMARY KEY, " +
                     "code VARCHAR(50) UNIQUE, " +
                     "name VARCHAR(150), " +
                     "capacity_hours INT, " +
@@ -775,7 +775,7 @@ public class ProductionSchedulerView extends VerticalLayout {
             try { jdbcTemplate.execute("ALTER TABLE mst_work_center ADD COLUMN IF NOT EXISTS capacity_tonnage DECIMAL(10,2) DEFAULT 0"); } catch (Exception ignored) {}
 
             jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS trx_work_order (" +
-                    "id SERIAL PRIMARY KEY, " +
+                    "id BIGSERIAL PRIMARY KEY, " +
                     "wo_no VARCHAR(50) UNIQUE, " +
                     "product_name VARCHAR(200), " +
                     "target_qty INT, " +
@@ -791,7 +791,7 @@ public class ProductionSchedulerView extends VerticalLayout {
             } catch (Exception ignored) {}
 
             jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS trx_production_schedule (" +
-                    "id SERIAL PRIMARY KEY, " +
+                    "id BIGSERIAL PRIMARY KEY, " +
                     "wo_no VARCHAR(50), " +
                     "work_center_code VARCHAR(50), " +
                     "operation_name VARCHAR(150), " +

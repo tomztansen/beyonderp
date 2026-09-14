@@ -92,7 +92,7 @@ public class TableDesignerView extends VerticalLayout {
         // Add default PK column initially
         ColumnDefinition idCol = new ColumnDefinition();
         idCol.setColumnName("id");
-        idCol.setDataType("SERIAL");
+        idCol.setDataType("BIGSERIAL");
         idCol.setPrimaryKey(true);
         idCol.setNullable(false);
         columnsList.add(idCol);
@@ -386,7 +386,7 @@ public class TableDesignerView extends VerticalLayout {
             // Add ID PK back
             ColumnDefinition idCol = new ColumnDefinition();
             idCol.setColumnName("id");
-            idCol.setDataType("SERIAL");
+            idCol.setDataType("BIGSERIAL");
             idCol.setPrimaryKey(true);
             idCol.setNullable(false);
             if (includeAuditColsCheckbox.getValue()) {
