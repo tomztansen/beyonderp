@@ -365,11 +365,7 @@ public class DynamicDashboardView extends VerticalLayout {
             cards.add(holder[0]);
             grid.add(card);
         }
-        if (cards.isEmpty()) {
-            Span empty = new Span("No widgets available for your role.");
-            empty.getStyle().set("color", "#6b7280");
-            grid.add(empty);
-        }
+        if (cards.isEmpty()) showEmptyPlaceholder();
         reloadAll();
     }
 
@@ -403,12 +399,22 @@ public class DynamicDashboardView extends VerticalLayout {
         String code = ce.item().widget().widgetCode();
         ce.card().setCustomizing(true,
             () -> {
-                int i = layoutIndexOf(code);
-                if (i > 0) { swap(layout, i, i - 1); swap(cards, i, i - 1); reorderGrid(); }
+                int ci = cardsIndexOf(code);
+                if (ci > 0) {
+                    String neighborCode = cards.get(ci - 1).item().widget().widgetCode();
+                    swap(cards, ci, ci - 1);
+                    swapInLayoutByCode(code, neighborCode);
+                    reorderGrid();
+                }
             },
             () -> {
-                int i = layoutIndexOf(code);
-                if (i >= 0 && i < layout.size() - 1) { swap(layout, i, i + 1); swap(cards, i, i + 1); reorderGrid(); }
+                int ci = cardsIndexOf(code);
+                if (ci >= 0 && ci < cards.size() - 1) {
+                    String neighborCode = cards.get(ci + 1).item().widget().widgetCode();
+                    swap(cards, ci, ci + 1);
+                    swapInLayoutByCode(code, neighborCode);
+                    reorderGrid();
+                }
             },
             () -> {
                 int s = ce.card().getSpan();
@@ -421,9 +427,21 @@ public class DynamicDashboardView extends VerticalLayout {
                 layout.removeIf(x -> x.widget().widgetCode().equals(code));
                 cards.removeIf(x -> x.item().widget().widgetCode().equals(code));
                 grid.remove(ce.card());
+                if (cards.isEmpty()) showEmptyPlaceholder();
                 refreshCustomizePanel();
             }
         );
+    }
+
+    private int cardsIndexOf(String code) {
+        for (int i = 0; i < cards.size(); i++)
+            if (cards.get(i).item().widget().widgetCode().equals(code)) return i;
+        return -1;
+    }
+
+    private void swapInLayoutByCode(String codeA, String codeB) {
+        int ia = layoutIndexOf(codeA), ib = layoutIndexOf(codeB);
+        if (ia >= 0 && ib >= 0) swap(layout, ia, ib);
     }
 
     /** Re-add all card DOM elements in current `cards` order without rebuilding widgets. */
@@ -431,6 +449,12 @@ public class DynamicDashboardView extends VerticalLayout {
         grid.removeAll();
         for (CardEntry c : cards) grid.add(c.card());
         refreshCustomizePanel();
+    }
+
+    private void showEmptyPlaceholder() {
+        Span empty = new Span("No widgets available for your role.");
+        empty.getStyle().set("color", "#6b7280");
+        grid.add(empty);
     }
 
     private void refreshCustomizePanel() {
