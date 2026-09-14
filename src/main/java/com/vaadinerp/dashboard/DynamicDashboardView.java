@@ -261,6 +261,12 @@ public class DynamicDashboardView extends VerticalLayout {
                 declaredParams.remove(p.name());
                 declaredParams.add(p.name() + "_from");
                 declaredParams.add(p.name() + "_to");
+                if (prefs.params.containsKey(p.name() + "_from")) {
+                    try { LocalDate v = LocalDate.parse(prefs.params.get(p.name() + "_from")); from.setValue(v); filters.put(p.name() + "_from", v, String.valueOf(v)); } catch (Exception ignored) {}
+                }
+                if (prefs.params.containsKey(p.name() + "_to")) {
+                    try { LocalDate v = LocalDate.parse(prefs.params.get(p.name() + "_to")); to.setValue(v); filters.put(p.name() + "_to", v, String.valueOf(v)); } catch (Exception ignored) {}
+                }
                 from.addValueChangeListener(e -> onParam(p.name() + "_from", e.getValue(), String.valueOf(e.getValue())));
                 to.addValueChangeListener(e -> onParam(p.name() + "_to", e.getValue(), String.valueOf(e.getValue())));
                 paramControlByDim.put(p.name() + "_from", from);
@@ -396,8 +402,14 @@ public class DynamicDashboardView extends VerticalLayout {
     private void enableCardCustomize(CardEntry ce) {
         String code = ce.item().widget().widgetCode();
         ce.card().setCustomizing(true,
-            () -> { int i = layoutIndexOf(code); if (i > 0) { swap(layout, i, i - 1); rebuildCards(); } },
-            () -> { int i = layoutIndexOf(code); if (i < layout.size() - 1) { swap(layout, i, i + 1); rebuildCards(); } },
+            () -> {
+                int i = layoutIndexOf(code);
+                if (i > 0) { swap(layout, i, i - 1); swap(cards, i, i - 1); reorderGrid(); }
+            },
+            () -> {
+                int i = layoutIndexOf(code);
+                if (i >= 0 && i < layout.size() - 1) { swap(layout, i, i + 1); swap(cards, i, i + 1); reorderGrid(); }
+            },
             () -> {
                 int s = ce.card().getSpan();
                 int next = s == 3 ? 6 : s == 6 ? 12 : 3;
@@ -407,9 +419,18 @@ public class DynamicDashboardView extends VerticalLayout {
             () -> {
                 hiddenNow.add(code);
                 layout.removeIf(x -> x.widget().widgetCode().equals(code));
-                rebuildCards();
+                cards.removeIf(x -> x.item().widget().widgetCode().equals(code));
+                grid.remove(ce.card());
+                refreshCustomizePanel();
             }
         );
+    }
+
+    /** Re-add all card DOM elements in current `cards` order without rebuilding widgets. */
+    private void reorderGrid() {
+        grid.removeAll();
+        for (CardEntry c : cards) grid.add(c.card());
+        refreshCustomizePanel();
     }
 
     private void refreshCustomizePanel() {
@@ -423,7 +444,10 @@ public class DynamicDashboardView extends VerticalLayout {
                     Button showBtn = new Button(it.widget().title() + " Show", e -> {
                         hiddenNow.remove(code);
                         def.items().stream().filter(x -> x.widget().widgetCode().equals(code)).findFirst()
-                            .ifPresent(x -> layout.add(x));
+                            .ifPresent(x -> {
+                                int savedSpan = prefs.span.getOrDefault(code, x.colSpan());
+                                layout.add(new ItemDef(x.widget(), x.rowOrder(), savedSpan));
+                            });
                         rebuildCards();
                     });
                     showBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
@@ -441,14 +465,27 @@ public class DynamicDashboardView extends VerticalLayout {
     }
 
     private void doSave() {
-        prefs = LayoutPrefs.fromLayout(layout, hiddenNow, currentParamValuesAsStrings());
-        if (saver != null) saver.accept(prefs.isEmpty() ? null : prefs.toJson());
+        LayoutPrefs next = LayoutPrefs.fromLayout(layout, hiddenNow, currentParamValuesAsStrings());
+        if (saver != null) {
+            try { saver.accept(next.isEmpty() ? null : next.toJson()); }
+            catch (Exception ex) {
+                Notification.show("Failed to save layout: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                return;
+            }
+        }
+        prefs = next;
         exitCustomize();
     }
 
     private void doReset() {
+        if (saver != null) {
+            try { saver.accept(null); }
+            catch (Exception ex) {
+                Notification.show("Failed to save layout: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                return;
+            }
+        }
         prefs = new LayoutPrefs();
-        if (saver != null) saver.accept(null);
         layout = prefs.apply(def.items());
         hiddenNow.clear();
         exitCustomize();
