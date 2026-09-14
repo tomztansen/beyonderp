@@ -309,7 +309,7 @@ public class DataInitializer implements CommandLineRunner {
         // Create table invoice_items if not exists under schema dynamic
         jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS dynamic;");
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS dynamic.invoice_items (" +
-                "id SERIAL PRIMARY KEY, " +
+                "id BIGSERIAL PRIMARY KEY, " +
                 "item_name VARCHAR(255), " +
                 "qty INTEGER, " +
                 "price DECIMAL(19, 2), " +
@@ -681,7 +681,7 @@ public class DataInitializer implements CommandLineRunner {
         // Create table master_item if not exists under schema dynamic
         jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS dynamic;");
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS dynamic.master_item (" +
-                "id SERIAL PRIMARY KEY, " +
+                "id BIGSERIAL PRIMARY KEY, " +
                 "item_code VARCHAR(50), " +
                 "item_name VARCHAR(255), " +
                 "category VARCHAR(100), " +
@@ -862,7 +862,7 @@ public class DataInitializer implements CommandLineRunner {
 
         // Create table global_category (Master)
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS dynamic.global_category (" +
-                "id SERIAL PRIMARY KEY, " +
+                "id BIGSERIAL PRIMARY KEY, " +
                 "category_code VARCHAR(50), " +
                 "category_name VARCHAR(255), " +
                 "description TEXT, " +
@@ -887,7 +887,7 @@ public class DataInitializer implements CommandLineRunner {
 
         // Create table global_master_detail (Detail)
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS dynamic.global_master_detail (" +
-                "id SERIAL PRIMARY KEY, " +
+                "id BIGSERIAL PRIMARY KEY, " +
                 "global_category_id INT, " +
                 "code VARCHAR(50), " +
                 "name VARCHAR(255), " +
@@ -1081,7 +1081,7 @@ public class DataInitializer implements CommandLineRunner {
                 ")");
 
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS public.app_role_menu_permissions (" +
-                "id SERIAL PRIMARY KEY, " +
+                "id BIGSERIAL PRIMARY KEY, " +
                 "role_code VARCHAR(50) NOT NULL, " +
                 "menu_code VARCHAR(50) NOT NULL, " +
                 "can_add BOOLEAN DEFAULT TRUE, " +
@@ -1092,7 +1092,7 @@ public class DataInitializer implements CommandLineRunner {
                 ")");
 
         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS public.app_user_favorite_menus (" +
-                "id SERIAL PRIMARY KEY, " +
+                "id BIGSERIAL PRIMARY KEY, " +
                 "username VARCHAR(50) NOT NULL, " +
                 "menu_code VARCHAR(50) NOT NULL, " +
                 "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
@@ -1302,7 +1302,7 @@ public class DataInitializer implements CommandLineRunner {
         // 1. Create table dynamic.md_sequence
         try {
             jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS dynamic.md_sequence (" +
-                    "id SERIAL PRIMARY KEY, " +
+                    "id BIGSERIAL PRIMARY KEY, " +
                     "seq_code VARCHAR(50) UNIQUE NOT NULL, " +
                     "seq_name VARCHAR(255) NOT NULL, " +
                     "prefix_format VARCHAR(100), " +

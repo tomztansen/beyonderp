@@ -118,7 +118,7 @@ public class DynamicDataService {
                 synchronized (this) {
                     if (!auditTableChecked) {
                         jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS sys_audit_log (" +
-                                "id SERIAL PRIMARY KEY, " +
+                                "id BIGSERIAL PRIMARY KEY, " +
                                 "table_name VARCHAR(100) NOT NULL, " +
                                 "record_id VARCHAR(100), " +
                                 "action_type VARCHAR(20) NOT NULL, " +
@@ -2657,7 +2657,7 @@ public class DynamicDataService {
             }
             StringBuilder createSql = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
             createSql.append(tableName).append(" (");
-            createSql.append(pk).append(isTextPk ? " VARCHAR(100) PRIMARY KEY" : " SERIAL PRIMARY KEY");
+            createSql.append(pk).append(isTextPk ? " VARCHAR(100) PRIMARY KEY" : " BIGSERIAL PRIMARY KEY");
             createSql.append(")");
             jdbcTemplate.execute(createSql.toString());
         }
@@ -5100,7 +5100,7 @@ public class DynamicDataService {
                 StringBuilder createSql = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
                 createSql.append(qDetailTable).append(" (");
                 createSql.append(detailPk)
-                        .append(isDetailTextPk ? " VARCHAR(100) PRIMARY KEY, " : " SERIAL PRIMARY KEY, ");
+                        .append(isDetailTextPk ? " VARCHAR(100) PRIMARY KEY, " : " BIGSERIAL PRIMARY KEY, ");
                 createSql.append(detailFk).append(isFkText ? " VARCHAR(100) NOT NULL" : " INTEGER NOT NULL");
                 createSql.append(")");
                 jdbcTemplate.execute(createSql.toString());

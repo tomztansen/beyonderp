@@ -12,7 +12,7 @@ public class SchedulerConfig extends BaseAuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
     @Column(name = "form_code", length = 50, nullable = false, unique = true)
     private String formCode;

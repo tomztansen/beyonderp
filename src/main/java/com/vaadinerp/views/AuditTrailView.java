@@ -60,7 +60,7 @@ public class AuditTrailView extends VerticalLayout {
     private void ensureAuditTableExists() {
         try {
             jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS sys_audit_log (" +
-                    "id SERIAL PRIMARY KEY, " +
+                    "id BIGSERIAL PRIMARY KEY, " +
                     "table_name VARCHAR(100) NOT NULL, " +
                     "record_id VARCHAR(100), " +
                     "action_type VARCHAR(20) NOT NULL, " +
