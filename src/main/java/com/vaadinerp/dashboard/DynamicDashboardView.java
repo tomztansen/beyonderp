@@ -115,6 +115,9 @@ public class DynamicDashboardView extends VerticalLayout {
         add(buildFilterBar());
         chips.getStyle().set("gap", "6px").set("flex-wrap", "wrap").set("margin", "6px 0");
         add(chips);
+        // Gaya DnD (kelas v-dragged / v-drag-over-target diberikan Vaadin otomatis)
+        add(new com.vaadin.flow.component.Html(
+                "<style>.v-dragged{opacity:.5;outline:2px dashed #6366f1}.v-drag-over-target{outline:2px solid #6366f1;outline-offset:2px}</style>"));
         customizePanel.setVisible(false);
         customizePanel.getStyle().set("display", "flex").set("flex-wrap", "wrap").set("gap", "8px")
                 .set("align-items", "center").set("padding", "6px 0");
@@ -351,6 +354,7 @@ public class DynamicDashboardView extends VerticalLayout {
                 widget.asComponent().getElement().addEventListener("click", ev -> { if (!widget.selectedRow().isEmpty()) drill.run(); }); // sekali saat build
             }
             holder[0] = new CardEntry(it, widget, card, report, drill, needsRow);
+            wireDragDrop(card); // sekali per kartu; aktif hanya saat mode Customize
             if (it.widget().options().emit() != null) {
                 String dim = it.widget().options().emit();
                 widget.addSelectListener((v, label) -> {
@@ -387,12 +391,56 @@ public class DynamicDashboardView extends VerticalLayout {
         refreshCustomizePanel();
         customizePanel.setVisible(true);
         for (CardEntry ce : cards) enableCardCustomize(ce);
+        setDragDrop(true);
     }
 
     private void exitCustomize() {
         customizing = false;
         customizePanel.setVisible(false);
         for (CardEntry ce : cards) ce.card().setCustomizing(false, null, null, null, null);
+        setDragDrop(false);
+    }
+
+    // ---------- drag & drop (Vaadin Flow DnD bawaan = HTML5 DnD, tidak untuk layar sentuh; ▲▼ tetap ada) ----------
+
+    /** DragSource/DropTarget dikonfigurasi sekali per kartu (listener drop satu kali); aktif/nonaktif lewat setDragDrop. */
+    private void wireDragDrop(DashboardCard card) {
+        com.vaadin.flow.component.dnd.DragSource.configure(card).setDraggable(customizing);
+        com.vaadin.flow.component.dnd.DropTarget<DashboardCard> target = com.vaadin.flow.component.dnd.DropTarget.configure(card);
+        target.setActive(customizing);
+        target.addDropListener(ev -> {
+            if (!customizing) return;
+            ev.getDragSourceComponent().ifPresent(src -> {
+                if (src != card && src instanceof DashboardCard from) moveCardTo(from, card);
+            });
+        });
+    }
+
+    private void setDragDrop(boolean on) {
+        for (CardEntry ce : cards) {
+            com.vaadin.flow.component.dnd.DragSource.configure(ce.card()).setDraggable(on);
+            com.vaadin.flow.component.dnd.DropTarget.configure(ce.card()).setActive(on);
+        }
+    }
+
+    /** Pindahkan kartu `from` ke posisi kartu `to`; urutan layout mengikuti urutan kartu (widget tanpa akses tetap di belakang). Tanpa query ulang. */
+    private void moveCardTo(DashboardCard from, DashboardCard to) {
+        int fi = -1, ti = -1;
+        for (int i = 0; i < cards.size(); i++) {
+            if (cards.get(i).card() == from) fi = i;
+            if (cards.get(i).card() == to) ti = i;
+        }
+        if (fi < 0 || ti < 0 || fi == ti) return;
+        cards.add(ti, cards.remove(fi));
+        List<ItemDef> reordered = new ArrayList<>();
+        for (CardEntry ce : cards) {
+            int li = layoutIndexOf(ce.item().widget().widgetCode());
+            if (li >= 0) reordered.add(layout.get(li));
+        }
+        for (ItemDef it : layout) if (!reordered.contains(it)) reordered.add(it);
+        layout.clear();
+        layout.addAll(reordered);
+        reorderGrid();
     }
 
     private void enableCardCustomize(CardEntry ce) {
