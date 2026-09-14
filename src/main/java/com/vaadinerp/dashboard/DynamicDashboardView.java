@@ -10,6 +10,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,12 +58,19 @@ public class DynamicDashboardView extends VerticalLayout {
     private final DynamicDataService dynamicDataService;
     private final ReportRunService reportRunService;
     private final SessionSecurityService securityService;
+    private final Consumer<String> saver;
+
+    private LayoutPrefs prefs;
+    private List<ItemDef> layout;
+    private Set<String> hiddenNow;
+    private boolean customizing;
 
     private final FilterState filters = new FilterState();
     private final Set<String> declaredParams = new LinkedHashSet<>();
     private final Map<String, HasValue<?, ?>> paramControlByDim = new LinkedHashMap<>();
     private boolean clearing;
     private final FlexLayout chips = new FlexLayout();
+    private final Div customizePanel = new Div();
     private final Div grid = new Div();
     private final List<CardEntry> cards = new ArrayList<>();
 
@@ -76,6 +84,13 @@ public class DynamicDashboardView extends VerticalLayout {
     public DynamicDashboardView(MergedDashboard def, ReportDataService reportData, ReportMetaRepository reportRepo,
             ReportAccessService access, DynamicDataService dynamicDataService,
             ReportRunService reportRunService, SessionSecurityService securityService) {
+        this(def, reportData, reportRepo, access, dynamicDataService, reportRunService, securityService, null, null);
+    }
+
+    public DynamicDashboardView(MergedDashboard def, ReportDataService reportData, ReportMetaRepository reportRepo,
+            ReportAccessService access, DynamicDataService dynamicDataService,
+            ReportRunService reportRunService, SessionSecurityService securityService,
+            LayoutPrefs initialPrefs, Consumer<String> saver) {
         this.def = def;
         this.reportData = reportData;
         this.reportRepo = reportRepo;
@@ -83,6 +98,11 @@ public class DynamicDashboardView extends VerticalLayout {
         this.dynamicDataService = dynamicDataService;
         this.reportRunService = reportRunService;
         this.securityService = securityService;
+        this.saver = saver;
+        this.prefs = initialPrefs != null ? initialPrefs : new LayoutPrefs();
+        this.layout = this.prefs.apply(def.items());
+        this.hiddenNow = new LinkedHashSet<>(this.prefs.hidden);
+
         setSizeFull();
         setPadding(true);
         setSpacing(false);
@@ -95,6 +115,10 @@ public class DynamicDashboardView extends VerticalLayout {
         add(buildFilterBar());
         chips.getStyle().set("gap", "6px").set("flex-wrap", "wrap").set("margin", "6px 0");
         add(chips);
+        customizePanel.setVisible(false);
+        customizePanel.getStyle().set("display", "flex").set("flex-wrap", "wrap").set("gap", "8px")
+                .set("align-items", "center").set("padding", "6px 0");
+        add(customizePanel);
         grid.getStyle().set("display", "grid").set("grid-template-columns", "repeat(12, minmax(0, 1fr))")
                 .set("gap", "12px").set("grid-auto-flow", "dense").set("width", "100%");
         grid.getElement().executeJs(
@@ -185,6 +209,11 @@ public class DynamicDashboardView extends VerticalLayout {
         });
         clear.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         bar.add(refresh, clear);
+        if (saver != null) {
+            Button customize = new Button("Customize", VaadinIcon.WRENCH.create(), e -> enterCustomize());
+            customize.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+            bar.add(customize);
+        }
         return bar;
     }
 
@@ -200,7 +229,15 @@ public class DynamicDashboardView extends VerticalLayout {
                 for (int i = 0; i < 12; i++) months.add(ym.minusMonths(i).atDay(1));
                 cb.setItems(months);
                 cb.setItemLabelGenerator(d -> d.format(DateTimeFormatter.ofPattern("MMM yyyy")));
-                if ("current".equalsIgnoreCase(p.defaultValue())) cb.setValue(months.get(0));
+                if (prefs.params.containsKey(p.name())) {
+                    try {
+                        LocalDate saved = LocalDate.parse(prefs.params.get(p.name()));
+                        if (months.contains(saved)) cb.setValue(saved);
+                        else if ("current".equalsIgnoreCase(p.defaultValue())) cb.setValue(months.get(0));
+                    } catch (Exception ignored) {
+                        if ("current".equalsIgnoreCase(p.defaultValue())) cb.setValue(months.get(0));
+                    }
+                } else if ("current".equalsIgnoreCase(p.defaultValue())) cb.setValue(months.get(0));
                 cb.addValueChangeListener(e -> onParam(p.name(), e.getValue(), e.getValue() == null ? null : cb.getItemLabelGenerator().apply(e.getValue())));
                 paramControlByDim.put(p.name(), cb);
                 paramControls.add(cb);
@@ -209,7 +246,10 @@ public class DynamicDashboardView extends VerticalLayout {
             }
             case "DATE" -> {
                 DatePicker dp = new DatePicker(label);
-                if ("today".equalsIgnoreCase(p.defaultValue())) dp.setValue(LocalDate.now());
+                if (prefs.params.containsKey(p.name())) {
+                    try { dp.setValue(LocalDate.parse(prefs.params.get(p.name()))); }
+                    catch (Exception ignored) { if ("today".equalsIgnoreCase(p.defaultValue())) dp.setValue(LocalDate.now()); }
+                } else if ("today".equalsIgnoreCase(p.defaultValue())) dp.setValue(LocalDate.now());
                 dp.addValueChangeListener(e -> onParam(p.name(), e.getValue(), String.valueOf(e.getValue())));
                 paramControlByDim.put(p.name(), dp);
                 paramControls.add(dp);
@@ -221,6 +261,12 @@ public class DynamicDashboardView extends VerticalLayout {
                 declaredParams.remove(p.name());
                 declaredParams.add(p.name() + "_from");
                 declaredParams.add(p.name() + "_to");
+                if (prefs.params.containsKey(p.name() + "_from")) {
+                    try { LocalDate v = LocalDate.parse(prefs.params.get(p.name() + "_from")); from.setValue(v); filters.put(p.name() + "_from", v, String.valueOf(v)); } catch (Exception ignored) {}
+                }
+                if (prefs.params.containsKey(p.name() + "_to")) {
+                    try { LocalDate v = LocalDate.parse(prefs.params.get(p.name() + "_to")); to.setValue(v); filters.put(p.name() + "_to", v, String.valueOf(v)); } catch (Exception ignored) {}
+                }
                 from.addValueChangeListener(e -> onParam(p.name() + "_from", e.getValue(), String.valueOf(e.getValue())));
                 to.addValueChangeListener(e -> onParam(p.name() + "_to", e.getValue(), String.valueOf(e.getValue())));
                 paramControlByDim.put(p.name() + "_from", from);
@@ -243,15 +289,22 @@ public class DynamicDashboardView extends VerticalLayout {
                             c instanceof ComboBox<?> cb && e.getValue() != null ? labelOf(cb, e.getValue()) : String.valueOf(e.getValue())));
                     paramControlByDim.put(p.name(), hv);
                     paramControls.add(hv);
+                    if (prefs.params.containsKey(p.name())) {
+                        try { ((HasValue<?, Object>) hv).setValue(prefs.params.get(p.name())); } catch (Exception ignored) {}
+                    }
                 }
                 return c;
             }
             default -> {
                 TextField tf = new TextField(label);
                 tf.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.LAZY);
+                if (prefs.params.containsKey(p.name())) {
+                    try { tf.setValue(prefs.params.get(p.name())); } catch (Exception ignored) {}
+                }
                 tf.addValueChangeListener(e -> onParam(p.name(), e.getValue(), e.getValue()));
                 paramControlByDim.put(p.name(), tf);
                 paramControls.add(tf);
+                if (!tf.isEmpty()) filters.put(p.name(), tf.getValue(), tf.getValue());
                 return tf;
             }
         }
@@ -278,7 +331,7 @@ public class DynamicDashboardView extends VerticalLayout {
 
     // ---------- cards ----------
     private void buildCards() {
-        for (ItemDef it : def.items()) {
+        for (ItemDef it : layout) {
             ReportMeta report = reportRepo.findById(it.widget().reportCode()).orElse(null);
             if (report == null || !access.canAccess(report)) continue; // tidak berhak / report hilang -> dilewati diam-diam
             DashboardWidget widget = switch (it.widget().widgetType()) {
@@ -312,12 +365,194 @@ public class DynamicDashboardView extends VerticalLayout {
             cards.add(holder[0]);
             grid.add(card);
         }
-        if (cards.isEmpty()) {
-            Span empty = new Span("No widgets available for your role.");
-            empty.getStyle().set("color", "#6b7280");
-            grid.add(empty);
-        }
+        if (cards.isEmpty()) showEmptyPlaceholder();
         reloadAll();
+    }
+
+    private void rebuildCards() {
+        grid.removeAll();
+        cards.clear();
+        failures.clear();
+        buildCards();
+        if (customizing) {
+            for (CardEntry ce : cards) enableCardCustomize(ce);
+            refreshCustomizePanel();
+        }
+    }
+
+    // ---------- customize mode ----------
+    private void enterCustomize() {
+        if (customizing) return;
+        customizing = true;
+        refreshCustomizePanel();
+        customizePanel.setVisible(true);
+        for (CardEntry ce : cards) enableCardCustomize(ce);
+    }
+
+    private void exitCustomize() {
+        customizing = false;
+        customizePanel.setVisible(false);
+        for (CardEntry ce : cards) ce.card().setCustomizing(false, null, null, null, null);
+    }
+
+    private void enableCardCustomize(CardEntry ce) {
+        String code = ce.item().widget().widgetCode();
+        ce.card().setCustomizing(true,
+            () -> {
+                int ci = cardsIndexOf(code);
+                if (ci > 0) {
+                    String neighborCode = cards.get(ci - 1).item().widget().widgetCode();
+                    swap(cards, ci, ci - 1);
+                    swapInLayoutByCode(code, neighborCode);
+                    reorderGrid();
+                }
+            },
+            () -> {
+                int ci = cardsIndexOf(code);
+                if (ci >= 0 && ci < cards.size() - 1) {
+                    String neighborCode = cards.get(ci + 1).item().widget().widgetCode();
+                    swap(cards, ci, ci + 1);
+                    swapInLayoutByCode(code, neighborCode);
+                    reorderGrid();
+                }
+            },
+            () -> {
+                int s = ce.card().getSpan();
+                int next = s == 3 ? 6 : s == 6 ? 12 : 3;
+                ce.card().setSpan(next);
+                updateLayoutSpan(code, next);
+            },
+            () -> {
+                hiddenNow.add(code);
+                layout.removeIf(x -> x.widget().widgetCode().equals(code));
+                cards.removeIf(x -> x.item().widget().widgetCode().equals(code));
+                grid.remove(ce.card());
+                if (cards.isEmpty()) showEmptyPlaceholder();
+                refreshCustomizePanel();
+            }
+        );
+    }
+
+    private int cardsIndexOf(String code) {
+        for (int i = 0; i < cards.size(); i++)
+            if (cards.get(i).item().widget().widgetCode().equals(code)) return i;
+        return -1;
+    }
+
+    private void swapInLayoutByCode(String codeA, String codeB) {
+        int ia = layoutIndexOf(codeA), ib = layoutIndexOf(codeB);
+        if (ia >= 0 && ib >= 0) swap(layout, ia, ib);
+    }
+
+    /** Re-add all card DOM elements in current `cards` order without rebuilding widgets. */
+    private void reorderGrid() {
+        grid.removeAll();
+        for (CardEntry c : cards) grid.add(c.card());
+        refreshCustomizePanel();
+    }
+
+    private void showEmptyPlaceholder() {
+        Span empty = new Span("No widgets available for your role.");
+        empty.getStyle().set("color", "#6b7280");
+        grid.add(empty);
+    }
+
+    private void refreshCustomizePanel() {
+        customizePanel.removeAll();
+        if (!hiddenNow.isEmpty()) {
+            Span lbl = new Span("Hidden:");
+            lbl.getStyle().set("font-size", "0.85rem").set("color", "#6b7280");
+            customizePanel.add(lbl);
+            for (String code : hiddenNow) {
+                def.items().stream().filter(it -> it.widget().widgetCode().equals(code)).findFirst().ifPresent(it -> {
+                    Button showBtn = new Button(it.widget().title() + " Show", e -> {
+                        hiddenNow.remove(code);
+                        def.items().stream().filter(x -> x.widget().widgetCode().equals(code)).findFirst()
+                            .ifPresent(x -> {
+                                int savedSpan = prefs.span.getOrDefault(code, x.colSpan());
+                                layout.add(new ItemDef(x.widget(), x.rowOrder(), savedSpan));
+                            });
+                        rebuildCards();
+                    });
+                    showBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+                    customizePanel.add(showBtn);
+                });
+            }
+        }
+        Button save = new Button("Save", e -> doSave());
+        Button reset = new Button("Reset to default", e -> doReset());
+        Button cancel = new Button("Cancel", e -> doCancel());
+        save.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+        reset.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
+        cancel.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+        customizePanel.add(save, reset, cancel);
+    }
+
+    private void doSave() {
+        LayoutPrefs next = LayoutPrefs.fromLayout(layout, hiddenNow, currentParamValuesAsStrings());
+        if (saver != null) {
+            try { saver.accept(next.isEmpty() ? null : next.toJson()); }
+            catch (Exception ex) {
+                Notification.show("Failed to save layout: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                return;
+            }
+        }
+        prefs = next;
+        exitCustomize();
+    }
+
+    private void doReset() {
+        if (saver != null) {
+            try { saver.accept(null); }
+            catch (Exception ex) {
+                Notification.show("Failed to save layout: " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                return;
+            }
+        }
+        prefs = new LayoutPrefs();
+        layout = prefs.apply(def.items());
+        hiddenNow.clear();
+        exitCustomize();
+        rebuildCards();
+    }
+
+    private void doCancel() {
+        layout = prefs.apply(def.items());
+        hiddenNow = new LinkedHashSet<>(prefs.hidden);
+        exitCustomize();
+        rebuildCards();
+    }
+
+    private Map<String, String> currentParamValuesAsStrings() {
+        Map<String, String> result = new LinkedHashMap<>();
+        for (Map.Entry<String, HasValue<?, ?>> e : paramControlByDim.entrySet()) {
+            Object val = e.getValue().getValue();
+            if (val == null) continue;
+            String s = String.valueOf(val);
+            if (s.isBlank() || "null".equals(s)) continue;
+            result.put(e.getKey(), s);
+        }
+        return result;
+    }
+
+    private int layoutIndexOf(String code) {
+        for (int i = 0; i < layout.size(); i++)
+            if (layout.get(i).widget().widgetCode().equals(code)) return i;
+        return -1;
+    }
+
+    private void updateLayoutSpan(String code, int newSpan) {
+        for (int i = 0; i < layout.size(); i++) {
+            ItemDef it = layout.get(i);
+            if (it.widget().widgetCode().equals(code)) {
+                layout.set(i, new ItemDef(it.widget(), it.rowOrder(), newSpan));
+                return;
+            }
+        }
+    }
+
+    private static <T> void swap(List<T> list, int i, int j) {
+        T tmp = list.get(i); list.set(i, list.get(j)); list.set(j, tmp);
     }
 
     /** Null bila widget tidak punya tujuan drill atau user tidak berhak ke tujuannya (ikon ⤢ disembunyikan). */
