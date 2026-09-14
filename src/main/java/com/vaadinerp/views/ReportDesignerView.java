@@ -88,7 +88,7 @@ public class ReportDesignerView extends VerticalLayout {
             "Allowed Roles");
     private final Grid<ReportParamMeta> paramGrid = new Grid<>(ReportParamMeta.class, false);
 
-    private static final List<String> USAGE_SCOPES = List.of("RUNNER", "FORM", "BOTH");
+    private static final List<String> USAGE_SCOPES = List.of("RUNNER", "FORM", "BOTH", "DASHBOARD");
     private static final List<String> COMPONENT_TYPES = List.of(
             "TEXTBOX", "TEXTAREA", "INTEGERFIELD", "DECIMAL", "DATE", "DATETIME", "TIME",
             "CHECKBOX", "COMBOBOX", "LISTBOX", "CHOSENBOX", "BANDBOX");
@@ -320,7 +320,7 @@ public class ReportDesignerView extends VerticalLayout {
         usageScopeSelect.setItems(USAGE_SCOPES);
         usageScopeSelect.setValue("RUNNER");
         usageScopeSelect.setHelperText(
-                "RUNNER: Report Runner only. FORM: form Print button only. BOTH: available in both.");
+                "RUNNER: Report Runner only. FORM: form Print button only. BOTH: both. DASHBOARD: dashboard widget data source only (hidden from Runner and Print).");
 
         groupByField.setPlaceholder("e.g. bom_id");
         groupByField.setHelperText(
