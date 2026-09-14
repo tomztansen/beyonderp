@@ -763,6 +763,7 @@ public class PortalView extends AppLayout {
                         .getBean(com.vaadinerp.dashboard.DashboardMetaService.class);
                 java.util.Optional<com.vaadinerp.dashboard.DashboardModel.DashboardDef> dash = dashMeta.find(code);
                 if (dash.isPresent()) {
+                    String dashKey = dash.get().dashboardCode();
                     com.vaadinerp.dashboard.DynamicDashboardView dv = new com.vaadinerp.dashboard.DynamicDashboardView(
                             com.vaadinerp.dashboard.DashboardMerger.merge(java.util.List.of(dash.get())),
                             com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportDataService.class),
@@ -770,7 +771,9 @@ public class PortalView extends AppLayout {
                             com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportAccessService.class),
                             dynamicDataService,
                             com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportRunService.class),
-                            securityService);
+                            securityService,
+                            loadDashboardPrefs(dashKey),
+                            dashboardPrefSaver(dashKey));
                     yield dv;
                 }
 
@@ -1021,11 +1024,56 @@ public class PortalView extends AppLayout {
                     com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportAccessService.class),
                     dynamicDataService,
                     com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.report.ReportRunService.class),
-                    securityService);
+                    securityService,
+                    loadDashboardPrefs("HOME"),
+                    dashboardPrefSaver("HOME"));
             dv.getStyle().set("padding", "4px");
             return java.util.Optional.of(dv);
         } catch (Exception ex) {
             return java.util.Optional.empty(); // Home tidak boleh gagal karena dashboard
+        }
+    }
+
+    private com.vaadinerp.dashboard.LayoutPrefs loadDashboardPrefs(String key) {
+        try {
+            AppUser u = securityService.getCurrentUser();
+            if (u == null) return new com.vaadinerp.dashboard.LayoutPrefs();
+            com.vaadinerp.security.repository.AppUserGridPreferenceRepository repo =
+                com.vaadinerp.config.SpringContextHolder.getBean(
+                    com.vaadinerp.security.repository.AppUserGridPreferenceRepository.class);
+            return repo.findByUsernameAndFormCodeAndGridId(u.getUsername(), "DASHBOARD", key)
+                .map(p -> com.vaadinerp.dashboard.LayoutPrefs.parse(p.getColumnOrderJson()))
+                .orElse(new com.vaadinerp.dashboard.LayoutPrefs());
+        } catch (Exception ex) {
+            return new com.vaadinerp.dashboard.LayoutPrefs();
+        }
+    }
+
+    private java.util.function.Consumer<String> dashboardPrefSaver(String key) {
+        try {
+            AppUser u = securityService.getCurrentUser();
+            if (u == null) return null;
+            String username = u.getUsername();
+            com.vaadinerp.security.repository.AppUserGridPreferenceRepository repo =
+                com.vaadinerp.config.SpringContextHolder.getBean(
+                    com.vaadinerp.security.repository.AppUserGridPreferenceRepository.class);
+            return json -> {
+                if (json == null) {
+                    repo.deleteByUsernameAndFormCodeAndGridId(username, "DASHBOARD", key);
+                } else {
+                    com.vaadinerp.security.entity.AppUserGridPreference pref =
+                        repo.findByUsernameAndFormCodeAndGridId(username, "DASHBOARD", key)
+                            .orElse(new com.vaadinerp.security.entity.AppUserGridPreference());
+                    pref.setUsername(username);
+                    pref.setFormCode("DASHBOARD");
+                    pref.setGridId(key);
+                    pref.setColumnOrderJson(json);
+                    pref.setUpdatedAt(java.time.LocalDateTime.now());
+                    repo.save(pref);
+                }
+            };
+        } catch (Exception ex) {
+            return null;
         }
     }
 
