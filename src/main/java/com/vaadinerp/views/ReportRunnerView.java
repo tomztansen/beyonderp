@@ -64,11 +64,21 @@ public class ReportRunnerView extends VerticalLayout {
         catalog.setSpacing(false);
 
         H4 header = new H4("Reports");
-        header.getStyle()
-                .set("margin", "0").set("padding", "var(--lumo-space-s) var(--lumo-space-m)")
-                .set("border-bottom", "1px solid var(--lumo-contrast-10pct)").set("width", "100%");
+        header.getStyle().set("margin", "0").set("flex-grow", "1");
 
-        VerticalLayout left = new VerticalLayout(header, searchField, catalog);
+        SafeButton refreshBtn = new SafeButton(VaadinIcon.REFRESH.create(), e -> rebuildCatalog(searchField.getValue()));
+        refreshBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
+        refreshBtn.getElement().setAttribute("title", "Refresh report list");
+
+        HorizontalLayout headerRow = new HorizontalLayout(header, refreshBtn);
+        headerRow.setWidthFull();
+        headerRow.setSpacing(true);
+        headerRow.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
+        headerRow.getStyle()
+                .set("margin", "0").set("padding", "var(--lumo-space-s) var(--lumo-space-m)")
+                .set("border-bottom", "1px solid var(--lumo-contrast-10pct)");
+
+        VerticalLayout left = new VerticalLayout(headerRow, searchField, catalog);
         left.setSizeFull();
         left.getStyle()
                 .set("overflow", "auto")
