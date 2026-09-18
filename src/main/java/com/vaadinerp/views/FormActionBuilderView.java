@@ -14,6 +14,7 @@ import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadinerp.meta.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -458,6 +459,10 @@ public class FormActionBuilderView extends VerticalLayout {
         Button formatBtn = new com.vaadinerp.components.SafeButton("🧹 Format Indentasi", VaadinIcon.ALIGN_LEFT.create());
         formatBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
 
+        Button commentBtn = new com.vaadinerp.components.SafeButton("💬 Comment/Uncomment", VaadinIcon.COMMENT.create());
+        commentBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
+        commentBtn.getElement().setAttribute("title", "Comment/uncomment baris terpilih (Ctrl+/)");
+
         Button cheatBtn = new com.vaadinerp.components.SafeButton("📖 Cheat Sheet DSL", VaadinIcon.BOOK.create(), e -> showGroovyCheatSheetDialog());
         cheatBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
 
@@ -483,6 +488,9 @@ public class FormActionBuilderView extends VerticalLayout {
         // Format — pakai CodeMirror indentAuto langsung di client, lebih akurat dari Java formatter
         formatBtn.addClickListener(e -> editor.format());
 
+        // Comment/uncomment — pakai addon CodeMirror, otomatis tahu syntax comment per mode
+        commentBtn.addClickListener(e -> editor.toggleComment());
+
         snippetComboModal.addValueChangeListener(e -> {
             String val = e.getValue();
             if (val != null) {
@@ -491,7 +499,7 @@ public class FormActionBuilderView extends VerticalLayout {
             }
         });
 
-        toolbar.add(checkBtn, formatBtn, snippetComboModal, cheatBtn);
+        toolbar.add(checkBtn, formatBtn, commentBtn, snippetComboModal, cheatBtn);
         layout.add(toolbar, editor, statusArea);
         layout.setFlexGrow(1, editor);
 
@@ -1107,14 +1115,26 @@ public class FormActionBuilderView extends VerticalLayout {
             Notification.show("Please select an action to delete!", 3000, Notification.Position.MIDDLE);
             return;
         }
-        try {
-            actionRepository.delete(currentAction);
-            Notification.show("Extra Toolbar deleted successfully!", 3000, Notification.Position.BOTTOM_END);
-            refreshGrid();
-            clearForm();
-        } catch (Exception e) {
-            Notification.show("Failed to delete: " + e.getMessage(), 4000, Notification.Position.MIDDLE);
-        }
+        String actCode = currentAction.getActionCode() != null ? currentAction.getActionCode() : "";
+        String actLabel = currentAction.getActionLabel() != null ? currentAction.getActionLabel() : actCode;
+
+        ConfirmDialog confirmDlg = new ConfirmDialog();
+        confirmDlg.setHeader("Confirm Delete");
+        confirmDlg.setText("Are you sure you want to delete Extra Toolbar action '" + actCode + "' (" + actLabel + ")?");
+        confirmDlg.setCancelable(true);
+        confirmDlg.setConfirmText("Delete");
+        confirmDlg.setConfirmButtonTheme("error primary");
+        confirmDlg.addConfirmListener(ev -> {
+            try {
+                actionRepository.delete(currentAction);
+                Notification.show("Extra Toolbar deleted successfully!", 3000, Notification.Position.BOTTOM_END);
+                refreshGrid();
+                clearForm();
+            } catch (Exception e) {
+                Notification.show("Failed to delete: " + e.getMessage(), 4000, Notification.Position.MIDDLE);
+            }
+        });
+        confirmDlg.open();
     }
     private void copyAction() {
         if (currentAction != null && currentAction.getId() != null) {

@@ -91,7 +91,10 @@ public class CodeEditorField extends Div {
                                     tabSize: 4,
                                     lineWrapping: true,
                                     readOnly: readOnly,
-                                    extraKeys: {Tab: 'indentMore', 'Shift-Tab': 'indentLess'}
+                                    extraKeys: {
+                                        Tab: 'indentMore', 'Shift-Tab': 'indentLess',
+                                        'Ctrl-/': 'toggleComment', 'Cmd-/': 'toggleComment'
+                                    }
                                 });
                                 window[cmVar] = cm;
 
@@ -170,7 +173,9 @@ public class CodeEditorField extends Div {
                             loadCss(base + 'codemirror.min.css', 'cm5-css');
                             loadCss(base + 'theme/eclipse.min.css', 'cm5-theme-css');
                             function withMode() {
-                                loadScript(base + 'mode/' + modeScript + '.min.js', init);
+                                loadScript(base + 'mode/' + modeScript + '.min.js', function() {
+                                    loadScript(base + 'addon/comment/comment.min.js', init);
+                                });
                             }
                             if (typeof CodeMirror !== 'undefined') { withMode(); return; }
                             loadScript(base + 'codemirror.min.js', withMode);
@@ -259,6 +264,19 @@ public class CodeEditorField extends Div {
                             cm.execCommand('selectAll');
                             cm.execCommand('indentAuto');
                             cm.setCursor(cursor);
+                            cm.focus();
+                        }
+                        """,
+                cmVar));
+    }
+
+    /** Comment/uncomment baris yang sedang dipilih (atau baris kursor bila tidak ada seleksi). */
+    public void toggleComment() {
+        getUI().ifPresent(ui -> ui.getPage().executeJs(
+                """
+                        if (window[$0]) {
+                            var cm = window[$0];
+                            cm.execCommand('toggleComment');
                             cm.focus();
                         }
                         """,
