@@ -1376,6 +1376,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                                 || "HIDE_HISTORIS".equalsIgnoreCase(val.toString()) || "1".equals(val.toString())) {
                             hideHistorisTab();
                         }
+                    } else if ("_SHOW_DETAIL".equalsIgnoreCase(key)) {
+                        // Buka langsung tab Detail tanpa menyembunyikan History (beda dengan HIDE_HISTORIS)
+                        if (val == null || "true".equalsIgnoreCase(val.toString()) || "1".equals(val.toString())) {
+                            if (tabSheet != null && transaksiTab != null) {
+                                tabSheet.setSelectedTab(transaksiTab);
+                            }
+                        }
                     } else if (key.toUpperCase().startsWith("FILTER_OP_")) {
                         String fieldName = key.substring(10);
                         FilterCriteria criteria = filterValues.get(fieldName);
