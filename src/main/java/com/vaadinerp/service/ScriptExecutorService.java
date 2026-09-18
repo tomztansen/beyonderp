@@ -1093,44 +1093,53 @@ public class ScriptExecutorService {
             }
         }
 
+        // Validasi bersama: hanya SELECT/WITH murni, blokir kata kunci & karakter berbahaya.
+        // Dipakai oleh getValue/queryForMap/queryForList supaya aturan keamanannya satu tempat saja.
+        private static void validateSelectOnly(String sql) {
+            if (sql == null || sql.trim().isEmpty()) {
+                throw new IllegalArgumentException("Query tidak boleh kosong!");
+            }
+            String clean = sql.trim().toUpperCase();
+            if (!clean.startsWith("SELECT ") && !clean.startsWith("WITH ")) {
+                throw new IllegalArgumentException(
+                        "Hanya query SELECT atau WITH (CTE) yang diperbolehkan dalam script!");
+            }
+            if (clean.contains("INSERT ") || clean.contains("UPDATE ") || clean.contains("DELETE ") ||
+                    clean.contains("DROP ") || clean.contains("ALTER ") || clean.contains("TRUNCATE ") ||
+                    clean.contains("GRANT ") || clean.contains("REVOKE ") || clean.contains("EXEC ") ||
+                    clean.contains("EXECUTE ") || clean.contains("PG_SLEEP") || clean.contains("PG_TERMINATE") ||
+                    clean.contains("PG_CANCEL") || clean.contains("DBLINK") || sql.contains(";") ||
+                    sql.contains("--") || sql.contains("/*")) {
+                throw new IllegalArgumentException(
+                        "Query mengandung perintah perusak database atau karakter terlarang!");
+            }
+        }
+
+        // Unwrap SmartHeaderNode agar objek header.field aman dipassing langsung ke PreparedStatement JDBC
+        private static Object[] cleanArgs(Object[] args) {
+            if (args == null || args.length == 0) {
+                return args;
+            }
+            Object[] cleaned = new Object[args.length];
+            for (int i = 0; i < args.length; i++) {
+                Object a = args[i];
+                if (a instanceof SmartHeaderNode shn) {
+                    a = shn.getPrimaryValue();
+                }
+                cleaned[i] = a;
+            }
+            return cleaned;
+        }
+
         // Ambil 1 nilai langsung dari SQL query ringan (hanya SELECT murni tanpa
         // chained queries)
         public Object getValue(String sql, Object... args) {
             try {
-                if (sql == null || sql.trim().isEmpty()) {
-                    return null;
-                }
-                String clean = sql.trim().toUpperCase();
-                if (!clean.startsWith("SELECT ") && !clean.startsWith("WITH ")) {
-                    throw new IllegalArgumentException(
-                            "Hanya query SELECT atau WITH (CTE) yang diperbolehkan dalam script!");
-                }
-                if (clean.contains("INSERT ") || clean.contains("UPDATE ") || clean.contains("DELETE ") ||
-                        clean.contains("DROP ") || clean.contains("ALTER ") || clean.contains("TRUNCATE ") ||
-                        clean.contains("GRANT ") || clean.contains("REVOKE ") || clean.contains("EXEC ") ||
-                        clean.contains("EXECUTE ") || clean.contains("PG_SLEEP") || clean.contains("PG_TERMINATE") ||
-                        clean.contains("PG_CANCEL") || clean.contains("DBLINK") || sql.contains(";") ||
-                        sql.contains("--") || sql.contains("/*")) {
-                    throw new IllegalArgumentException(
-                            "Query mengandung perintah perusak database atau karakter terlarang!");
-                }
+                validateSelectOnly(sql);
                 DynamicDataService dataService = dataServiceProvider.getIfAvailable();
                 if (dataService == null)
                     return null;
-
-                // Unwrap SmartHeaderNode agar objek header.field aman dipassing langsung ke PreparedStatement JDBC
-                Object[] cleanArgs = null;
-                if (args != null && args.length > 0) {
-                    cleanArgs = new Object[args.length];
-                    for (int i = 0; i < args.length; i++) {
-                        Object a = args[i];
-                        if (a instanceof SmartHeaderNode shn) {
-                            a = shn.getPrimaryValue();
-                        }
-                        cleanArgs[i] = a;
-                    }
-                }
-
+                Object[] cleanArgs = cleanArgs(args);
                 if (cleanArgs != null && cleanArgs.length > 0) {
                     return dataService.getJdbcTemplate().queryForObject(sql, Object.class, cleanArgs);
                 } else {
@@ -1144,6 +1153,52 @@ public class ScriptExecutorService {
                 }
                 System.err.println("SQL Error di db.getValue: " + sql + " | Error: " + e.getMessage());
                 return null;
+            }
+        }
+
+        // Ambil 1 baris, beberapa kolom sekaligus (mis. SELECT nama, alamat FROM ... WHERE id = ?)
+        public Map<String, Object> queryForMap(String sql, Object... args) {
+            try {
+                validateSelectOnly(sql);
+                DynamicDataService dataService = dataServiceProvider.getIfAvailable();
+                if (dataService == null)
+                    return null;
+                Object[] cleanArgs = cleanArgs(args);
+                if (cleanArgs != null && cleanArgs.length > 0) {
+                    return dataService.getJdbcTemplate().queryForMap(sql, cleanArgs);
+                } else {
+                    return dataService.getJdbcTemplate().queryForMap(sql);
+                }
+            } catch (org.springframework.dao.EmptyResultDataAccessException e) {
+                return null;
+            } catch (Exception e) {
+                if (e instanceof IllegalArgumentException) {
+                    throw e;
+                }
+                System.err.println("SQL Error di db.queryForMap: " + sql + " | Error: " + e.getMessage());
+                return null;
+            }
+        }
+
+        // Ambil beberapa baris sekaligus, tiap baris berisi beberapa kolom
+        public List<Map<String, Object>> queryForList(String sql, Object... args) {
+            try {
+                validateSelectOnly(sql);
+                DynamicDataService dataService = dataServiceProvider.getIfAvailable();
+                if (dataService == null)
+                    return java.util.Collections.emptyList();
+                Object[] cleanArgs = cleanArgs(args);
+                if (cleanArgs != null && cleanArgs.length > 0) {
+                    return dataService.getJdbcTemplate().queryForList(sql, cleanArgs);
+                } else {
+                    return dataService.getJdbcTemplate().queryForList(sql);
+                }
+            } catch (Exception e) {
+                if (e instanceof IllegalArgumentException) {
+                    throw e;
+                }
+                System.err.println("SQL Error di db.queryForList: " + sql + " | Error: " + e.getMessage());
+                return java.util.Collections.emptyList();
             }
         }
     }
