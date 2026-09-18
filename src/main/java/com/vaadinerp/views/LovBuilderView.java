@@ -12,6 +12,7 @@ import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadinerp.meta.LovMeta;
 import com.vaadinerp.meta.LovMetaRepository;
 
@@ -25,7 +26,7 @@ public class LovBuilderView extends VerticalLayout {
 
     private final TextField lovCodeField = new TextField("LOV Code (Unique)");
     private final TextField lovNameField = new TextField("LOV Name");
-    private final TextField tableNameField = new TextField("Table Name / Query");
+    private final TextArea tableNameField = new TextArea("Table Name / Query");
     private final TextField valueColumnField = new TextField("Value Column (Saved Value)");
     private final TextField labelColumnField = new TextField("Label Column (Display Text)");
     private final TextField searchColumnField = new TextField("Search Column(s)");
@@ -137,6 +138,8 @@ public class LovBuilderView extends VerticalLayout {
         lovCodeField.setWidthFull();
         lovNameField.setWidthFull();
         tableNameField.setWidthFull();
+        tableNameField.setHeight("100px");
+        tableNameField.setPlaceholder("e.g. master_customer or SELECT id, code, name FROM master_customer");
         tableNameField.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.LAZY);
         tableNameField.addValueChangeListener(e -> {
             if (e.isFromClient() && e.getValue() != null && !e.getValue().trim().isEmpty()) {
@@ -269,15 +272,27 @@ public class LovBuilderView extends VerticalLayout {
 
     private void deleteLovMeta() {
         if (currentLovMeta != null && currentLovMeta.getLovCode() != null) {
-            try {
-                lovMetaRepository.deleteById(currentLovMeta.getLovCode());
-                com.vaadinerp.components.ComponentFactory.clearLovCache(null);
-                Notification.show("LOV deleted successfully!", 3000, Notification.Position.TOP_CENTER);
-                refreshGrid();
-                clearForm();
-            } catch (Exception e) {
-                Notification.show("Failed to delete LOV: " + e.getMessage(), 5000, Notification.Position.MIDDLE);
-            }
+            String code = currentLovMeta.getLovCode();
+            String name = currentLovMeta.getLovName() != null ? currentLovMeta.getLovName() : code;
+
+            ConfirmDialog confirmDlg = new ConfirmDialog();
+            confirmDlg.setHeader("Confirm Delete");
+            confirmDlg.setText("Are you sure you want to delete LOV definition '" + code + "' (" + name + ")?");
+            confirmDlg.setCancelable(true);
+            confirmDlg.setConfirmText("Delete");
+            confirmDlg.setConfirmButtonTheme("error primary");
+            confirmDlg.addConfirmListener(ev -> {
+                try {
+                    lovMetaRepository.deleteById(code);
+                    com.vaadinerp.components.ComponentFactory.clearLovCache(null);
+                    Notification.show("LOV deleted successfully!", 3000, Notification.Position.TOP_CENTER);
+                    refreshGrid();
+                    clearForm();
+                } catch (Exception e) {
+                    Notification.show("Failed to delete LOV: " + e.getMessage(), 5000, Notification.Position.MIDDLE);
+                }
+            });
+            confirmDlg.open();
         } else {
             Notification.show("Please select a LOV to delete first.", 3000, Notification.Position.MIDDLE);
         }

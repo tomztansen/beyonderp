@@ -2,6 +2,7 @@ package com.vaadinerp.views;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
@@ -301,16 +302,26 @@ public class PgCronDesignerView extends VerticalLayout {
     }
 
     private void markJobForDeletion(Map<String, Object> row) {
-        Long jId = row.get("jobid") instanceof Number ? ((Number) row.get("jobid")).longValue() : null;
-        if (jId != null && jId > 0) {
-            pendingChanges.add(new PendingPgCronAction(CronActionType.DELETE_JOB, jId, null, null, null));
-            Notification.show("Penghapusan Job ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
-            refreshGrid();
-        } else {
-            // It's a new unsaved job, just remove it from pending list
-            pendingChanges.removeIf(p -> p.jobId == null && row.get("jobname").equals(p.jobName));
-            refreshGrid();
-        }
+        String jobName = row.get("jobname") != null ? row.get("jobname").toString() : "Job";
+        ConfirmDialog confirmDlg = new ConfirmDialog();
+        confirmDlg.setHeader("Confirm Delete");
+        confirmDlg.setText("Are you sure you want to delete pg_cron job '" + jobName + "'?");
+        confirmDlg.setCancelable(true);
+        confirmDlg.setConfirmText("Delete");
+        confirmDlg.setConfirmButtonTheme("error primary");
+        confirmDlg.addConfirmListener(ev -> {
+            Long jId = row.get("jobid") instanceof Number ? ((Number) row.get("jobid")).longValue() : null;
+            if (jId != null && jId > 0) {
+                pendingChanges.add(new PendingPgCronAction(CronActionType.DELETE_JOB, jId, null, null, null));
+                Notification.show("Penghapusan Job ditambahkan ke draf.", 2000, Notification.Position.BOTTOM_END);
+                refreshGrid();
+            } else {
+                // It's a new unsaved job, just remove it from pending list
+                pendingChanges.removeIf(p -> p.jobId == null && row.get("jobname").equals(p.jobName));
+                refreshGrid();
+            }
+        });
+        confirmDlg.open();
     }
 
     private void executeSyncNow(Map<String, Object> row) {
