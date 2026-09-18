@@ -612,7 +612,8 @@ public class DynamicDataService {
      * (whitelist).
      */
     private static final java.util.Set<String> ALLOWED_COMPARISON_OPS = java.util.Set.of(
-            "=", "!=", "<>", "<", ">", "<=", ">=", "LIKE", "ILIKE", "NOT LIKE", "NOT ILIKE", "IS NULL", "IS NOT NULL", "= ANY");
+            "=", "!=", "<>", "<", ">", "<=", ">=", "LIKE", "ILIKE", "NOT LIKE", "NOT ILIKE", "IS NULL", "IS NOT NULL",
+            "= ANY", "IN", "NOT IN");
 
     public static String validateComparisonOperator(String op) {
         if (op == null || op.trim().isEmpty())
@@ -3068,6 +3069,24 @@ public class DynamicDataService {
                     } else if ("= ANY".equals(compOp)) {
                         filterBuilder.append("? = ANY(").append(safeFilterCol).append(")");
                         params.add(resolvedValue != null ? resolvedValue.toString().trim() : "");
+                    } else if ("IN".equals(compOp) || "NOT IN".equals(compOp)) {
+                        // source_name dipakai sebagai daftar nilai dipisah koma, mis. "2310,2311".
+                        List<String> inVals = new ArrayList<>();
+                        if (resolvedValue != null) {
+                            for (String p : resolvedValue.toString().split(",")) {
+                                String t = p.trim();
+                                if (!t.isEmpty()) inVals.add(t);
+                            }
+                        }
+                        if (inVals.isEmpty()) {
+                            // IN kosong tidak cocok apa pun; NOT IN kosong cocok semua.
+                            filterBuilder.append(compOp.startsWith("NOT") ? "1=1" : "1=0");
+                        } else {
+                            filterBuilder.append(safeFilterCol).append(" ").append(compOp).append(" (")
+                                    .append(String.join(",", java.util.Collections.nCopies(inVals.size(), "?")))
+                                    .append(")");
+                            params.addAll(inVals);
+                        }
                     } else {
                         String valStr = resolvedValue != null ? resolvedValue.toString().trim() : "";
                         boolean isBoolTrue = "true".equalsIgnoreCase(valStr) || "1".equals(valStr)
@@ -3362,6 +3381,24 @@ public class DynamicDataService {
                     } else if ("= ANY".equals(compOp)) {
                         filterBuilder.append("? = ANY(").append(safeFilterCol).append(")");
                         params.add(resolvedValue != null ? resolvedValue.toString().trim() : "");
+                    } else if ("IN".equals(compOp) || "NOT IN".equals(compOp)) {
+                        // source_name dipakai sebagai daftar nilai dipisah koma, mis. "2310,2311".
+                        List<String> inVals = new ArrayList<>();
+                        if (resolvedValue != null) {
+                            for (String p : resolvedValue.toString().split(",")) {
+                                String t = p.trim();
+                                if (!t.isEmpty()) inVals.add(t);
+                            }
+                        }
+                        if (inVals.isEmpty()) {
+                            // IN kosong tidak cocok apa pun; NOT IN kosong cocok semua.
+                            filterBuilder.append(compOp.startsWith("NOT") ? "1=1" : "1=0");
+                        } else {
+                            filterBuilder.append(safeFilterCol).append(" ").append(compOp).append(" (")
+                                    .append(String.join(",", java.util.Collections.nCopies(inVals.size(), "?")))
+                                    .append(")");
+                            params.addAll(inVals);
+                        }
                     } else {
                         String valStr = resolvedValue != null ? resolvedValue.toString().trim() : "";
                         boolean isBoolTrue = "true".equalsIgnoreCase(valStr) || "1".equals(valStr)
@@ -3535,6 +3572,24 @@ public class DynamicDataService {
                     } else if ("= ANY".equals(compOp)) {
                         filterBuilder.append("? = ANY(").append(safeFilterCol).append(")");
                         params.add(resolvedValue != null ? resolvedValue.toString().trim() : "");
+                    } else if ("IN".equals(compOp) || "NOT IN".equals(compOp)) {
+                        // source_name dipakai sebagai daftar nilai dipisah koma, mis. "2310,2311".
+                        List<String> inVals = new ArrayList<>();
+                        if (resolvedValue != null) {
+                            for (String p : resolvedValue.toString().split(",")) {
+                                String t = p.trim();
+                                if (!t.isEmpty()) inVals.add(t);
+                            }
+                        }
+                        if (inVals.isEmpty()) {
+                            // IN kosong tidak cocok apa pun; NOT IN kosong cocok semua.
+                            filterBuilder.append(compOp.startsWith("NOT") ? "1=1" : "1=0");
+                        } else {
+                            filterBuilder.append(safeFilterCol).append(" ").append(compOp).append(" (")
+                                    .append(String.join(",", java.util.Collections.nCopies(inVals.size(), "?")))
+                                    .append(")");
+                            params.addAll(inVals);
+                        }
                     } else {
                         String valStr = resolvedValue != null ? resolvedValue.toString().trim() : "";
                         boolean isBoolTrue = "true".equalsIgnoreCase(valStr) || "1".equals(valStr)

@@ -3418,7 +3418,8 @@ public class FormBuilderView extends VerticalLayout {
         logicalOpField.setWidth("80px");
 
         ComboBox<String> comparisonOpField = new ComboBox<>("Operator");
-        comparisonOpField.setItems("=", ">", "<", ">=", "<=", "LIKE", "ILIKE", "!=", "IS NULL", "IS NOT NULL", "= ANY");
+        comparisonOpField.setItems("=", ">", "<", ">=", "<=", "LIKE", "ILIKE", "!=", "IS NULL", "IS NOT NULL", "= ANY",
+                "IN", "NOT IN");
         comparisonOpField.setValue("=");
         comparisonOpField.setWidth("110px");
 
@@ -3483,6 +3484,9 @@ public class FormBuilderView extends VerticalLayout {
                 if ("STATIC".equals(sourceTypeField.getValue()) && sourceNameField.getValue() != null
                         && sourceNameField.getValue().startsWith("(IS ")) {
                     sourceNameField.clear();
+                }
+                if ("IN".equals(op) || "NOT IN".equals(op)) {
+                    sourceNameField.setPlaceholder("Comma-separated, e.g. 2310,2311");
                 }
             }
         });
