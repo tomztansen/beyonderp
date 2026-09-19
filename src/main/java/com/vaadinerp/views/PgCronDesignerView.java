@@ -116,11 +116,6 @@ public class PgCronDesignerView extends VerticalLayout {
             btnEdit.addClickListener(e -> openJobDialog(row));
             btnEdit.setEnabled(!isPendingDel);
 
-            Button btnDrop = new com.vaadinerp.components.SafeButton("Delete", VaadinIcon.TRASH.create());
-            btnDrop.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
-            btnDrop.addClickListener(e -> markJobForDeletion(row));
-            btnDrop.setEnabled(!isPendingDel);
-
             Button btnSyncNow = new com.vaadinerp.components.SafeButton("Sync Now", VaadinIcon.PLAY.create());
             btnSyncNow.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_SUCCESS);
             btnSyncNow.addClickListener(e -> executeSyncNow(row));
@@ -131,10 +126,10 @@ public class PgCronDesignerView extends VerticalLayout {
             btnLog.addClickListener(e -> openLogDialog(row));
             btnLog.setEnabled(row.get("jobid") instanceof Number && ((Number) row.get("jobid")).longValue() > 0);
 
-            HorizontalLayout actions = new HorizontalLayout(btnEdit, btnDrop, btnSyncNow, btnLog);
+            HorizontalLayout actions = new HorizontalLayout(btnEdit, btnSyncNow, btnLog);
             actions.setSpacing(true);
             return actions;
-        }).setHeader("Action").setWidth("400px").setFlexGrow(0);
+        }).setHeader("Action").setWidth("310px").setFlexGrow(0);
 
         HorizontalLayout footer = new HorizontalLayout(recordCountSpan);
         footer.setAlignItems(Alignment.CENTER);

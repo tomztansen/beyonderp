@@ -1235,6 +1235,12 @@ public class DataInitializer implements CommandLineRunner {
         } catch (Exception ignored) {
         }
 
+        try {
+            jdbcTemplate.execute("ALTER TABLE public.meta_scheduler_config ALTER COLUMN id TYPE BIGINT");
+            jdbcTemplate.execute("ALTER SEQUENCE IF EXISTS public.meta_scheduler_config_id_seq AS BIGINT MAXVALUE 9223372036854775807");
+        } catch (Exception ignored) {
+        }
+
         // Seed permissions for STAFF role
         // STAFF hanya melihat menu yang punya record di sini. Yang tidak ada = tidak
         // muncul di sidebar.
