@@ -27,7 +27,9 @@ public class ActuatorBasicAuthFilter extends OncePerRequestFilter {
     @Value("${actuator.security.username:adminlog}")
     private String username;
 
-    @Value("${actuator.security.password:***REMOVED***}")
+    // Sengaja tanpa nilai cadangan: kalau properti tidak diset, aplikasi gagal start,
+    // bukan diam-diam memakai password yang sudah diketahui umum.
+    @Value("${actuator.security.password}")
     private String password;
 
     @Override
@@ -37,6 +39,13 @@ public class ActuatorBasicAuthFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         // Hanya proteksi rute /actuator
         if (path != null && path.startsWith("/actuator")) {
+            // Operasi tulis (shutdown, maintenance) wajib header khusus: form HTML/CSRF dari situs lain
+            // tidak bisa mengirimnya, curl/skrip deploy bisa.
+            if (!"GET".equalsIgnoreCase(request.getMethod()) && request.getHeader("X-Requested-By") == null) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                response.getWriter().write("403 Forbidden - X-Requested-By header required");
+                return;
+            }
             String authHeader = request.getHeader("Authorization");
             if (authHeader != null && authHeader.startsWith("Basic ")) {
                 String base64Credentials = authHeader.substring(6).trim();
