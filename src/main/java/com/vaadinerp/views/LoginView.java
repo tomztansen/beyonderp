@@ -78,15 +78,6 @@ public class LoginView extends Div {
                                 .set("z-index", "2")
                                 .set("overflow", "hidden");
 
-                // Blue accent bar at the top of card
-                Div topAccent = new Div();
-                topAccent.getStyle()
-                                .set("position", "absolute")
-                                .set("top", "0").set("left", "0").set("right", "0")
-                                .set("height", "4px")
-                                .set("background", "linear-gradient(90deg, #0050b3, #0070F2, #40A0FF)")
-                                .set("border-radius", "16px 16px 0 0");
-                card.add(topAccent);
 
                 // ── Logo ──
                 Image logoImage = new Image("images/logo_growth.png", "PT. GROWTH ASIA");
@@ -158,7 +149,17 @@ public class LoginView extends Div {
                 loginBtn.addClickListener(e -> {
                         String u = usernameField.getValue();
                         String p = passwordField.getValue();
-                        if (this.securityService.login(u, p)) {
+                        boolean ok;
+                        try {
+                                ok = this.securityService.login(u, p);
+                        } catch (com.vaadinerp.security.service.SessionSecurityService.AlreadyLoggedInException
+                                        | com.vaadinerp.security.service.SessionSecurityService.MaintenanceException ex) {
+                                Notification n = Notification.show(ex.getMessage(), 5000,
+                                                Notification.Position.TOP_CENTER);
+                                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                                return;
+                        }
+                        if (ok) {
                                 Notification.show("Selamat datang, " + u + "!", 3000, Notification.Position.TOP_CENTER);
                                 UI.getCurrent().navigate("");
                         } else {

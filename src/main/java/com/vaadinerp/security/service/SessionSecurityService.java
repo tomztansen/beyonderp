@@ -17,16 +17,32 @@ import java.util.Optional;
 public class SessionSecurityService {
     public static final String SESSION_USER_KEY = "LOGGED_IN_APP_USER";
 
+    /** Password benar, tapi akun masih punya session aktif di tempat lain. */
+    public static class AlreadyLoggedInException extends RuntimeException {
+        public AlreadyLoggedInException() {
+            super("This account is already logged in");
+        }
+    }
+
+    /** Password benar, tapi aplikasi sedang maintenance (akan restart). */
+    public static class MaintenanceException extends RuntimeException {
+        public MaintenanceException() {
+            super("System is restarting, please try again in a few minutes");
+        }
+    }
+
     private final AppUserRepository userRepository;
     private final RoleMenuPermissionRepository permissionRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final LoginHistoryService loginHistory;
+    private final MaintenanceService maintenance;
 
     public SessionSecurityService(AppUserRepository userRepository, RoleMenuPermissionRepository permissionRepository,
-            LoginHistoryService loginHistory) {
+            LoginHistoryService loginHistory, MaintenanceService maintenance) {
         this.userRepository = userRepository;
         this.permissionRepository = permissionRepository;
         this.loginHistory = loginHistory;
+        this.maintenance = maintenance;
     }
 
     /**
@@ -49,6 +65,17 @@ public class SessionSecurityService {
         if (!matched) {
             loginHistory.recordLogin(u.getUsername(), false);
             return false;
+        }
+
+        // Selama maintenance (menjelang restart) login baru ditahan; yang sudah login tidak disentuh.
+        if (maintenance.isActive()) {
+            throw new MaintenanceException();
+        }
+
+        // Satu akun = satu session aktif. Session lama tidak ditendang; user menunggu timeout
+        // atau minta admin kick lewat Login History.
+        if (loginHistory.hasLiveSession(u.getUsername())) {
+            throw new AlreadyLoggedInException();
         }
 
         VaadinSession session = VaadinSession.getCurrent();

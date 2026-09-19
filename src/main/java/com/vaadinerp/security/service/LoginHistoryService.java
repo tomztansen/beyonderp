@@ -37,10 +37,13 @@ public class LoginHistoryService implements VaadinServiceInitListener {
 
     // ponytail: registry per-JVM; bila kelak multi-instance, kick hanya menjangkau instance pemegang session
     private final ConcurrentHashMap<Long, VaadinSession> live = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, String> liveUser = new ConcurrentHashMap<>();
     private final JdbcTemplate jdbc;
+    private final org.springframework.core.env.Environment env;
 
-    public LoginHistoryService(JdbcTemplate jdbc) {
+    public LoginHistoryService(JdbcTemplate jdbc, org.springframework.core.env.Environment env) {
         this.jdbc = jdbc;
+        this.env = env;
     }
 
     @Override
@@ -77,10 +80,45 @@ public class LoginHistoryService implements VaadinServiceInitListener {
             if (success && s != null && id != null) {
                 s.setAttribute(ATTR_HISTORY_ID, id);
                 live.put(id, s);
+                liveUser.put(id, username);
             }
         } catch (Exception ex) {
             log.warn("Login history not recorded for {}: {}", username, ex.getMessage());
         }
+    }
+
+    /** Snapshot session yang terdaftar hidup; dipakai MaintenanceService untuk broadcast. */
+    public java.util.List<VaadinSession> liveSessions() {
+        return new java.util.ArrayList<>(live.values());
+    }
+
+    /**
+     * Apakah username ini masih punya session hidup lain (browser masih mengirim heartbeat).
+     * Session yang heartbeat-nya sudah basi tidak dihitung — sweep akan menutupnya.
+     */
+    public boolean hasLiveSession(String username) {
+        VaadinSession current = VaadinSession.getCurrent();
+        for (Map.Entry<Long, String> e : liveUser.entrySet()) {
+            if (!e.getValue().equalsIgnoreCase(username))
+                continue;
+            VaadinSession s = live.get(e.getKey());
+            if (s == null) {
+                liveUser.remove(e.getKey()); // sudah keluar dari registry -> bersihkan malas
+                continue;
+            }
+            if (s == current)
+                continue;
+            if (!s.getLockInstance().tryLock())
+                return true; // sedang melayani request -> pasti hidup
+            try {
+                if (s.getState() == VaadinSessionState.OPEN && !heartbeatStale(s))
+                    return true;
+            } catch (Exception ignored) {
+            } finally {
+                s.getLockInstance().unlock();
+            }
+        }
+        return false;
     }
 
     /** Dipanggil dari SessionSecurityService.logout() sebelum session.close(). */
@@ -134,6 +172,11 @@ public class LoginHistoryService implements VaadinServiceInitListener {
     /** Baris yang masih terbuka saat app start = session yang hilang bersama JVM sebelumnya. */
     @EventListener(ApplicationReadyEvent.class)
     public void closeOrphans() {
+        // Instance dev memakai DB yang sama dengan server; jangan menutup session milik instance lain.
+        if (env.acceptsProfiles(org.springframework.core.env.Profiles.of("dev"))) {
+            log.info("Profil dev: lewati penutupan orphan login sessions");
+            return;
+        }
         try {
             int n = jdbc.update("UPDATE public.app_login_history SET logout_at = now(), logout_reason = 'SERVER_RESTART'"
                     + " WHERE logout_at IS NULL");
