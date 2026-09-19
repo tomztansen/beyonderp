@@ -17,6 +17,7 @@ public class ScriptExecutorService {
 
     private final org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider;
     private final org.springframework.beans.factory.ObjectProvider<com.vaadinerp.security.service.LoginHistoryService> loginHistoryProvider;
+    private final org.springframework.beans.factory.ObjectProvider<FileStorageService> fileStorageServiceProvider;
     private final com.github.benmanes.caffeine.cache.Cache<String, Class<? extends Script>> scriptCache = com.github.benmanes.caffeine.cache.Caffeine
             .newBuilder()
             .maximumSize(500)
@@ -26,10 +27,30 @@ public class ScriptExecutorService {
 
     public ScriptExecutorService(
             org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider,
-            org.springframework.beans.factory.ObjectProvider<com.vaadinerp.security.service.LoginHistoryService> loginHistoryProvider) {
+            org.springframework.beans.factory.ObjectProvider<com.vaadinerp.security.service.LoginHistoryService> loginHistoryProvider,
+            org.springframework.beans.factory.ObjectProvider<FileStorageService> fileStorageServiceProvider) {
         this.dataServiceProvider = dataServiceProvider;
         this.loginHistoryProvider = loginHistoryProvider;
+        this.fileStorageServiceProvider = fileStorageServiceProvider;
         initCompilerConfig();
+    }
+
+    /**
+     * Path folder upload SEMENTARA sebagai String, atau "" kalau service belum
+     * tersedia -- dipakai untuk binding 'uploadDir' di script (bukan Object besar,
+     * cuma teks, tidak ada risiko memory).
+     *
+     * Sengaja folder sementara (bukan folder permanen): ON_CHANGE pada field
+     * FILE_UPLOAD selalu terpicu SEBELUM form disimpan, dan file yang baru
+     * diupload masih ada di folder sementara sampai saveData() memindahkannya
+     * (lihat FileStorageService.promoteToPermanent()).
+     */
+    private String resolveUploadDir() {
+        FileStorageService fs = fileStorageServiceProvider.getIfAvailable();
+        if (fs == null || fs.getTempUploadDir() == null) {
+            return "";
+        }
+        return fs.getTempUploadDir().toString();
     }
 
     private void initCompilerConfig() {
@@ -196,6 +217,7 @@ public class ScriptExecutorService {
             binding.setVariable("form", smartHeader);
             binding.setVariable("items", items != null ? items : new ArrayList<>());
             binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
+            binding.setVariable("uploadDir", resolveUploadDir());
 
             if (currentView != null) {
                 com.vaadin.flow.component.Component parentView = currentView;
@@ -346,6 +368,7 @@ public class ScriptExecutorService {
             // sessions.kick(header.id, ctx.getUserId()) dari action toolbar form Login History
             binding.setVariable("sessions", loginHistoryProvider.getIfAvailable());
             binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
+            binding.setVariable("uploadDir", resolveUploadDir());
             binding.setVariable("JsonOutput", groovy.json.JsonOutput.class);
             binding.setVariable("JsonSlurper", groovy.json.JsonSlurper.class);
 
@@ -875,7 +898,7 @@ public class ScriptExecutorService {
      */
     public static final java.util.Set<String> ROW_SCRIPT_NAMES = java.util.Set.of(
             "db", "form", "getElementValue", "header", "items", "lov", "msgBox", "row", "rowIndex", "self",
-            "setElementEnabled", "setElementReadonly", "setElementValue");
+            "setElementEnabled", "setElementReadonly", "setElementValue", "uploadDir");
 
     /**
      * Nilai field pemicu untuk variabel {@code self}. Berperilaku seperti nilai
@@ -1062,7 +1085,7 @@ public class ScriptExecutorService {
             "getElementValue", "header", "lov", "msgBox", "prompt", "refreshForm", "selectedRows", "self",
             "setElementDisabled", "setElementEnabled", "setElementReadonly", "setElementValue",
             "showDialog", "showError", "showMainTab", "showOptionsDialog", "showSuccess",
-            "showYesNoDialog");
+            "showYesNoDialog", "uploadDir");
 
     public static class DatabaseHelper {
         private final org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider;

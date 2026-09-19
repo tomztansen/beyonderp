@@ -30,8 +30,14 @@ public final class GroovyDsl {
         m.put("items", "List semua baris yang sudah ada di grid");
         m.put("selectedRows", "List baris yang tercentang di grid");
         m.put("ctx", "Konteks aksi — ctx.getUserId()");
+        m.put("self", "Nilai field pemicu (trigger) saat ini. Berperilaku seperti nilai aslinya "
+                + "(if (self), self == 'Y'); kalau fieldnya LOV, properti record-nya bisa diakses langsung, mis. self.itemname");
         // Database
         m.put("db", "db.find(table, keyColumn, keyValue) -> Map\ndb.getValue(sql, args...) -> Object");
+        m.put("lov", "lov(fieldName) -> Map — ambil record LOV untuk nilai field itu saat ini, tanpa perlu tahu nama tabel/kolom kuncinya");
+        m.put("uploadDir", "String path folder upload SEMENTARA (file yang baru diupload, belum disimpan) — "
+                + "gabungkan dengan nama file dari field FILE_UPLOAD (mis. header.dokumen) pakai "
+                + "java.nio.file.Paths.get(uploadDir, namaFile) untuk baca isinya");
         // Baca / tulis komponen form
         m.put("getElementValue", "getElementValue(ref, selectedOnly) -> List<Map>");
         m.put("setElementValue", "setElementValue(ref, value)");

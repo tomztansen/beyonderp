@@ -3237,6 +3237,20 @@ public class FormBuilderView extends VerticalLayout {
                         "- db.find(String tableName, String keyColumn, Object keyValue)\n- db.getValue(String sql, Object[] args)\n");
             }
 
+            // Variabel/fungsi yang tersedia di scope ini -- dibaca dari
+            // ScriptExecutorService.ROW_SCRIPT_NAMES (bukan ditulis manual), jadi kalau
+            // ada closure baru ditambahkan ke binding, prompt AI otomatis ikut tahu
+            // setelah restart, tanpa perlu menyentuh kode ini lagi.
+            StringBuilder dslHelp = new StringBuilder();
+            for (String name : com.vaadinerp.service.ScriptExecutorService.ROW_SCRIPT_NAMES) {
+                String desc = com.vaadinerp.components.GroovyDsl.signature(name);
+                dslHelp.append("- ").append(name);
+                if (!desc.isEmpty()) {
+                    dslHelp.append(": ").append(desc.replace("\n", " "));
+                }
+                dslHelp.append("\n");
+            }
+
             // Siapkan konteks (System Prompt)
             String sysPrompt = "Kamu adalah asisten ahli pembuat Groovy Script untuk ERP.\n" +
                     "Aturan wajib:\n" +
@@ -3244,9 +3258,7 @@ public class FormBuilderView extends VerticalLayout {
                     +
                     "2. Jika instruksi user TIDAK relevan (sekadar bertanya/mengobrol di luar kode), berikan jawaban dalam bahasa Indonesia, tetapi WAJIB awali setiap baris jawaban dengan komentar ganda (//) agar tidak memicu error sintaks.\n"
                     +
-                    "3. Variabel 'row' mewakili data baris saat ini (Map).\n" +
-                    "4. Variabel 'header' mewakili data form utama.\n" +
-                    "5. Gunakan 'rowIndex' (int) untuk nomor urut baris (mulai dari 1).\n" +
+                    "Variabel dan fungsi yang tersedia di scope ini:\n" + dslHelp +
                     "Fungsi database dinamis (terbaca dari Java Reflection):\n" + dbFunctions.toString() +
                     "Valid child/row columns: " + String.join(", ", childCols) + "\n" +
                     "Valid header columns: " + String.join(", ", headerCols);
@@ -3257,8 +3269,14 @@ public class FormBuilderView extends VerticalLayout {
             java.util.concurrent.CompletableFuture.runAsync(() -> {
                 try {
                     com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    // Model dibaca dari properties (ai.ollama.model), bukan hardcode -- ganti model
+                    // tinggal edit application-prod.properties + restart, tanpa build ulang JAR.
+                    org.springframework.core.env.Environment env = com.vaadinerp.config.SpringContextHolder
+                            .getBean(org.springframework.core.env.Environment.class);
+                    String aiModel = env != null ? env.getProperty("ai.ollama.model", "qwen2.5-coder:14b")
+                            : "qwen2.5-coder:14b";
                     java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
-                    payloadMap.put("model", "qwen2.5:7b");
+                    payloadMap.put("model", aiModel);
                     payloadMap.put("system", sysPrompt);
                     payloadMap.put("prompt", prompt);
                     payloadMap.put("stream", false);
@@ -3287,8 +3305,8 @@ public class FormBuilderView extends VerticalLayout {
                         aiResponse = aiResponse.replaceAll("(?s)^```[a-zA-Z]*\\n?", "").replaceAll("(?s)\\n?```$", "")
                                 .trim();
 
-                        final String finalCode = "// ✨ Di-generate oleh Ollama (qwen2.5:7b) dari perintah: \"" + prompt
-                                + "\"\n" + aiResponse;
+                        final String finalCode = "// ✨ Di-generate oleh Ollama (" + aiModel + ") dari perintah: \""
+                                + prompt + "\"\n" + aiResponse;
 
                         ui.access(() -> {
                             scriptArea.appendSnippet(finalCode);
