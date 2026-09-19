@@ -1084,7 +1084,31 @@ public class DynamicDataService {
         }
     }
 
-    @Transactional
+    /**
+     * Ambil definisi view berdasarkan nama (bukan oid). Restore/save yang kena jalur
+     * DROP+CREATE (lihat executeViewScript) membuat oid lama tidak valid lagi -- kalau
+     * dialog Edit dibuka pakai oid yang sempat di-cache di grid sebelum refresh, hasilnya
+     * kosong. Lookup by name selalu kena objek yang benar-benar live sekarang.
+     */
+    public String fetchViewDefinitionByName(String schemaName, String viewName) {
+        if (schemaName == null || viewName == null || viewName.trim().isEmpty()) {
+            return "";
+        }
+        try {
+            String def = jdbcTemplate.queryForObject(
+                    "SELECT pg_get_viewdef(('\"' || ? || '\".\"' || ? || '\"')::regclass)",
+                    String.class, schemaName, viewName);
+            return def != null ? def : "";
+        } catch (Exception e) {
+            log.error("Gagal memuat definisi view {}.{}: {}", schemaName, viewName, e.getMessage());
+            return "";
+        }
+    }
+
+    // Sengaja TANPA @Transactional: kalau eksekusi pertama gagal, fallback DROP+CREATE
+    // di bawah harus jalan sebagai statement baru (autocommit), bukan di transaksi yang
+    // sama -- Postgres menolak statement apa pun setelah error dalam satu transaksi
+    // ("current transaction is aborted") sampai transaksi itu di-rollback penuh.
     public void executeViewScript(String sqlScript) {
         if (!isCurrentUserSuperAdmin()) {
             throw new SecurityException(
@@ -1093,7 +1117,106 @@ public class DynamicDataService {
         if (sqlScript == null || sqlScript.trim().isEmpty()) {
             throw new IllegalArgumentException("The SQL script cannot be empty.");
         }
-        jdbcTemplate.execute(sqlScript);
+        try {
+            jdbcTemplate.execute(sqlScript);
+        } catch (org.springframework.dao.DataAccessException ex) {
+            // Postgres menolak CREATE OR REPLACE VIEW kalau bentuk kolomnya beda dari
+            // yang sekarang live (hapus/ganti nama/urutan kolom) -- satu-satunya cara
+            // yang diizinkan adalah DROP dulu baru CREATE ulang. Ini kena terutama saat
+            // restore ke versi lama yang jumlah kolomnya lebih sedikit dari versi live.
+            Throwable rootCause = ex.getMostSpecificCause();
+            String reason = rootCause != null && rootCause.getMessage() != null
+                    ? rootCause.getMessage().toLowerCase()
+                    : "";
+            boolean columnShapeConflict = reason.contains("view column") || reason.contains("drop columns from view");
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("VIEW\\s+\"?(\\w+)\"?\\.\"?(\\w+)\"?", java.util.regex.Pattern.CASE_INSENSITIVE)
+                    .matcher(sqlScript);
+            if (!columnShapeConflict || !m.find()) {
+                throw ex;
+            }
+            jdbcTemplate.execute("DROP VIEW IF EXISTS \"" + m.group(1) + "\".\"" + m.group(2) + "\"");
+            jdbcTemplate.execute(sqlScript);
+        }
+    }
+
+    public static final String SQL_HISTORY_TYPE_PROCEDURE = "sys_procedure";
+    public static final String SQL_HISTORY_TYPE_VIEW = "sys_view";
+
+    /**
+     * Catat histori edit procedure/view ke sys_audit_log (reuse tabel yang sama
+     * dengan audit data biasa). Tidak dicatat kalau SQL lama & baru sama persis
+     * (setelah trim) -- save tanpa perubahan tidak perlu memenuhi histori.
+     */
+    public void logSqlObjectHistory(String objectType, String objectKey, String oldSql, String newSql) {
+        if (newSql == null || newSql.trim().isEmpty()) {
+            return;
+        }
+        String oldTrim = oldSql == null ? null : oldSql.trim();
+        String newTrim = newSql.trim();
+        if (oldTrim != null && oldTrim.equals(newTrim)) {
+            return;
+        }
+        Map<String, Object> oldData = oldTrim == null || oldTrim.isEmpty() ? null : Map.of("sql", oldTrim);
+        Map<String, Object> newData = Map.of("sql", newTrim);
+        logAuditTrail(objectType, objectKey, "SAVE", oldData, newData);
+    }
+
+    /** Daftar histori edit untuk satu procedure/function/view tertentu, terbaru dulu. */
+    public List<Map<String, Object>> fetchSqlObjectHistory(String objectType, String objectKey) {
+        try {
+            return jdbcTemplate.queryForList(
+                    "SELECT id, action_type, action_by, action_dt, old_data_json, new_data_json FROM sys_audit_log "
+                            + "WHERE table_name = ? AND record_id = ? ORDER BY action_dt DESC, id DESC",
+                    objectType, objectKey);
+        } catch (Exception e) {
+            log.error("Gagal memuat histori {} '{}': {}", objectType, objectKey, e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Kembalikan procedure/view ke versi SEBELUM entri histori yang dipilih
+     * (old_data_json baris itu), lalu catat aksi restore-nya sendiri sebagai
+     * entri histori baru -- konsisten dengan pola restoreFromAuditLog untuk data.
+     */
+    // Sengaja TANPA @Transactional -- lihat catatan di executeViewScript(); dipanggil
+    // langsung (self-invocation) jadi kalau ini @Transactional pun tidak akan efektif,
+    // tapi dijadikan eksplisit di sini biar jelas dan tidak nanti ditambah lagi tanpa sadar.
+    public void restoreSqlObjectFromHistory(Long auditId, String expectedObjectType) {
+        Map<String, Object> logRow = jdbcTemplate.queryForMap(
+                "SELECT * FROM sys_audit_log WHERE id = ?", auditId);
+        String tableName = (String) logRow.get("table_name");
+        if (!expectedObjectType.equalsIgnoreCase(tableName)) {
+            throw new IllegalStateException("Entri histori ini bukan untuk tipe objek yang diharapkan.");
+        }
+        String oldJson = (String) logRow.get("old_data_json");
+        if (oldJson == null || oldJson.trim().isEmpty()) {
+            throw new IllegalStateException(
+                    "Versi sebelumnya tidak tersedia untuk entri ini (ini adalah pembuatan pertama, bukan perubahan).");
+        }
+        String recordId = (String) logRow.get("record_id");
+        String oldSql;
+        try {
+            Map<String, Object> oldData = getObjectMapper().readValue(oldJson,
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+                    });
+            oldSql = (String) oldData.get("sql");
+        } catch (Exception ex) {
+            throw new IllegalStateException("Gagal membaca SQL lama dari histori: " + ex.getMessage());
+        }
+        if (oldSql == null || oldSql.trim().isEmpty()) {
+            throw new IllegalStateException("SQL lama pada entri histori ini kosong.");
+        }
+
+        if (SQL_HISTORY_TYPE_PROCEDURE.equals(expectedObjectType)) {
+            executeProcedureScript(oldSql);
+        } else if (SQL_HISTORY_TYPE_VIEW.equals(expectedObjectType)) {
+            executeViewScript(oldSql);
+        } else {
+            throw new IllegalArgumentException("Tipe objek histori tidak dikenal: " + expectedObjectType);
+        }
+        logAuditTrail(expectedObjectType, recordId, "RESTORE", null, Map.of("sql", oldSql));
     }
 
     public List<Map<String, Object>> fetchTableConstraints(String tableName) {
@@ -1728,6 +1851,20 @@ public class DynamicDataService {
             log.debug(
                     "Target table untuk form '{}' kosong/null, melewati penyimpanan tabel utama dan langsung memproses subform/detail.",
                     formMeta.getFormCode());
+        }
+
+        // Pindahkan file upload dari folder sementara ke permanen -- baru sekarang
+        // record-nya benar-benar tersimpan. Lihat FileStorageService.promoteToPermanent().
+        if (fileStorageService != null && formMeta.getFields() != null && data != null) {
+            for (FieldMeta field : formMeta.getFields()) {
+                if ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType())
+                        || "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType())) {
+                    Object val = data.get(field.getFieldName());
+                    if (val != null && !val.toString().trim().isEmpty()) {
+                        fileStorageService.promoteToPermanent(val.toString());
+                    }
+                }
+            }
         }
 
         // Simpan data Subform Grid

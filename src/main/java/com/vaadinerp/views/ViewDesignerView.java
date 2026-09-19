@@ -75,14 +75,10 @@ public class ViewDesignerView extends VerticalLayout {
             btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
             btnEdit.addClickListener(e -> openViewDialog(row));
 
-            Button btnDrop = new com.vaadinerp.components.SafeButton("Delete", VaadinIcon.TRASH.create());
-            btnDrop.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
-            btnDrop.addClickListener(e -> confirmDropView(row));
-
-            HorizontalLayout actions = new HorizontalLayout(btnEdit, btnDrop);
+            HorizontalLayout actions = new HorizontalLayout(btnEdit);
             actions.setSpacing(true);
             return actions;
-        }).setHeader("Action").setWidth("210px").setFlexGrow(0);
+        }).setHeader("Action").setWidth("130px").setFlexGrow(0);
 
         HorizontalLayout footer = new HorizontalLayout(recordCountSpan);
         footer.setAlignItems(Alignment.CENTER);
@@ -127,6 +123,11 @@ public class ViewDesignerView extends VerticalLayout {
         codeArea.getStyle().set("font-family", "Consolas, Courier New, monospace");
         codeArea.getStyle().set("font-size", "13px");
 
+        // Kunci histori (schema.nama) & SQL lama, dipakai untuk pencatatan histori
+        // edit dan tombol Riwayat -- diisi di bawah tergantung new/edit.
+        String[] historyKeyHolder = new String[1];
+        String[] oldSqlHolder = new String[1];
+
         if (isNew) {
             ComboBox<String> schemaSelect = new ComboBox<>("Schema", "dynamic", "public");
             schemaSelect.setValue("dynamic");
@@ -144,6 +145,7 @@ public class ViewDesignerView extends VerticalLayout {
                 sb.append("FROM dynamic.table_name\n");
                 sb.append("WHERE 1=1; \n");
                 codeArea.setValue(sb.toString());
+                historyKeyHolder[0] = sch + "." + nm;
             });
 
             HorizontalLayout builderBar = new HorizontalLayout(schemaSelect, nameField, btnGenerateTemplate);
@@ -154,14 +156,18 @@ public class ViewDesignerView extends VerticalLayout {
             // Generate initial default template
             btnGenerateTemplate.click();
         } else if (existingRow != null) {
-            Long oid = existingRow.get("oid") instanceof Number n ? n.longValue() : null;
             String schemaName = existingRow.get("schema_name") != null ? existingRow.get("schema_name").toString() : "";
             String viewName = existingRow.get("view_name") != null ? existingRow.get("view_name").toString() : "";
-            
-            String existingDef = dynamicDataService.fetchViewDefinitionByOid(oid);
+
+            // By name, bukan oid -- oid bisa berubah kalau save/restore sebelumnya sempat
+            // lewat jalur DROP+CREATE (lihat executeViewScript), dan grid ini belum di-refresh.
+            String existingDef = dynamicDataService.fetchViewDefinitionByName(schemaName, viewName);
             if(existingDef != null && !existingDef.isEmpty()) {
-                codeArea.setValue("CREATE OR REPLACE VIEW \"" + schemaName + "\".\"" + viewName + "\" AS \n" + existingDef);
+                String fullDef = "CREATE OR REPLACE VIEW \"" + schemaName + "\".\"" + viewName + "\" AS \n" + existingDef;
+                codeArea.setValue(fullDef);
+                oldSqlHolder[0] = fullDef;
             }
+            historyKeyHolder[0] = schemaName + "." + viewName;
         }
 
         dialogLayout.add(codeArea);
@@ -176,6 +182,10 @@ public class ViewDesignerView extends VerticalLayout {
             }
             try {
                 dynamicDataService.executeViewScript(sql);
+                if (historyKeyHolder[0] != null) {
+                    dynamicDataService.logSqlObjectHistory(
+                            DynamicDataService.SQL_HISTORY_TYPE_VIEW, historyKeyHolder[0], oldSqlHolder[0], sql);
+                }
                 Notification.show("✅ View saved and activated on server!", 3500, Notification.Position.BOTTOM_END);
                 dialog.close();
                 loadViews();

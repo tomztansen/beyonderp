@@ -113,7 +113,7 @@ public class AuditTrailView extends VerticalLayout {
         searchField.addValueChangeListener(e -> refreshGrid());
 
         actionFilter.setPlaceholder("All Action");
-        actionFilter.setItems("All Action", "DELETE", "UPDATE", "INSERT", "RESTORE");
+        actionFilter.setItems("All Action", "DELETE", "UPDATE", "INSERT", "RESTORE", "SAVE");
         actionFilter.setValue("All Action");
         actionFilter.setWidth("200px");
         actionFilter.addValueChangeListener(e -> refreshGrid());
@@ -181,7 +181,23 @@ public class AuditTrailView extends VerticalLayout {
             actions.add(btnViewJson);
 
             String actionType = row.get("action_type") != null ? row.get("action_type").toString() : "";
-            if ("DELETE".equalsIgnoreCase(actionType) || "UPDATE".equalsIgnoreCase(actionType)) {
+            String tableName = row.get("table_name") != null ? row.get("table_name").toString() : "";
+            boolean isSqlObject = DynamicDataService.SQL_HISTORY_TYPE_PROCEDURE.equals(tableName)
+                    || DynamicDataService.SQL_HISTORY_TYPE_VIEW.equals(tableName);
+
+            if (isSqlObject) {
+                // Histori procedure/view: hanya entri SAVE yang punya old_data_json yang
+                // bisa di-restore (entri CREATE pertama & entri RESTORE tidak punya).
+                if ("SAVE".equalsIgnoreCase(actionType) && row.get("old_data_json") != null) {
+                    Button btnRestore = new com.vaadinerp.components.SafeButton("🔄 Restore this version",
+                            VaadinIcon.ROTATE_LEFT.create());
+                    btnRestore.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY,
+                            ButtonVariant.LUMO_SUCCESS);
+                    btnRestore.getStyle().set("font-weight", "600");
+                    btnRestore.addClickListener(e -> confirmRestoreSqlObject(row, tableName));
+                    actions.add(btnRestore);
+                }
+            } else if ("DELETE".equalsIgnoreCase(actionType) || "UPDATE".equalsIgnoreCase(actionType)) {
                 Button btnRestore = new com.vaadinerp.components.SafeButton("🔄 Pulihkan / Restore",
                         VaadinIcon.ROTATE_LEFT.create());
                 btnRestore.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY,
@@ -212,7 +228,7 @@ public class AuditTrailView extends VerticalLayout {
             }
 
             String action = actionFilter.getValue();
-            if (action != null && !"All Actions".equals(action)) {
+            if (action != null && !"All Action".equals(action)) {
                 sql.append("AND action_type = ? ");
                 args.add(action);
             }
@@ -313,6 +329,70 @@ public class AuditTrailView extends VerticalLayout {
         Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> confirmDialog.close());
         confirmDialog.getFooter().add(btnCancel, btnConfirm);
         confirmDialog.open();
+    }
+
+    /** Restore procedure/view ke versi SQL sebelumnya -- jalur terpisah dari restoreFromAuditLog
+     * (yang khusus data baris tabel dinamis, bukan teks DDL). */
+    private void confirmRestoreSqlObject(Map<String, Object> row, String objectType) {
+        Long logId = ((Number) row.get("id")).longValue();
+        String recordId = (String) row.get("record_id");
+        String oldJson = (String) row.get("old_data_json");
+        String newJson = (String) row.get("new_data_json");
+
+        Dialog confirmDialog = new Dialog();
+        confirmDialog.setHeaderTitle("🛡️ Confirm Restore: " + recordId);
+
+        VerticalLayout content = new VerticalLayout();
+        content.add(new Span("This will REPLACE the " +
+                (DynamicDataService.SQL_HISTORY_TYPE_VIEW.equals(objectType) ? "view" : "procedure/function")
+                + " right now with the SQL version below."));
+        content.add(new Span("Before (will be restored):"));
+        content.add(sqlPreview(oldJson));
+        content.add(new Span("After (current, will be overwritten):"));
+        content.add(sqlPreview(newJson));
+        confirmDialog.add(content);
+
+        Button btnConfirm = new com.vaadinerp.components.SafeButton("Yes, Restore Now!",
+                VaadinIcon.ROTATE_LEFT.create());
+        btnConfirm.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
+        btnConfirm.addClickListener(e -> {
+            try {
+                dynamicDataService.restoreSqlObjectFromHistory(logId, objectType);
+                Notification notif = Notification.show("🎉 [" + recordId + "] RESTORED SUCCESSFULLY!",
+                        5000, Notification.Position.TOP_CENTER);
+                notif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                refreshGrid();
+            } catch (Exception ex) {
+                Notification notif = Notification.show("❌ Failed to restore: " + ex.getMessage(), 6000,
+                        Notification.Position.MIDDLE);
+                notif.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            }
+            confirmDialog.close();
+        });
+
+        Button btnCancel = new com.vaadinerp.components.SafeButton("Cancel", e -> confirmDialog.close());
+        confirmDialog.getFooter().add(btnCancel, btnConfirm);
+        confirmDialog.open();
+    }
+
+    private String extractSql(String json) {
+        try {
+            if (json != null && !json.trim().isEmpty()) {
+                com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(json);
+                return node.path("sql").asText("");
+            }
+        } catch (Exception ignored) {
+        }
+        return "";
+    }
+
+    private Pre sqlPreview(String json) {
+        Pre pre = new Pre(extractSql(json));
+        pre.getStyle().set("background-color", "#1e293b").set("color", "#f8fafc").set("padding", "12px")
+                .set("border-radius", "8px").set("max-height", "200px").set("overflow", "auto")
+                .set("width", "100%").set("font-family", "monospace").set("font-size", "12px");
+        return pre;
     }
 
     private void showHelpDialog() {

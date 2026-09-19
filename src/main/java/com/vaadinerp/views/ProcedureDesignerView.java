@@ -77,14 +77,10 @@ public class ProcedureDesignerView extends VerticalLayout {
             btnEdit.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY);
             btnEdit.addClickListener(e -> openProcedureDialog(row));
 
-            Button btnDrop = new com.vaadinerp.components.SafeButton("Delete", VaadinIcon.TRASH.create());
-            btnDrop.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
-            btnDrop.addClickListener(e -> confirmDropRoutine(row));
-
-            HorizontalLayout actions = new HorizontalLayout(btnEdit, btnDrop);
+            HorizontalLayout actions = new HorizontalLayout(btnEdit);
             actions.setSpacing(true);
             return actions;
-        }).setHeader("Action").setWidth("210px").setFlexGrow(0);
+        }).setHeader("Action").setWidth("130px").setFlexGrow(0);
 
         HorizontalLayout footer = new HorizontalLayout(recordCountSpan);
         footer.setAlignItems(Alignment.CENTER);
@@ -130,6 +126,11 @@ public class ProcedureDesignerView extends VerticalLayout {
         codeArea.getStyle().set("font-family", "Consolas, Courier New, monospace");
         codeArea.getStyle().set("font-size", "13px");
 
+        // Kunci histori (schema.nama(argumen)) & SQL lama, dipakai untuk pencatatan
+        // histori edit dan tombol Riwayat -- diisi di bawah tergantung new/edit.
+        String[] historyKeyHolder = new String[1];
+        String[] oldSqlHolder = new String[1];
+
         if (isNew) {
             ComboBox<String> schemaSelect = new ComboBox<>("Schema", "dynamic", "public");
             schemaSelect.setValue("dynamic");
@@ -160,6 +161,7 @@ public class ProcedureDesignerView extends VerticalLayout {
                 }
                 sb.append("END;\n$BODY$;\n");
                 codeArea.setValue(sb.toString());
+                historyKeyHolder[0] = sch + "." + nm + "(" + ag + ")";
             });
 
             HorizontalLayout builderBar = new HorizontalLayout(schemaSelect, typeSelect, nameField, argsField, btnGenerateTemplate);
@@ -173,6 +175,9 @@ public class ProcedureDesignerView extends VerticalLayout {
             Long oid = existingRow.get("oid") instanceof Number n ? n.longValue() : null;
             String existingDef = dynamicDataService.fetchRoutineDefinitionByOid(oid);
             codeArea.setValue(existingDef);
+            oldSqlHolder[0] = existingDef;
+            historyKeyHolder[0] = existingRow.get("schema_name") + "." + existingRow.get("procedure_name")
+                    + "(" + existingRow.get("identity_args") + ")";
         }
 
         dialogLayout.add(codeArea);
@@ -187,6 +192,10 @@ public class ProcedureDesignerView extends VerticalLayout {
             }
             try {
                 dynamicDataService.executeProcedureScript(sql);
+                if (historyKeyHolder[0] != null) {
+                    dynamicDataService.logSqlObjectHistory(
+                            DynamicDataService.SQL_HISTORY_TYPE_PROCEDURE, historyKeyHolder[0], oldSqlHolder[0], sql);
+                }
                 Notification.show("✅ Stored Procedure / Function saved and activated on server!", 3500, Notification.Position.BOTTOM_END);
                 dialog.close();
                 loadRoutines();

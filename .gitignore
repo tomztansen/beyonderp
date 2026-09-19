@@ -79,6 +79,7 @@ graphify-out/
 # repo ini publik (github.com/tomztansen/beyonderp), jangan pernah dikomit.
 deploy.bat
 deploy-only.bat
+run-and-deploy.bat
 
 # Agents & AI Rules
 .agents/rules/english-ui.md
