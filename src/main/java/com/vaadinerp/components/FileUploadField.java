@@ -28,6 +28,10 @@ public class FileUploadField extends CustomField<String> {
     private final FileStorageService fileStorageService;
     private final boolean isImageOnly;
     private final List<String> currentFiles = new ArrayList<>();
+    // File yang diklik Delete tapi belum tentu jadi -- dihapus fisik cuma kalau form-nya
+    // benar-benar disimpan (lihat commitPendingDeletes(), dipanggil GenericFormView
+    // setelah saveData() sukses). Batal/Cancel cukup buang daftar ini, file tetap ada.
+    private final List<String> pendingDeletes = new ArrayList<>();
 
     private final Upload upload;
     private final VerticalLayout fileListLayout;
@@ -46,10 +50,9 @@ public class FileUploadField extends CustomField<String> {
                 String storedFilename = fileStorageService.storeFile(inputStream, fileName);
                 if (storedFilename != null) {
                     if (isImageOnly) {
-                        // Untuk Photo Box, jika upload foto baru, hapus foto lama terlebih dahulu agar tergantikan (replace)
-                        for (String oldFile : new ArrayList<>(currentFiles)) {
-                            fileStorageService.deleteFile(oldFile);
-                        }
+                        // Untuk Photo Box, foto lama ditandai untuk diganti (replace) -- fisiknya
+                        // baru dihapus kalau form-nya jadi disimpan, sama seperti tombol Delete.
+                        pendingDeletes.addAll(currentFiles);
                         currentFiles.clear();
                     }
                     currentFiles.add(storedFilename);
@@ -103,12 +106,11 @@ public class FileUploadField extends CustomField<String> {
 
         if (isImageOnly) {
             this.hapusBtn = new com.vaadinerp.components.SafeButton("Delete", e -> {
-                for (String stored : new ArrayList<>(currentFiles)) {
-                    fileStorageService.deleteFile(stored);
-                }
+                pendingDeletes.addAll(currentFiles);
                 currentFiles.clear();
                 updateValueAndUI();
-                Notification.show("Photo deleted successfully", 3000, Notification.Position.BOTTOM_END);
+                Notification.show("Photo removed (deleted from server when the form is saved)", 3000,
+                        Notification.Position.BOTTOM_END);
             });
             this.hapusBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
             this.hapusBtn.setWidth("50%");
@@ -142,10 +144,29 @@ public class FileUploadField extends CustomField<String> {
     @Override
     protected void setPresentationValue(String newPresentationValue) {
         currentFiles.clear();
+        // Nilai dipaksa dari luar (buka record lain, New, atau Cancel) -- buang rencana
+        // hapus yang belum sempat di-commit, jangan sampai nyangkut ke record berikutnya.
+        pendingDeletes.clear();
         if (newPresentationValue != null && !newPresentationValue.trim().isEmpty()) {
             currentFiles.addAll(FileStorageService.parseDelimitedFilenames(newPresentationValue));
         }
         refreshFileList();
+    }
+
+    /**
+     * Benar-benar hapus fisik file yang ditandai lewat tombol Delete/replace foto --
+     * dipanggil GenericFormView setelah saveData() sukses. Kalau form dibatalkan
+     * (Cancel), method ini TIDAK dipanggil; pendingDeletes dibuang oleh
+     * setPresentationValue() saat form di-reset, file fisiknya tetap ada.
+     */
+    public void commitPendingDeletes() {
+        if (pendingDeletes.isEmpty()) {
+            return;
+        }
+        for (String stored : new ArrayList<>(pendingDeletes)) {
+            fileStorageService.deleteFile(stored);
+        }
+        pendingDeletes.clear();
     }
 
     private void updateValueAndUI() {
@@ -291,9 +312,10 @@ public class FileUploadField extends CustomField<String> {
         // 4. Tombol Hapus
         Button deleteBtn = new com.vaadinerp.components.SafeButton(VaadinIcon.TRASH.create(), e -> {
             currentFiles.remove(storedFilename);
-            fileStorageService.deleteFile(storedFilename);
+            pendingDeletes.add(storedFilename);
             updateValueAndUI();
-            Notification.show("File deleted: " + displayFilename, 3000, Notification.Position.BOTTOM_END);
+            Notification.show("File removed: " + displayFilename + " (deleted from server when the form is saved)",
+                    3500, Notification.Position.BOTTOM_END);
         });
         deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
         deleteBtn.getStyle().set("cursor", "pointer");

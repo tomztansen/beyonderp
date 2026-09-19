@@ -33,6 +33,11 @@ public class FileStorageService {
     private String uploadDirStr;
 
     private Path uploadDir;
+    // File baru masuk sini dulu (belum tentu form-nya jadi disimpan) -- dipindah ke
+    // uploadDir cuma kalau saveData() sukses (lihat promoteToPermanent()). Yang
+    // tertinggal disini lebih dari 24 jam berarti diupload lalu dibatalkan/ditinggal,
+    // dibersihkan otomatis oleh cleanupOrphanedTempFiles().
+    private Path tmpDir;
 
     private static final Set<String> ALLOWED_EXTENSIONS = new HashSet<>(Arrays.asList(
             "pdf", "doc", "docx", "xls", "xlsx", "txt", "csv", "jpg", "jpeg", "png", "webp", "zip", "rar", "7z"));
@@ -47,6 +52,11 @@ public class FileStorageService {
             if (!Files.exists(this.uploadDir)) {
                 Files.createDirectories(this.uploadDir);
                 log.info("Direktori upload berhasil dibuat: {}", this.uploadDir);
+            }
+            this.tmpDir = this.uploadDir.resolve("tmp");
+            if (!Files.exists(this.tmpDir)) {
+                Files.createDirectories(this.tmpDir);
+                log.info("Direktori upload sementara berhasil dibuat: {}", this.tmpDir);
             }
         } catch (Exception e) {
             log.error("Gagal menginisialisasi direktori upload: {}", uploadDirStr, e);
@@ -77,11 +87,14 @@ public class FileStorageService {
 
         // 3. Generate UUID prefix agar unik dan mencegah overwrite
         String storedFilename = UUID.randomUUID().toString().substring(0, 8) + "_" + cleanName;
-        Path targetLocation = this.uploadDir.resolve(storedFilename);
+        // Masuk folder sementara dulu -- baru pindah ke uploadDir kalau form-nya jadi
+        // disimpan (lihat promoteToPermanent()). Mencegah file yatim menumpuk permanen
+        // kalau user upload lalu batal/tidak jadi simpan.
+        Path targetLocation = this.tmpDir.resolve(storedFilename);
 
         try {
             Files.copy(inputStream, targetLocation, StandardCopyOption.REPLACE_EXISTING);
-            log.info("File berhasil disimpan: {} -> {}", originalFilename, targetLocation);
+            log.info("File berhasil disimpan (sementara): {} -> {}", originalFilename, targetLocation);
             return storedFilename;
         } catch (IOException e) {
             log.error("Gagal menyimpan file: {}", originalFilename, e);
@@ -98,17 +111,13 @@ public class FileStorageService {
             return null;
         }
 
-        // Mencegah path traversal
-        Path filePath = this.uploadDir.resolve(storedFilename).normalize();
-        if (!filePath.startsWith(this.uploadDir)) {
-            throw new SecurityException("Akses Ditolak: Path traversal terdeteksi pada filename: " + storedFilename);
+        Path filePath = resolveExistingPath(storedFilename);
+        if (filePath == null) {
+            log.warn("File tidak ditemukan di disk (permanen maupun sementara): {}", storedFilename);
+            return null;
         }
 
         File file = filePath.toFile();
-        if (!file.exists()) {
-            log.warn("File tidak ditemukan di disk: {}", filePath);
-            return null;
-        }
 
         // Buat DownloadHandler (pengganti StreamResource yang deprecated)
         String displayFilename = getDisplayFilename(storedFilename);
@@ -160,9 +169,8 @@ public class FileStorageService {
             return false;
         }
         try {
-            Path filePath = this.uploadDir.resolve(storedFilename).normalize();
-            if (!filePath.startsWith(this.uploadDir)) {
-                log.warn("Upaya hapus di luar direktori upload ditolak: {}", storedFilename);
+            Path filePath = resolveExistingPath(storedFilename);
+            if (filePath == null) {
                 return false;
             }
             boolean deleted = Files.deleteIfExists(filePath);
@@ -276,5 +284,70 @@ public class FileStorageService {
 
     public Path getUploadDir() {
         return uploadDir;
+    }
+
+    /** Folder sementara -- tempat file baru diupload sebelum form-nya disimpan. */
+    public Path getTempUploadDir() {
+        return tmpDir;
+    }
+
+    /** Cari file di folder permanen dulu, baru folder sementara. Null kalau tidak ada di keduanya. */
+    private Path resolveExistingPath(String storedFilename) {
+        Path permanent = this.uploadDir.resolve(storedFilename).normalize();
+        if (permanent.startsWith(this.uploadDir) && Files.exists(permanent)) {
+            return permanent;
+        }
+        Path temp = this.tmpDir.resolve(storedFilename).normalize();
+        if (temp.startsWith(this.tmpDir) && Files.exists(temp)) {
+            return temp;
+        }
+        return null;
+    }
+
+    /**
+     * Pindahkan file dari folder sementara ke folder permanen. Dipanggil oleh
+     * DynamicDataService.saveData() setelah record berhasil disimpan. File yang
+     * sudah di folder permanen (record lama di-update tanpa upload baru) dibiarkan.
+     */
+    public void promoteToPermanent(String delimitedFilenames) {
+        List<String> files = parseDelimitedFilenames(delimitedFilenames);
+        for (String filename : files) {
+            try {
+                Path tempPath = this.tmpDir.resolve(filename).normalize();
+                if (!tempPath.startsWith(this.tmpDir) || !Files.exists(tempPath)) {
+                    continue;
+                }
+                Path permanentPath = this.uploadDir.resolve(filename).normalize();
+                Files.move(tempPath, permanentPath, StandardCopyOption.REPLACE_EXISTING);
+                log.info("File dipindahkan dari sementara ke permanen: {}", filename);
+            } catch (Exception e) {
+                log.warn("Gagal memindahkan file '{}' ke folder permanen: {}", filename, e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Bersihkan folder sementara dari file yang lebih tua dari 24 jam -- ini file
+     * yang diupload tapi form-nya tidak pernah disimpan (dibatalkan/ditinggal).
+     * ponytail: ambang 24 jam & interval jam-an hardcode, jadikan properti kalau
+     * nanti perlu disesuaikan per lingkungan.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 60 * 60 * 1000L)
+    public void cleanupOrphanedTempFiles() {
+        long cutoffMillis = System.currentTimeMillis() - (24 * 60 * 60 * 1000L);
+        try (java.util.stream.Stream<Path> files = Files.list(this.tmpDir)) {
+            files.filter(Files::isRegularFile).forEach(path -> {
+                try {
+                    if (Files.getLastModifiedTime(path).toMillis() < cutoffMillis) {
+                        Files.delete(path);
+                        log.info("File sementara yatim dihapus (lebih dari 24 jam): {}", path.getFileName());
+                    }
+                } catch (Exception e) {
+                    log.warn("Gagal memeriksa/menghapus file sementara '{}': {}", path, e.getMessage());
+                }
+            });
+        } catch (Exception e) {
+            log.warn("Gagal menjalankan pembersihan folder upload sementara: {}", e.getMessage());
+        }
     }
 }

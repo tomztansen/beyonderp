@@ -1,0 +1,22 @@
+/* Tombol Upload dan teks "Drag & drop..." sejajar (row), bukan tumpuk ke bawah (column) --
+   supaya field FILE_UPLOAD tetap muat di tinggi kartu standar (118px) seperti field lain,
+   lihat FormBuilderView.buildFieldCard(). */
+[part='primary-buttons'] {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+[slot='drop-label'] {
+    font-size: 12px;
+    color: var(--lumo-secondary-text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+[slot='drop-label-icon'] {
+    display: none;
+}

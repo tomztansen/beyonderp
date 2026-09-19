@@ -598,6 +598,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     stripSubformDataIfDetailLocked(formDef, parentData);
                     dynamicDataService.saveData(formDef, parentData);
 
+                    // Baru sekarang record-nya benar-benar tersimpan -- file yang tadi
+                    // ditandai Delete/diganti boleh dihapus fisik (lihat FileUploadField).
+                    for (Component comp : formComponents.values()) {
+                        if (comp instanceof com.vaadinerp.components.FileUploadField fu) {
+                            fu.commitPendingDeletes();
+                        }
+                    }
+
                     // === AFTER_SAVE scripts ===
                     if (saveActions != null) {
                         for (com.vaadinerp.meta.FormActionMeta act : saveActions) {
