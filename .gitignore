@@ -15,6 +15,9 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# Google Drive Desktop (folder sinkronisasi lokal, sesuai pembahasan sync by request)
+.tmp.driveupload/
+
 # Local config
 .mimocode/
 
