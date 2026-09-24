@@ -104,7 +104,12 @@ public class LovBuilderView extends VerticalLayout {
         btnCopy.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnCopy.getStyle().set("color", "#f59e0b");
 
-        toolbar.add(searchGridField, btnNew, btnSave, btnDelete, btnCopy);
+        Button btnRefresh = new com.vaadinerp.components.SafeButton("Refresh", VaadinIcon.REFRESH.create(),
+                e -> refreshAll());
+        btnRefresh.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btnRefresh.getStyle().set("color", "#6b7280");
+
+        toolbar.add(searchGridField, btnNew, btnSave, btnDelete, btnCopy, btnRefresh);
         return toolbar;
     }
 
@@ -185,6 +190,19 @@ public class LovBuilderView extends VerticalLayout {
 
     private void refreshGrid() {
         filterGrid();
+    }
+
+    private void refreshAll() {
+        com.vaadinerp.components.ComponentFactory.clearLovCache(null);
+        refreshGrid();
+        if (currentLovMeta != null && currentLovMeta.getLovCode() != null) {
+            String code = currentLovMeta.getLovCode();
+            lovMetaRepository.findById(code).ifPresentOrElse(
+                    this::populateForm,
+                    this::clearForm
+            );
+        }
+        Notification.show("LOV list and cache refreshed!", 1500, Notification.Position.BOTTOM_END);
     }
 
     private void filterGrid() {
