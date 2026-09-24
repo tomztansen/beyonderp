@@ -690,7 +690,11 @@ public class PortalView extends AppLayout {
     public void openMenuTab(AppMenu menu, Object extra, String forceTabId) {
         String code = resolveMenuTargetCode(menu);
         String title = menu.getMenuTitle();
-        String activeTabId = forceTabId != null ? forceTabId : code;
+        // Tab diidentifikasi lewat kode MENU, bukan kode form hasil resolve. Dengan
+        // begitu menu alias (mis. FO_PASS_QC -> form FO_PRD_BOOK) tampil di tab sendiri
+        // dengan judul menunya ("Foundry Pass QC"), bukan menumpang tab & judul form
+        // aslinya ("Production Booking"). Isi tab tetap dibangun dari `code` (form asli).
+        String activeTabId = forceTabId != null ? forceTabId : menu.getMenuCode();
 
         // EARLY EXIT: Mencegah eksekusi query (Eager Evaluation) jika tab sudah terbuka
         if (openTabs.containsKey(activeTabId)) {
