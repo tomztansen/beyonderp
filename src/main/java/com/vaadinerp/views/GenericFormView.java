@@ -311,7 +311,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         tabSheet = new TabSheet();
         tabSheet.setSizeFull();
-        historisTab = tabSheet.add("Header", historisLayout);
+        historisTab = tabSheet.add("History", historisLayout);
         transaksiTab = tabSheet.add("Detail", transaksiLayout);
 
         tabSheet.addSelectedChangeListener(event -> {
@@ -1689,11 +1689,29 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             }
 
             if (hasSubformGrid) {
-                boolean rowHasSubform = groupFields.stream()
-                        .anyMatch(f -> "SUBFORM_GRID".equalsIgnoreCase(f.getComponentType()));
-                if (rowHasSubform) {
+                FieldMeta subformField = groupFields.stream()
+                        .filter(f -> "SUBFORM_GRID".equalsIgnoreCase(f.getComponentType()))
+                        .findFirst().orElse(null);
+                if (subformField != null) {
+                    // Tiap subform dibungkus Details sendiri supaya bisa di-collapse
+                    // seperti Header. Judul panel = caption subform (label + style
+                    // displayFormat: HEADING/BOLD/normal, sama seperti komponen LABEL).
+                    String capText = subformField.getFieldLabel() != null ? subformField.getFieldLabel()
+                            : subformField.getFieldName();
+                    com.vaadin.flow.component.html.Span capSpan = new com.vaadin.flow.component.html.Span(
+                            capText != null ? capText : "");
+                    String capStyle = subformField.getDisplayFormat();
+                    if ("HEADING".equalsIgnoreCase(capStyle)) {
+                        capSpan.getStyle().set("font-size", "1.05em").set("font-weight", "700");
+                    } else if ("BOLD".equalsIgnoreCase(capStyle)) {
+                        capSpan.getStyle().set("font-weight", "600");
+                    }
+                    com.vaadin.flow.component.details.Details subformDetails = new com.vaadin.flow.component.details.Details(
+                            capSpan, rowLayout);
+                    subformDetails.setOpened(true);
+                    subformDetails.setWidthFull();
                     if (subformSection != null)
-                        subformSection.add(rowLayout);
+                        subformSection.add(subformDetails);
                 } else {
                     if (headerSection != null)
                         headerSection.add(rowLayout);
@@ -2234,7 +2252,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 filterDatePicker.setClearButtonVisible(true);
                 filterDatePicker.setWidthFull();
                 filterDatePicker.getElement().getThemeList().add("small");
-                filterDatePicker.setLocale(java.util.Locale.forLanguageTag("id-ID"));
+                filterDatePicker.setLocale(java.util.Locale.ENGLISH);
 
                 Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
                 filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
@@ -2273,8 +2291,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 };
 
                 dateCtx.addItem("Equals", dateListener);
-                dateCtx.addItem("\u2265 Dari tanggal", dateListener);
-                dateCtx.addItem("\u2264 Sampai tanggal", dateListener);
+                dateCtx.addItem("\u2265 From date", dateListener);
+                dateCtx.addItem("\u2264 To date", dateListener);
                 dateCtx.addItem("Blank", dateListener);
                 dateCtx.addItem("Not blank", dateListener);
 

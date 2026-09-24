@@ -1284,12 +1284,14 @@ public class FormBuilderView extends VerticalLayout {
 
     private void updatePropertyFieldsState(String componentType) {
         boolean isLabel = "LABEL".equalsIgnoreCase(componentType);
-        propDisplayFormat.setVisible(!isLabel);
-        propLabelStyle.setVisible(isLabel);
+        boolean isSubform = "SUBFORM_GRID".equalsIgnoreCase(componentType);
+        // LABEL & SUBFORM_GRID pakai pilihan Style (NORMAL/BOLD/HEADING) untuk caption,
+        // bukan format angka/tanggal.
+        boolean useStyle = isLabel || isSubform;
+        propDisplayFormat.setVisible(!useStyle);
+        propLabelStyle.setVisible(useStyle);
         propFormula.setVisible(!isLabel);
         propFieldLabel.setLabel(isLabel ? "Teks yang Ditampilkan" : "Field Label / Caption");
-
-        boolean isSubform = "SUBFORM_GRID".equalsIgnoreCase(componentType);
 
         // ON_CHANGE hanya dipicu oleh perubahan dari user (isFromClient). SUBFORM_GRID
         // dan LABEL tidak pernah menghasilkan perubahan seperti itu, jadi tidak
@@ -1458,7 +1460,8 @@ public class FormBuilderView extends VerticalLayout {
                     propIsDetail.setVisible("MASTER_DETAIL".equals(formTypeCombo.getValue()));
                     propIsSortable.setValue(first.isSortable);
                     propFormula.setValue(first.formula != null ? first.formula : "");
-                    if ("LABEL".equalsIgnoreCase(first.componentType)) {
+                    if ("LABEL".equalsIgnoreCase(first.componentType)
+                            || "SUBFORM_GRID".equalsIgnoreCase(first.componentType)) {
                         String fmt = first.displayFormat != null ? first.displayFormat.toUpperCase() : "";
                         propLabelStyle.setValue(fmt.isEmpty() || "NORMAL".equals(fmt) ? "NORMAL" : fmt);
                     } else {
@@ -1475,6 +1478,9 @@ public class FormBuilderView extends VerticalLayout {
                     propIsAuditLog.setValue(first.isAuditLog);
                     propShowLineNo.setValue(first.showLineNo);
                     propSaveLineNoToDb.setValue(first.saveLineNoToDb);
+                    // Panggil terakhir supaya visibilitas Format/Style/Formula final
+                    // (mengalahkan setVisible(true) paksa di blok base di atas).
+                    updatePropertyFieldsState(first.componentType);
                 } else {
                     propFieldName.setVisible(false);
                     propFieldLabel.setVisible(false);
@@ -4415,14 +4421,17 @@ public class FormBuilderView extends VerticalLayout {
             int targetCols = colsSelect.getValue() != null ? colsSelect.getValue() : 2;
             boolean isVertical = "Vertikal (Atas-Bawah)".equals(arahUrutan.getValue());
 
-            // 1. Ekstrak & Urutkan secara Visual
-            java.util.List<FieldMetaTemp> layoutFields = new java.util.ArrayList<>();
+            // 1. Ekstrak & Urutkan secara Visual (posisi lama) -- SUBFORM_GRID tetap
+            // diikutkan di sini supaya urutan relatifnya di antara field lain terjaga,
+            // tapi nanti diberi barisnya sendiri (full-width), tidak dipaksa masuk
+            // kolom bareng field input biasa.
+            java.util.List<FieldMetaTemp> allFields = new java.util.ArrayList<>();
             for (FieldMetaTemp f : fieldsList) {
                 if (!f.isDetail) {
-                    layoutFields.add(f);
+                    allFields.add(f);
                 }
             }
-            layoutFields.sort((f1, f2) -> {
+            allFields.sort((f1, f2) -> {
                 int rowCmp = Integer.compare(f1.rowGroup, f2.rowGroup);
                 if (rowCmp != 0)
                     return rowCmp;
@@ -4431,10 +4440,22 @@ public class FormBuilderView extends VerticalLayout {
 
             // 2. Alokasikan Koordinat Baru
             if (isVertical) {
-                // VERTIKAL (Gaya Balanced / Seimbang)
+                // VERTIKAL (Gaya Balanced / Seimbang) -- SUBFORM_GRID tidak punya konsep
+                // "kolom" di mode ini, jadi dikeluarkan dari perhitungan pembagian rata,
+                // lalu ditaruh di baris tersendiri setelah semua kolom selesai dibagi.
+                java.util.List<FieldMetaTemp> layoutFields = new java.util.ArrayList<>();
+                java.util.List<FieldMetaTemp> subformFields = new java.util.ArrayList<>();
+                for (FieldMetaTemp f : allFields) {
+                    if ("SUBFORM_GRID".equalsIgnoreCase(f.componentType)) {
+                        subformFields.add(f);
+                    } else {
+                        layoutFields.add(f);
+                    }
+                }
+
                 int totalItems = layoutFields.size();
-                int baseItemsPerCol = totalItems / targetCols;
-                int remainder = totalItems % targetCols;
+                int baseItemsPerCol = targetCols > 0 ? totalItems / targetCols : totalItems;
+                int remainder = targetCols > 0 ? totalItems % targetCols : 0;
 
                 int r = 1;
                 int c = 1;
@@ -4451,12 +4472,32 @@ public class FormBuilderView extends VerticalLayout {
                         currentLimit = baseItemsPerCol + (c <= remainder ? 1 : 0);
                     }
                 }
+
+                int nextRow = layoutFields.isEmpty() ? 1
+                        : layoutFields.stream().mapToInt(f -> f.rowGroup).max().orElse(0) + 1;
+                for (FieldMetaTemp f : subformFields) {
+                    f.rowGroup = nextRow++;
+                    f.colIndex = 1;
+                }
             } else {
-                // HORIZONTAL (Menyamping per Baris)
+                // HORIZONTAL (Menyamping per Baris) -- SUBFORM_GRID memutus baris: dapat
+                // barisnya sendiri full-width persis di urutan relatifnya, field sesudahnya
+                // otomatis mulai baris baru lagi supaya tidak bertabrakan posisi.
                 int currentGroup = 1;
                 int currentVisCol = 1;
 
-                for (FieldMetaTemp f : layoutFields) {
+                for (FieldMetaTemp f : allFields) {
+                    if ("SUBFORM_GRID".equalsIgnoreCase(f.componentType)) {
+                        if (currentVisCol > 1) {
+                            currentGroup++;
+                        }
+                        f.rowGroup = currentGroup;
+                        f.colIndex = 1;
+                        currentGroup++;
+                        currentVisCol = 1;
+                        continue;
+                    }
+
                     int span = f.colSpan != null ? f.colSpan : 1;
                     span = Math.min(span, targetCols);
 

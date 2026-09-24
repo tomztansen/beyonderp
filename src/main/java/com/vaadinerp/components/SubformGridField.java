@@ -229,7 +229,11 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     public SubformGridField(String label, FieldMeta fieldMeta, DynamicDataService dataService) {
         this.dataService = dataService;
         this.fieldMeta = fieldMeta;
-        setLabel(label);
+
+        // Caption/label tidak dirender di sini: di runtime, GenericFormView membungkus
+        // subform dalam panel Details yang bisa di-collapse, dan judul (summary) panel
+        // itulah caption-nya (ber-style sesuai displayFormat). Menaruh label di sini
+        // hanya akan dobel dengan summary Details.
 
         VerticalLayout layout = new VerticalLayout();
         layout.setWidthFull();
@@ -1115,7 +1119,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 filterDatePicker.setClearButtonVisible(true);
                 filterDatePicker.setWidthFull();
                 filterDatePicker.getElement().getThemeList().add("small");
-                filterDatePicker.setLocale(java.util.Locale.forLanguageTag("id-ID"));
+                filterDatePicker.setLocale(java.util.Locale.ENGLISH);
 
                 Button filterButton = new Button(VaadinIcon.FILTER.create());
                 filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
@@ -1151,8 +1155,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 };
 
                 dateCtx.addItem("Equals", dateListener);
-                dateCtx.addItem("\u2265 Dari tanggal", dateListener);
-                dateCtx.addItem("\u2264 Sampai tanggal", dateListener);
+                dateCtx.addItem("\u2265 From date", dateListener);
+                dateCtx.addItem("\u2264 To date", dateListener);
                 dateCtx.addItem("Blank", dateListener);
                 dateCtx.addItem("Not blank", dateListener);
 
