@@ -15,13 +15,13 @@ public class PaginationBar extends HorizontalLayout {
     private int pageSize = 1000;
     private long totalRecords = 0;
 
-    private final ComboBox<Integer> pageSizeCombo = new ComboBox<>("Baris / hal");
-    private final Button btnFirst = new com.vaadinerp.components.SafeButton("<< Pertama");
+    private final ComboBox<Integer> pageSizeCombo = new ComboBox<>("Rows / page");
+    private final Button btnFirst = new com.vaadinerp.components.SafeButton("<< First");
     private final Button btnPrev = new com.vaadinerp.components.SafeButton("< Prev");
     private final Button btnNext = new com.vaadinerp.components.SafeButton("Next >");
-    private final Button btnLast = new com.vaadinerp.components.SafeButton("Terakhir >>");
-    private final Span pageInfo = new Span("Halaman 0 dari 0");
-    private final IntegerField jumpField = new IntegerField("Ke Hal");
+    private final Button btnLast = new com.vaadinerp.components.SafeButton("Last >>");
+    private final Span pageInfo = new Span("Page 0 of 0");
+    private final IntegerField jumpField = new IntegerField("Page");
     private final Button btnGo = new com.vaadinerp.components.SafeButton("Go");
 
     private Consumer<Void> onPageChange;
@@ -161,7 +161,7 @@ public class PaginationBar extends HorizontalLayout {
     private void updateUI() {
         int maxPages = getMaxPages();
         int displayPage = totalRecords == 0 ? 0 : (currentPage + 1);
-        pageInfo.setText("Halaman " + displayPage + " dari " + maxPages + " (Total: " + String.format("%,d", totalRecords) + " data)");
+        pageInfo.setText("Page " + displayPage + " of " + maxPages + " (Total: " + String.format("%,d", totalRecords) + " records)");
         
         btnFirst.setEnabled(currentPage > 0);
         btnPrev.setEnabled(currentPage > 0);

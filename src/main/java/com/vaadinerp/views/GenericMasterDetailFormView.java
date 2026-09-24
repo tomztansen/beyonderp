@@ -371,7 +371,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         tabSheet = new TabSheet();
         tabSheet.setSizeFull();
         historisTab = tabSheet.add("History", historisLayout);
-        transaksiTab = tabSheet.add("Transaksi", transaksiLayout);
+        transaksiTab = tabSheet.add("Transaction", transaksiLayout);
 
         tabSheet.addSelectedChangeListener(event -> {
             if (currentFormDef != null) {
@@ -2246,7 +2246,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 filterDatePicker.setClearButtonVisible(true);
                 filterDatePicker.setWidthFull();
                 filterDatePicker.getElement().getThemeList().add("small");
-                filterDatePicker.setLocale(java.util.Locale.forLanguageTag("id-ID"));
+                filterDatePicker.setLocale(java.util.Locale.ENGLISH);
 
                 Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
                 filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
@@ -2284,8 +2284,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 };
 
                 dateCtx.addItem("Equals", dateListener);
-                dateCtx.addItem("\u2265 Dari tanggal", dateListener);
-                dateCtx.addItem("\u2264 Sampai tanggal", dateListener);
+                dateCtx.addItem("\u2265 From date", dateListener);
+                dateCtx.addItem("\u2264 To date", dateListener);
                 dateCtx.addItem("Blank", dateListener);
                 dateCtx.addItem("Not blank", dateListener);
 
