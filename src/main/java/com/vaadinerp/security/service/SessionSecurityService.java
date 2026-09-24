@@ -19,8 +19,36 @@ public class SessionSecurityService {
 
     /** Password benar, tapi akun masih punya session aktif di tempat lain. */
     public static class AlreadyLoggedInException extends RuntimeException {
+        private final String ip;
+
         public AlreadyLoggedInException() {
-            super("This account is already logged in");
+            this("This account is already logged in", null);
+        }
+
+        public AlreadyLoggedInException(String message, String ip) {
+            super(message);
+            this.ip = ip;
+        }
+
+        public String getIp() {
+            return ip;
+        }
+    }
+
+    /** Password benar, tapi akun sedang aktif di komputer / IP lain. */
+    public static class DifferentIpActiveSessionException extends AlreadyLoggedInException {
+        public DifferentIpActiveSessionException(String ip) {
+            super("This account is actively logged in on another machine", ip);
+        }
+    }
+
+    /**
+     * Password benar, dan sesi aktif terdeteksi dari komputer / IP yang sama (bisa
+     * diambil alih).
+     */
+    public static class SameIpTakeoverNeededException extends AlreadyLoggedInException {
+        public SameIpTakeoverNeededException(String ip) {
+            super("An active session was detected from this machine (IP: " + (ip != null ? ip : "unknown") + ").", ip);
         }
     }
 
@@ -45,6 +73,14 @@ public class SessionSecurityService {
         this.maintenance = maintenance;
     }
 
+    public static boolean isSameIp(String ip1, String ip2) {
+        if (ip1 == null || ip2 == null)
+            return false;
+        if ("unknown".equalsIgnoreCase(ip1) || "unknown".equalsIgnoreCase(ip2))
+            return false;
+        return ip1.trim().equalsIgnoreCase(ip2.trim());
+    }
+
     /**
      * Login menggunakan BCrypt hash.
      */
@@ -67,28 +103,68 @@ public class SessionSecurityService {
             return false;
         }
 
-        // Selama maintenance (menjelang restart) login baru ditahan; yang sudah login tidak disentuh.
+        // Selama maintenance (menjelang restart) login baru ditahan; yang sudah login
+        // tidak disentuh.
         if (maintenance.isActive()) {
             throw new MaintenanceException();
         }
 
-        // Satu akun = satu session aktif. Session lama tidak ditendang; user menunggu timeout
-        // atau minta admin kick lewat Login History.
-        if (loginHistory.hasLiveSession(u.getUsername())) {
-            throw new AlreadyLoggedInException();
+        // Cek apakah akun memiliki sesi aktif
+        String activeIp = loginHistory.findActiveSessionIp(u.getUsername());
+        if (activeIp != null) {
+            String currentIp = LoginHistoryService.clientIp();
+            if (isSameIp(currentIp, activeIp)) {
+                // Berasal dari mesin/IP yang sama -> berikan opsi ambil alih
+                throw new SameIpTakeoverNeededException(activeIp);
+            } else {
+                // Berasal dari mesin/IP berbeda -> tolak login bersamaan
+                throw new DifferentIpActiveSessionException(activeIp);
+            }
         }
 
+        return establishSession(u);
+    }
+
+    /**
+     * Ambil alih sesi: putus paksa sesi lama pada username ini lalu langsung login.
+     */
+    public boolean takeoverAndLogin(String username, String password) {
+        if (username == null || password == null)
+            return false;
+
+        Optional<AppUser> opt = userRepository.findByUsernameIgnoreCaseAndIsActiveTrue(username.trim());
+        if (opt.isEmpty()) {
+            loginHistory.recordLogin(username.trim(), false);
+            return false;
+        }
+
+        AppUser u = opt.get();
+        String storedHash = u.getPasswordHash();
+        boolean matched = storedHash != null && passwordEncoder.matches(password, storedHash);
+        if (!matched) {
+            loginHistory.recordLogin(u.getUsername(), false);
+            return false;
+        }
+
+        if (maintenance.isActive()) {
+            throw new MaintenanceException();
+        }
+
+        // Putus semua sesi lama milik user ini
+        loginHistory.kickUserSessions(u.getUsername(), "TAKEOVER", u.getUsername());
+
+        return establishSession(u);
+    }
+
+    private boolean establishSession(AppUser u) {
         VaadinSession session = VaadinSession.getCurrent();
         if (session != null) {
             // Proteksi session fixation: reinitialize session ID setelah login berhasil.
-            // Hanya dilakukan jika ada request context aktif — kalau tidak ada,
-            // JANGAN invalidate session manual (itu penyebab bug lama), cukup lewati.
             if (VaadinService.getCurrentRequest() != null) {
                 try {
                     VaadinService.reinitializeSession(VaadinService.getCurrentRequest());
                 } catch (Exception ex) {
                     // Reinit gagal (jarang terjadi) — lanjut tanpa reinit
-                    // daripada membuat state session rusak.
                 }
             }
             session.setAttribute(SESSION_USER_KEY, u);
@@ -196,7 +272,7 @@ public class SessionSecurityService {
         if (user.getRoles().contains("SUPER_ADMIN")) {
             return MenuAccessAuthority.fullAccess();
         }
-        
+
         MenuAccessAuthority auth = new MenuAccessAuthority();
         auth.canAccessScreen = false;
         auth.canAdd = false;
@@ -205,21 +281,27 @@ public class SessionSecurityService {
         auth.canPrint = false;
         auth.canView = false;
         auth.canEditDetail = false;
-        
+
         for (String role : user.getRoles()) {
             Optional<RoleMenuPermission> perm = permissionRepository.findByRoleCodeAndMenuCode(role, menuCode);
             if (perm.isPresent()) {
                 auth.canAccessScreen = true; // Karcis masuk tersedia
                 RoleMenuPermission p = perm.get();
-                if (Boolean.TRUE.equals(p.getCanAdd())) auth.canAdd = true;
-                if (Boolean.TRUE.equals(p.getCanEdit())) auth.canEdit = true;
-                if (Boolean.TRUE.equals(p.getCanDelete())) auth.canDelete = true;
-                if (Boolean.TRUE.equals(p.getCanPrint())) auth.canPrint = true;
-                if (Boolean.TRUE.equals(p.getCanView())) auth.canView = true;
-                if (!Boolean.FALSE.equals(p.getCanEditDetail())) auth.canEditDetail = true;
+                if (Boolean.TRUE.equals(p.getCanAdd()))
+                    auth.canAdd = true;
+                if (Boolean.TRUE.equals(p.getCanEdit()))
+                    auth.canEdit = true;
+                if (Boolean.TRUE.equals(p.getCanDelete()))
+                    auth.canDelete = true;
+                if (Boolean.TRUE.equals(p.getCanPrint()))
+                    auth.canPrint = true;
+                if (Boolean.TRUE.equals(p.getCanView()))
+                    auth.canView = true;
+                if (!Boolean.FALSE.equals(p.getCanEditDetail()))
+                    auth.canEditDetail = true;
             }
         }
-        
+
         return auth;
     }
 }

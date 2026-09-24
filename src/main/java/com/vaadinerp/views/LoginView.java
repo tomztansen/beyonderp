@@ -3,8 +3,10 @@ package com.vaadinerp.views;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
@@ -12,12 +14,17 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadinerp.security.service.SessionSecurityService;
+import com.vaadinerp.security.service.SessionSecurityService.AlreadyLoggedInException;
+import com.vaadinerp.security.service.SessionSecurityService.DifferentIpActiveSessionException;
+import com.vaadinerp.security.service.SessionSecurityService.MaintenanceException;
+import com.vaadinerp.security.service.SessionSecurityService.SameIpTakeoverNeededException;
 
 @Route("login")
 @PageTitle("Login | Growth Manufacturing And Operational System")
@@ -146,28 +153,7 @@ public class LoginView extends Div {
                                 .set("box-shadow", "0 4px 14px rgba(0, 112, 242, 0.30)");
                 card.add(loginBtn);
 
-                loginBtn.addClickListener(e -> {
-                        String u = usernameField.getValue();
-                        String p = passwordField.getValue();
-                        boolean ok;
-                        try {
-                                ok = this.securityService.login(u, p);
-                        } catch (com.vaadinerp.security.service.SessionSecurityService.AlreadyLoggedInException
-                                        | com.vaadinerp.security.service.SessionSecurityService.MaintenanceException ex) {
-                                Notification n = Notification.show(ex.getMessage(), 5000,
-                                                Notification.Position.TOP_CENTER);
-                                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                                return;
-                        }
-                        if (ok) {
-                                Notification.show("Selamat datang, " + u + "!", 3000, Notification.Position.TOP_CENTER);
-                                UI.getCurrent().navigate("");
-                        } else {
-                                Notification n = Notification.show("Username atau password salah!", 4000,
-                                                Notification.Position.TOP_CENTER);
-                                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                        }
-                });
+                loginBtn.addClickListener(e -> doLogin(usernameField.getValue(), passwordField.getValue()));
 
                 // Enter key shortcut
                 loginBtn.addClickShortcut(com.vaadin.flow.component.Key.ENTER);
@@ -215,6 +201,95 @@ public class LoginView extends Div {
                                 .set("z-index", "2")
                                 .set("text-align", "center");
                 add(footer);
+        }
+
+        private void doLogin(String u, String p) {
+                if (u == null || u.isBlank() || p == null || p.isBlank()) {
+                        Notification n = Notification.show("Please enter both username and password.", 4000,
+                                        Notification.Position.TOP_CENTER);
+                        n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                        return;
+                }
+
+                try {
+                        boolean ok = this.securityService.login(u, p);
+                        if (ok) {
+                                Notification.show("Welcome, " + u + "!", 3000, Notification.Position.TOP_CENTER);
+                                UI.getCurrent().navigate("");
+                        } else {
+                                Notification n = Notification.show("Invalid username or password!", 4000,
+                                                Notification.Position.TOP_CENTER);
+                                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                        }
+                } catch (SameIpTakeoverNeededException ex) {
+                        showTakeoverDialog(u, p, ex.getIp());
+                } catch (DifferentIpActiveSessionException ex) {
+                        Notification n = Notification.show(ex.getMessage(), 6000,
+                                        Notification.Position.TOP_CENTER);
+                        n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                } catch (AlreadyLoggedInException | MaintenanceException ex) {
+                        Notification n = Notification.show(ex.getMessage(), 5000,
+                                        Notification.Position.TOP_CENTER);
+                        n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                }
+        }
+
+        private void showTakeoverDialog(String username, String password, String ip) {
+                Dialog dialog = new Dialog();
+                dialog.setWidth("440px");
+                dialog.setMaxWidth("95vw");
+                dialog.setCloseOnEsc(true);
+                dialog.setCloseOnOutsideClick(false);
+
+                H3 title = new H3("Take Over Session");
+                title.getStyle().set("margin", "0").set("color", "#111827").set("font-size", "1.2rem");
+
+                Paragraph msg = new Paragraph(
+                                "An active session for \"" + username + "\" was detected on this machine (IP: "
+                                                + (ip != null ? ip : "unknown") + "), likely because the browser was closed earlier.\n\n"
+                                                + "Would you like to terminate the previous session and log on now?");
+                msg.getStyle().set("color", "#4b5563").set("font-size", "0.9rem").set("line-height", "1.5")
+                                .set("margin", "12px 0 20px 0");
+
+                Button cancelBtn = new Button("Cancel", ev -> dialog.close());
+                cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+                Button takeoverBtn = new com.vaadinerp.components.SafeButton("Take Over & Log On", ev -> {
+                        dialog.close();
+                        try {
+                                boolean ok = this.securityService.takeoverAndLogin(username, password);
+                                if (ok) {
+                                        Notification.show("Session taken over successfully. Welcome, " + username + "!",
+                                                        3000, Notification.Position.TOP_CENTER);
+                                        UI.getCurrent().navigate("");
+                                } else {
+                                        Notification n = Notification.show("Failed to take over session. Please try again.",
+                                                        4000, Notification.Position.TOP_CENTER);
+                                        n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                                }
+                        } catch (Exception ex) {
+                                Notification n = Notification.show("Error: " + ex.getMessage(), 5000,
+                                                Notification.Position.TOP_CENTER);
+                                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                        }
+                });
+                takeoverBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+                takeoverBtn.getStyle()
+                                .set("background", "#0070F2")
+                                .set("border-radius", "8px")
+                                .set("font-weight", "600");
+
+                HorizontalLayout actions = new HorizontalLayout(cancelBtn, takeoverBtn);
+                actions.setWidthFull();
+                actions.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
+                actions.setSpacing(true);
+
+                VerticalLayout content = new VerticalLayout(title, msg, actions);
+                content.setPadding(false);
+                content.setSpacing(false);
+
+                dialog.add(content);
+                dialog.open();
         }
 
         /**

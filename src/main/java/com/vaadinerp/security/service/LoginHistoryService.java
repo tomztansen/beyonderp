@@ -38,6 +38,7 @@ public class LoginHistoryService implements VaadinServiceInitListener {
     // ponytail: registry per-JVM; bila kelak multi-instance, kick hanya menjangkau instance pemegang session
     private final ConcurrentHashMap<Long, VaadinSession> live = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, String> liveUser = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, String> liveIp = new ConcurrentHashMap<>();
     private final JdbcTemplate jdbc;
     private final org.springframework.core.env.Environment env;
 
@@ -74,13 +75,17 @@ public class LoginHistoryService implements VaadinServiceInitListener {
     public void recordLogin(String username, boolean success) {
         try {
             VaadinSession s = VaadinSession.getCurrent();
+            String ip = clientIp();
             Long id = jdbc.queryForObject(
                     "INSERT INTO public.app_login_history (username, ip, success) VALUES (?,?,?) RETURNING id",
-                    Long.class, username, clientIp(), success);
+                    Long.class, username, ip, success);
             if (success && s != null && id != null) {
                 s.setAttribute(ATTR_HISTORY_ID, id);
+                s.setAttribute("LOGIN_TIMESTAMP", System.currentTimeMillis());
+                s.setAttribute("CLIENT_IP", ip);
                 live.put(id, s);
                 liveUser.put(id, username);
+                liveIp.put(id, ip);
             }
         } catch (Exception ex) {
             log.warn("Login history not recorded for {}: {}", username, ex.getMessage());
@@ -93,32 +98,73 @@ public class LoginHistoryService implements VaadinServiceInitListener {
     }
 
     /**
-     * Apakah username ini masih punya session hidup lain (browser masih mengirim heartbeat).
-     * Session yang heartbeat-nya sudah basi tidak dihitung — sweep akan menutupnya.
+     * Menemukan IP dari sesi aktif milik username tertentu.
+     * Bila sesi ditemukan sudah stale (melebihi toleransi heartbeat), sesi langsung dibersihkan dan mengembalikan null.
      */
-    public boolean hasLiveSession(String username) {
+    public String findActiveSessionIp(String username) {
         VaadinSession current = VaadinSession.getCurrent();
         for (Map.Entry<Long, String> e : liveUser.entrySet()) {
             if (!e.getValue().equalsIgnoreCase(username))
                 continue;
             VaadinSession s = live.get(e.getKey());
             if (s == null) {
-                liveUser.remove(e.getKey()); // sudah keluar dari registry -> bersihkan malas
+                liveUser.remove(e.getKey());
+                liveIp.remove(e.getKey());
                 continue;
             }
             if (s == current)
                 continue;
-            if (!s.getLockInstance().tryLock())
-                return true; // sedang melayani request -> pasti hidup
+            if (!s.getLockInstance().tryLock()) {
+                return liveIp.getOrDefault(e.getKey(), "unknown"); // sedang melayani request -> jelas aktif
+            }
             try {
-                if (s.getState() == VaadinSessionState.OPEN && !heartbeatStale(s))
-                    return true;
+                if (s.getState() != VaadinSessionState.OPEN) {
+                    live.remove(e.getKey());
+                    liveUser.remove(e.getKey());
+                    liveIp.remove(e.getKey());
+                    continue;
+                }
+                if (heartbeatStale(s)) {
+                    close(e.getKey(), "BROWSER_CLOSED", null);
+                    live.remove(e.getKey());
+                    liveUser.remove(e.getKey());
+                    liveIp.remove(e.getKey());
+                    invalidate(s);
+                    continue;
+                }
+                return liveIp.getOrDefault(e.getKey(), "unknown");
             } catch (Exception ignored) {
             } finally {
                 s.getLockInstance().unlock();
             }
         }
-        return false;
+        return null;
+    }
+
+    /**
+     * Apakah username ini masih punya session hidup lain (browser masih mengirim heartbeat).
+     * Session yang heartbeat-nya sudah basi tidak dihitung — sweep akan menutupnya.
+     */
+    public boolean hasLiveSession(String username) {
+        return findActiveSessionIp(username) != null;
+    }
+
+    /**
+     * Memutus paksa semua sesi aktif milik username (misalnya saat ambil alih / takeover sesi).
+     */
+    public void kickUserSessions(String username, String reason, String by) {
+        for (Map.Entry<Long, String> e : liveUser.entrySet()) {
+            if (e.getValue().equalsIgnoreCase(username)) {
+                Long id = e.getKey();
+                close(id, reason, by);
+                liveUser.remove(id);
+                liveIp.remove(id);
+                VaadinSession s = live.remove(id);
+                if (s != null) {
+                    invalidate(s);
+                }
+            }
+        }
     }
 
     /** Dipanggil dari SessionSecurityService.logout() sebelum session.close(). */
@@ -127,6 +173,8 @@ public class LoginHistoryService implements VaadinServiceInitListener {
         if (s != null && s.getAttribute(ATTR_HISTORY_ID) instanceof Long id) {
             close(id, "LOGOUT", null);
             live.remove(id);
+            liveUser.remove(id);
+            liveIp.remove(id);
         }
     }
 
@@ -134,6 +182,8 @@ public class LoginHistoryService implements VaadinServiceInitListener {
     public void kick(Object historyId, String by) {
         Long id = historyId instanceof Number n ? n.longValue() : Long.valueOf(String.valueOf(historyId));
         close(id, "KICKED", by);
+        liveUser.remove(id);
+        liveIp.remove(id);
         VaadinSession s = live.remove(id);
         if (s != null)
             invalidate(s);
@@ -146,6 +196,8 @@ public class LoginHistoryService implements VaadinServiceInitListener {
             VaadinSession s = e.getValue();
             if (s == null) {
                 live.remove(e.getKey());
+                liveUser.remove(e.getKey());
+                liveIp.remove(e.getKey());
                 continue;
             }
             if (!s.getLockInstance().tryLock())
@@ -154,11 +206,15 @@ public class LoginHistoryService implements VaadinServiceInitListener {
                 // getState() dan getUIs() WAJIB di bawah lock session (Vaadin melempar IllegalStateException bila tidak)
                 if (s.getState() != VaadinSessionState.OPEN) {
                     live.remove(e.getKey()); // baris DB sudah ditutup oleh SessionDestroyListener
+                    liveUser.remove(e.getKey());
+                    liveIp.remove(e.getKey());
                     continue;
                 }
                 if (heartbeatStale(s)) {
                     close(e.getKey(), "BROWSER_CLOSED", null);
                     live.remove(e.getKey());
+                    liveUser.remove(e.getKey());
+                    liveIp.remove(e.getKey());
                     invalidate(s);
                 }
             } catch (Exception ex) {
@@ -199,10 +255,19 @@ public class LoginHistoryService implements VaadinServiceInitListener {
 
         if (id != null) {
             live.remove(id);
+            liveUser.remove(id);
+            liveIp.remove(id);
             close(id, "TIMEOUT", null);
         } else {
             // Fallback jika container sudah menghapus attribute sebelum event ini
-            live.entrySet().removeIf(entry -> entry.getValue() == s);
+            live.entrySet().removeIf(entry -> {
+                if (entry.getValue() == s) {
+                    liveUser.remove(entry.getKey());
+                    liveIp.remove(entry.getKey());
+                    return true;
+                }
+                return false;
+            });
         }
     }
 
@@ -215,14 +280,39 @@ public class LoginHistoryService implements VaadinServiceInitListener {
         }
     }
 
-    /** Semua UI sudah > 3x heartbeat interval tanpa heartbeat. Harus dipanggil dengan lock session. */
+    /**
+     * Semua UI sudah > 3x heartbeat interval tanpa heartbeat. Harus dipanggil dengan lock session.
+     *
+     * Bug-fix: jika belum ada heartbeat sama sekali (last==0, browser ditutup sebelum
+     * heartbeat pertama sempat terkirim), gunakan waktu login sebagai acuan
+     * agar session tidak "menggantung" selamanya dan memblokir re-login.
+     */
     private static boolean heartbeatStale(VaadinSession s) {
         try {
             long interval = s.getService().getDeploymentConfiguration().getHeartbeatInterval() * 1000L;
+            long threshold = 3 * interval;
+            long now = System.currentTimeMillis();
+
             long last = 0;
             for (UI ui : s.getUIs())
                 last = Math.max(last, ui.getInternals().getLastHeartbeatTimestamp());
-            return last > 0 && System.currentTimeMillis() - last > 3 * interval;
+
+            if (last > 0) {
+                // Normal: ada heartbeat tercatat → cek apakah sudah kedaluwarsa
+                return now - last > threshold;
+            }
+
+            // last == 0: belum ada heartbeat yang pernah diterima.
+            // Gunakan waktu login sebagai acuan — jika sudah lewat 3x interval
+            // sejak login tanpa satupun heartbeat, browser pasti sudah ditutup
+            // sebelum heartbeat pertama sempat terkirim.
+            Object loginTs = s.getAttribute("LOGIN_TIMESTAMP");
+            if (loginTs instanceof Long ts) {
+                return now - ts > threshold;
+            }
+
+            // Tidak ada data sama sekali → anggap stale untuk mencegah lockout permanen
+            return true;
         } catch (Exception ex) {
             return false;
         }
