@@ -272,6 +272,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         title = new H3("Loading...");
         title.getStyle().set("margin", "0").set("padding", "0");
         toolbar = new HorizontalLayout();
+        toolbar.addClassName("form-toolbar");
         toolbar.setWidthFull();
         toolbar.setSpacing(false);
 

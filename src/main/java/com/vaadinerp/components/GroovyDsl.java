@@ -40,6 +40,19 @@ public final class GroovyDsl {
                 + "java.nio.file.Paths.get(uploadDir, namaFile) untuk baca isinya");
         // Baca / tulis komponen form
         m.put("getElementValue", "getElementValue(ref, selectedOnly) -> List<Map>");
+        m.put("sendEmail", "sendEmail(to, cc, subject, htmlBody, attachments) — antre email untuk dikirim "
+                + "(bukan langsung kirim, worker terjadwal yang memprosesnya). to/cc dipisah koma kalau lebih "
+                + "dari satu alamat, isi null/\"\" kalau cc/attachments tidak dipakai. attachments = nama file "
+                + "yang SUDAH ada di folder upload (dipisah koma), bukan file baru");
+        m.put("sendWhatsApp", "sendWhatsApp(chatId, message, sessionId) — antre notifikasi WhatsApp (worker "
+                + "terjadwal yang mengirim). chatId format '<nomor>@c.us' (personal) atau '<groupId>@g.us' (grup). "
+                + "sessionId isi null untuk pakai nomor default (app.whatsapp.session-id), atau nama sesi OpenWA "
+                + "lain (lihat dashboard OpenWA > Sessions) untuk kirim dari nomor berbeda");
+        m.put("sendWhatsAppApproval", "sendWhatsAppApproval(chatId, message, procName, jsonParams, sessionId) — "
+                + "antre pesan WhatsApp berisi permintaan approval. Kalau nomor itu membalas APPROVE/OK/YA, "
+                + "procName dipanggil sebagai stored procedure dengan jsonParams; balasan REJECT/TOLAK cuma "
+                + "menutup permintaannya. Satu permintaan PENDING per nomor pada satu waktu. sessionId sama "
+                + "seperti di sendWhatsApp — null untuk default");
         m.put("setElementValue", "setElementValue(ref, value)");
         m.put("setElementReadonly", "setElementReadonly(ref, true|false)");
         m.put("setElementEnabled", "setElementEnabled(ref, true|false)");

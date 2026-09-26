@@ -18,6 +18,8 @@ public class ScriptExecutorService {
     private final org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider;
     private final org.springframework.beans.factory.ObjectProvider<com.vaadinerp.security.service.LoginHistoryService> loginHistoryProvider;
     private final org.springframework.beans.factory.ObjectProvider<FileStorageService> fileStorageServiceProvider;
+    private final org.springframework.beans.factory.ObjectProvider<EmailOutboxService> emailOutboxServiceProvider;
+    private final org.springframework.beans.factory.ObjectProvider<WhatsAppOutboxService> whatsAppOutboxServiceProvider;
     private final com.github.benmanes.caffeine.cache.Cache<String, Class<? extends Script>> scriptCache = com.github.benmanes.caffeine.cache.Caffeine
             .newBuilder()
             .maximumSize(500)
@@ -28,11 +30,88 @@ public class ScriptExecutorService {
     public ScriptExecutorService(
             org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider,
             org.springframework.beans.factory.ObjectProvider<com.vaadinerp.security.service.LoginHistoryService> loginHistoryProvider,
-            org.springframework.beans.factory.ObjectProvider<FileStorageService> fileStorageServiceProvider) {
+            org.springframework.beans.factory.ObjectProvider<FileStorageService> fileStorageServiceProvider,
+            org.springframework.beans.factory.ObjectProvider<EmailOutboxService> emailOutboxServiceProvider,
+            org.springframework.beans.factory.ObjectProvider<WhatsAppOutboxService> whatsAppOutboxServiceProvider) {
         this.dataServiceProvider = dataServiceProvider;
         this.loginHistoryProvider = loginHistoryProvider;
         this.fileStorageServiceProvider = fileStorageServiceProvider;
+        this.emailOutboxServiceProvider = emailOutboxServiceProvider;
+        this.whatsAppOutboxServiceProvider = whatsAppOutboxServiceProvider;
         initCompilerConfig();
+    }
+
+    /**
+     * Binding 'sendEmail' untuk script (row & action scope). Cuma INSERT ke
+     * antrean (lihat EmailOutboxService.queueEmail) -- pengiriman sungguhan
+     * dikerjakan worker terjadwal terpisah, tidak pernah menahan script/UI
+     * menunggu SMTP.
+     *
+     * Signature tetap 5 argumen: sendEmail(to, cc, subject, body, attachments).
+     * Isi null/"" untuk cc atau attachments kalau tidak dipakai -- sengaja
+     * tidak dibuat overload/varargs supaya tidak ambigu di Groovy.
+     */
+    private groovy.lang.Closure<Void> buildSendEmailClosure(ActionContext ctx) {
+        return new groovy.lang.Closure<Void>(null) {
+            @SuppressWarnings("unused")
+            public void doCall(Object to, Object cc, Object subject, Object htmlBody, Object attachments) {
+                EmailOutboxService svc = emailOutboxServiceProvider.getIfAvailable();
+                if (svc == null || to == null) {
+                    return;
+                }
+                svc.queueEmail(to.toString(),
+                        cc != null ? cc.toString() : null,
+                        subject != null ? subject.toString() : "",
+                        htmlBody != null ? htmlBody.toString() : "",
+                        attachments != null ? attachments.toString() : null,
+                        ctx != null ? ctx.getUserId() : "script");
+            }
+        };
+    }
+
+    /**
+     * Binding 'sendWhatsApp' -- antre notifikasi WhatsApp biasa, tanpa approval.
+     * Signature tetap 3 argumen: sendWhatsApp(chatId, message, sessionId).
+     * sessionId isi null untuk pakai default app.whatsapp.session-id, atau
+     * nama sesi OpenWA (dashboard OpenWA > Sessions) untuk pilih nomor lain.
+     */
+    private groovy.lang.Closure<Void> buildSendWhatsAppClosure(ActionContext ctx) {
+        return new groovy.lang.Closure<Void>(null) {
+            @SuppressWarnings("unused")
+            public void doCall(Object chatId, Object message, Object sessionId) {
+                WhatsAppOutboxService svc = whatsAppOutboxServiceProvider.getIfAvailable();
+                if (svc == null || chatId == null) {
+                    return;
+                }
+                svc.queueMessage(chatId.toString(), message != null ? message.toString() : "",
+                        sessionId != null ? sessionId.toString() : null,
+                        ctx != null ? ctx.getUserId() : "script");
+            }
+        };
+    }
+
+    /**
+     * Binding 'sendWhatsAppApproval' -- antre permintaan approval lewat WhatsApp.
+     * Balasan "APPROVE"/"OK"/"YA" dari nomor itu memanggil procName(procParams,
+     * userId) lewat WhatsAppInboxService saat webhook masuk; balasan
+     * "REJECT"/"TOLAK" cuma menutup permintaannya tanpa memanggil apa pun.
+     * Signature tetap 5 argumen: sendWhatsAppApproval(chatId, message, procName,
+     * jsonParams, sessionId). sessionId isi null untuk pakai default.
+     */
+    private groovy.lang.Closure<Void> buildSendWhatsAppApprovalClosure(ActionContext ctx) {
+        return new groovy.lang.Closure<Void>(null) {
+            @SuppressWarnings("unused")
+            public void doCall(Object chatId, Object message, Object procName, Object jsonParams, Object sessionId) {
+                WhatsAppOutboxService svc = whatsAppOutboxServiceProvider.getIfAvailable();
+                if (svc == null || chatId == null || procName == null) {
+                    return;
+                }
+                svc.queueApprovalRequest(chatId.toString(), message != null ? message.toString() : "",
+                        procName.toString(), jsonParams != null ? jsonParams.toString() : "{}",
+                        sessionId != null ? sessionId.toString() : null,
+                        ctx != null ? ctx.getUserId() : "script");
+            }
+        };
     }
 
     /**
@@ -250,6 +329,9 @@ public class ScriptExecutorService {
                         ctx.setElementValue(ref, val);
                     }
                 });
+                binding.setVariable("sendEmail", buildSendEmailClosure(ctx));
+                binding.setVariable("sendWhatsApp", buildSendWhatsAppClosure(ctx));
+                binding.setVariable("sendWhatsAppApproval", buildSendWhatsAppApprovalClosure(ctx));
                 binding.setVariable("getElementValue", new groovy.lang.Closure<List<Map<String, Object>>>(null) {
                     @SuppressWarnings("unused")
                     public List<Map<String, Object>> doCall(String ref, boolean selected) {
@@ -541,6 +623,9 @@ public class ScriptExecutorService {
                     ctx.setElementValue(ref, val);
                 }
             });
+            binding.setVariable("sendEmail", buildSendEmailClosure(ctx));
+            binding.setVariable("sendWhatsApp", buildSendWhatsAppClosure(ctx));
+            binding.setVariable("sendWhatsAppApproval", buildSendWhatsAppApprovalClosure(ctx));
             binding.setVariable("setElementDisabled", new groovy.lang.Closure<Void>(null) {
                 public void doCall(Object ref, boolean disabled) {
                     ctx.setElementEnabled(ref, !disabled);
@@ -898,7 +983,8 @@ public class ScriptExecutorService {
      */
     public static final java.util.Set<String> ROW_SCRIPT_NAMES = java.util.Set.of(
             "db", "form", "getElementValue", "header", "items", "lov", "msgBox", "row", "rowIndex", "self",
-            "setElementEnabled", "setElementReadonly", "setElementValue", "uploadDir");
+            "sendEmail", "sendWhatsApp", "sendWhatsAppApproval", "setElementEnabled", "setElementReadonly",
+            "setElementValue", "uploadDir");
 
     /**
      * Nilai field pemicu untuk variabel {@code self}. Berperilaku seperti nilai
@@ -1083,7 +1169,8 @@ public class ScriptExecutorService {
     public static final java.util.Set<String> ACTION_SCRIPT_NAMES = java.util.Set.of(
             "JsonOutput", "JsonSlurper", "clearForm", "ctx", "db", "executeProcedure",
             "getElementValue", "header", "lov", "msgBox", "prompt", "refreshForm", "selectedRows", "self",
-            "setElementDisabled", "setElementEnabled", "setElementReadonly", "setElementValue",
+            "sendEmail", "sendWhatsApp", "sendWhatsAppApproval", "setElementDisabled", "setElementEnabled",
+            "setElementReadonly", "setElementValue",
             "showDialog", "showError", "showMainTab", "showOptionsDialog", "showSuccess",
             "showYesNoDialog", "uploadDir");
 

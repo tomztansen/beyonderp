@@ -442,6 +442,30 @@ public class ComponentFactory {
         }
     }
 
+    private static com.github.benmanes.caffeine.cache.Cache<String, String> labelCacheFor(String lovCode) {
+        return lovLabelCache.get(lovCode,
+                code -> com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
+                        .maximumSize(10000)
+                        .expireAfterAccess(java.time.Duration.ofMinutes(60))
+                        .build());
+    }
+
+    /**
+     * Isi cache label LOV dari hasil batch (satu query IN), supaya rendering grid
+     * lewat formatFieldValueWithLov tidak lagi mencari label satu per satu per baris.
+     * Label kosong sengaja dilewati: biar jalur lama (fallback code/name) yang menangani.
+     */
+    public static void primeLovLabelCache(String lovCode, Map<String, String> idToLabel) {
+        if (lovCode == null || lovCode.isBlank() || idToLabel == null || idToLabel.isEmpty())
+            return;
+        com.github.benmanes.caffeine.cache.Cache<String, String> map = labelCacheFor(lovCode.trim());
+        idToLabel.forEach((id, label) -> {
+            if (id != null && label != null && !label.trim().isEmpty()) {
+                map.put(id.trim(), label.trim());
+            }
+        });
+    }
+
     public static String formatFieldValueWithLov(FieldMeta field, Object val,
             com.vaadinerp.service.DynamicDataService dataService) {
         if (val == null)
@@ -452,11 +476,7 @@ public class ComponentFactory {
         if (field != null && field.getLovCode() != null && !field.getLovCode().trim().isEmpty()
                 && dataService != null) {
             String lovCode = field.getLovCode().trim();
-            com.github.benmanes.caffeine.cache.Cache<String, String> map = lovLabelCache.get(lovCode,
-                    code -> com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
-                            .maximumSize(10000)
-                            .expireAfterAccess(java.time.Duration.ofMinutes(60))
-                            .build());
+            com.github.benmanes.caffeine.cache.Cache<String, String> map = labelCacheFor(lovCode);
 
             if (strVal.contains(",")) {
                 return java.util.Arrays.stream(strVal.split(","))
@@ -1152,6 +1172,18 @@ public class ComponentFactory {
                 return imageUpload;
             case "LABEL":
                 return new LabelField("", field.getFieldLabel(), field.getDisplayFormat());
+            case "QR_SCAN":
+                QrScanField qrScan = new QrScanField(label);
+                String qrMode = field.getDisplayFormat();
+                if ("SCAN_ONLY".equalsIgnoreCase(qrMode)) {
+                    qrScan.setInputMode(QrScanField.InputMode.SCAN_ONLY);
+                } else if ("TYPE_ONLY".equalsIgnoreCase(qrMode)) {
+                    qrScan.setInputMode(QrScanField.InputMode.TYPE_ONLY);
+                } else {
+                    qrScan.setInputMode(QrScanField.InputMode.BOTH);
+                }
+                qrScan.setReadOnly(field.isReadonly());
+                return qrScan;
             default:
                 TextField defaultField = new TextField(label);
                 defaultField.setReadOnly(field.isReadonly());
@@ -1216,6 +1248,8 @@ public class ComponentFactory {
             bf.setReadOnly(ro);
         } else if (component instanceof FileUploadField fu) {
             fu.setReadOnly(ro);
+        } else if (component instanceof QrScanField qsf) {
+            qsf.setReadOnly(ro);
         }
     }
 }

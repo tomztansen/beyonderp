@@ -4386,56 +4386,14 @@ public class DynamicDataService {
                     }
 
                     if (!uniqueIds.isEmpty()) {
-                        com.vaadinerp.meta.LovMeta lovMeta = getLovMeta(lovCode).orElse(null);
-                        if (lovMeta != null && lovMeta.getTableName() != null && !lovMeta.getTableName().isBlank()) {
-                            String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank()
-                                    ? lovMeta.getValueColumn().trim()
-                                    : "id";
-                            if (!valCol.matches("^[a-zA-Z0-9_]+$")) valCol = "id";
-                            
-                            String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank()
-                                    ? lovMeta.getLabelColumn().trim()
-                                    : valCol;
-
-                            String tableName = lovMeta.getTableName().trim();
-                            String lovTableSql = isCustomSelectQuery(tableName)
-                                    ? " (" + validateAndSanitizeSelectQuery(tableName) + ") AS sub "
-                                    : getLovQualifiedTableName(tableName);
-
-                            StringBuilder inClause = new StringBuilder();
-                            List<Object> inArgs = new ArrayList<>();
-                            for (Object id : uniqueIds) {
-                                if (inClause.length() > 0) inClause.append(", ");
-                                inClause.append("?");
-                                inArgs.add(id); // Gunakan tipe asli (Integer/Long/String) agar index DB berjalan
-                            }
-
-                            String lovSql = "SELECT CAST(" + valCol + " AS TEXT) AS val, " + lblCol + " AS lbl FROM "
-                                    + lovTableSql + " WHERE " + valCol + " IN (" + inClause + ")";
-
-                            try {
-                                List<Map<String, Object>> lovData = jdbcTemplate.queryForList(lovSql, inArgs.toArray());
-                                Map<String, String> idToLabelMap = new java.util.HashMap<>();
-                                for (Map<String, Object> lovRow : lovData) {
-                                    Object v = getCaseInsensitiveValue(lovRow, "val");
-                                    Object l = getCaseInsensitiveValue(lovRow, "lbl");
-                                    if (v != null && l != null) {
-                                        idToLabelMap.put(v.toString(), l.toString());
-                                    }
+                        Map<String, String> idToLabelMap = fetchLovLabelsBatch(lovCode, uniqueIds);
+                        for (Map<String, Object> row : modifiableResults) {
+                            Object val = getCaseInsensitiveValue(row, colName);
+                            if (val != null) {
+                                String label = idToLabelMap.get(val.toString());
+                                if (label != null) {
+                                    row.put(colName + "_label", label);
                                 }
-
-                                // Inject labels back into the chunk
-                                for (Map<String, Object> row : modifiableResults) {
-                                    Object val = getCaseInsensitiveValue(row, colName);
-                                    if (val != null) {
-                                        String label = idToLabelMap.get(val.toString());
-                                        if (label != null) {
-                                            row.put(colName + "_label", label);
-                                        }
-                                    }
-                                }
-                            } catch (Exception ex) {
-                                System.err.println("Error batch fetching LOV labels for column " + colName + ": " + ex.getMessage());
                             }
                         }
                     }
@@ -4671,6 +4629,60 @@ public class DynamicDataService {
 
             jdbcTemplate.execute(triggerSql.toString());
         }
+    }
+
+    /**
+     * Ambil label LOV untuk banyak ID sekaligus dengan satu query IN. Kunci map =
+     * nilai value-column dalam bentuk teks. Dipakai grid utama (fetchGridDataPaged)
+     * dan subform grid, supaya label tidak dicari satu per satu per baris.
+     */
+    public Map<String, String> fetchLovLabelsBatch(String lovCode, java.util.Collection<Object> ids) {
+        Map<String, String> idToLabelMap = new java.util.HashMap<>();
+        if (lovCode == null || lovCode.isBlank() || ids == null || ids.isEmpty()) {
+            return idToLabelMap;
+        }
+        com.vaadinerp.meta.LovMeta lovMeta = getLovMeta(lovCode.trim()).orElse(null);
+        if (lovMeta == null || lovMeta.getTableName() == null || lovMeta.getTableName().isBlank()) {
+            return idToLabelMap;
+        }
+        String valCol = lovMeta.getValueColumn() != null && !lovMeta.getValueColumn().isBlank()
+                ? lovMeta.getValueColumn().trim()
+                : "id";
+        if (!valCol.matches("^[a-zA-Z0-9_]+$")) valCol = "id";
+
+        String lblCol = lovMeta.getLabelColumn() != null && !lovMeta.getLabelColumn().isBlank()
+                ? lovMeta.getLabelColumn().trim()
+                : valCol;
+
+        String tableName = lovMeta.getTableName().trim();
+        String lovTableSql = isCustomSelectQuery(tableName)
+                ? " (" + validateAndSanitizeSelectQuery(tableName) + ") AS sub "
+                : getLovQualifiedTableName(tableName);
+
+        StringBuilder inClause = new StringBuilder();
+        List<Object> inArgs = new ArrayList<>();
+        for (Object id : ids) {
+            if (inClause.length() > 0) inClause.append(", ");
+            inClause.append("?");
+            inArgs.add(id); // Gunakan tipe asli (Integer/Long/String) agar index DB berjalan
+        }
+
+        String lovSql = "SELECT CAST(" + valCol + " AS TEXT) AS val, " + lblCol + " AS lbl FROM "
+                + lovTableSql + " WHERE " + valCol + " IN (" + inClause + ")";
+
+        try {
+            List<Map<String, Object>> lovData = jdbcTemplate.queryForList(lovSql, inArgs.toArray());
+            for (Map<String, Object> lovRow : lovData) {
+                Object v = getCaseInsensitiveValue(lovRow, "val");
+                Object l = getCaseInsensitiveValue(lovRow, "lbl");
+                if (v != null && l != null) {
+                    idToLabelMap.put(v.toString(), l.toString());
+                }
+            }
+        } catch (Exception ex) {
+            System.err.println("Error batch fetching LOV labels for LOV " + lovCode + ": " + ex.getMessage());
+        }
+        return idToLabelMap;
     }
 
     public List<Map<String, Object>> fetchDetailTableData(String detailTableName, String fkColumn, Object fkValue) {

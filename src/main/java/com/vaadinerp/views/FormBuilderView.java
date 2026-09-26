@@ -127,6 +127,7 @@ public class FormBuilderView extends VerticalLayout {
     private final ComboBox<String> propSequenceCode = new ComboBox<>("⚡ Auto-Sequence Code");
     private final TextField propDisplayFormat = new TextField("Format (e.g. dd/MM/yyyy or #,##0.00)");
     private final ComboBox<String> propLabelStyle = new ComboBox<>("Style Label");
+    private final ComboBox<String> propQrInputMode = new ComboBox<>("QR Input Mode");
     private final Checkbox propSaveOnInsert = new Checkbox("Save on Insert");
     private final Checkbox propSaveOnUpdate = new Checkbox("Save on Edit/Update");
     private final Checkbox propIsAuditLog = new Checkbox("Audit Log");
@@ -692,7 +693,8 @@ public class FormBuilderView extends VerticalLayout {
                 createPaletteButton("Subform Grid", VaadinIcon.GRID, "SUBFORM_GRID"),
                 createPaletteButton("File Upload", VaadinIcon.UPLOAD, "FILE_UPLOAD"),
                 createPaletteButton("Image Upload", VaadinIcon.PICTURE, "IMAGE_UPLOAD"),
-                createPaletteButton("Label", VaadinIcon.TAG, "LABEL"));
+                createPaletteButton("Label", VaadinIcon.TAG, "LABEL"),
+                createPaletteButton("QR Scan", VaadinIcon.CAMERA, "QR_SCAN"));
 
         // COLUMN B: CANVAS PREVIEW
         canvasPanel.setHeightFull();
@@ -990,7 +992,7 @@ public class FormBuilderView extends VerticalLayout {
 
         propComponentType.setItems("TEXTBOX", "INTBOX", "DECIMALBOX", "DATEBOX", "DATETIMEBOX", "TIMEBOX", "CHECKBOX",
                 "TEXTAREA", "COMBOBOX", "LISTBOX", "BANDBOX", "CHOSENBOX", "SUBFORM_GRID", "FILE_UPLOAD",
-                "IMAGE_UPLOAD", "LABEL");
+                "IMAGE_UPLOAD", "LABEL", "QR_SCAN");
 
         // Configure propLovCode BandboxField
         propLovCode.setGridConfigurator(grid -> {
@@ -1108,7 +1110,7 @@ public class FormBuilderView extends VerticalLayout {
 
         propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov,
                 propBtnFilters, propBtnLovTargets, propRowGroup, propColSpan, propFieldWidth, propReadonlyMode,
-                propFormula, propDisplayFormat, propLabelStyle, propValidationRule, propSequenceCode, propBtnCustomValidation,
+                propFormula, propDisplayFormat, propLabelStyle, propQrInputMode, propValidationRule, propSequenceCode, propBtnCustomValidation,
                 propHyperlinkTargetForm, propHyperlinkFilterMapping,
                 checkBoxLayout,
                 propBtnOnAddScript, propBtnOnChangeScript);
@@ -1245,6 +1247,16 @@ public class FormBuilderView extends VerticalLayout {
                 selectedFields.iterator().next().displayFormat = "NORMAL".equalsIgnoreCase(val) ? "" : (val != null ? val : "");
             }
         });
+        propQrInputMode.setItems("BOTH", "SCAN_ONLY", "TYPE_ONLY");
+        propQrInputMode.setPlaceholder("Select mode...");
+        propQrInputMode.setClearButtonVisible(false);
+        propQrInputMode.setVisible(false);
+        propQrInputMode.setHelperText("BOTH = scan & ketik, SCAN_ONLY = wajib scan, TYPE_ONLY = ketik saja");
+        propQrInputMode.addValueChangeListener(e -> {
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().displayFormat = e.getValue() != null ? e.getValue() : "BOTH";
+            }
+        });
         propValidationRule.addValueChangeListener(e -> {
             if (!selectedFields.isEmpty() && e.isFromClient()) {
                 selectedFields.iterator().next().validationRule = e.getValue();
@@ -1285,11 +1297,14 @@ public class FormBuilderView extends VerticalLayout {
     private void updatePropertyFieldsState(String componentType) {
         boolean isLabel = "LABEL".equalsIgnoreCase(componentType);
         boolean isSubform = "SUBFORM_GRID".equalsIgnoreCase(componentType);
+        boolean isQrScan = "QR_SCAN".equalsIgnoreCase(componentType);
         // LABEL & SUBFORM_GRID pakai pilihan Style (NORMAL/BOLD/HEADING) untuk caption,
-        // bukan format angka/tanggal.
+        // bukan format angka/tanggal. QR_SCAN pakai pilihan mode scan/ketik-nya sendiri,
+        // ketiganya menaruh nilainya di displayFormat yang sama tapi arti beda per tipe.
         boolean useStyle = isLabel || isSubform;
-        propDisplayFormat.setVisible(!useStyle);
+        propDisplayFormat.setVisible(!useStyle && !isQrScan);
         propLabelStyle.setVisible(useStyle);
+        propQrInputMode.setVisible(isQrScan);
         propFormula.setVisible(!isLabel);
         propFieldLabel.setLabel(isLabel ? "Teks yang Ditampilkan" : "Field Label / Caption");
 
@@ -1464,6 +1479,9 @@ public class FormBuilderView extends VerticalLayout {
                             || "SUBFORM_GRID".equalsIgnoreCase(first.componentType)) {
                         String fmt = first.displayFormat != null ? first.displayFormat.toUpperCase() : "";
                         propLabelStyle.setValue(fmt.isEmpty() || "NORMAL".equals(fmt) ? "NORMAL" : fmt);
+                    } else if ("QR_SCAN".equalsIgnoreCase(first.componentType)) {
+                        String mode = first.displayFormat != null ? first.displayFormat.toUpperCase() : "";
+                        propQrInputMode.setValue(mode.isEmpty() ? "BOTH" : mode);
                     } else {
                         propDisplayFormat.setValue(first.displayFormat != null ? first.displayFormat : "");
                     }
@@ -1902,7 +1920,7 @@ public class FormBuilderView extends VerticalLayout {
 
         String[] components = {"TEXTBOX", "INTBOX", "DECIMALBOX", "DATEBOX", "DATETIMEBOX", "TIMEBOX", "CHECKBOX",
                 "TEXTAREA", "COMBOBOX", "LISTBOX", "BANDBOX", "CHOSENBOX", "SUBFORM_GRID", "FILE_UPLOAD",
-                "IMAGE_UPLOAD", "LABEL"};
+                "IMAGE_UPLOAD", "LABEL", "QR_SCAN"};
 
         for (String type : components) {
             Button btn = new Button(type, VaadinIcon.PLUS.create());
@@ -2611,6 +2629,8 @@ public class FormBuilderView extends VerticalLayout {
                         temp.fieldLabel,
                         temp.formula,
                         temp.displayFormat);
+            case "QR_SCAN":
+                return new com.vaadinerp.components.QrScanField(label);
             default:
                 return new TextField(label);
         }
@@ -4061,7 +4081,7 @@ public class FormBuilderView extends VerticalLayout {
 
         TextField nameField = new TextField("LOV Name");
         nameField.setWidthFull();
-        TextField tableField = new TextField("Table Name / Query");
+        TextArea tableField = new TextArea("Table Name / Query");
         tableField.setWidthFull();
         tableField.setReadOnly(true);
         TextField valueColField = new TextField("Value Column");

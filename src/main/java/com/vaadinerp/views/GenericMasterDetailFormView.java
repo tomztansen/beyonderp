@@ -279,6 +279,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
         // Setup Toolbar
         toolbar = new HorizontalLayout();
+        toolbar.addClassName("form-toolbar");
         toolbar.setWidthFull();
         toolbar.getStyle()
                 .set("background-color", "#f3f4f6")

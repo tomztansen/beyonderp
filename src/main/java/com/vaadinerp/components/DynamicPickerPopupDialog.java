@@ -28,6 +28,7 @@ public class DynamicPickerPopupDialog extends Dialog {
 
     private final Grid<Map<String, Object>> grid;
     private final TextField searchField;
+    private final Map<String, String> columnFilters = new HashMap<>();
 
     public DynamicPickerPopupDialog(FormActionMeta actionMeta,
             DynamicDataService dataService,
@@ -59,26 +60,7 @@ public class DynamicPickerPopupDialog extends Dialog {
             }
         });
 
-        searchField.addValueChangeListener(e -> {
-            String term = e.getValue() != null ? e.getValue().toLowerCase() : "";
-            if (grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
-                // instanceof di atas hanya memeriksa jenis mentahnya; parameter generiknya
-                // dijamin oleh Grid<Map<String, Object>>, bukan oleh javac.
-                @SuppressWarnings("unchecked")
-                com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) grid
-                        .getDataProvider();
-                dp.setFilter(row -> {
-                    if (term.isEmpty())
-                        return true;
-                    for (Object val : row.values()) {
-                        if (val != null && val.toString().toLowerCase().contains(term)) {
-                            return true;
-                        }
-                    }
-                    return false;
-                });
-            }
-        });
+        searchField.addValueChangeListener(e -> applyFilters());
 
         Button refreshBtn = new com.vaadinerp.components.SafeButton("Refresh", VaadinIcon.REFRESH.create(), e -> loadData());
 
@@ -154,48 +136,80 @@ public class DynamicPickerPopupDialog extends Dialog {
 
         LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
         FormMeta targetForm = dataService.getFormMetaRepository().findById(lovCode).orElse(null);
+        String table = lovMeta != null ? lovMeta.getTableName() : lovCode;
+        List<String> allCols = dataService.getColumnsForQueryOrTable(table);
 
+        Map<String, String[]> colDefMap = new HashMap<>();
         if (lovMeta != null && lovMeta.getGridColumns() != null && !lovMeta.getGridColumns().isBlank()) {
             String[] colDefs = lovMeta.getGridColumns().split(",");
             for (String colDef : colDefs) {
                 String[] parts = colDef.split(":");
-                String colName = parts[0].trim();
-                String colHeader = parts.length > 1 ? parts[1].trim() : colName;
-                String colWidth = parts.length > 2 ? parts[2].trim() : "150px";
-
-                FieldMeta targetField = (targetForm != null && targetForm.getFields() != null)
-                        ? targetForm.getFields().stream()
-                                .filter(f -> f.getFieldName().equalsIgnoreCase(colName))
-                                .findFirst().orElse(null)
-                        : null;
-
-                Grid.Column<Map<String, Object>> col = grid.addColumn(row -> {
-                    Object valObj = getCaseInsensitiveVal(row, colName);
-                    return ComponentFactory.formatFieldValueWithLov(targetField, valObj, dataService);
-                }).setHeader(colHeader).setResizable(true);
-
-                if (parts.length > 2 && !colWidth.isEmpty()) {
-                    col.setWidth(colWidth);
-                    col.setAutoWidth(false);
-                } else {
-                    col.setAutoWidth(true);
-                }
-
-                if (targetField != null) {
-                    col.setSortable(targetField.isSortable());
-                }
-            }
-        } else {
-            String table = lovMeta != null ? lovMeta.getTableName() : lovCode;
-            List<String> allCols = dataService.getColumnsForQueryOrTable(table);
-            for (String colName : allCols) {
-                String header = colName.substring(0, 1).toUpperCase() + colName.substring(1).replace("_", " ");
-                grid.addColumn(row -> {
-                    Object valObj = getCaseInsensitiveVal(row, colName);
-                    return valObj != null ? valObj.toString() : "";
-                }).setHeader(header).setAutoWidth(true).setResizable(true);
+                colDefMap.put(parts[0].trim().toLowerCase(), parts);
             }
         }
+
+        Map<String, Grid.Column<Map<String, Object>>> columnsMap = new LinkedHashMap<>();
+
+        for (String rawColName : allCols) {
+            String colNameLower = rawColName.toLowerCase();
+            // colDefMap terisi dari field form (Show in Grid) atau dari gridColumns LOV --
+            // kalau ada definisinya, itu jadi whitelist: kolom lain di tabel disembunyikan.
+            // colDefMap kosong (LOV/tabel tanpa definisi apa pun) berarti tampilkan semua,
+            // supaya tidak ada dari LOV mentah yang tiba-tiba grid-nya kosong.
+            if (!colDefMap.isEmpty() && !colDefMap.containsKey(colNameLower)) {
+                continue;
+            }
+            String colHeader = rawColName.substring(0, 1).toUpperCase() + rawColName.substring(1).replace("_", " ");
+            String colWidth = "";
+
+            if (colDefMap.containsKey(colNameLower)) {
+                String[] parts = colDefMap.get(colNameLower);
+                if (parts.length > 1) colHeader = parts[1].trim();
+                if (parts.length > 2) colWidth = parts[2].trim();
+            }
+
+            final String finalColName = rawColName;
+            FieldMeta targetField = (targetForm != null && targetForm.getFields() != null)
+                    ? targetForm.getFields().stream()
+                            .filter(f -> f.getFieldName().equalsIgnoreCase(finalColName))
+                            .findFirst().orElse(null)
+                    : null;
+
+            Grid.Column<Map<String, Object>> col = grid.addColumn(row -> {
+                Object valObj = getCaseInsensitiveVal(row, finalColName);
+                if (targetField != null) {
+                    return ComponentFactory.formatFieldValueWithLov(targetField, valObj, dataService);
+                }
+                return valObj != null ? valObj.toString() : "";
+            }).setHeader(colHeader).setResizable(true);
+
+            if (!colWidth.isEmpty()) {
+                col.setWidth(colWidth);
+                col.setAutoWidth(false);
+            } else {
+                col.setAutoWidth(true);
+            }
+            if (targetField != null) {
+                col.setSortable(targetField.isSortable());
+            } else {
+                col.setSortable(true);
+            }
+            columnsMap.put(rawColName, col);
+        }
+
+        com.vaadin.flow.component.grid.HeaderRow filterRow = grid.appendHeaderRow();
+        columnsMap.forEach((colName, col) -> {
+            TextField filterField = new TextField();
+            filterField.setPlaceholder("Filter...");
+            filterField.setClearButtonVisible(true);
+            filterField.setWidthFull();
+            filterField.setValueChangeMode(ValueChangeMode.EAGER);
+            filterField.addValueChangeListener(e -> {
+                columnFilters.put(colName, e.getValue() != null ? e.getValue().toLowerCase() : "");
+                applyFilters();
+            });
+            filterRow.getCell(col).setComponent(filterField);
+        });
     }
 
     private void loadData() {
@@ -207,23 +221,7 @@ public class DynamicPickerPopupDialog extends Dialog {
                     "");
             grid.setItems(records);
 
-            // Terapkan ulang filter lokal jika teks pencarian tidak kosong
-            String term = searchField.getValue() != null ? searchField.getValue().toLowerCase() : "";
-            if (!term.isEmpty() && grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
-                // instanceof di atas hanya memeriksa jenis mentahnya; parameter generiknya
-                // dijamin oleh Grid<Map<String, Object>>, bukan oleh javac.
-                @SuppressWarnings("unchecked")
-                com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) grid
-                        .getDataProvider();
-                dp.setFilter(row -> {
-                    for (Object val : row.values()) {
-                        if (val != null && val.toString().toLowerCase().contains(term)) {
-                            return true;
-                        }
-                    }
-                    return false;
-                });
-            }
+            applyFilters();
         } catch (Exception e) {
             com.vaadin.flow.component.notification.Notification notif = com.vaadin.flow.component.notification.Notification
                     .show(
@@ -243,5 +241,44 @@ public class DynamicPickerPopupDialog extends Dialog {
                 return e.getValue();
         }
         return null;
+    }
+
+    private void applyFilters() {
+        if (grid.getDataProvider() instanceof com.vaadin.flow.data.provider.ListDataProvider) {
+            @SuppressWarnings("unchecked")
+            com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>> dp = (com.vaadin.flow.data.provider.ListDataProvider<Map<String, Object>>) grid.getDataProvider();
+            
+            String globalTerm = searchField.getValue() != null ? searchField.getValue().toLowerCase() : "";
+            
+            dp.setFilter(row -> {
+                // Global filter
+                if (!globalTerm.isEmpty()) {
+                    boolean matchGlobal = false;
+                    for (Object val : row.values()) {
+                        if (val != null && val.toString().toLowerCase().contains(globalTerm)) {
+                            matchGlobal = true;
+                            break;
+                        }
+                    }
+                    if (!matchGlobal) return false;
+                }
+                
+                // Column filters
+                for (Map.Entry<String, String> entry : columnFilters.entrySet()) {
+                    String term = entry.getValue();
+                    if (term != null && !term.isEmpty()) {
+                        Object val = getCaseInsensitiveVal(row, entry.getKey());
+                        if (val == null) return false;
+                        
+                        // Handle formatFieldValueWithLov equivalent local filtering string comparison
+                        String strVal = val.toString().toLowerCase();
+                        if (!strVal.contains(term)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            });
+        }
     }
 }

@@ -700,3 +700,55 @@ vaadin-tabsheet [slot="tabs"] {
     /* Samakan dengan padding-left panel di atas supaya tab sejajar dengan grid. */
     padding-left: 0;
 }
+
+/* ==========================================================================
+   NAVBAR RESPONSIVE (MOBILE ONLY) — PortalView.setupNavbar()
+   Sebelumnya title + IP badge + info user + 2 tombol dipaksa muat satu baris
+   tanpa aturan responsif apa pun, jadi teksnya word-wrap 3 baris dan terpotong
+   di layar sempit. Semua override di sini digerbangi @media supaya desktop
+   (>600px) tidak tersentuh sama sekali -- perilakunya identik seperti sebelum
+   perubahan ini.
+   ========================================================================== */
+@media (max-width: 600px) {
+    .gms-navbar {
+        padding-left: 4px !important;
+        padding-right: 8px !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        flex-wrap: nowrap !important;
+    }
+
+    .gms-navbar-title {
+        white-space: nowrap !important;
+        font-size: 0.95rem !important;
+        margin-left: 4px !important;
+    }
+
+    .gms-navbar-username {
+        white-space: nowrap !important;
+    }
+
+    /* IP badge dan teks role cuma info sekunder -- disembunyikan di HP supaya
+       nama, tombol Change Password, dan Logout tetap kebagian tempat. */
+    .gms-navbar-ip,
+    .gms-navbar-role {
+        display: none !important;
+    }
+
+    /* Toolbar form/subform (GenericFormView, GenericMasterDetailFormView,
+       SubformGridField) -- semuanya berisi banyak tombol dalam satu
+       HorizontalLayout tanpa wrap/overflow, jadi di layar sempit tombol
+       terakhir (Save, Export Excel, dst) terpotong di tepi layar. Ganti
+       jadi bisa di-swipe horizontal, sama seperti perbaikan navbar --
+       tidak ada tombol yang hilang, cuma butuh geser jari. */
+    .form-toolbar {
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        flex-wrap: nowrap !important;
+    }
+
+    .form-toolbar vaadin-button,
+    .form-toolbar a {
+        flex-shrink: 0 !important;
+    }
+}

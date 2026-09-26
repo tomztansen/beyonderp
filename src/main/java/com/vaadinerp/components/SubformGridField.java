@@ -248,6 +248,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         // Toolbar
         HorizontalLayout toolbar = new HorizontalLayout();
+        toolbar.addClassName("form-toolbar");
         toolbar.setWidthFull();
         toolbar.setSpacing(true);
 
@@ -1242,6 +1243,12 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
         // 3. Row Drag and Drop
         grid.setRowsDraggable(true);
+        // Baris yang sedang diedit tidak ikut draggable, supaya drag di dalam input
+        // editor menyeleksi teks, bukan memulai drag baris. Editor Vaadin me-refresh
+        // baris itu saat dibuka/ditutup (field edited di-set lebih dulu), sehingga
+        // filter ini dievaluasi ulang otomatis tanpa perlu toggle rowsDraggable.
+        // Pakai perbandingan referensi: dua baris Map bisa sama isinya.
+        grid.setDragFilter(row -> row != grid.getEditor().getItem());
         gridDragStartReg = grid.addDragStartListener(event -> {
             if (!event.getDraggedItems().isEmpty()) {
                 draggedItem = event.getDraggedItems().get(0);
@@ -1721,6 +1728,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 }
             }
         }
+        primeLovLabels();
         java.util.List<com.vaadin.flow.component.grid.GridSortOrder<Map<String, Object>>> currentSort = grid
                 .getSortOrder();
         grid.setDataProvider(createDataProvider());
@@ -1728,6 +1736,42 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             grid.sort(currentSort);
         }
         applyFilters();
+    }
+
+    /**
+     * Ambil label semua kolom LOV sekaligus (satu query IN per kolom) lalu isi cache
+     * label, sama seperti grid utama di fetchGridDataPaged. Tanpa ini tiap baris
+     * dengan ID berbeda memicu fetchLovRecord sendiri-sendiri (3 query per baris).
+     */
+    private void primeLovLabels() {
+        if (dataService == null || childFormDef == null || childFormDef.getFields() == null || items.isEmpty())
+            return;
+        for (FieldMeta field : childFormDef.getFields()) {
+            String lovCode = field.getLovCode();
+            if (lovCode == null || lovCode.isBlank() || "SUBFORM_GRID".equalsIgnoreCase(field.getComponentType()))
+                continue;
+            java.util.Set<Object> ids = new java.util.HashSet<>();
+            for (Map<String, Object> row : items) {
+                Object val = getCaseInsensitiveVal(row, field.getFieldName());
+                if (val == null)
+                    continue;
+                String s = val.toString().trim();
+                if (s.isEmpty())
+                    continue;
+                if (s.contains(",")) {
+                    for (String part : s.split(",")) {
+                        if (!part.trim().isEmpty())
+                            ids.add(part.trim());
+                    }
+                } else {
+                    ids.add(val);
+                }
+            }
+            if (!ids.isEmpty()) {
+                ComponentFactory.primeLovLabelCache(lovCode.trim(),
+                        dataService.fetchLovLabelsBatch(lovCode.trim(), ids));
+            }
+        }
     }
 
     @Override

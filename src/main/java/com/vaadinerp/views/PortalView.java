@@ -129,6 +129,7 @@ public class PortalView extends AppLayout {
         toggle.getStyle().set("color", "#4f46e5").set("cursor", "pointer");
 
         Span titleSpan = new Span("PT. GROWTH ASIA");
+        titleSpan.addClassName("gms-navbar-title");
         titleSpan.getStyle()
                 .set("font-weight", "700")
                 .set("font-size", "1.25rem")
@@ -148,6 +149,7 @@ public class PortalView extends AppLayout {
         String ip = com.vaadinerp.security.service.LoginHistoryService.clientIp();
 
         Div ipBadge = new Div();
+        ipBadge.addClassName("gms-navbar-ip");
         Icon globeIcon = VaadinIcon.GLOBE.create();
         globeIcon.getStyle().set("width", "14px").set("height", "14px").set("margin-right", "6px").set("color",
                 "#6366f1");
@@ -188,9 +190,11 @@ public class PortalView extends AppLayout {
         textBlock.setPadding(false);
         textBlock.setSpacing(false);
         Span nameSpan = new Span(uName);
+        nameSpan.addClassName("gms-navbar-username");
         nameSpan.getStyle().set("font-weight", "600").set("font-size", "0.85rem").set("color", "#0f172a")
                 .set("line-height", "1.2");
         Span roleSpan = new Span(uRole);
+        roleSpan.addClassName("gms-navbar-role");
         roleSpan.getStyle().set("font-size", "0.7rem").set("color", "#64748b").set("line-height", "1.2");
         textBlock.add(nameSpan, roleSpan);
 
@@ -216,6 +220,7 @@ public class PortalView extends AppLayout {
         rightSection.add(ipBadge, userProfile, changePassBtn, logoutBtn);
 
         HorizontalLayout header = new HorizontalLayout(leftSection, rightSection);
+        header.addClassName("gms-navbar");
         header.setWidthFull();
         header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.getStyle()

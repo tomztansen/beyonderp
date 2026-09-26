@@ -57,6 +57,7 @@ public class FormActionBuilderView extends VerticalLayout {
     private final TextField typeFilterField = new TextField();
     private final TextField groupFilterField = new TextField();
     private final TextField sourceFilterField = new TextField();
+    private final TextField scriptFilterField = new TextField();
 
     private FormActionMeta currentAction;
 
@@ -635,6 +636,10 @@ public class FormActionBuilderView extends VerticalLayout {
         var typeCol = grid.addColumn(a -> a.getActionType()).setHeader("Action Type").setSortable(true).setAutoWidth(true);
         var groupCol = grid.addColumn(a -> a.getMenuGroup()).setHeader("Menu Group").setSortable(true).setAutoWidth(true);
         var sourceCol = grid.addColumn(a -> a.getSourceLovCode()).setHeader("Source LOV").setSortable(true).setAutoWidth(true);
+        var scriptCol = grid.addColumn(a -> {
+            if (a.getScriptContent() == null) return "";
+            return a.getScriptContent().replaceAll("\\r?\\n", " ");
+        }).setHeader("Groovy Script").setSortable(true).setWidth("250px").setFlexGrow(0).setResizable(true);
 
         com.vaadin.flow.component.grid.HeaderRow filterRow = grid.appendHeaderRow();
         setupFilterField(formTargetFilterField, filterRow, formCol);
@@ -644,6 +649,7 @@ public class FormActionBuilderView extends VerticalLayout {
         setupFilterField(typeFilterField, filterRow, typeCol);
         setupFilterField(groupFilterField, filterRow, groupCol);
         setupFilterField(sourceFilterField, filterRow, sourceCol);
+        setupFilterField(scriptFilterField, filterRow, scriptCol);
 
         grid.asSingleSelect().addValueChangeListener(event -> {
             if (event.getValue() != null) {
@@ -762,6 +768,7 @@ public class FormActionBuilderView extends VerticalLayout {
         if (!matches(a.getActionType(), typeFilterField.getValue())) return false;
         if (!matches(a.getMenuGroup(), groupFilterField.getValue())) return false;
         if (!matches(a.getSourceLovCode(), sourceFilterField.getValue())) return false;
+        if (!matches(a.getScriptContent(), scriptFilterField.getValue())) return false;
         return true;
     }
 
