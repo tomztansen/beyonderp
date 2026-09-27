@@ -82,6 +82,21 @@ public class BandboxField<T, V> extends CustomField<V> {
         this.gridConfigurator = configurator;
     }
 
+    /**
+     * Dipanggil setelah konfigurasi LOV diganti (LOV Switch). Popup dibangun sekali lalu
+     * dipakai ulang, jadi dibuang di sini supaya kolom & datanya dibangun ulang dari
+     * konfigurasi baru saat dibuka lagi. Label nilai yang sedang tampil di-resolve ulang.
+     */
+    public void rebuildPopup() {
+        if (popup != null) {
+            popup.close();
+            popup = null;
+            grid = null;
+            searchField = null;
+        }
+        setPresentationValue(selectedValue);
+    }
+
     public BandboxField(String label) {
         setLabel(label);
         setupDisplayField();

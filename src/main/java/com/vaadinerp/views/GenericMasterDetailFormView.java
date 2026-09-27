@@ -1739,12 +1739,12 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     applyMasterFiltersToDetailEditors(formDef);
                     for (Component comp : formComponents.values()) {
                         if (comp instanceof com.vaadinerp.components.SubformGridField sgf) {
-                            sgf.setParentFieldValue(field.getFieldName(), newValue);
+                            sgf.setParentFieldValue(field.getFieldName(), event.getOldValue(), newValue, event.isFromClient());
                         }
                     }
                     for (Component comp : detailEditorComponents.values()) {
                         if (comp instanceof com.vaadinerp.components.SubformGridField sgf) {
-                            sgf.setParentFieldValue(field.getFieldName(), newValue);
+                            sgf.setParentFieldValue(field.getFieldName(), event.getOldValue(), newValue, event.isFromClient());
                         }
                     }
                     // Hanya perubahan dari user yang memicu ON_CHANGE. Nilai yang ditulis server

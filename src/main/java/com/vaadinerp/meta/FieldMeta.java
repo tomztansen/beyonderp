@@ -224,6 +224,13 @@ public class FieldMeta extends BaseAuditableEntity {
     @Column(name = "hyperlink_filter_mapping", columnDefinition = "TEXT")
     private String hyperlinkFilterMapping;
 
+    /**
+     * LOV Switch: {"source":"header.x" | "detail.x", "map":{"NILAI":"LOV_CODE", ...}}.
+     * Null = pakai lovCode biasa. lovCode tetap jadi default kalau nilai sumber tidak cocok.
+     */
+    @Column(name = "lov_switch", columnDefinition = "TEXT")
+    private String lovSwitch;
+
     @OneToMany(mappedBy = "fieldMeta", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     private java.util.List<FieldLovTargetMeta> lovTargets;
 

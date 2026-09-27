@@ -1849,7 +1849,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     Object newValue = event.getValue();
                     for (Component comp : formComponents.values()) {
                         if (comp instanceof SubformGridField) {
-                            ((SubformGridField) comp).setParentFieldValue(field.getFieldName(), newValue);
+                            ((SubformGridField) comp).setParentFieldValue(field.getFieldName(), event.getOldValue(), newValue,
+                                    event.isFromClient());
                         }
                     }
                     // Hanya perubahan dari user yang memicu ON_CHANGE. Nilai yang ditulis server
@@ -1857,6 +1858,48 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     // supaya tidak terjadi pemicuan berantai.
                     if (event.isFromClient()) {
                         runOnChangeActions(field.getFieldName());
+                    }
+                });
+            }
+        }
+
+        // LOV Switch untuk field di header (sumber: field header lain). Juga jalan saat
+        // record dimuat (event bukan dari user) supaya LOV & labelnya sudah benar; nilai
+        // lama hanya dikosongkan kalau user sendiri yang mengganti sumbernya.
+        for (FieldMeta field : formDef.getFields()) {
+            com.vaadinerp.components.ComponentFactory.LovSwitch sw = com.vaadinerp.components.ComponentFactory
+                    .lovSwitchOf(field);
+            if (sw == null || (!sw.isScript() && !sw.fromHeader())) {
+                continue;
+            }
+            Component targetComp = formComponents.get(field.getFieldName());
+            if (!(targetComp instanceof com.vaadin.flow.component.HasValue)) {
+                continue;
+            }
+            // Mode script bisa membaca field header mana pun, jadi semuanya jadi pemicu
+            // (kecuali field itu sendiri dan subform, yang nilainya berubah tiap baris diedit).
+            for (Map.Entry<String, Component> entry : formComponents.entrySet()) {
+                Component trigger = entry.getValue();
+                if (trigger == targetComp || trigger instanceof SubformGridField
+                        || !(trigger instanceof com.vaadin.flow.component.HasValue)
+                        || (!sw.isScript() && !entry.getKey().equalsIgnoreCase(sw.sourceField()))) {
+                    continue;
+                }
+                String triggerName = entry.getKey();
+                @SuppressWarnings("unchecked")
+                com.vaadin.flow.component.HasValue<?, Object> source = (com.vaadin.flow.component.HasValue<?, Object>) trigger;
+                source.addValueChangeListener(ev -> {
+                    // Salinan bean dengan nilai baru, supaya tidak bergantung pada urutan listener binder.
+                    Map<String, Object> header = formBinder.getBean() != null ? new HashMap<>(formBinder.getBean())
+                            : new HashMap<>();
+                    putValueCaseInsensitive(header, triggerName, ev.getValue());
+                    String lov = com.vaadinerp.components.ComponentFactory.resolveLovCode(field, sw, header, null);
+                    if (com.vaadinerp.components.ComponentFactory.switchLov(targetComp, lov, dynamicDataService)
+                            && ev.isFromClient()) {
+                        com.vaadin.flow.component.HasValue<?, ?> target = (com.vaadin.flow.component.HasValue<?, ?>) targetComp;
+                        if (!target.isEmpty()) {
+                            target.clear();
+                        }
                     }
                 });
             }
@@ -2035,16 +2078,24 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     fieldNameToLovCodeMap.put(fieldName, lovCode);
                 }
 
+                com.vaadinerp.components.ComponentFactory.LovSwitch lovSwitch = com.vaadinerp.components.ComponentFactory
+                        .lovSwitchOf(field);
                 java.util.function.Function<Map<String, Object>, String> valueGetter = map -> {
-                    if (lovCode != null && !lovCode.trim().isEmpty()) {
+                    // _label dihitung batch dari lov_code default, jadi tidak berlaku untuk LOV Switch.
+                    if (lovSwitch == null && lovCode != null && !lovCode.trim().isEmpty()) {
                         Object labelObj = getValueCaseInsensitive(map, fieldName + "_label");
                         if (labelObj != null && !labelObj.toString().trim().isEmpty()) {
                             return labelObj.toString();
                         }
                     }
                     Object valObj = getValueCaseInsensitive(map, fieldName);
-                    String formatted = com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(field, valObj,
-                            dynamicDataService);
+                    // ponytail: field ber-switch di-resolve per baris (label dicache per LOV, tapi baris
+                    // pertama tiap id tetap 1 query). Batch per LOV di fetchGridDataPaged kalau History-nya besar.
+                    // Baris History = record header, jadi dia sendiri yang jadi "header".
+                    String lovForRow = lovSwitch == null ? lovCode
+                            : com.vaadinerp.components.ComponentFactory.resolveLovCode(field, lovSwitch, map, null);
+                    String formatted = com.vaadinerp.components.ComponentFactory.formatFieldValueWithLov(field,
+                            lovForRow, valObj, dynamicDataService);
                     return formatted != null ? formatted : "";
                 };
                 Grid.Column<Map<String, Object>> col;
@@ -2537,8 +2588,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                                 com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col = childGrid
                                         .addColumn(row -> {
                                             Object valObj = getValueCaseInsensitive(row, childF.getFieldName());
+                                            // LOV Switch: header-nya baris History yang sedang dibuka (item).
                                             String formatted = com.vaadinerp.components.ComponentFactory
-                                                    .formatFieldValueWithLov(childF, valObj, dynamicDataService);
+                                                    .formatFieldValueWithLov(childF,
+                                                            com.vaadinerp.components.ComponentFactory
+                                                                    .resolveLovCode(childF, item, row),
+                                                            valObj, dynamicDataService);
                                             return formatted != null ? formatted : "";
                                         }).setHeader(childF.getFieldLabel()).setAutoWidth(true).setResizable(true);
 

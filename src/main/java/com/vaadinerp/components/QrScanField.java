@@ -112,7 +112,10 @@ public class QrScanField extends CustomField<String> {
      */
     @Override
     public void setReadOnly(boolean readOnly) {
-        super.setReadOnly(readOnly);
+        // Bukan super.setReadOnly(): compiler Eclipse (dipakai IDE, yang ikut menulis ke
+        // target/classes) menolak super-call ke default method interface dan meninggalkan
+        // class berisi error. Isinya sama persis dengan default HasValueAndElement.
+        getElement().setProperty("readonly", readOnly);
         applyState();
     }
 
@@ -121,7 +124,7 @@ public class QrScanField extends CustomField<String> {
         boolean showScanBtn = inputMode != InputMode.TYPE_ONLY;
         boolean typingAllowed = inputMode != InputMode.SCAN_ONLY;
         textField.setReadOnly(ro || !typingAllowed);
-        textField.setPlaceholder(!typingAllowed ? "Klik ikon kamera untuk scan..." : "Ketik atau scan...");
+        textField.setPlaceholder(!typingAllowed ? "Click the camera icon to scan..." : "Type or scan...");
         btnScan.setVisible(showScanBtn);
         btnScan.setEnabled(!ro && showScanBtn);
     }

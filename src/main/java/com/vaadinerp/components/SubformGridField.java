@@ -45,6 +45,92 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private final HorizontalLayout extraActionsContainer = new HorizontalLayout();
     private final Map<String, Component> editorComponents = new HashMap<>();
 
+    /** Field child form yang memakai LOV Switch: nama field -> konfigurasi. Diisi ulang di buildGridColumns(). */
+    private final Map<String, ComponentFactory.LovSwitch> lovSwitches = new HashMap<>();
+    /** LOV yang berlaku untuk field ini di baris ini (LOV Switch), atau lov_code biasa. */
+    private String lovCodeFor(FieldMeta field, Map<String, Object> row) {
+        return lovCodeFor(field, headerRecordSupplier != null ? headerRecordSupplier.get() : null, row);
+    }
+
+    private String lovCodeFor(FieldMeta field, Map<String, Object> header, Map<String, Object> row) {
+        return ComponentFactory.resolveLovCode(field, lovSwitches.get(field.getFieldName()), header, row);
+    }
+
+    /** Salinan header dengan satu field diganti -- supaya tidak bergantung pada urutan listener binder. */
+    private Map<String, Object> headerWith(String fieldName, Object value) {
+        Map<String, Object> copy = new HashMap<>();
+        Map<String, Object> header = headerRecordSupplier != null ? headerRecordSupplier.get() : null;
+        if (header != null) {
+            copy.putAll(header);
+        }
+        putCaseInsensitiveVal(copy, fieldName, value);
+        return copy;
+    }
+
+    /**
+     * Field header berubah: pasang ulang LOV editor field ber-switch, dan kalau user yang
+     * mengubahnya, kosongkan nilai di baris yang LOV-nya ikut berganti (nilai dari LOV lama
+     * tidak bermakna di LOV baru). Dibandingkan per baris, jadi berlaku untuk kedua mode.
+     */
+    private void applyHeaderLovSwitches(String parentFieldName, Object oldValue, Object value, boolean fromClient) {
+        boolean switched = false;
+        for (FieldMeta field : childFormDef.getFields()) {
+            ComponentFactory.LovSwitch sw = lovSwitches.get(field.getFieldName());
+            if (sw == null || (!sw.isScript()
+                    && !(sw.fromHeader() && sw.sourceField().equalsIgnoreCase(parentFieldName)))) {
+                continue;
+            }
+            switched = true;
+            Map<String, Object> newHeader = headerWith(parentFieldName, value);
+            Map<String, Object> editing = grid.getEditor().isOpen() ? grid.getEditor().getItem() : null;
+            ComponentFactory.switchLov(editorComponents.get(field.getFieldName()),
+                    lovCodeFor(field, newHeader, editing), dataService);
+            if (fromClient) {
+                clearWhereLovChanged(field, headerWith(parentFieldName, oldValue), newHeader);
+            }
+        }
+        if (switched) {
+            // Label sel yang tidak sedang diedit ikut dirender ulang dari LOV baru.
+            grid.getDataProvider().refreshAll();
+        }
+    }
+
+    private void clearWhereLovChanged(FieldMeta field, Map<String, Object> oldHeader, Map<String, Object> newHeader) {
+        int cleared = 0;
+        Map<String, Object> editing = grid.getEditor().isOpen() ? grid.getEditor().getItem() : null;
+        boolean clearEditor = false;
+        for (Map<String, Object> row : items) {
+            if (getCaseInsensitiveVal(row, field.getFieldName()) != null && !java.util.Objects
+                    .equals(lovCodeFor(field, oldHeader, row), lovCodeFor(field, newHeader, row))) {
+                putCaseInsensitiveVal(row, field.getFieldName(), null);
+                cleared++;
+                clearEditor |= row == editing;
+            }
+        }
+        Component editorComp = editorComponents.get(field.getFieldName());
+        if (clearEditor && editorComp instanceof HasValue<?, ?> hv && !hv.isEmpty()) {
+            hv.clear();
+        }
+        if (cleared > 0) {
+            updateValue();
+            Notification.show(field.getFieldLabel() + " cleared on " + cleared
+                    + " line(s) because the header value changed.", 4000, Notification.Position.BOTTOM_END);
+        }
+    }
+
+    /** Pasang LOV yang tepat ke editor field ber-switch untuk baris yang sedang diedit. */
+    private void applyRowLovSwitches(Map<String, Object> row) {
+        if (row == null || childFormDef == null) {
+            return;
+        }
+        for (FieldMeta field : childFormDef.getFields()) {
+            if (lovSwitches.containsKey(field.getFieldName())) {
+                ComponentFactory.switchLov(editorComponents.get(field.getFieldName()), lovCodeFor(field, row),
+                        dataService);
+            }
+        }
+    }
+
     /**
      * Script ON_CHANGE milik field child form (meta_form_action, scope ON_CHANGE),
      * dijalankan per baris saat user mengubah sel di editor grid. Key = nama field
@@ -552,6 +638,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private void setupGridListeners() {
         grid.getEditor().addOpenListener(event -> {
             editingItem = event.getItem();
+            // Editor dipakai bergantian antar baris, jadi LOV-nya disetel per baris.
+            applyRowLovSwitches(editingItem);
             replayRowChangeScripts(editingItem);
         });
 
@@ -886,10 +974,18 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
         };
 
+        lovSwitches.clear();
+        for (FieldMeta field : childFields) {
+            ComponentFactory.LovSwitch sw = ComponentFactory.lovSwitchOf(field);
+            if (sw != null) {
+                lovSwitches.put(field.getFieldName(), sw);
+            }
+        }
+
         for (FieldMeta field : childFields) {
             String fieldName = field.getFieldName();
             java.util.function.Function<Map<String, Object>, String> valueGetter = map -> {
-                String formatted = ComponentFactory.formatFieldValueWithLov(field,
+                String formatted = ComponentFactory.formatFieldValueWithLov(field, lovCodeFor(field, map),
                         getCaseInsensitiveVal(map, fieldName), dataService);
                 return formatted != null ? formatted : "";
             };
@@ -1056,9 +1152,11 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 if (val2 == null)
                     return 1;
                 String lovCode = field.getLovCode();
-                if (lovCode != null && !lovCode.trim().isEmpty()) {
-                    String s1 = ComponentFactory.formatFieldValueWithLov(field, val1, dataService);
-                    String s2 = ComponentFactory.formatFieldValueWithLov(field, val2, dataService);
+                if ((lovCode != null && !lovCode.trim().isEmpty()) || lovSwitches.containsKey(fieldName)) {
+                    String s1 = ComponentFactory.formatFieldValueWithLov(field, lovCodeFor(field, map1), val1,
+                            dataService);
+                    String s2 = ComponentFactory.formatFieldValueWithLov(field, lovCodeFor(field, map2), val2,
+                            dataService);
                     return s1.compareToIgnoreCase(s2);
                 }
                 if (val1 instanceof Comparable && val2 instanceof Comparable) {
@@ -1069,6 +1167,45 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 return val1.toString().compareTo(val2.toString());
             });
             col.setSortable(true);
+        }
+
+        // LOV Switch bersumber kolom lain di baris yang sama (detail.x): begitu user
+        // mengganti kolom sumber, LOV field target ikut ganti dan nilai lamanya
+        // dikosongkan -- nilai dari LOV lama tidak bermakna di LOV baru.
+        // Mode script bisa membaca kolom mana pun, jadi semua editor lain di baris jadi pemicu.
+        // Didaftarkan setelah semua binder.bind(), jadi map baris sudah berisi nilai baru.
+        for (FieldMeta field : childFields) {
+            ComponentFactory.LovSwitch sw = lovSwitches.get(field.getFieldName());
+            if (sw == null || sw.fromHeader()) {
+                continue;
+            }
+            Component targetComp = editorComponents.get(field.getFieldName());
+            if (!(targetComp instanceof HasValue)) {
+                continue;
+            }
+            List<Component> triggers = editorComponents.entrySet().stream()
+                    .filter(e -> e.getValue() != targetComp
+                            && (sw.isScript() || e.getKey().equalsIgnoreCase(sw.sourceField())))
+                    .map(Map.Entry::getValue).collect(Collectors.toList());
+            for (Component trigger : triggers) {
+                if (!(trigger instanceof HasValue)) {
+                    continue;
+                }
+                @SuppressWarnings("unchecked")
+                HasValue<?, Object> triggerValue = (HasValue<?, Object>) trigger;
+                triggerValue.addValueChangeListener(ev -> {
+                    Map<String, Object> row = grid.getEditor().getItem();
+                    if (!ev.isFromClient() || row == null) {
+                        return;
+                    }
+                    if (ComponentFactory.switchLov(targetComp, lovCodeFor(field, row), dataService)) {
+                        HasValue<?, ?> target = (HasValue<?, ?>) targetComp;
+                        if (!target.isEmpty()) {
+                            target.clear();
+                        }
+                    }
+                });
+            }
         }
 
         // 2. Setup Header Filter Row
@@ -1389,8 +1526,19 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     public void setParentFieldValue(String parentFieldName, Object value) {
+        setParentFieldValue(parentFieldName, null, value, false);
+    }
+
+    /**
+     * @param oldValue   nilai header sebelum berubah (untuk tahu baris mana yang LOV-nya berganti).
+     * @param fromClient true kalau nilai header diubah user; false kalau diisi program
+     *                   (record dimuat, clear form). Hanya perubahan dari user yang
+     *                   mengosongkan nilai baris karena LOV-nya berganti.
+     */
+    public void setParentFieldValue(String parentFieldName, Object oldValue, Object value, boolean fromClient) {
         if (childFormDef == null || parentFieldName == null)
             return;
+        applyHeaderLovSwitches(parentFieldName, oldValue, value, fromClient);
         for (FieldMeta field : childFormDef.getFields()) {
             if (field.getFilters() != null) {
                 for (com.vaadinerp.meta.FieldFilterMeta filter : field.getFilters()) {
@@ -1747,11 +1895,16 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         if (dataService == null || childFormDef == null || childFormDef.getFields() == null || items.isEmpty())
             return;
         for (FieldMeta field : childFormDef.getFields()) {
-            String lovCode = field.getLovCode();
-            if (lovCode == null || lovCode.isBlank() || "SUBFORM_GRID".equalsIgnoreCase(field.getComponentType()))
+            if ("SUBFORM_GRID".equalsIgnoreCase(field.getComponentType()))
                 continue;
-            java.util.Set<Object> ids = new java.util.HashSet<>();
+            // Dikelompokkan per LOV: dengan LOV Switch tiap baris bisa memakai LOV berbeda,
+            // tetap satu query per LOV.
+            Map<String, java.util.Set<Object>> idsByLov = new HashMap<>();
             for (Map<String, Object> row : items) {
+                String lovCode = lovCodeFor(field, row);
+                if (lovCode == null || lovCode.isBlank())
+                    continue;
+                java.util.Set<Object> ids = idsByLov.computeIfAbsent(lovCode.trim(), k -> new java.util.HashSet<>());
                 Object val = getCaseInsensitiveVal(row, field.getFieldName());
                 if (val == null)
                     continue;
@@ -1767,10 +1920,11 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     ids.add(val);
                 }
             }
-            if (!ids.isEmpty()) {
-                ComponentFactory.primeLovLabelCache(lovCode.trim(),
-                        dataService.fetchLovLabelsBatch(lovCode.trim(), ids));
-            }
+            idsByLov.forEach((lov, ids) -> {
+                if (!ids.isEmpty()) {
+                    ComponentFactory.primeLovLabelCache(lov, dataService.fetchLovLabelsBatch(lov, ids));
+                }
+            });
         }
     }
 

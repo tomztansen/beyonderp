@@ -8,11 +8,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class LovChosenBox extends MultiSelectComboBox<String> {
 
-    private final String lovCode;
+    /** Bisa diganti lewat setLovCode() (LOV Switch). */
+    private String lovCode;
     private final DynamicDataService dataService;
+    private LovMeta cachedLovMeta;
+    private String cachedLovCode;
     /**
      * Batas label yang ditahan. Combo ini lazy: baris diambil per halaman, dan dulu
      * setiap baris yang pernah digulir tersimpan permanen selama form dibuka.
@@ -38,18 +42,29 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
         setupLazyDataProvider();
     }
 
-    private void setupLazyDataProvider() {
-        LovMeta lovMeta = dataService != null && lovCode != null ? dataService.getLovMeta(lovCode).orElse(null) : null;
-        if (lovMeta == null) {
-            setItems(new ArrayList<>());
-            return;
+    /** LovMeta untuk lovCode yang berlaku sekarang; dicache sampai lovCode berganti. */
+    private LovMeta currentLovMeta() {
+        if (dataService == null || lovCode == null) {
+            return null;
         }
+        if (!lovCode.equals(cachedLovCode)) {
+            cachedLovMeta = dataService.getLovMeta(lovCode).orElse(null);
+            cachedLovCode = lovCode;
+        }
+        return cachedLovMeta;
+    }
 
+    private void setupLazyDataProvider() {
+        // LovMeta dibaca di dalam callback supaya setLovCode() cukup refreshAll().
         setItems(com.vaadin.flow.data.provider.DataProvider.fromFilteringCallbacks(
                 query -> {
                     String filter = query.getFilter().orElse("");
                     int offset = query.getOffset();
                     int limit = query.getLimit();
+                    LovMeta lovMeta = currentLovMeta();
+                    if (lovMeta == null) {
+                        return java.util.stream.Stream.empty();
+                    }
 
                     List<Map<String, Object>> records = dataService.fetchLovDataPaged(
                             lovMeta.getTableName(),
@@ -102,6 +117,10 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
                 },
                 query -> {
                     String filter = query.getFilter().orElse("");
+                    LovMeta lovMeta = currentLovMeta();
+                    if (lovMeta == null) {
+                        return 0;
+                    }
                     return dataService.countLovData(
                             lovMeta.getTableName(),
                             lovMeta.getSearchColumn(),
@@ -123,25 +142,54 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
         return null;
     }
 
-    @Override
-    public void setValue(java.util.Set<String> values) {
-        if (values != null && !values.isEmpty()) {
-            for (String v : values) {
-                if (v != null && !v.isEmpty() && !valueToLabelMap.containsKey(v)) {
-                    LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
-                    if (lovMeta != null) {
-                        Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(),
-                                lovMeta.getValueColumn(), v);
-                        if (rec != null) {
-                            valueToRecordMap.put(v, rec);
-                            Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
-                            valueToLabelMap.put(v, lblObj != null ? lblObj.toString() : v);
-                        }
+    /** Pastikan label tiap value ada, diambil dari LOV yang berlaku sekarang. */
+    private void ensureLabels(java.util.Set<String> values) {
+        if (values == null || values.isEmpty()) {
+            return;
+        }
+        for (String v : values) {
+            if (v != null && !v.isEmpty() && !valueToLabelMap.containsKey(v)) {
+                LovMeta lovMeta = currentLovMeta();
+                if (lovMeta != null) {
+                    Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(),
+                            lovMeta.getValueColumn(), v);
+                    if (rec != null) {
+                        valueToRecordMap.put(v, rec);
+                        Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
+                        valueToLabelMap.put(v, lblObj != null ? lblObj.toString() : v);
                     }
                 }
             }
         }
+    }
+
+    @Override
+    public void setValue(java.util.Set<String> values) {
+        ensureLabels(values);
         super.setValue(values);
+    }
+
+    public String getLovCode() {
+        return lovCode;
+    }
+
+    /**
+     * Ganti sumber LOV (LOV Switch). Pilihan yang ada TIDAK dikosongkan di sini --
+     * itu keputusan pemanggil; labelnya di-resolve ulang dari LOV baru.
+     */
+    public void setLovCode(String newLovCode) {
+        if (Objects.equals(lovCode, newLovCode)) {
+            return;
+        }
+        lovCode = newLovCode;
+        valueToLabelMap.clear();
+        valueToRecordMap.clear();
+        ensureLabels(getValue());
+        if (getDataProvider() != null) {
+            getDataProvider().refreshAll();
+        }
+        // Pasang ulang generator supaya chip yang sedang tampil ikut dirender ulang.
+        setItemLabelGenerator(val -> valueToLabelMap.getOrDefault(val, val));
     }
 
     public void setFilterValue(FilterCondition condition) {
@@ -179,15 +227,12 @@ public class LovChosenBox extends MultiSelectComboBox<String> {
         java.util.Set<String> vals = getValue();
         List<Map<String, Object>> list = new ArrayList<>();
         if (vals != null) {
-            LovMeta lovMeta = null;
             for (String val : vals) {
                 Map<String, Object> rec = valueToRecordMap.get(val);
                 if (rec == null && dataService != null && lovCode != null) {
                     // Record tidak lagi ditahan untuk setiap baris yang digulir, jadi
                     // yang dipilih user dari dropdown diambil di sini saat dibutuhkan.
-                    if (lovMeta == null) {
-                        lovMeta = dataService.getLovMeta(lovCode).orElse(null);
-                    }
+                    LovMeta lovMeta = currentLovMeta();
                     if (lovMeta != null) {
                         rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(), val);
                         if (rec != null) {

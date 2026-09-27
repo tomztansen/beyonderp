@@ -8,11 +8,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class LovComboBox extends ComboBox<String> {
 
-    private final String lovCode;
+    /** Bisa diganti lewat setLovCode() (LOV Switch). */
+    private String lovCode;
     private final DynamicDataService dataService;
+    private LovMeta cachedLovMeta;
+    private String cachedLovCode;
     /**
      * Batas label yang ditahan. Combo ini lazy: baris diambil per halaman, dan dulu
      * setiap baris yang pernah digulir tersimpan permanen selama form dibuka.
@@ -39,18 +43,30 @@ public class LovComboBox extends ComboBox<String> {
         setupLazyDataProvider();
     }
 
-    private void setupLazyDataProvider() {
-        LovMeta lovMeta = dataService != null && lovCode != null ? dataService.getLovMeta(lovCode).orElse(null) : null;
-        if (lovMeta == null) {
-            setItems(new ArrayList<>());
-            return;
+    /** LovMeta untuk lovCode yang berlaku sekarang; dicache sampai lovCode berganti. */
+    private LovMeta currentLovMeta() {
+        if (dataService == null || lovCode == null) {
+            return null;
         }
+        if (!lovCode.equals(cachedLovCode)) {
+            cachedLovMeta = dataService.getLovMeta(lovCode).orElse(null);
+            cachedLovCode = lovCode;
+        }
+        return cachedLovMeta;
+    }
 
+    private void setupLazyDataProvider() {
+        // LovMeta dibaca di dalam callback, bukan ditangkap sekali di sini, supaya
+        // setLovCode() cukup refreshAll() tanpa memasang data provider baru.
         setItems(com.vaadin.flow.data.provider.DataProvider.fromFilteringCallbacks(
                 query -> {
                     String filter = query.getFilter().orElse("");
                     int offset = query.getOffset();
                     int limit = query.getLimit();
+                    LovMeta lovMeta = currentLovMeta();
+                    if (lovMeta == null) {
+                        return java.util.stream.Stream.empty();
+                    }
 
                     List<Map<String, Object>> records = dataService.fetchLovDataPaged(
                             lovMeta.getTableName(),
@@ -96,6 +112,10 @@ public class LovComboBox extends ComboBox<String> {
                 },
                 query -> {
                     String filter = query.getFilter().orElse("");
+                    LovMeta lovMeta = currentLovMeta();
+                    if (lovMeta == null) {
+                        return 0;
+                    }
                     return dataService.countLovData(
                             lovMeta.getTableName(),
                             lovMeta.getSearchColumn(),
@@ -117,31 +137,57 @@ public class LovComboBox extends ComboBox<String> {
         return null;
     }
 
+    /** Pastikan label value ini ada, diambil dari LOV yang berlaku sekarang. */
+    private void ensureLabel(String value) {
+        if (value == null || value.isEmpty() || valueToLabelMap.containsKey(value)) {
+            return;
+        }
+        LovMeta lovMeta = currentLovMeta();
+        if (lovMeta != null) {
+            Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(),
+                    lovMeta.getValueColumn(), value);
+            if (rec != null) {
+                // Hanya record terpilih yang pernah dibaca, jadi jangan simpan
+                // pilihan-pilihan sebelumnya.
+                valueToRecordMap.clear();
+                valueToRecordMap.put(value, rec);
+                Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
+                valueToLabelMap.put(value, lblObj != null ? lblObj.toString() : value);
+            } else {
+                valueToLabelMap.put(value, value);
+            }
+        } else {
+            valueToLabelMap.put(value, value);
+        }
+    }
+
     @Override
     public void setValue(String value) {
-        if (value != null && !value.isEmpty()) {
-            if (!valueToLabelMap.containsKey(value)) {
-                LovMeta lovMeta = dataService != null && lovCode != null ? dataService.getLovMeta(lovCode).orElse(null)
-                        : null;
-                if (lovMeta != null) {
-                    Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(),
-                            lovMeta.getValueColumn(), value);
-                    if (rec != null) {
-                        // Hanya record terpilih yang pernah dibaca, jadi jangan simpan
-                        // pilihan-pilihan sebelumnya.
-                        valueToRecordMap.clear();
-                        valueToRecordMap.put(value, rec);
-                        Object lblObj = getCaseInsensitive(rec, lovMeta.getLabelColumn());
-                        valueToLabelMap.put(value, lblObj != null ? lblObj.toString() : value);
-                    } else {
-                        valueToLabelMap.put(value, value);
-                    }
-                } else {
-                    valueToLabelMap.put(value, value);
-                }
-            }
-        }
+        ensureLabel(value);
         super.setValue(value);
+    }
+
+    public String getLovCode() {
+        return lovCode;
+    }
+
+    /**
+     * Ganti sumber LOV (LOV Switch). Nilai yang sedang terpilih TIDAK dikosongkan di
+     * sini -- itu keputusan pemanggil; labelnya di-resolve ulang dari LOV baru.
+     */
+    public void setLovCode(String newLovCode) {
+        if (Objects.equals(lovCode, newLovCode)) {
+            return;
+        }
+        lovCode = newLovCode;
+        valueToLabelMap.clear();
+        valueToRecordMap.clear();
+        ensureLabel(getValue());
+        if (getDataProvider() != null) {
+            getDataProvider().refreshAll();
+        }
+        // Pasang ulang generator supaya teks nilai yang sedang tampil ikut dirender ulang.
+        setItemLabelGenerator(val -> valueToLabelMap.getOrDefault(val, val));
     }
 
     public void setFilterValue(FilterCondition condition) {
@@ -175,8 +221,7 @@ public class LovComboBox extends ComboBox<String> {
             return valueToRecordMap.get(val);
         }
         if (val != null && !val.isEmpty()) {
-            LovMeta lovMeta = dataService != null && lovCode != null ? dataService.getLovMeta(lovCode).orElse(null)
-                    : null;
+            LovMeta lovMeta = currentLovMeta();
             if (lovMeta != null) {
                 Map<String, Object> rec = dataService.fetchLovRecord(lovMeta.getTableName(), lovMeta.getValueColumn(),
                         val);

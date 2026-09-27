@@ -200,6 +200,61 @@ public class ScriptExecutorService {
                 scriptText, newRow, rowIndex, headerData, items, currentView);
     }
 
+    /**
+     * Ekspresi LOV Switch mode Script. Binding hanya header & row -- sengaja tanpa db/ctx:
+     * ini dijalankan sekali per baris setiap grid dirender, jadi query di sini = N+1.
+     * @return kode LOV hasil script, atau null (kosong) = pakai LOV default field.
+     */
+    public String evaluateLovSwitchScript(String scriptText, Map<String, Object> header, Map<String, Object> row)
+            throws Exception {
+        Script script = compileLovSwitchScript(scriptText).getDeclaredConstructor().newInstance();
+        Binding binding = new Binding();
+        binding.setVariable("header", normalizeForLovScript(header));
+        binding.setVariable("row", normalizeForLovScript(row));
+        script.setBinding(binding);
+        Object result = script.run();
+        return result != null && !result.toString().isBlank() ? result.toString().trim() : null;
+    }
+
+    /** Validasi sintaks untuk Form Builder. @return pesan error, atau null kalau bisa dikompilasi. */
+    public String checkLovSwitchScript(String scriptText) {
+        try {
+            compileLovSwitchScript(scriptText);
+            return null;
+        } catch (Exception ex) {
+            return ex.getMessage();
+        }
+    }
+
+    private Class<? extends Script> compileLovSwitchScript(String scriptText) {
+        // Teks lengkap sebagai kunci (bukan hashCode) supaya dua script berbeda tidak bisa bertabrakan.
+        return scriptCache.get("lovswitch:" + scriptText,
+                id -> new GroovyShell(compilerConfiguration).parse(scriptText).getClass());
+    }
+
+    /**
+     * Salinan dengan kunci huruf kecil, dan tanggal dari JDBC disamakan dengan nilai dari
+     * komponen (LocalDate/LocalDateTime) -- tanpa ini tipe header.tanggal beda antara record
+     * yang baru dimuat dan yang baru diubah user.
+     */
+    private static Map<String, Object> normalizeForLovScript(Map<String, Object> source) {
+        Map<String, Object> copy = new HashMap<>();
+        if (source != null) {
+            source.forEach((k, v) -> {
+                if (k == null)
+                    return;
+                Object val = v;
+                if (v instanceof java.sql.Timestamp ts) {
+                    val = ts.toLocalDateTime();
+                } else if (v instanceof java.sql.Date d) {
+                    val = d.toLocalDate();
+                }
+                copy.put(k.toLowerCase(), val);
+            });
+        }
+        return copy;
+    }
+
     public void executeReportScript(String scriptText, Map<String, Object> params, String username, org.slf4j.Logger log) {
         if (scriptText == null || scriptText.trim().isEmpty()) {
             return;

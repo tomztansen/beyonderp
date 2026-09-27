@@ -139,6 +139,8 @@ public class FormBuilderView extends VerticalLayout {
             VaadinIcon.FILTER.create());
     private final Button propBtnLovTargets = new com.vaadinerp.components.SafeButton("Configure LOV Targets",
             VaadinIcon.LINK.create());
+    private final Button propBtnLovSwitch = new com.vaadinerp.components.SafeButton("Configure LOV Switch",
+            VaadinIcon.EXCHANGE.create());
     private final Button propBtnCustomValidation = new com.vaadinerp.components.SafeButton("🛡️ Atur Validasi Dinamis",
             VaadinIcon.SHIELD.create());
     private final Button propBtnOnAddScript = new com.vaadinerp.components.SafeButton("⚡ On-Add-Row Script & AI",
@@ -176,6 +178,7 @@ public class FormBuilderView extends VerticalLayout {
         public String onAddAiPrompt;
         public String hyperlinkTargetForm;
         public String hyperlinkFilterMapping;
+        public String lovSwitch;
         public List<FieldFilterMetaTemp> filters = new ArrayList<>();
         public List<FieldLovTargetMetaTemp> lovTargets = new ArrayList<>();
 
@@ -1072,6 +1075,14 @@ public class FormBuilderView extends VerticalLayout {
             }
         });
 
+        propBtnLovSwitch.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_CONTRAST);
+        propBtnLovSwitch.setWidthFull();
+        propBtnLovSwitch.addClickListener(e -> {
+            if (!selectedFields.isEmpty()) {
+                openLovSwitchDialog(selectedFields.iterator().next());
+            }
+        });
+
         propValidationRule.setAllowCustomValue(true);
         propValidationRule.addCustomValueSetListener(e -> propValidationRule.setValue(e.getDetail()));
         propValidationRule.setPlaceholder("Select / Type rule...");
@@ -1109,7 +1120,8 @@ public class FormBuilderView extends VerticalLayout {
         });
 
         propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov,
-                propBtnFilters, propBtnLovTargets, propRowGroup, propColSpan, propFieldWidth, propReadonlyMode,
+                propBtnFilters, propBtnLovTargets, propBtnLovSwitch, propRowGroup, propColSpan, propFieldWidth,
+                propReadonlyMode,
                 propFormula, propDisplayFormat, propLabelStyle, propQrInputMode, propValidationRule, propSequenceCode, propBtnCustomValidation,
                 propHyperlinkTargetForm, propHyperlinkFilterMapping,
                 checkBoxLayout,
@@ -1330,6 +1342,7 @@ public class FormBuilderView extends VerticalLayout {
 
             propBtnFilters.setEnabled(false);
             propBtnLovTargets.setEnabled(false);
+            propBtnLovSwitch.setEnabled(false);
             propBtnOnAddScript.setEnabled(true);
             propBtnOnAddScript.setVisible(true);
 
@@ -1359,6 +1372,10 @@ public class FormBuilderView extends VerticalLayout {
                     isSelection && !selectedFields.isEmpty() && selectedFields.iterator().next().lovCode != null
                             && !selectedFields.iterator().next().lovCode.trim().isEmpty());
             propBtnLovTargets.setEnabled(true);
+            // Hanya komponen yang punya setLovCode() / bisa dikonfigurasi ulang.
+            propBtnLovSwitch.setEnabled("COMBOBOX".equalsIgnoreCase(componentType)
+                    || "CHOSENBOX".equalsIgnoreCase(componentType)
+                    || "BANDBOX".equalsIgnoreCase(componentType));
             propBtnOnAddScript.setEnabled(false);
             propBtnOnAddScript.setVisible(false);
 
@@ -1446,6 +1463,8 @@ public class FormBuilderView extends VerticalLayout {
                     propBtnEditLov.setVisible(true);
                     propBtnFilters.setVisible(true);
                     propBtnLovTargets.setVisible(true);
+                    propBtnLovSwitch.setVisible(true);
+                    refreshLovSwitchButton(first);
                     propBtnCustomValidation.setVisible(true);
                     propBtnOnAddScript.setVisible(true);
                     propHyperlinkTargetForm.setVisible(true);
@@ -1511,6 +1530,7 @@ public class FormBuilderView extends VerticalLayout {
                     propBtnEditLov.setVisible(false);
                     propBtnFilters.setVisible(false);
                     propBtnLovTargets.setVisible(false);
+                    propBtnLovSwitch.setVisible(false);
                     propBtnCustomValidation.setVisible(false);
                     propBtnOnAddScript.setVisible(false);
                     propBtnOnChangeScript.setVisible(false);
@@ -2770,6 +2790,191 @@ public class FormBuilderView extends VerticalLayout {
         dialog.open();
     }
 
+    private void refreshLovSwitchButton(FieldMetaTemp fieldTemp) {
+        boolean on = fieldTemp != null && fieldTemp.lovSwitch != null && !fieldTemp.lovSwitch.isBlank();
+        propBtnLovSwitch.setText(on ? "Configure LOV Switch (on)" : "Configure LOV Switch");
+    }
+
+    /**
+     * Dialog LOV Switch: LOV field ini berganti menurut nilai field lain (header.x atau
+     * detail.x). Disimpan sebagai JSON di temp.lovSwitch; lov_code tetap jadi default.
+     */
+    private void openLovSwitchDialog(FieldMetaTemp fieldTemp) {
+        if (fieldTemp == null) {
+            return;
+        }
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("LOV Switch: "
+                + (fieldTemp.fieldLabel != null && !fieldTemp.fieldLabel.isBlank() ? fieldTemp.fieldLabel
+                        : fieldTemp.fieldName));
+        dialog.setWidth("640px");
+
+        List<String> sources = new ArrayList<>();
+        for (FieldMetaTemp f : fieldsList) {
+            if (f == fieldTemp || f.fieldName == null || f.fieldName.isBlank()
+                    || "SUBFORM_GRID".equalsIgnoreCase(f.componentType)
+                    || "LABEL".equalsIgnoreCase(f.componentType)) {
+                continue;
+            }
+            sources.add("header." + f.fieldName);
+            sources.add("detail." + f.fieldName);
+        }
+        ComboBox<String> sourceCombo = new ComboBox<>("Switch by");
+        sourceCombo.setItems(sources);
+        sourceCombo.setAllowCustomValue(true);
+        sourceCombo.addCustomValueSetListener(e -> sourceCombo.setValue(e.getDetail()));
+        sourceCombo.setWidthFull();
+        sourceCombo.setHelperText("header.<field> = a field in the header form. detail.<field> = another column "
+                + "in the same row. For a detail form, type header.<field> using the parent form's field name.");
+
+        Span defaultInfo = new Span("Default LOV (used when no value matches): "
+                + (fieldTemp.lovCode != null && !fieldTemp.lovCode.isBlank() ? fieldTemp.lovCode : "-"));
+        defaultInfo.getStyle().set("font-size", "var(--lumo-font-size-s)")
+                .set("color", "var(--lumo-secondary-text-color)");
+
+        java.util.Set<String> lovSet = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        lovMetaRepository.findAll().forEach(l -> lovSet.add(l.getLovCode()));
+        formMetaRepository.findAll().forEach(fm -> lovSet.add(fm.getFormCode()));
+        List<String> lovCodes = new ArrayList<>(lovSet);
+
+        VerticalLayout rowsLayout = new VerticalLayout();
+        rowsLayout.setPadding(false);
+        rowsLayout.setSpacing(false);
+        List<Object[]> rowInputs = new ArrayList<>(); // {TextField value, ComboBox<String> lov}
+
+        java.util.function.BiConsumer<String, String> addRow = (value, lov) -> {
+            TextField valueField = new TextField();
+            valueField.setPlaceholder("Value, e.g. A");
+            valueField.setValue(value != null ? value : "");
+            valueField.setWidth("40%");
+            ComboBox<String> lovCombo = new ComboBox<>();
+            lovCombo.setItems(lovCodes);
+            lovCombo.setPlaceholder("LOV to use");
+            lovCombo.setWidth("50%");
+            if (lov != null) {
+                lovCombo.setValue(lov);
+            }
+            Object[] inputs = { valueField, lovCombo };
+            rowInputs.add(inputs);
+            Button remove = new Button(VaadinIcon.TRASH.create());
+            remove.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
+            HorizontalLayout row = new HorizontalLayout(valueField, lovCombo, remove);
+            row.setWidthFull();
+            row.setAlignItems(FlexComponent.Alignment.CENTER);
+            remove.addClickListener(e -> {
+                rowInputs.remove(inputs);
+                rowsLayout.remove(row);
+            });
+            rowsLayout.add(row);
+        };
+
+        TextArea scriptArea = new TextArea("Script");
+        scriptArea.setWidthFull();
+        scriptArea.setHeight("200px");
+        scriptArea.getStyle().set("font-family", "monospace");
+        scriptArea.setPlaceholder("if (row.line_type == 'SERVICE' && header.status == 'A') return 'LOV_SERVICE'\n"
+                + "if (header.order_date?.toString() < '2026-01-01') return 'LOV_OLD'\n"
+                + "return null");
+        scriptArea.setHelperText("Return a LOV code, or null to use the default LOV. Available: header.<field> and "
+                + "row.<field> (same row). Database access is not available here, because this runs once per row "
+                + "whenever a grid is shown. Compare dates as text, e.g. header.order_date?.toString() < '2026-01-01'.");
+
+        com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
+        boolean scriptMode = false;
+        if (fieldTemp.lovSwitch != null && !fieldTemp.lovSwitch.isBlank()) {
+            try {
+                com.fasterxml.jackson.databind.JsonNode node = json.readTree(fieldTemp.lovSwitch);
+                scriptArea.setValue(node.path("script").asText(""));
+                scriptMode = !scriptArea.getValue().isBlank();
+                String savedSource = node.path("source").asText("");
+                if (!savedSource.isEmpty()) {
+                    sourceCombo.setValue(savedSource);
+                }
+                node.path("map").fields().forEachRemaining(e -> addRow.accept(e.getKey(), e.getValue().asText()));
+            } catch (Exception ex) {
+                Notification.show("Existing LOV Switch setting is invalid and was not loaded.", 4000,
+                        Notification.Position.MIDDLE);
+            }
+        }
+        if (rowInputs.isEmpty()) {
+            addRow.accept("", null);
+        }
+
+        Button addRowBtn = new Button("Add Row", VaadinIcon.PLUS.create(), e -> addRow.accept("", null));
+        addRowBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
+
+        VerticalLayout valueListBox = new VerticalLayout(sourceCombo, rowsLayout, addRowBtn);
+        valueListBox.setPadding(false);
+        com.vaadin.flow.component.radiobutton.RadioButtonGroup<String> modeGroup = new com.vaadin.flow.component.radiobutton.RadioButtonGroup<>(
+                "Mode");
+        modeGroup.setItems("Value list", "Script");
+        modeGroup.addValueChangeListener(e -> {
+            boolean script = "Script".equals(e.getValue());
+            valueListBox.setVisible(!script);
+            scriptArea.setVisible(script);
+        });
+        modeGroup.setValue(scriptMode ? "Script" : "Value list");
+
+        dialog.add(new VerticalLayout(modeGroup, valueListBox, scriptArea, defaultInfo));
+
+        Button turnOff = new Button("Turn Off", e -> {
+            fieldTemp.lovSwitch = null;
+            refreshLovSwitchButton(fieldTemp);
+            dialog.close();
+        });
+        turnOff.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY);
+        Button cancel = new Button("Cancel", e -> dialog.close());
+        Button save = new Button("Save", e -> {
+            if ("Script".equals(modeGroup.getValue())) {
+                String script = scriptArea.getValue() != null ? scriptArea.getValue().trim() : "";
+                if (script.isEmpty()) {
+                    Notification.show("Write the script, or use Turn Off.", 4000, Notification.Position.MIDDLE);
+                    return;
+                }
+                String error = com.vaadinerp.config.SpringContextHolder
+                        .getBean(com.vaadinerp.service.ScriptExecutorService.class).checkLovSwitchScript(script);
+                if (error != null) {
+                    Notification.show("Script error: " + error, 6000, Notification.Position.MIDDLE);
+                    return;
+                }
+                com.fasterxml.jackson.databind.node.ObjectNode root = json.createObjectNode();
+                root.put("script", script);
+                fieldTemp.lovSwitch = root.toString();
+                refreshLovSwitchButton(fieldTemp);
+                dialog.close();
+                return;
+            }
+            String source = sourceCombo.getValue() != null ? sourceCombo.getValue().trim() : "";
+            if (!source.matches("(header|detail)\\.\\w+")) {
+                Notification.show("Choose the field to switch by (header.<field> or detail.<field>).", 4000,
+                        Notification.Position.MIDDLE);
+                return;
+            }
+            com.fasterxml.jackson.databind.node.ObjectNode root = json.createObjectNode();
+            root.put("source", source);
+            com.fasterxml.jackson.databind.node.ObjectNode map = root.putObject("map");
+            for (Object[] inputs : rowInputs) {
+                String value = ((TextField) inputs[0]).getValue().trim();
+                @SuppressWarnings("unchecked")
+                String lov = ((ComboBox<String>) inputs[1]).getValue();
+                if (!value.isEmpty() && lov != null && !lov.isBlank()) {
+                    map.put(value, lov.trim());
+                }
+            }
+            if (map.isEmpty()) {
+                Notification.show("Add at least one row with both a value and a LOV, or use Turn Off.", 4000,
+                        Notification.Position.MIDDLE);
+                return;
+            }
+            fieldTemp.lovSwitch = root.toString();
+            refreshLovSwitchButton(fieldTemp);
+            dialog.close();
+        });
+        save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        dialog.getFooter().add(turnOff, cancel, save);
+        dialog.open();
+    }
+
     private void openFilterConfigDialog(FieldMetaTemp fieldTemp) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Configure Filters for Field: " + fieldTemp.fieldName);
@@ -3116,6 +3321,7 @@ public class FormBuilderView extends VerticalLayout {
             field.setOnAddScript(temp.onAddScript);
             field.setHyperlinkTargetForm(temp.hyperlinkTargetForm);
             field.setHyperlinkFilterMapping(temp.hyperlinkFilterMapping);
+            field.setLovSwitch(temp.lovSwitch);
             field.setRowGroup(temp.rowGroup);
             field.setColSpan(temp.colSpan);
             field.setFieldWidth(temp.fieldWidth);
@@ -4025,6 +4231,7 @@ public class FormBuilderView extends VerticalLayout {
                     temp.onAddScript = field.getOnAddScript();
                     temp.hyperlinkTargetForm = field.getHyperlinkTargetForm();
                     temp.hyperlinkFilterMapping = field.getHyperlinkFilterMapping();
+                    temp.lovSwitch = field.getLovSwitch();
 
                     // Load filters
                     temp.filters = new ArrayList<>();
