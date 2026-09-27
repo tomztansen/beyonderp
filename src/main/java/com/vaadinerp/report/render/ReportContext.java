@@ -17,9 +17,19 @@ public record ReportContext(
         String orientation,
         String reportTitle,
         List<ReportElementMeta> elements,
-        String groupBy) {
+        String groupBy,
+        File subreportTemplate,
+        String subreportParamName) {
 
     public ReportContext {
         elements = (elements == null) ? List.of() : List.copyOf(elements);
+    }
+
+    /** Konstruktor lama (tanpa subreport) -- tetap dipakai StandardRenderer/StimulsoftRenderer test. */
+    public ReportContext(String reportCode, String engineType, File template, List<Map<String, Object>> data,
+            Map<String, Object> params, String pageSize, String orientation, String reportTitle,
+            List<ReportElementMeta> elements, String groupBy) {
+        this(reportCode, engineType, template, data, params, pageSize, orientation, reportTitle, elements, groupBy,
+                null, null);
     }
 }

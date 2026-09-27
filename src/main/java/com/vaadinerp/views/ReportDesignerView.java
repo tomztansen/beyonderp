@@ -69,6 +69,10 @@ public class ReportDesignerView extends VerticalLayout {
     private byte[] pendingJasperBytes = null;
     private String pendingJasperFilename = null;
     private boolean pendingJasperDelete = false;
+    private byte[] pendingSubreportBytes = null;
+    private String pendingSubreportFilename = null;
+    private boolean pendingSubreportDelete = false;
+    private final TextField subreportParamField = new TextField("Subreport Parameter Name");
 
     // Metadata inputs
     private final TextField codeField = new TextField("Report Code");
@@ -551,7 +555,10 @@ public class ReportDesignerView extends VerticalLayout {
         pendingJasperBytes = null;
         pendingJasperFilename = null;
         pendingJasperDelete = false;
-        
+        pendingSubreportBytes = null;
+        pendingSubreportFilename = null;
+        pendingSubreportDelete = false;
+
         if (report == null) {
             editingCode = null;
             codeField.clear();
@@ -569,6 +576,7 @@ public class ReportDesignerView extends VerticalLayout {
             groupByField.clear();
             beforeScriptArea.clear();
             afterScriptArea.clear();
+            subreportParamField.clear();
         } else {
             editingCode = report.getReportCode();
             codeField.setValue(nz(report.getReportCode()));
@@ -589,6 +597,7 @@ public class ReportDesignerView extends VerticalLayout {
             groupByField.setValue(report.getGroupBy() == null ? "" : report.getGroupBy());
             beforeScriptArea.setValue(nz(report.getBeforeScript()));
             afterScriptArea.setValue(nz(report.getAfterScript()));
+            subreportParamField.setValue(nz(report.getSubreportParamName()));
             if (report.getParams() != null) {
                 for (ReportParamMeta p : report.getParams())
                     paramState.add(cloneParam(p));
@@ -724,6 +733,25 @@ public class ReportDesignerView extends VerticalLayout {
                     java.nio.file.Files.write(target.toPath(), pendingJasperBytes);
                     rep.setTemplatePath(pendingJasperFilename);
                 }
+
+                if (pendingSubreportDelete && rep.getSubreportTemplatePath() != null) {
+                    java.io.File f = reportResolver.resolveSubreportTemplate(rep.getReportCode());
+                    if (f.exists()) {
+                        java.io.File trash = new java.io.File(f.getParentFile(), "_trash");
+                        trash.mkdirs();
+                        String ts = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date());
+                        f.renameTo(new java.io.File(trash, rep.getReportCode() + "_sub_" + ts + ".jrxml"));
+                    }
+                    rep.setSubreportTemplatePath(null);
+                } else if (pendingSubreportBytes != null && pendingSubreportFilename != null) {
+                    java.io.File target = reportResolver.resolveSubreportTemplate(rep.getReportCode());
+                    java.io.File parent = target.getParentFile();
+                    if (parent != null && !parent.exists()) parent.mkdirs();
+                    java.nio.file.Files.write(target.toPath(), pendingSubreportBytes);
+                    rep.setSubreportTemplatePath(pendingSubreportFilename);
+                }
+                rep.setSubreportParamName(subreportParamField.getValue() == null || subreportParamField.getValue().isBlank()
+                        ? null : subreportParamField.getValue().trim());
             }
 
             reportMetaRepository.save(rep);
@@ -789,7 +817,7 @@ public class ReportDesignerView extends VerticalLayout {
             designSurface.add(ifr);
             designSurface.setFlexGrow(1, ifr);
         } else if ("JASPER".equalsIgnoreCase(engine)) {
-            designSurface.add(buildJasperUpload(report));
+            designSurface.add(buildJasperUpload(report), subreportParamField, buildSubreportUpload(report));
         } else { // STANDARD — embed band designer (canvas only); the single top toolbar Save
                  // persists it
             ReportBuilderView rb = new ReportBuilderView(reportMetaRepository, formMetaRepository, this::refreshGrid);
@@ -872,6 +900,81 @@ public class ReportDesignerView extends VerticalLayout {
                         "Upload a .jrxml source file, authored in "
                                 + "JasperSoft Studio matching the runtime JasperReports version. "
                                 + "(.jasper files are blocked to prevent deserialization attacks.)"),
+                upload);
+        box.setPadding(false);
+        return box;
+    }
+
+    private com.vaadin.flow.component.Component buildSubreportUpload(ReportMeta report) {
+        VerticalLayout box = new VerticalLayout();
+        box.add(new com.vaadin.flow.component.html.H4("Jasper Subreport Upload (optional)"));
+
+        com.vaadin.flow.component.html.Span currentFile = new com.vaadin.flow.component.html.Span();
+        currentFile.getStyle().set("font-weight", "bold");
+
+        HorizontalLayout currentFileLayout = new HorizontalLayout();
+        currentFileLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
+        currentFileLayout.setVisible(false);
+
+        com.vaadin.flow.component.button.Button deleteBtn = new com.vaadin.flow.component.button.Button("Delete File", com.vaadin.flow.component.icon.VaadinIcon.TRASH.create());
+        deleteBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_ERROR, com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
+
+        currentFileLayout.add(currentFile, deleteBtn);
+        box.add(currentFileLayout);
+
+        if (report.getSubreportTemplatePath() != null && !report.getSubreportTemplatePath().isEmpty() && !pendingSubreportDelete) {
+            currentFile.setText("File saat ini: " + report.getSubreportTemplatePath());
+            currentFile.getStyle().set("color", "var(--lumo-success-text-color)");
+            currentFileLayout.setVisible(true);
+        }
+
+        if (pendingSubreportFilename != null) {
+            currentFile.setText("Akan diupload: " + pendingSubreportFilename);
+            currentFile.getStyle().set("color", "var(--lumo-primary-text-color)");
+            currentFileLayout.setVisible(true);
+        }
+
+        com.vaadin.flow.component.UI ui = com.vaadin.flow.component.UI.getCurrent();
+        com.vaadin.flow.server.streams.UploadHandler handler =
+                com.vaadin.flow.server.streams.UploadHandler.inMemory((metadata, data) -> {
+                    try {
+                        jasperUploadService.validateUpload(data);
+                        pendingSubreportBytes = data;
+                        pendingSubreportFilename = metadata.fileName();
+                        pendingSubreportDelete = false;
+                        ui.access(() -> {
+                            Notification.show("File siap diupload. Klik tombol Save untuk menyimpan permanen.");
+                            currentFile.setText("Akan diupload: " + pendingSubreportFilename);
+                            currentFile.getStyle().set("color", "var(--lumo-primary-text-color)");
+                            currentFileLayout.setVisible(true);
+                        });
+                    } catch (Exception ex) {
+                        ui.access(() -> Notification.show("Failed to validate the file: " + ex.getMessage()));
+                    }
+                });
+        com.vaadin.flow.component.upload.Upload upload = new com.vaadin.flow.component.upload.Upload(handler);
+        upload.setAcceptedFileTypes(".jrxml");
+        upload.setMaxFiles(1);
+
+        deleteBtn.addClickListener(e -> {
+            pendingSubreportDelete = true;
+            pendingSubreportBytes = null;
+            pendingSubreportFilename = null;
+            upload.clearFileList();
+
+            Notification.show("Penghapusan ditandai. Klik tombol Save untuk menghapus permanen.");
+
+            currentFile.setText("Will be deleted");
+            currentFile.getStyle().set("color", "var(--lumo-error-text-color)");
+            currentFileLayout.setVisible(true);
+        });
+
+        box.add(
+                new com.vaadin.flow.component.html.Span(
+                        "Upload subreport .jrxml file (must have its own <query> and use "
+                                + "$P{REPORT_CONNECTION} for its connection expression). Fill in "
+                                + "\"Subreport Parameter Name\" above to match the Sub-Report element's "
+                                + "parameter expression in the main template."),
                 upload);
         box.setPadding(false);
         return box;

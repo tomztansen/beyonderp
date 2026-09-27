@@ -38,7 +38,12 @@ public class ReportRunService {
 
     public ReportRunResult run(ReportMeta report, Map<String, Object> params, String format, boolean sample) {
         String engine = report.getEngineType() != null ? report.getEngineType() : "STANDARD";
-        beforeRun(report, params); // titik ekstensi (no-op)
+        // Preview (Report Designer) tidak boleh ikut memicu before/after script -- itu bukan
+        // "report benar-benar dijalankan", cuma pratinjau. Kalau tidak dijaga, klik Preview
+        // berulang kali ikut menambah print_count dsb. seolah-olah report itu di-run beneran.
+        if (!sample) {
+            beforeRun(report, params);
+        }
 
         if ("STIMULSOFT".equalsIgnoreCase(engine)) {
             StringBuilder url = new StringBuilder("/stimulsoft-java/viewer?code=").append(report.getReportCode());
@@ -64,12 +69,17 @@ public class ReportRunService {
         File template = "STANDARD".equalsIgnoreCase(engine)
                 ? null
                 : resolver.resolveMasterTemplate(report.getReportCode(), engine, report.getTemplatePath());
+        File subreportTemplate = "JASPER".equalsIgnoreCase(engine) && report.getSubreportTemplatePath() != null
+                ? resolver.resolveSubreportTemplate(report.getReportCode())
+                : null;
         ReportContext ctx = new ReportContext(report.getReportCode(), engine, template, data, params,
                 report.getPageSize(), report.getOrientation(), report.getReportTitle(),
-                report.getElements(), report.getGroupBy());
+                report.getElements(), report.getGroupBy(), subreportTemplate, report.getSubreportParamName());
         ReportRenderer renderer = registry.forEngine(engine);
         ReportOutput out = renderer.export(ctx, format != null ? format : "PDF");
-        afterRun(report, params, data != null ? data.size() : 0); // titik ekstensi (no-op)
+        if (!sample) {
+            afterRun(report, params, data != null ? data.size() : 0);
+        }
         return ReportRunResult.rendered(out);
     }
 
@@ -93,18 +103,19 @@ public class ReportRunService {
         }
     }
 
-    /** Titik ekstensi setelah report dijalankan (mis. audit). */
+    /**
+     * Titik ekstensi setelah report dijalankan (mis. audit, hitung berapa kali di-print).
+     * Synchronous dan sengaja TIDAK ditangkap di sini: kalau script ini gagal (mis. UPDATE
+     * print_count gagal), exception-nya nyebrang ke run() dan report yang SUDAH dirender di
+     * atas TIDAK PERNAH sampai ke pemanggil -- report dianggap gagal walau outputnya sempat jadi.
+     * Sebelumnya ini fire-and-forget (CompletableFuture.runAsync) -- report selalu terkirim ke
+     * user apa pun hasil script-nya, jadi tidak bisa dipakai buat hal yang wajib berhasil.
+     */
     protected void afterRun(ReportMeta report, Map<String, Object> params, int rowCount) {
         if (report.getAfterScript() != null && !report.getAfterScript().isBlank()) {
             String username = securityService != null && securityService.getCurrentUser() != null
                 ? securityService.getCurrentUser().getUsername() : "system";
-            java.util.concurrent.CompletableFuture.runAsync(() -> {
-                try {
-                    scriptExecutor.executeReportScript(report.getAfterScript(), params, username, log);
-                } catch (Exception e) {
-                    log.error("Error executing afterScript for report {}: {}", report.getReportCode(), e.getMessage());
-                }
-            });
+            scriptExecutor.executeReportScript(report.getAfterScript(), params, username, log);
         }
     }
 }

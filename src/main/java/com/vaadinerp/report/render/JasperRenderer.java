@@ -33,20 +33,32 @@ public class JasperRenderer implements ReportRenderer {
     private JasperPrint fill(ReportContext ctx) throws JRException {
         JasperReport jr = templates.loadCompiled(ctx.template());
         Map<String, Object> params = ctx.params() != null ? new HashMap<>(ctx.params()) : new HashMap<>();
-        
-        if (ctx.data() == null) {
-            // Data is null, meaning no external query was defined in the application.
-            // Let Jasper execute its own internal <query> via JDBC.
-            try (java.sql.Connection conn = dataSource.getConnection()) {
+
+        if (ctx.subreportTemplate() != null && ctx.subreportParamName() != null
+                && !ctx.subreportParamName().isBlank()) {
+            JasperReport subreport = templates.loadCompiled(ctx.subreportTemplate());
+            params.put(ctx.subreportParamName().trim(), subreport);
+        }
+
+        // Koneksi selalu disediakan (bukan cuma saat report induk tidak punya custom query):
+        // subreport bisa punya <query> sendiri di .jrxml-nya sendiri, dieksekusi lewat
+        // koneksi ini (elemen Sub-Report di desain diarahkan ke $P{REPORT_CONNECTION}),
+        // difilter pakai nilai kolom baris induk lewat subreportParameter di desainnya.
+        try (java.sql.Connection conn = dataSource.getConnection()) {
+            params.put(JRParameter.REPORT_CONNECTION, conn);
+
+            if (ctx.data() == null) {
+                // Data is null, meaning no external query was defined in the application.
+                // Let Jasper execute its own internal <query> via JDBC.
                 return JasperFillManager.fillReport(jr, params, conn);
-            } catch (java.sql.SQLException e) {
-                throw new JRException("Failed to obtain JDBC connection for internal Jasper query", e);
+            } else {
+                List<Map<String, Object>> data = ctx.data();
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                JRMapCollectionDataSource ds = new JRMapCollectionDataSource((java.util.Collection) data);
+                return JasperFillManager.fillReport(jr, params, ds);
             }
-        } else {
-            List<Map<String, Object>> data = ctx.data();
-            @SuppressWarnings({"unchecked", "rawtypes"})
-            JRMapCollectionDataSource ds = new JRMapCollectionDataSource((java.util.Collection) data);
-            return JasperFillManager.fillReport(jr, params, ds);
+        } catch (java.sql.SQLException e) {
+            throw new JRException("Failed to obtain JDBC connection for Jasper report/subreport", e);
         }
     }
 

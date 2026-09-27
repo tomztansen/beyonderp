@@ -24,14 +24,21 @@ public class StimulsoftRenderer implements ReportRenderer {
         return "STIMULSOFT";
     }
 
-    /** Ganti seluruh database report dengan satu StiJsonDatabase "DynamicData" berisi {@code data}. */
+    private static final String DYNAMIC_DATA_NAME = "DynamicData";
+
+    /**
+     * Ganti database "DynamicData" dengan data terbaru. Database lain yang didesain di
+     * Stimulsoft Designer (dipakai sub-report Page lain, dsb.) dibiarkan utuh -- dulu
+     * bindData() ini clear() semua database, jadi mematikan sub-report yang punya
+     * data source sendiri. Sekarang cuma hapus-lalu-pasang ulang "DynamicData" saja.
+     */
     public static StiReport bindData(StiReport report, List<Map<String, Object>> data) throws Exception {
         Map<String, Object> root = new HashMap<>();
-        root.put("DynamicData", data != null ? data : List.of());
+        root.put(DYNAMIC_DATA_NAME, data != null ? data : List.of());
         String json = MAPPER.writeValueAsString(root);
 
-        report.getDictionary().getDatabases().clear();
-        StiJsonDatabase db = new StiJsonDatabase("DynamicData", "");
+        report.getDictionary().removeDatabase(DYNAMIC_DATA_NAME);
+        StiJsonDatabase db = new StiJsonDatabase(DYNAMIC_DATA_NAME, "");
         db.setJsonData(json);
         report.getDictionary().getDatabases().add(db);
         report.getDictionary().synchronize();

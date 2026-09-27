@@ -46,6 +46,18 @@ public class ReportResolver {
         }
     }
 
+    /**
+     * File subreport Jasper (selalu .jrxml, sama seperti template utama -- .jasper tidak
+     * diizinkan untuk mencegah deserialization attack). Path-nya {@code {code}_sub.jrxml},
+     * berdampingan dengan template utama {@code {code}.jrxml} di folder yang sama.
+     */
+    public File resolveSubreportTemplate(String code) {
+        if (!isValidReportCode(code)) {
+            throw new IllegalArgumentException("Invalid report code: " + code);
+        }
+        return new File(uploadDir, "jasper/" + code + "_sub.jrxml");
+    }
+
     public File resolveMasterTemplate(String code, String engineType, String templatePath) {
         if (!isValidReportCode(code)) {
             throw new IllegalArgumentException("Invalid report code: " + code);
