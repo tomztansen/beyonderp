@@ -492,8 +492,13 @@ public class ComponentFactory {
         }
     }
 
-    /** Script mode yang gagal: dicatat sekali saja, bukan sekali per sel grid. */
-    private static final java.util.Set<String> FAILED_LOV_SCRIPTS = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    /**
+     * Script mode yang gagal: dicatat sekali saja, bukan sekali per sel grid. Dibatasi
+     * (bukan Set polos) supaya konsisten dengan lovLabelCache -- kalau admin berkali-kali
+     * mengedit script yang salah, entry lama otomatis tergusur, bukan menumpuk selamanya.
+     */
+    private static final com.github.benmanes.caffeine.cache.Cache<String, Boolean> FAILED_LOV_SCRIPTS = com.github.benmanes.caffeine.cache.Caffeine
+            .newBuilder().maximumSize(200).build();
 
     /** Konfigurasi LOV Switch field, atau null kalau tidak dipakai / isinya tidak valid. */
     public static LovSwitch lovSwitchOf(FieldMeta field) {
@@ -557,7 +562,8 @@ public class ComponentFactory {
                     .evaluateLovSwitchScript(sw.script(), header, row);
             return lov != null ? lov : field.getLovCode();
         } catch (Exception ex) {
-            if (FAILED_LOV_SCRIPTS.add(sw.script())) {
+            if (FAILED_LOV_SCRIPTS.getIfPresent(sw.script()) == null) {
+                FAILED_LOV_SCRIPTS.put(sw.script(), Boolean.TRUE);
                 org.slf4j.LoggerFactory.getLogger(ComponentFactory.class).warn(
                         "LOV Switch script field {} gagal, pakai LOV default: {}", field.getFieldName(),
                         ex.getMessage());
