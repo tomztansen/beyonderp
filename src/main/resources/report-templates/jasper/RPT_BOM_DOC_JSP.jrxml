@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!-- JasperReports 7 JRXML: tanpa namespace, elemen band memakai <element kind="..."/>.
      Format JR6 (<reportElement>/<staticText>/<textFieldExpression>) TIDAK bisa dimuat
      oleh runtime 7.0.7 di pom.xml - JRXmlLoader menolaknya dengan "Unable to load report". -->
@@ -8,7 +8,7 @@
     <field name="idno" class="java.lang.String"/>
     <field name="product" class="java.lang.String"/>
     <field name="drawing" class="java.lang.String"/>
-    <field name="netweight" class="java.lang.String"/>
+    <field name="netweight" class="java.lang.Object"/>
     <field name="material" class="java.lang.String"/>
     <field name="itemgroup" class="java.lang.String"/>
     <field name="qty" class="java.math.BigDecimal"/>
@@ -51,7 +51,7 @@
                     <text><![CDATA[Net Weight]]></text>
                 </element>
                 <element kind="textField" x="380" y="46" width="175" height="16" blankWhenNull="true">
-                    <expression><![CDATA[": " + ($F{netweight} == null ? "-" : $F{netweight})]]></expression>
+                    <expression><![CDATA[": " + ($F{netweight} == null ? "-" : "" + $F{netweight})]]></expression>
                 </element>
 
                 <element kind="line" x="0" y="68" width="555" height="1"/>

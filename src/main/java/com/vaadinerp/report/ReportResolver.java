@@ -47,15 +47,27 @@ public class ReportResolver {
     }
 
     /**
-     * File subreport Jasper (selalu .jrxml, sama seperti template utama -- .jasper tidak
-     * diizinkan untuk mencegah deserialization attack). Path-nya {@code {code}_sub.jrxml},
-     * berdampingan dengan template utama {@code {code}.jrxml} di folder yang sama.
+     * Folder subreport milik SATU report (bukan folder jasper/ bersama) -- setiap report punya
+     * subfolder sendiri supaya listing/scan file tidak pernah bocor ke report lain.
      */
-    public File resolveSubreportTemplate(String code) {
+    public File resolveSubreportDir(String code) {
         if (!isValidReportCode(code)) {
             throw new IllegalArgumentException("Invalid report code: " + code);
         }
-        return new File(uploadDir, "jasper/" + code + "_sub.jrxml");
+        return new File(uploadDir, "jasper/" + code + "_sub");
+    }
+
+    /**
+     * File subreport Jasper (selalu .jrxml -- .jasper tidak diizinkan untuk mencegah
+     * deserialization attack). Nama filenya deterministik dari paramName (bukan dari nama
+     * upload asli), supaya banyak subreport dalam satu report tidak saling menimpa.
+     */
+    public File resolveSubreportFile(String code, String paramName) {
+        if (paramName == null || paramName.isBlank()) {
+            throw new IllegalArgumentException("Subreport param name cannot be blank");
+        }
+        String safeName = paramName.trim().replaceAll("[^A-Za-z0-9_-]", "_");
+        return new File(resolveSubreportDir(code), safeName + ".jrxml");
     }
 
     public File resolveMasterTemplate(String code, String engineType, String templatePath) {

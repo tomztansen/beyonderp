@@ -57,6 +57,8 @@ public final class GroovyDsl {
         m.put("setElementReadonly", "setElementReadonly(ref, true|false)");
         m.put("setElementEnabled", "setElementEnabled(ref, true|false)");
         m.put("setElementDisabled", "setElementDisabled(ref, true|false)");
+        m.put("setElementVisible", "setElementVisible(ref, true|false) — untuk kolom subform grid, "
+                + "menyembunyikan SELURUH kolom (semua baris), bukan cuma satu sel");
         m.put("clearForm", "clearForm() — kosongkan seluruh form");
         m.put("refreshForm", "refreshForm() — muat ulang data form");
         // Pesan ke user
@@ -133,6 +135,10 @@ public final class GroovyDsl {
                         }
                         showError("Access", "You are not allowed to save this record.")
                         return false""");
+        m.put("Sembunyikan field header berdasar mode (ON_CHANGE)",
+                """
+                        // Trigger Field diisi nama field mode-nya, mis. header.mode
+                        setElementVisible("harga_manual", header.mode == "MANUAL")""");
         m.put("Ambil satu baris dari tabel lain",
                 """
                         def item = db.find('msitem', 'itemid', header.itemid)
@@ -156,6 +162,12 @@ public final class GroovyDsl {
                 "row.perseries = header.qty != null ? header.qty : 1");
         m.put("Kalkulasi antar kolom di baris yang sama",
                 "row.total = (row.qty != null ? row.qty : 0) * (row.price != null ? row.price : 0)");
+        m.put("Sembunyikan kolom subform berdasar status header",
+                """
+                        // Nama kolom langsung tanpa prefix -- target-nya subform ini sendiri,
+                        // seluruh kolom (semua baris), bukan cuma baris yang sedang diedit
+                        setElementVisible("harga_beli", header.status == "PURCHASE")
+                        setElementVisible("harga_jual", header.status == "SALES")""");
         m.put("Lookup tabel lain",
                 """
                         def item = db.find('lov_item', 'item_code', row.item_code)

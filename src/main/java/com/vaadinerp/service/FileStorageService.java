@@ -45,6 +45,18 @@ public class FileStorageService {
     private static final Set<String> IMAGE_EXTENSIONS = new HashSet<>(Arrays.asList(
             "jpg", "jpeg", "png", "webp", "gif", "bmp"));
 
+    /**
+     * Cuma JPG/JPEG yang dikompres ulang -- PNG lossless (ImageIO tidak punya kontrol
+     * kualitas lossy yang berarti untuk PNG), WEBP tidak ada writer bawaan di ImageIO
+     * (perlu library tambahan), keduanya dibiarkan apa adanya. Ini murni deteksi tipe file
+     * asli (lewat ekstensi setelah sanitasi) -- berlaku sama baik diupload lewat komponen
+     * FILE_UPLOAD maupun IMAGE_UPLOAD, bukan tergantung komponennya.
+     */
+    private static final Set<String> COMPRESSIBLE_IMAGE_EXTENSIONS = new HashSet<>(Arrays.asList("jpg", "jpeg"));
+    private static final float IMAGE_COMPRESSION_QUALITY = 0.7f;
+    /** Upload di sini cuma dokumentasi, bukan dokumen presisi -- aman diperkecil ke sisi terpanjang ini. */
+    private static final int MAX_IMAGE_DIMENSION = 1920;
+
     @PostConstruct
     public void init() {
         try {
@@ -93,13 +105,81 @@ public class FileStorageService {
         Path targetLocation = this.tmpDir.resolve(storedFilename);
 
         try {
-            Files.copy(inputStream, targetLocation, StandardCopyOption.REPLACE_EXISTING);
+            byte[] bytes = inputStream.readAllBytes();
+            if (COMPRESSIBLE_IMAGE_EXTENSIONS.contains(ext.toLowerCase())) {
+                bytes = compressJpegIfPossible(bytes, originalFilename);
+            }
+            Files.write(targetLocation, bytes);
             log.info("File berhasil disimpan (sementara): {} -> {}", originalFilename, targetLocation);
             return storedFilename;
         } catch (IOException e) {
             log.error("Gagal menyimpan file: {}", originalFilename, e);
             throw new RuntimeException("Failed to save file " + originalFilename + ". Please try again!", e);
         }
+    }
+
+    /**
+     * Kompres ulang JPEG ke kualitas 70%. Kalau gambarnya gagal di-decode (rusak,
+     * atau ternyata bukan JPEG asli walau ekstensinya .jpg) atau proses kompresi
+     * gagal, kembalikan byte asli apa adanya -- upload tidak boleh gagal cuma
+     * karena kompresinya gagal.
+     */
+    private byte[] compressJpegIfPossible(byte[] original, String originalFilename) {
+        try {
+            java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(original));
+            if (image == null) {
+                return original;
+            }
+            image = resizeIfLarger(image, MAX_IMAGE_DIMENSION);
+            java.util.Iterator<javax.imageio.ImageWriter> writers = javax.imageio.ImageIO.getImageWritersByFormatName("jpg");
+            if (!writers.hasNext()) {
+                return original;
+            }
+            javax.imageio.ImageWriter writer = writers.next();
+            javax.imageio.ImageWriteParam param = writer.getDefaultWriteParam();
+            param.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+            param.setCompressionQuality(IMAGE_COMPRESSION_QUALITY);
+
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            try (javax.imageio.stream.ImageOutputStream ios = javax.imageio.ImageIO.createImageOutputStream(out)) {
+                writer.setOutput(ios);
+                writer.write(null, new javax.imageio.IIOImage(image, null, null), param);
+            } finally {
+                writer.dispose();
+            }
+            byte[] compressed = out.toByteArray();
+            return compressed.length < original.length ? compressed : original;
+        } catch (Exception e) {
+            log.warn("Gagal kompres gambar {}, simpan file asli: {}", originalFilename, e.getMessage());
+            return original;
+        }
+    }
+
+    /**
+     * Perkecil ke sisi terpanjang maxDimension kalau lebih besar, jaga rasio aspek.
+     * Upload di sini cuma dokumentasi, jadi ini konsisten hemat storage-nya berapa pun
+     * kualitas encode file aslinya -- beda dari kompresi kualitas yang cuma bantu kalau
+     * file aslinya belum banyak dikompres.
+     */
+    private static java.awt.image.BufferedImage resizeIfLarger(java.awt.image.BufferedImage image, int maxDimension) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        if (width <= maxDimension && height <= maxDimension) {
+            return image;
+        }
+        double scale = Math.min((double) maxDimension / width, (double) maxDimension / height);
+        int newWidth = Math.max(1, (int) Math.round(width * scale));
+        int newHeight = Math.max(1, (int) Math.round(height * scale));
+
+        java.awt.image.BufferedImage resized = new java.awt.image.BufferedImage(
+                newWidth, newHeight, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g = resized.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING, java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+        g.drawImage(image, 0, 0, newWidth, newHeight, null);
+        g.dispose();
+        return resized;
     }
 
     /**

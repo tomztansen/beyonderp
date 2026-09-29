@@ -69,18 +69,25 @@ public class ReportRunService {
         File template = "STANDARD".equalsIgnoreCase(engine)
                 ? null
                 : resolver.resolveMasterTemplate(report.getReportCode(), engine, report.getTemplatePath());
-        File subreportTemplate = "JASPER".equalsIgnoreCase(engine) && report.getSubreportTemplatePath() != null
-                ? resolver.resolveSubreportTemplate(report.getReportCode())
-                : null;
+        Map<String, File> subreports = new java.util.HashMap<>();
+        if ("JASPER".equalsIgnoreCase(engine)) {
+            for (com.vaadinerp.report.SubreportConfig.Entry e
+                    : com.vaadinerp.report.SubreportConfig.parse(report.getSubreportsJson())) {
+                subreports.put(e.paramName(), resolver.resolveSubreportFile(report.getReportCode(), e.paramName()));
+            }
+        }
         ReportContext ctx = new ReportContext(report.getReportCode(), engine, template, data, params,
                 report.getPageSize(), report.getOrientation(), report.getReportTitle(),
-                report.getElements(), report.getGroupBy(), subreportTemplate, report.getSubreportParamName());
+                report.getElements(), report.getGroupBy(), subreports);
         ReportRenderer renderer = registry.forEngine(engine);
-        ReportOutput out = renderer.export(ctx, format != null ? format : "PDF");
+        // Normalisasi di satu titik ini -- UI (ReportRunnerView) pakai "EXCEL", sebagian
+        // renderer (JasperRenderer) cuma cek "XLSX", jadi "EXCEL" dulu jatuh ke default PDF.
+        String normalizedFormat = "EXCEL".equalsIgnoreCase(format) ? "XLSX" : format;
+        ReportOutput out = renderer.export(ctx, normalizedFormat != null ? normalizedFormat : "PDF");
         if (!sample) {
             afterRun(report, params, data != null ? data.size() : 0);
         }
-        return ReportRunResult.rendered(out);
+        return ReportRunResult.rendered(out, data == null || data.isEmpty());
     }
 
     private static void appendParam(StringBuilder url, String key, Object value) {

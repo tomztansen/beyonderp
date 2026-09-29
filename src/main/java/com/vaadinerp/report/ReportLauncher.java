@@ -136,21 +136,41 @@ public final class ReportLauncher {
                             portal.openComponentTab(tabId(report.getReportCode()), title, buildOutput(res));
                         }
                     }
+                    // Notifikasi saja -- output-nya (mis. dokumen berkop kosong buat print manual)
+                    // tetap dibuka, tidak diblokir.
+                    if (res.dataEmpty()) {
+                        Notification n = Notification.show("⚠️ Data report is empty", 4000,
+                                Notification.Position.TOP_CENTER);
+                        n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+                    }
                     if (onFinish != null) onFinish.run();
                 });
             } catch (org.springframework.dao.QueryTimeoutException te) {
                 ui.access(() -> {
-                    Notification.show("The report query took too long and was stopped. "
-                            + "Please narrow your filter/parameters.");
+                    Notification n = Notification.show("The report query took too long and was stopped. "
+                            + "Please narrow your filter/parameters.", 6000, Notification.Position.MIDDLE);
+                    n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
                     if (onFinish != null) onFinish.run();
                 });
             } catch (Exception ex) {
                 ui.access(() -> {
-                    Notification.show("Failed to run report: "
-                            + (ex.getMessage() != null ? ex.getMessage() : ex.toString()));
+                    // Cuma pesan asli (mis. dari throw di before-script) -- bukan "Failed to run
+                    // report: Report Script Error: ..." yang menumpuk dari tiap lapis pembungkus.
+                    Notification n = Notification.show(rootCauseMessage(ex), 6000, Notification.Position.MIDDLE);
+                    n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
                     if (onFinish != null) onFinish.run();
                 });
             }
         });
+    }
+
+    /** Pesan dari exception paling dalam -- bukan lapis pembungkus (RuntimeException dari
+     * ScriptExecutorService, dst) yang cuma menumpuk prefix tanpa info baru. */
+    private static String rootCauseMessage(Throwable t) {
+        Throwable cur = t;
+        while (cur.getCause() != null && cur.getCause() != cur) {
+            cur = cur.getCause();
+        }
+        return cur.getMessage() != null ? cur.getMessage() : cur.toString();
     }
 }

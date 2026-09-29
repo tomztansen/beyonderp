@@ -13,6 +13,10 @@ import java.util.stream.Collectors;
  * Resolusi parameter otomatis:
  * FORM_FIELD → ambil dari record form yang terbuka; SYSTEM → keyword ($CURRENT_USER, CURRENT_DATE);
  * USER_INPUT → diabaikan (diisi user via ReportParameterForm).
+ * BOTH → hybrid: ikut FORM_FIELD kalau ada record/baris (dipanggil dari Form), kalau tidak
+ * (dipanggil dari Report Runner, record/rows selalu kosong) jatuh ke USER_INPUT -- tetap
+ * ditanyakan lewat ReportParameterForm. Supaya 1 report+param bisa dipakai dari Runner maupun
+ * Form tanpa duplikasi konfigurasi.
  */
 public final class ReportParamResolver {
 
@@ -39,7 +43,7 @@ public final class ReportParamResolver {
         if (params == null) return out;
         for (ReportParamMeta p : params) {
             String source = sourceOf(p);
-            if ("FORM_FIELD".equals(source)) {
+            if ("FORM_FIELD".equals(source) || "BOTH".equals(source)) {
                 if (record != null && p.getSourceKey() != null && record.containsKey(p.getSourceKey())) {
                     out.put(p.getParamName(), record.get(p.getSourceKey()));
                 }
@@ -64,7 +68,7 @@ public final class ReportParamResolver {
         List<Map<String, Object>> safeRows = (rows == null) ? List.of() : rows;
         for (ReportParamMeta p : params) {
             String source = sourceOf(p);
-            if ("FORM_FIELD".equals(source)) {
+            if ("FORM_FIELD".equals(source) || "BOTH".equals(source)) {
                 String key = p.getSourceKey();
                 if (key == null || key.isBlank()) continue;
                 List<Object> values = new ArrayList<>();
@@ -85,7 +89,8 @@ public final class ReportParamResolver {
     public static List<ReportParamMeta> userInputParams(List<ReportParamMeta> params) {
         if (params == null) return List.of();
         return params.stream()
-                .filter(p -> p.getSource() == null || "USER_INPUT".equalsIgnoreCase(p.getSource().trim()))
+                .filter(p -> p.getSource() == null || "USER_INPUT".equalsIgnoreCase(p.getSource().trim())
+                        || "BOTH".equalsIgnoreCase(p.getSource().trim()))
                 .collect(Collectors.toList());
     }
 }

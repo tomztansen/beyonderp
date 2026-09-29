@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sub-report: Production Route (Tahapan / Rute Kerja Produksi) -->
+<jasperReport name="RPT_SPK_ROUTE_SUB" pageWidth="555" pageHeight="842" columnWidth="555"
+              leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0">
+    <parameter name="P_ORDER_ID" class="java.lang.Object"/>
+
+    <query language="sql"><![CDATA[
+        SELECT 
+            r.sequence,
+            COALESCE(l.description, l.code, 'Proses ' || r.sequence) AS work_center,
+            r.qty,
+            COALESCE(u.code, 'PCS') AS uom_name,
+            r.leadday,
+            r.proposedtime
+        FROM dynamic.tsproductionorderrouted r
+        LEFT JOIN dynamic.mhresource res ON r.resourceid = res.id
+        LEFT JOIN dynamic.mdlookup l ON res.msresourceid = l.id
+        LEFT JOIN dynamic.mdlookup u ON r.uomid = u.id
+        WHERE r.tsproductionorderid = $P{P_ORDER_ID}
+        ORDER BY r.sequence ASC
+    ]]></query>
+
+    <field name="sequence" class="java.lang.Integer"/>
+    <field name="work_center" class="java.lang.String"/>
+    <field name="qty" class="java.math.BigDecimal"/>
+    <field name="uom_name" class="java.lang.String"/>
+    <field name="leadday" class="java.lang.Integer"/>
+    <field name="proposedtime" class="java.util.Date"/>
+
+    <title height="24">
+        <element kind="staticText" x="0" y="4" width="555" height="18" fontSize="11.0" bold="true">
+            <text><![CDATA[A. RUTE KERJA & TAHAPAN OPERASI (PRODUCTION ROUTE)]]></text>
+        </element>
+    </title>
+
+    <columnHeader height="20">
+        <element kind="line" x="0" y="0" width="555" height="1"/>
+        <element kind="staticText" x="0" y="2" width="40" height="16" bold="true">
+            <text><![CDATA[Seq]]></text>
+        </element>
+        <element kind="staticText" x="40" y="2" width="230" height="16" bold="true">
+            <text><![CDATA[Work Center / Mesin / Operasi]]></text>
+        </element>
+        <element kind="staticText" x="270" y="2" width="80" height="16" bold="true" hTextAlign="Right">
+            <text><![CDATA[Target Qty]]></text>
+        </element>
+        <element kind="staticText" x="355" y="2" width="45" height="16" bold="true">
+            <text><![CDATA[Satuan]]></text>
+        </element>
+        <element kind="staticText" x="405" y="2" width="60" height="16" bold="true" hTextAlign="Right">
+            <text><![CDATA[Lead Day]]></text>
+        </element>
+        <element kind="staticText" x="470" y="2" width="85" height="16" bold="true" hTextAlign="Center">
+            <text><![CDATA[Tgl Rencana]]></text>
+        </element>
+        <element kind="line" x="0" y="19" width="555" height="1"/>
+    </columnHeader>
+
+    <detail>
+        <band height="18">
+            <element kind="textField" x="0" y="1" width="40" height="16" blankWhenNull="true">
+                <expression><![CDATA[$F{sequence}]]></expression>
+            </element>
+            <element kind="textField" x="40" y="1" width="230" height="16" blankWhenNull="true">
+                <expression><![CDATA[$F{work_center}]]></expression>
+            </element>
+            <element kind="textField" x="270" y="1" width="80" height="16" pattern="#,##0.00" blankWhenNull="true" hTextAlign="Right">
+                <expression><![CDATA[$F{qty}]]></expression>
+            </element>
+            <element kind="textField" x="355" y="1" width="45" height="16" blankWhenNull="true">
+                <expression><![CDATA[$F{uom_name}]]></expression>
+            </element>
+            <element kind="textField" x="405" y="1" width="60" height="16" blankWhenNull="true" hTextAlign="Right">
+                <expression><![CDATA[$F{leadday} == null ? "-" : $F{leadday} + " hari"]]></expression>
+            </element>
+            <element kind="textField" x="470" y="1" width="85" height="16" pattern="dd/MM/yyyy" blankWhenNull="true" hTextAlign="Center">
+                <expression><![CDATA[$F{proposedtime}]]></expression>
+            </element>
+        </band>
+    </detail>
+</jasperReport>

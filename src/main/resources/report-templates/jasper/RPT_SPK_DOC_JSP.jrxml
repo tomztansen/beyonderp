@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Master Report: Surat Perintah Kerja (SPK) / Production Order dengan 2 Sub-report -->
+<jasperReport name="RPT_SPK_DOC_JSP" pageWidth="595" pageHeight="842" columnWidth="555"
+              leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+    <parameter name="P_ORDER_ID" class="java.lang.Object"/>
+    <parameter name="SUBREPORT_DIR" class="java.lang.String">
+        <defaultValueExpression><![CDATA["./"]]></defaultValueExpression>
+    </parameter>
+    <parameter name="RPT_SPK_ROUTE_SUB" class="net.sf.jasperreports.engine.JasperReport"/>
+    <parameter name="RPT_SPK_BOM_SUB" class="net.sf.jasperreports.engine.JasperReport"/>
+
+    <query language="sql"><![CDATA[
+        SELECT 
+            po.id AS po_id,
+            po.idno AS spk_number,
+            po.iddate AS spk_date,
+            COALESCE(i.itemcode, '-') AS product_code,
+            COALESCE(i.itemname, '-') AS product_name,
+            po.qty AS order_qty,
+            COALESCE(u.code, 'PCS') AS uom_name,
+            sl.shippingdateconfirmed AS due_date,
+            po.note AS order_notes,
+            po.status AS order_status
+        FROM dynamic.tsproductionorder po
+        LEFT JOIN dynamic.msitem i ON po.itemid = i.id
+        LEFT JOIN dynamic.mdlookup u ON po.uomid = u.id
+        LEFT JOIN dynamic.tssalesline sl ON po.tssaleslineid = sl.id
+        WHERE ($P{P_ORDER_ID} IS NULL OR po.id::text = $P{P_ORDER_ID})
+        ORDER BY po.id DESC
+    ]]></query>
+
+    <field name="po_id" class="java.lang.Long"/>
+    <field name="spk_number" class="java.lang.String"/>
+    <field name="spk_date" class="java.sql.Date"/>
+    <field name="product_code" class="java.lang.String"/>
+    <field name="product_name" class="java.lang.String"/>
+    <field name="order_qty" class="java.math.BigDecimal"/>
+    <field name="uom_name" class="java.lang.String"/>
+    <field name="due_date" class="java.util.Date"/>
+    <field name="order_notes" class="java.lang.String"/>
+    <field name="order_status" class="java.lang.Object"/>
+
+    <group name="SpkGroup" startNewPage="true">
+        <expression><![CDATA[$F{po_id}]]></expression>
+        <groupHeader>
+            <band height="110">
+                <!-- Header Box -->
+                <element kind="rectangle" x="0" y="0" width="555" height="100"/>
+                
+                <element kind="staticText" x="12" y="8" width="300" height="22" fontSize="14.0" bold="true">
+                    <text><![CDATA[SURAT PERINTAH KERJA (SPK)]]></text>
+                </element>
+                
+                <element kind="staticText" x="350" y="10" width="70" height="16" bold="true">
+                    <text><![CDATA[No. SPK :]]></text>
+                </element>
+                <element kind="textField" x="420" y="10" width="125" height="16" fontSize="11.0" bold="true" blankWhenNull="true">
+                    <expression><![CDATA[$F{spk_number}]]></expression>
+                </element>
+
+                <element kind="staticText" x="350" y="28" width="70" height="16">
+                    <text><![CDATA[Tanggal :]]></text>
+                </element>
+                <element kind="textField" x="420" y="28" width="125" height="16" pattern="dd/MM/yyyy" blankWhenNull="true">
+                    <expression><![CDATA[$F{spk_date}]]></expression>
+                </element>
+
+                <element kind="staticText" x="12" y="38" width="80" height="16">
+                    <text><![CDATA[Kode Produk :]]></text>
+                </element>
+                <element kind="textField" x="95" y="38" width="240" height="16" bold="true" blankWhenNull="true">
+                    <expression><![CDATA[$F{product_code}]]></expression>
+                </element>
+
+                <element kind="staticText" x="12" y="56" width="80" height="16">
+                    <text><![CDATA[Nama Produk :]]></text>
+                </element>
+                <element kind="textField" x="95" y="56" width="445" height="16" blankWhenNull="true">
+                    <expression><![CDATA[$F{product_name}]]></expression>
+                </element>
+
+                <element kind="staticText" x="12" y="74" width="80" height="16">
+                    <text><![CDATA[Target Qty :]]></text>
+                </element>
+                <element kind="textField" x="95" y="74" width="100" height="16" pattern="#,##0.00" bold="true" blankWhenNull="true">
+                    <expression><![CDATA[$F{order_qty}]]></expression>
+                </element>
+                <element kind="textField" x="200" y="74" width="50" height="16" blankWhenNull="true">
+                    <expression><![CDATA[$F{uom_name}]]></expression>
+                </element>
+
+                <element kind="staticText" x="350" y="74" width="70" height="16">
+                    <text><![CDATA[Due Date :]]></text>
+                </element>
+                <element kind="textField" x="420" y="74" width="125" height="16" pattern="dd/MM/yyyy" blankWhenNull="true">
+                    <expression><![CDATA[$F{due_date}]]></expression>
+                </element>
+            </band>
+        </groupHeader>
+        <groupFooter>
+            <band height="60">
+                <!-- Tanda Tangan Section -->
+                <element kind="line" x="0" y="5" width="555" height="1"/>
+                <element kind="staticText" x="30" y="10" width="120" height="14" hTextAlign="Center">
+                    <text><![CDATA[Dibuat Oleh,]]></text>
+                </element>
+                <element kind="staticText" x="215" y="10" width="120" height="14" hTextAlign="Center">
+                    <text><![CDATA[Disetujui Oleh,]]></text>
+                </element>
+                <element kind="staticText" x="400" y="10" width="120" height="14" hTextAlign="Center">
+                    <text><![CDATA[Diterima Produksi,]]></text>
+                </element>
+
+                <element kind="line" x="30" y="50" width="120" height="1"/>
+                <element kind="line" x="215" y="50" width="120" height="1"/>
+                <element kind="line" x="400" y="50" width="120" height="1"/>
+            </band>
+        </groupFooter>
+    </group>
+
+    <detail>
+        <band height="110">
+            <!-- 1. SUB-REPORT: PRODUCTION ROUTE -->
+            <element kind="subreport" x="0" y="5" width="555" height="45" positionType="Float">
+                <connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+                <expression><![CDATA[$P{RPT_SPK_ROUTE_SUB}]]></expression>
+                <parameter name="P_ORDER_ID">
+                    <expression><![CDATA[$F{po_id}]]></expression>
+                </parameter>
+            </element>
+
+            <!-- 2. SUB-REPORT: PRODUCTION BOM -->
+            <element kind="subreport" x="0" y="55" width="555" height="45" positionType="Float">
+                <connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+                <expression><![CDATA[$P{RPT_SPK_BOM_SUB}]]></expression>
+                <parameter name="P_ORDER_ID">
+                    <expression><![CDATA[$F{po_id}]]></expression>
+                </parameter>
+            </element>
+        </band>
+    </detail>
+
+    <pageFooter height="20">
+        <element kind="textField" x="435" y="4" width="80" height="14" fontSize="8.0" hTextAlign="Right">
+            <expression><![CDATA["Halaman " + $V{PAGE_NUMBER} + " dari "]]></expression>
+        </element>
+        <element kind="textField" x="515" y="4" width="40" height="14" fontSize="8.0" evaluationTime="Report">
+            <expression><![CDATA[$V{PAGE_NUMBER}]]></expression>
+        </element>
+    </pageFooter>
+</jasperReport>

@@ -24,18 +24,19 @@ import java.util.Map;
 public class ReportParameterForm extends VerticalLayout {
 
     private final Map<String, Component> inputs = new LinkedHashMap<>();
+    private final List<ReportParamMeta> userParams;
 
     public ReportParameterForm(List<ReportParamMeta> params, DynamicDataService dyn) {
         setPadding(false);
         setSpacing(false);
-        List<ReportParamMeta> userParams = ReportParamResolver.userInputParams(params);
+        userParams = ReportParamResolver.userInputParams(params);
 
         List<FieldMeta> fields = new ArrayList<>();
         for (ReportParamMeta p : userParams) fields.add(ReportParamAdapter.toFieldMeta(p));
 
         FormLayout layout = new FormLayout();
-        int cols = FormLayoutUtils.calculateMaxColsInForm(fields);
-        FormLayoutUtils.applyResponsiveSteps(layout, Math.max(1, cols));
+        // 1 baris = 1 param, selalu -- bukan ikut jumlah param seperti form biasa.
+        FormLayoutUtils.applyResponsiveSteps(layout, 1);
 
         for (int i = 0; i < userParams.size(); i++) {
             ReportParamMeta p = userParams.get(i);
@@ -88,5 +89,38 @@ public class ReportParameterForm extends VerticalLayout {
             }
         }
         return out;
+    }
+
+    /** Apakah paramName ini dirender sebagai field di form ini (USER_INPUT). */
+    public boolean hasParam(String paramName) {
+        return inputs.containsKey(paramName);
+    }
+
+    /**
+     * Tandai field required yang kosong dengan setInvalid+setErrorMessage, meniru pola
+     * required-check di GenericFormView (baris merah + pesan di bawah field, bukan cuma
+     * toast). Return true kalau semua field required sudah terisi.
+     */
+    public boolean validateRequired() {
+        boolean ok = true;
+        for (ReportParamMeta p : userParams) {
+            if (!p.isRequired())
+                continue;
+            Component comp = inputs.get(p.getParamName());
+            if (!(comp instanceof HasValue<?, ?> hv))
+                continue;
+            Object val = hv.getValue();
+            boolean empty = val == null || (val instanceof String s && s.isBlank());
+            if (comp instanceof com.vaadin.flow.component.HasValidation hval) {
+                hval.setInvalid(empty);
+                if (empty) {
+                    hval.setErrorMessage((p.getParamLabel() != null ? p.getParamLabel() : p.getParamName())
+                            + " is required");
+                }
+            }
+            if (empty)
+                ok = false;
+        }
+        return ok;
     }
 }

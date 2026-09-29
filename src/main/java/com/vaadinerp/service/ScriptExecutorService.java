@@ -384,6 +384,15 @@ public class ScriptExecutorService {
                         ctx.setElementValue(ref, val);
                     }
                 });
+                binding.setVariable("setElementVisible", new groovy.lang.Closure<Void>(null) {
+                    @SuppressWarnings("unused")
+                    public void doCall(Object ref, boolean visible) {
+                        ctx.setElementVisible(ref, visible);
+                        if (currentView instanceof com.vaadinerp.components.SubformGridField sub) {
+                            sub.setColumnVisible(ref != null ? ref.toString() : null, visible);
+                        }
+                    }
+                });
                 binding.setVariable("sendEmail", buildSendEmailClosure(ctx));
                 binding.setVariable("sendWhatsApp", buildSendWhatsAppClosure(ctx));
                 binding.setVariable("sendWhatsAppApproval", buildSendWhatsAppApprovalClosure(ctx));
@@ -699,6 +708,11 @@ public class ScriptExecutorService {
             binding.setVariable("setElementReadonly", new groovy.lang.Closure<Void>(null) {
                 public void doCall(Object ref, boolean readOnly) {
                     ctx.setElementReadonly(ref, readOnly);
+                }
+            });
+            binding.setVariable("setElementVisible", new groovy.lang.Closure<Void>(null) {
+                public void doCall(Object ref, boolean visible) {
+                    ctx.setElementVisible(ref, visible);
                 }
             });
             binding.setVariable("refreshForm", new groovy.lang.Closure<Void>(null) {
@@ -1039,7 +1053,7 @@ public class ScriptExecutorService {
     public static final java.util.Set<String> ROW_SCRIPT_NAMES = java.util.Set.of(
             "db", "form", "getElementValue", "header", "items", "lov", "msgBox", "row", "rowIndex", "self",
             "sendEmail", "sendWhatsApp", "sendWhatsAppApproval", "setElementEnabled", "setElementReadonly",
-            "setElementValue", "uploadDir");
+            "setElementValue", "setElementVisible", "uploadDir");
 
     /**
      * Nilai field pemicu untuk variabel {@code self}. Berperilaku seperti nilai
@@ -1225,7 +1239,7 @@ public class ScriptExecutorService {
             "JsonOutput", "JsonSlurper", "clearForm", "ctx", "db", "executeProcedure",
             "getElementValue", "header", "lov", "msgBox", "prompt", "refreshForm", "selectedRows", "self",
             "sendEmail", "sendWhatsApp", "sendWhatsAppApproval", "setElementDisabled", "setElementEnabled",
-            "setElementReadonly", "setElementValue",
+            "setElementReadonly", "setElementValue", "setElementVisible",
             "showDialog", "showError", "showMainTab", "showOptionsDialog", "showSuccess",
             "showYesNoDialog", "uploadDir");
 

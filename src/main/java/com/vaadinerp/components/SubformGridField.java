@@ -261,6 +261,47 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     }
 
     /**
+     * Beda dari setComponentEnabled/setComponentReadOnly (yang cuma menyentuh editor baris
+     * aktif): ini menyembunyikan SELURUH KOLOM -- header + semua baris, termasuk yang tidak
+     * sedang diedit -- karena tampilan normal grid dirender lewat valueGetter (String), bukan
+     * komponen editor. Grid.Column.setVisible() sudah live-state, client langsung sinkron
+     * tanpa refresh data apa pun, jadi tidak ada state tambahan yang perlu disimpan/dibersihkan.
+     */
+    public void setColumnVisible(String fieldName, boolean visible) {
+        if (fieldName == null)
+            return;
+        String name = fieldName;
+
+        if (name.startsWith("header.")) {
+            String headerField = name.substring(7);
+            java.util.Optional<Component> parent = getParent();
+            while (parent.isPresent()) {
+                if (parent.get() instanceof com.vaadinerp.views.GenericMasterDetailFormView mv) {
+                    mv.setComponentVisible(headerField, visible);
+                    return;
+                } else if (parent.get() instanceof com.vaadinerp.views.GenericFormView fv) {
+                    fv.setComponentVisible(headerField, visible);
+                    return;
+                }
+                parent = parent.get().getParent();
+            }
+            return;
+        }
+
+        if (name.startsWith("detail.") || name.startsWith("row.")) {
+            name = name.substring(name.indexOf('.') + 1);
+        }
+        try {
+            Grid.Column<Map<String, Object>> col = grid.getColumnByKey(name);
+            if (col != null) {
+                col.setVisible(visible);
+            }
+        } catch (IllegalArgumentException ignored) {
+            // Nama kolom tidak ditemukan -- diamkan, sama seperti pola comp == null di method lain.
+        }
+    }
+
+    /**
      * Pasang default readonly dari metadata untuk semua kolom, lalu pasang ulang
      * status yang sudah dipilih script. Urutannya wajib begini: metadata dulu,
      * script belakangan, supaya script selalu punya kata terakhir.

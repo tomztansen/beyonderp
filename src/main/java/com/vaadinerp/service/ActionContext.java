@@ -426,6 +426,40 @@ public class ActionContext {
             update.execute();
     }
 
+    /**
+     * Beda dari setElementEnabled/setElementReadonly: kalau target-nya kolom subform grid,
+     * ini menyembunyikan SELURUH KOLOM (semua baris + header kolom), bukan cuma komponen
+     * editor baris yang lagi dibuka. Grid.Column.setVisible() sudah live-state, client
+     * langsung sinkron begitu dipanggil -- tidak perlu refresh data/grid terpisah.
+     */
+    public void setElementVisible(Object ref, boolean visible) {
+        if (ref == null)
+            return;
+        String fieldName = ref.toString();
+        if (fieldName.startsWith("@formfield{") && fieldName.endsWith("}")) {
+            fieldName = fieldName.substring(11, fieldName.length() - 1).trim();
+        }
+
+        UI ui = UI.getCurrent();
+        if (ui == null && currentView != null && currentView.getUI().isPresent()) {
+            ui = currentView.getUI().get();
+        }
+        final String finalFieldName = fieldName;
+        Command update = () -> {
+            if (currentView instanceof com.vaadinerp.views.GenericFormView view) {
+                view.setComponentVisible(finalFieldName, visible);
+            } else if (currentView instanceof com.vaadinerp.views.GenericMasterDetailFormView view) {
+                view.setComponentVisible(finalFieldName, visible);
+            } else if (currentView instanceof com.vaadinerp.components.SubformGridField view) {
+                view.setColumnVisible(finalFieldName, visible);
+            }
+        };
+        if (ui != null)
+            ui.access(update);
+        else
+            update.execute();
+    }
+
     public boolean executeProcedure(Object procRef, Object callbackOrJson, Object... rest) {
         String jsonParams = null;
         String userId = getUserId();

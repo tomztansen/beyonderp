@@ -177,10 +177,18 @@ public class ReportRunnerView extends VerticalLayout {
         Map<String, Object> values = new HashMap<>(
                 ReportParamResolver.resolveAuto(report.getParams(), Map.of(), user));
         if (paramForm != null) values.putAll(paramForm.collectValues());
+
+        // Field yang dirender di paramForm: tandai inline (setInvalid+errorMessage di bawah
+        // field itu sendiri, sama seperti GenericFormView) -- bukan cuma toast generik.
+        if (paramForm != null && !paramForm.validateRequired()) {
+            return;
+        }
         if (report.getParams() != null) {
             for (ReportParamMeta p : report.getParams()) {
                 values.putIfAbsent(p.getParamName(), p.getDefaultValue());
-                if (p.isRequired()) {
+                // Param yang tidak dirender sebagai field (mis. AUTO/session, resolve gagal jadi
+                // null) tidak punya komponen untuk ditandai inline -- tetap fallback ke toast.
+                if (p.isRequired() && (paramForm == null || !paramForm.hasParam(p.getParamName()))) {
                     Object v = values.get(p.getParamName());
                     if (v == null || (v instanceof String s && s.isBlank())) {
                         Notification.show("Parameter '" + (p.getParamLabel() != null ? p.getParamLabel() : p.getParamName())

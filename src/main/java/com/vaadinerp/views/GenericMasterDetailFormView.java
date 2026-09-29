@@ -237,6 +237,48 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         }
     }
 
+    /**
+     * Field header (prefix "header." atau tanpa prefix, ditemukan di formComponents): toggle
+     * CSS visibility komponennya saja (jaga layout, tidak collapse). Field detail (prefix
+     * "detail." atau fallback tanpa prefix): target-nya SELURUH KOLOM grid detail (semua
+     * baris), lewat Grid.Column.setVisible() -- beda dari setComponentEnabled/setComponentReadOnly
+     * yang menyentuh editor baris aktif saja.
+     */
+    public void setComponentVisible(String fieldName, boolean visible) {
+        if (fieldName.startsWith("header.")) {
+            Component comp = formComponents != null ? formComponents.get(fieldName.substring(7)) : null;
+            toggleVisibility(comp, visible);
+            return;
+        }
+
+        String columnKey = fieldName.startsWith("detail.") ? fieldName.substring(7) : null;
+        if (columnKey == null) {
+            Component comp = formComponents != null ? formComponents.get(fieldName) : null;
+            if (comp != null) {
+                toggleVisibility(comp, visible);
+                return;
+            }
+            columnKey = fieldName;
+        }
+        try {
+            Grid.Column<Map<String, Object>> col = detailsGrid.getColumnByKey(columnKey);
+            if (col != null) {
+                col.setVisible(visible);
+            }
+        } catch (IllegalArgumentException ignored) {
+        }
+    }
+
+    private static void toggleVisibility(Component comp, boolean visible) {
+        if (comp == null)
+            return;
+        if (visible) {
+            comp.getStyle().remove("visibility");
+        } else {
+            comp.getStyle().set("visibility", "hidden");
+        }
+    }
+
     public void setFieldValue(String fieldName, Object value) {
         String name = fieldName;
         if (name != null && name.startsWith("header.")) {

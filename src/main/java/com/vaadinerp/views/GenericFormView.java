@@ -1074,8 +1074,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         Map<String, Object> values = new HashMap<>(
                 com.vaadinerp.report.ReportParamResolver.resolveFromRows(report.getParams(), rows, user));
 
-        java.util.List<com.vaadinerp.meta.ReportParamMeta> asked = com.vaadinerp.report.ReportParamResolver
-                .userInputParams(report.getParams());
+        java.util.List<com.vaadinerp.meta.ReportParamMeta> asked = new ArrayList<>(
+                com.vaadinerp.report.ReportParamResolver.userInputParams(report.getParams()));
+        // Param BOTH yang sudah otomatis terisi dari baris tercentang tidak perlu ditanya lagi.
+        asked.removeIf(p -> values.containsKey(p.getParamName()) && values.get(p.getParamName()) != null);
         if (asked.isEmpty()) {
             launchPrint(report, values);
             return;
@@ -1086,7 +1088,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         com.vaadinerp.components.ReportParameterForm form = new com.vaadinerp.components.ReportParameterForm(
                 report.getParams(), dynamicDataService);
         com.vaadinerp.components.SafeButton run = new com.vaadinerp.components.SafeButton("Print", ev -> {
-            values.putAll(form.collectValues());
+            // Cuma tulis balik param yang benar-benar ditanya -- param BOTH yang sudah kena
+            // baris tercentang tidak boleh ketimpa kosong oleh widget kembarnya di form ini
+            // (ReportParameterForm merender semua userInputParams, termasuk yang tidak ditanya).
+            Map<String, Object> collected = form.collectValues();
+            for (com.vaadinerp.meta.ReportParamMeta p : asked) {
+                values.put(p.getParamName(), collected.get(p.getParamName()));
+            }
             if (!validateRequired(report, values))
                 return;
             paramDialog.close();

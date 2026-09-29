@@ -6,6 +6,7 @@ import net.sf.jasperreports.engine.data.JRMapCollectionDataSource;
 import net.sf.jasperreports.engine.export.ooxml.JRXlsxExporter;
 import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
+import net.sf.jasperreports.export.SimpleXlsxReportConfiguration;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
@@ -34,10 +35,11 @@ public class JasperRenderer implements ReportRenderer {
         JasperReport jr = templates.loadCompiled(ctx.template());
         Map<String, Object> params = ctx.params() != null ? new HashMap<>(ctx.params()) : new HashMap<>();
 
-        if (ctx.subreportTemplate() != null && ctx.subreportParamName() != null
-                && !ctx.subreportParamName().isBlank()) {
-            JasperReport subreport = templates.loadCompiled(ctx.subreportTemplate());
-            params.put(ctx.subreportParamName().trim(), subreport);
+        if (ctx.subreports() != null) {
+            for (Map.Entry<String, java.io.File> e : ctx.subreports().entrySet()) {
+                JasperReport subreport = templates.loadCompiled(e.getValue());
+                params.put(e.getKey(), subreport);
+            }
         }
 
         // Koneksi selalu disediakan (bukan cuma saat report induk tidak punya custom query):
@@ -76,6 +78,20 @@ public class JasperRenderer implements ReportRenderer {
                 JRXlsxExporter exporter = new JRXlsxExporter();
                 exporter.setExporterInput(new SimpleExporterInput(print));
                 exporter.setExporterOutput(new SimpleOutputStreamExporterOutput(out));
+
+                SimpleXlsxReportConfiguration xlsConfig = new SimpleXlsxReportConfiguration();
+                xlsConfig.setIgnoreCellBorder(false);
+                xlsConfig.setIgnoreGraphics(false);
+                xlsConfig.setWhitePageBackground(false);
+                xlsConfig.setDetectCellType(true);
+                xlsConfig.setFontSizeFixEnabled(true);
+                xlsConfig.setRemoveEmptySpaceBetweenRows(true);
+                xlsConfig.setRemoveEmptySpaceBetweenColumns(true);
+                xlsConfig.setIgnoreCellBackground(true);
+                xlsConfig.setIgnorePageMargins(true);
+                xlsConfig.setCollapseRowSpan(true);
+                exporter.setConfiguration(xlsConfig);
+
                 exporter.exportReport();
                 return new ReportOutput(
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());

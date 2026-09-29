@@ -32,17 +32,16 @@ public class ReportMeta extends BaseAuditableEntity {
     @Column(name = "template_path", length = 255)
     private String templatePath; // Path for .mrt or .jrxml files
 
-    /** JASPER saja: nama file subreport (selalu .jrxml), disimpan mirip templatePath. */
-    @Column(name = "subreport_template_path", length = 255)
-    private String subreportTemplatePath;
-
     /**
-     * JASPER saja: nama parameter di elemen Sub-Report .jrxml utama (mis. "SUBREPORT_ITEMS")
-     * yang menerima objek JasperReport hasil compile subreportTemplatePath. Kosong = tidak
-     * pakai subreport.
+     * JASPER saja: daftar subreport (0..N), JSON array of {paramName, displayName} -- lihat
+     * {@link com.vaadinerp.report.SubreportConfig}. paramName harus sama dengan nama parameter
+     * di elemen Sub-Report .jrxml utama yang menerima objek JasperReport hasil compile-nya.
+     * File fisiknya deterministik dari paramName (lihat ReportResolver.resolveSubreportFile),
+     * displayName cuma buat ditampilkan di UI Designer.
      */
-    @Column(name = "subreport_param_name", length = 100)
-    private String subreportParamName;
+    @Column(name = "subreports_json", columnDefinition = "TEXT")
+    @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.LONGVARCHAR)
+    private String subreportsJson;
 
     @Column(name = "data_query", columnDefinition = "TEXT")
     @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.LONGVARCHAR)

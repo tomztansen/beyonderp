@@ -69,10 +69,19 @@ public class ReportDesignerView extends VerticalLayout {
     private byte[] pendingJasperBytes = null;
     private String pendingJasperFilename = null;
     private boolean pendingJasperDelete = false;
-    private byte[] pendingSubreportBytes = null;
-    private String pendingSubreportFilename = null;
-    private boolean pendingSubreportDelete = false;
-    private final TextField subreportParamField = new TextField("Subreport Parameter Name");
+
+    /** Satu baris subreport di editor Designer -- lihat buildSubreportSection(). */
+    private static class SubreportRow {
+        String paramName = "";
+        String originalParamName; // paramName saat load -- null untuk baris baru (belum disimpan)
+        String displayName; // nama file asli (buat ditampilkan), null kalau belum upload apa pun
+        byte[] pendingBytes; // non-null kalau ada upload baru belum disimpan
+    }
+
+    private final List<SubreportRow> subreportRows = new ArrayList<>();
+    /** Snapshot paramName yang sudah tersimpan saat load -- dipakai deteksi baris yang dihapus saat Save. */
+    private java.util.Set<String> loadedSubreportParamNames = new java.util.HashSet<>();
+    private final VerticalLayout subreportListBox = new VerticalLayout();
 
     // Metadata inputs
     private final TextField codeField = new TextField("Report Code");
@@ -96,7 +105,7 @@ public class ReportDesignerView extends VerticalLayout {
     private static final List<String> COMPONENT_TYPES = List.of(
             "TEXTBOX", "TEXTAREA", "INTEGERFIELD", "DECIMAL", "DATE", "DATETIME", "TIME",
             "CHECKBOX", "COMBOBOX", "LISTBOX", "CHOSENBOX", "BANDBOX");
-    private static final List<String> PARAM_SOURCES = List.of("USER_INPUT", "FORM_FIELD", "SYSTEM");
+    private static final List<String> PARAM_SOURCES = List.of("USER_INPUT", "FORM_FIELD", "SYSTEM", "BOTH");
 
     // Shared, bounded, daemon pool for off-UI preview rendering (replaces per-click
     // raw threads:
@@ -555,9 +564,8 @@ public class ReportDesignerView extends VerticalLayout {
         pendingJasperBytes = null;
         pendingJasperFilename = null;
         pendingJasperDelete = false;
-        pendingSubreportBytes = null;
-        pendingSubreportFilename = null;
-        pendingSubreportDelete = false;
+        subreportRows.clear();
+        loadedSubreportParamNames.clear();
 
         if (report == null) {
             editingCode = null;
@@ -576,7 +584,6 @@ public class ReportDesignerView extends VerticalLayout {
             groupByField.clear();
             beforeScriptArea.clear();
             afterScriptArea.clear();
-            subreportParamField.clear();
         } else {
             editingCode = report.getReportCode();
             codeField.setValue(nz(report.getReportCode()));
@@ -597,7 +604,15 @@ public class ReportDesignerView extends VerticalLayout {
             groupByField.setValue(report.getGroupBy() == null ? "" : report.getGroupBy());
             beforeScriptArea.setValue(nz(report.getBeforeScript()));
             afterScriptArea.setValue(nz(report.getAfterScript()));
-            subreportParamField.setValue(nz(report.getSubreportParamName()));
+            for (com.vaadinerp.report.SubreportConfig.Entry e
+                    : com.vaadinerp.report.SubreportConfig.parse(report.getSubreportsJson())) {
+                SubreportRow row = new SubreportRow();
+                row.paramName = e.paramName();
+                row.originalParamName = e.paramName();
+                row.displayName = e.displayName();
+                subreportRows.add(row);
+                loadedSubreportParamNames.add(e.paramName());
+            }
             if (report.getParams() != null) {
                 for (ReportParamMeta p : report.getParams())
                     paramState.add(cloneParam(p));
@@ -734,24 +749,47 @@ public class ReportDesignerView extends VerticalLayout {
                     rep.setTemplatePath(pendingJasperFilename);
                 }
 
-                if (pendingSubreportDelete && rep.getSubreportTemplatePath() != null) {
-                    java.io.File f = reportResolver.resolveSubreportTemplate(rep.getReportCode());
-                    if (f.exists()) {
-                        java.io.File trash = new java.io.File(f.getParentFile(), "_trash");
-                        trash.mkdirs();
-                        String ts = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date());
-                        f.renameTo(new java.io.File(trash, rep.getReportCode() + "_sub_" + ts + ".jrxml"));
-                    }
-                    rep.setSubreportTemplatePath(null);
-                } else if (pendingSubreportBytes != null && pendingSubreportFilename != null) {
-                    java.io.File target = reportResolver.resolveSubreportTemplate(rep.getReportCode());
-                    java.io.File parent = target.getParentFile();
-                    if (parent != null && !parent.exists()) parent.mkdirs();
-                    java.nio.file.Files.write(target.toPath(), pendingSubreportBytes);
-                    rep.setSubreportTemplatePath(pendingSubreportFilename);
+                // Subreports: rekonsiliasi state disk terhadap subreportRows final.
+                java.util.Set<String> survivingOriginalNames = new java.util.HashSet<>();
+                for (SubreportRow row : subreportRows) {
+                    if (row.originalParamName != null)
+                        survivingOriginalNames.add(row.originalParamName);
                 }
-                rep.setSubreportParamName(subreportParamField.getValue() == null || subreportParamField.getValue().isBlank()
-                        ? null : subreportParamField.getValue().trim());
+                for (String removed : loadedSubreportParamNames) {
+                    if (!survivingOriginalNames.contains(removed)) {
+                        java.io.File f = reportResolver.resolveSubreportFile(rep.getReportCode(), removed);
+                        if (f.exists()) {
+                            java.io.File trash = new java.io.File(f.getParentFile(), "_trash");
+                            trash.mkdirs();
+                            String ts = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date());
+                            f.renameTo(new java.io.File(trash, removed + "_" + ts + ".jrxml"));
+                        }
+                    }
+                }
+
+                List<com.vaadinerp.report.SubreportConfig.Entry> finalSubreports = new ArrayList<>();
+                for (SubreportRow row : subreportRows) {
+                    if (row.paramName == null || row.paramName.isBlank())
+                        continue; // baris belum lengkap -- diamkan, tidak disimpan
+                    String paramName = row.paramName.trim();
+                    java.io.File target = reportResolver.resolveSubreportFile(rep.getReportCode(), paramName);
+                    if (row.pendingBytes != null) {
+                        java.io.File parent = target.getParentFile();
+                        if (parent != null && !parent.exists()) parent.mkdirs();
+                        java.nio.file.Files.write(target.toPath(), row.pendingBytes);
+                    } else if (row.originalParamName != null && !row.originalParamName.equals(paramName)) {
+                        // Rename tanpa upload ulang: pindahkan file lama ke path deterministik baru.
+                        java.io.File oldFile = reportResolver.resolveSubreportFile(rep.getReportCode(), row.originalParamName);
+                        if (oldFile.exists()) {
+                            java.io.File parent = target.getParentFile();
+                            if (parent != null && !parent.exists()) parent.mkdirs();
+                            oldFile.renameTo(target);
+                        }
+                    }
+                    finalSubreports.add(new com.vaadinerp.report.SubreportConfig.Entry(paramName,
+                            row.displayName != null ? row.displayName : paramName + ".jrxml"));
+                }
+                rep.setSubreportsJson(com.vaadinerp.report.SubreportConfig.toJson(finalSubreports));
             }
 
             reportMetaRepository.save(rep);
@@ -791,6 +829,15 @@ public class ReportDesignerView extends VerticalLayout {
                                     reportResolver.masterExtension(report.getEngineType(), report.getTemplatePath())));
                         }
                     }
+                    if ("JASPER".equalsIgnoreCase(report.getEngineType())) {
+                        java.io.File subDir = reportResolver.resolveSubreportDir(report.getReportCode());
+                        if (subDir.exists()) {
+                            java.io.File trash = new java.io.File(subDir.getParentFile(), "_trash");
+                            trash.mkdirs();
+                            String ts = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date());
+                            subDir.renameTo(new java.io.File(trash, report.getReportCode() + "_sub_" + ts));
+                        }
+                    }
                 } catch (Exception ignored) {
                 }
             }
@@ -817,7 +864,7 @@ public class ReportDesignerView extends VerticalLayout {
             designSurface.add(ifr);
             designSurface.setFlexGrow(1, ifr);
         } else if ("JASPER".equalsIgnoreCase(engine)) {
-            designSurface.add(buildJasperUpload(report), subreportParamField, buildSubreportUpload(report));
+            designSurface.add(buildJasperUpload(report), buildSubreportSection(report));
         } else { // STANDARD — embed band designer (canvas only); the single top toolbar Save
                  // persists it
             ReportBuilderView rb = new ReportBuilderView(reportMetaRepository, formMetaRepository, this::refreshGrid);
@@ -905,33 +952,58 @@ public class ReportDesignerView extends VerticalLayout {
         return box;
     }
 
-    private com.vaadin.flow.component.Component buildSubreportUpload(ReportMeta report) {
+    private com.vaadin.flow.component.Component buildSubreportSection(ReportMeta report) {
         VerticalLayout box = new VerticalLayout();
-        box.add(new com.vaadin.flow.component.html.H4("Jasper Subreport Upload (optional)"));
+        box.setPadding(false);
+        box.add(new com.vaadin.flow.component.html.H4("Jasper Subreports (optional, 0..N)"));
+        box.add(new com.vaadin.flow.component.html.Span(
+                "Tiap baris = 1 file .jrxml (query + parameter sendiri, connection expression "
+                        + "$P{REPORT_CONNECTION}) + nama parameter yang dipakai elemen Sub-Report "
+                        + "di template utama (mis. SUBREPORT_ITEMS)."));
 
-        com.vaadin.flow.component.html.Span currentFile = new com.vaadin.flow.component.html.Span();
-        currentFile.getStyle().set("font-weight", "bold");
+        subreportListBox.setPadding(false);
+        box.add(subreportListBox);
 
-        HorizontalLayout currentFileLayout = new HorizontalLayout();
-        currentFileLayout.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
-        currentFileLayout.setVisible(false);
+        com.vaadin.flow.component.button.Button addBtn = new com.vaadin.flow.component.button.Button(
+                "+ Add Subreport", com.vaadin.flow.component.icon.VaadinIcon.PLUS.create());
+        addBtn.addClickListener(e -> {
+            subreportRows.add(new SubreportRow());
+            renderSubreportRows();
+        });
+        box.add(addBtn);
 
-        com.vaadin.flow.component.button.Button deleteBtn = new com.vaadin.flow.component.button.Button("Delete File", com.vaadin.flow.component.icon.VaadinIcon.TRASH.create());
-        deleteBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_ERROR, com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
+        renderSubreportRows();
+        return box;
+    }
 
-        currentFileLayout.add(currentFile, deleteBtn);
-        box.add(currentFileLayout);
-
-        if (report.getSubreportTemplatePath() != null && !report.getSubreportTemplatePath().isEmpty() && !pendingSubreportDelete) {
-            currentFile.setText("File saat ini: " + report.getSubreportTemplatePath());
-            currentFile.getStyle().set("color", "var(--lumo-success-text-color)");
-            currentFileLayout.setVisible(true);
+    private void renderSubreportRows() {
+        subreportListBox.removeAll();
+        for (SubreportRow row : subreportRows) {
+            subreportListBox.add(buildSubreportRowUi(row));
         }
+    }
 
-        if (pendingSubreportFilename != null) {
-            currentFile.setText("Akan diupload: " + pendingSubreportFilename);
-            currentFile.getStyle().set("color", "var(--lumo-primary-text-color)");
-            currentFileLayout.setVisible(true);
+    private com.vaadin.flow.component.Component buildSubreportRowUi(SubreportRow row) {
+        HorizontalLayout line = new HorizontalLayout();
+        line.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
+        line.setWidthFull();
+
+        TextField paramField = new TextField("Parameter Name");
+        paramField.setValue(row.paramName != null ? row.paramName : "");
+        paramField.setPlaceholder("SUBREPORT_ITEMS");
+        paramField.addValueChangeListener(ev -> row.paramName = ev.getValue());
+
+        com.vaadin.flow.component.html.Span fileLabel = new com.vaadin.flow.component.html.Span();
+        fileLabel.getStyle().set("font-weight", "bold");
+        if (row.pendingBytes != null) {
+            fileLabel.setText("Akan diupload: " + row.displayName);
+            fileLabel.getStyle().set("color", "var(--lumo-primary-text-color)");
+        } else if (row.displayName != null) {
+            fileLabel.setText("File saat ini: " + row.displayName);
+            fileLabel.getStyle().set("color", "var(--lumo-success-text-color)");
+        } else {
+            fileLabel.setText("Belum ada file");
+            fileLabel.getStyle().set("color", "var(--lumo-error-text-color)");
         }
 
         com.vaadin.flow.component.UI ui = com.vaadin.flow.component.UI.getCurrent();
@@ -939,14 +1011,12 @@ public class ReportDesignerView extends VerticalLayout {
                 com.vaadin.flow.server.streams.UploadHandler.inMemory((metadata, data) -> {
                     try {
                         jasperUploadService.validateUpload(data);
-                        pendingSubreportBytes = data;
-                        pendingSubreportFilename = metadata.fileName();
-                        pendingSubreportDelete = false;
+                        row.pendingBytes = data;
+                        row.displayName = metadata.fileName();
                         ui.access(() -> {
+                            fileLabel.setText("Akan diupload: " + row.displayName);
+                            fileLabel.getStyle().set("color", "var(--lumo-primary-text-color)");
                             Notification.show("File siap diupload. Klik tombol Save untuk menyimpan permanen.");
-                            currentFile.setText("Akan diupload: " + pendingSubreportFilename);
-                            currentFile.getStyle().set("color", "var(--lumo-primary-text-color)");
-                            currentFileLayout.setVisible(true);
                         });
                     } catch (Exception ex) {
                         ui.access(() -> Notification.show("Failed to validate the file: " + ex.getMessage()));
@@ -955,29 +1025,20 @@ public class ReportDesignerView extends VerticalLayout {
         com.vaadin.flow.component.upload.Upload upload = new com.vaadin.flow.component.upload.Upload(handler);
         upload.setAcceptedFileTypes(".jrxml");
         upload.setMaxFiles(1);
+        upload.setWidth("220px");
 
+        com.vaadin.flow.component.button.Button deleteBtn = new com.vaadin.flow.component.button.Button(
+                com.vaadin.flow.component.icon.VaadinIcon.TRASH.create());
+        deleteBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_ERROR,
+                com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
         deleteBtn.addClickListener(e -> {
-            pendingSubreportDelete = true;
-            pendingSubreportBytes = null;
-            pendingSubreportFilename = null;
-            upload.clearFileList();
-
-            Notification.show("Penghapusan ditandai. Klik tombol Save untuk menghapus permanen.");
-
-            currentFile.setText("Will be deleted");
-            currentFile.getStyle().set("color", "var(--lumo-error-text-color)");
-            currentFileLayout.setVisible(true);
+            subreportRows.remove(row);
+            renderSubreportRows();
+            Notification.show("Baris dihapus. Klik tombol Save untuk menyimpan permanen.");
         });
 
-        box.add(
-                new com.vaadin.flow.component.html.Span(
-                        "Upload subreport .jrxml file (must have its own <query> and use "
-                                + "$P{REPORT_CONNECTION} for its connection expression). Fill in "
-                                + "\"Subreport Parameter Name\" above to match the Sub-Report element's "
-                                + "parameter expression in the main template."),
-                upload);
-        box.setPadding(false);
-        return box;
+        line.add(paramField, fileLabel, upload, deleteBtn);
+        return line;
     }
 
     private void preview(ReportMeta report) {
