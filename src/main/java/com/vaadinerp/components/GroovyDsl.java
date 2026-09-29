@@ -44,6 +44,12 @@ public final class GroovyDsl {
                 + "(bukan langsung kirim, worker terjadwal yang memprosesnya). to/cc dipisah koma kalau lebih "
                 + "dari satu alamat, isi null/\"\" kalau cc/attachments tidak dipakai. attachments = nama file "
                 + "yang SUDAH ada di folder upload (dipisah koma), bukan file baru");
+        m.put("renderReport", "renderReport(reportCode, params[, format[, fileName]]) -> String — render report "
+                + "Jasper/Standard ke file (format PDF default, atau XLSX) di folder report_out, TANPA "
+                + "before/after script report. Parameter SYSTEM ($CURRENT_USER, CURRENT_DATE) dan default "
+                + "Designer terisi otomatis seperti di Report Runner; params dari script menimpanya. "
+                + "Nama file sama = ditimpa. Hasilnya langsung dipakai sebagai "
+                + "attachments sendEmail(). Stimulsoft tidak didukung");
         m.put("sendWhatsApp", "sendWhatsApp(chatId, message, sessionId) — antre notifikasi WhatsApp (worker "
                 + "terjadwal yang mengirim). chatId format '<nomor>@c.us' (personal) atau '<groupId>@g.us' (grup). "
                 + "sessionId isi null untuk pakai nomor default (app.whatsapp.session-id), atau nama sesi OpenWA "
@@ -139,6 +145,10 @@ public final class GroovyDsl {
                 """
                         // Trigger Field diisi nama field mode-nya, mis. header.mode
                         setElementVisible("harga_manual", header.mode == "MANUAL")""");
+        m.put("Kirim report sebagai lampiran email",
+                """
+                        def file = renderReport("RPT_SPK_DOC_JSP", [P_ORDER_ID: header.id], "PDF", "SPK_" + header.idno)
+                        sendEmail("user@example.com", null, "SPK " + header.idno, "<p>Attached is the SPK.</p>", file)""");
         m.put("Ambil satu baris dari tabel lain",
                 """
                         def item = db.find('msitem', 'itemid', header.itemid)

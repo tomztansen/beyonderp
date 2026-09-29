@@ -158,9 +158,15 @@ public class EmailOutboxService {
                 if (!filePath.startsWith(uploadDir) || !filePath.toFile().exists()) {
                     throw new java.io.FileNotFoundException("Attachment tidak ditemukan: " + name);
                 }
+                // Nama yang dilihat penerima: upload user dibuang prefix UUID-nya; hasil
+                // renderReport (report_out/...) cukup nama filenya, tanpa folder -- dan tidak
+                // lewat getDisplayFilename karena namanya tidak berprefix UUID.
+                String displayName = name.contains("/")
+                        ? filePath.getFileName().toString()
+                        : fs.getDisplayFilename(name);
                 // FileSystemResource -> JavaMail stream langsung dari disk, tidak
                 // pernah dibaca penuh ke memori JVM.
-                helper.addAttachment(name, new org.springframework.core.io.FileSystemResource(filePath.toFile()));
+                helper.addAttachment(displayName, new org.springframework.core.io.FileSystemResource(filePath.toFile()));
             }
         }
 

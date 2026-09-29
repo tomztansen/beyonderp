@@ -42,6 +42,73 @@ public class ScriptExecutorService {
     }
 
     /**
+     * Binding 'renderReport' (action scope): render report Jasper/Standard ke file di
+     * report_out/ dengan nama tetap (nama sama = ditimpa), TANPA before/after script report.
+     * Hasilnya path relatif, siap jadi attachment sendEmail(). Bean diambil lewat
+     * SpringContextHolder saat dipanggil -- ReportRunService sendiri bergantung ke service
+     * ini (before/after script), jadi inject langsung akan jadi dependensi melingkar.
+     * Overload beda jumlah argumen (2/3/4), tidak ambigu di Groovy.
+     * Parameter diisi dengan urutan yang sama seperti Report Runner: SYSTEM ($CURRENT_USER,
+     * CURRENT_DATE) dulu, lalu nilai dari script (menimpa), lalu default Designer untuk yang
+     * masih belum ada.
+     */
+    private groovy.lang.Closure<String> buildRenderReportClosure(ActionContext ctx) {
+        return new groovy.lang.Closure<String>(null) {
+            @SuppressWarnings("unused")
+            public String doCall(Object reportCode, Map<?, ?> params) {
+                return doCall(reportCode, params, "PDF", null);
+            }
+
+            @SuppressWarnings("unused")
+            public String doCall(Object reportCode, Map<?, ?> params, Object format) {
+                return doCall(reportCode, params, format, null);
+            }
+
+            public String doCall(Object reportCode, Map<?, ?> params, Object format, Object fileName) {
+                String code = reportCode != null ? reportCode.toString().trim() : "";
+                com.vaadinerp.meta.ReportMeta report = com.vaadinerp.config.SpringContextHolder
+                        .getBean(com.vaadinerp.meta.ReportMetaRepository.class).findById(code)
+                        .orElseThrow(() -> new IllegalArgumentException("Report not found: " + code));
+
+                String fmt = format != null ? format.toString().trim().toUpperCase() : "PDF";
+                if ("EXCEL".equals(fmt)) {
+                    fmt = "XLSX";
+                }
+                if (!"PDF".equals(fmt) && !"XLSX".equals(fmt)) {
+                    throw new IllegalArgumentException("renderReport format must be PDF or XLSX, got: " + format);
+                }
+
+                Map<String, Object> cleanParams = new HashMap<>(com.vaadinerp.report.ReportParamResolver
+                        .resolveAuto(report.getParams(), Map.of(), ctx.getUserId()));
+                // header.x di script berupa SmartHeaderNode/LovValueNode -- JDBC/Jasper butuh nilai aslinya.
+                if (params != null) {
+                    params.forEach((k, v) -> {
+                        Object val = v;
+                        if (val instanceof SmartHeaderNode shn) {
+                            val = shn.getPrimaryValue();
+                        } else if (val instanceof LovValueNode lvn) {
+                            val = lvn.getPrimaryValue();
+                        }
+                        cleanParams.put(String.valueOf(k), val);
+                    });
+                }
+                if (report.getParams() != null) {
+                    for (com.vaadinerp.meta.ReportParamMeta p : report.getParams()) {
+                        cleanParams.putIfAbsent(p.getParamName(), p.getDefaultValue());
+                    }
+                }
+
+                com.vaadinerp.report.render.ReportOutput out = com.vaadinerp.config.SpringContextHolder
+                        .getBean(com.vaadinerp.report.ReportRunService.class)
+                        .renderWithoutScripts(report, cleanParams, fmt);
+                String baseName = fileName != null && !fileName.toString().isBlank() ? fileName.toString() : code;
+                return com.vaadinerp.config.SpringContextHolder.getBean(FileStorageService.class)
+                        .storeReportOutput(out.bytes(), baseName, "XLSX".equals(fmt) ? "xlsx" : "pdf");
+            }
+        };
+    }
+
+    /**
      * Binding 'sendEmail' untuk script (row & action scope). Cuma INSERT ke
      * antrean (lihat EmailOutboxService.queueEmail) -- pengiriman sungguhan
      * dikerjakan worker terjadwal terpisah, tidak pernah menahan script/UI
@@ -688,6 +755,7 @@ public class ScriptExecutorService {
                 }
             });
             binding.setVariable("sendEmail", buildSendEmailClosure(ctx));
+            binding.setVariable("renderReport", buildRenderReportClosure(ctx));
             binding.setVariable("sendWhatsApp", buildSendWhatsAppClosure(ctx));
             binding.setVariable("sendWhatsAppApproval", buildSendWhatsAppApprovalClosure(ctx));
             binding.setVariable("setElementDisabled", new groovy.lang.Closure<Void>(null) {
@@ -1237,7 +1305,7 @@ public class ScriptExecutorService {
      */
     public static final java.util.Set<String> ACTION_SCRIPT_NAMES = java.util.Set.of(
             "JsonOutput", "JsonSlurper", "clearForm", "ctx", "db", "executeProcedure",
-            "getElementValue", "header", "lov", "msgBox", "prompt", "refreshForm", "selectedRows", "self",
+            "getElementValue", "header", "lov", "msgBox", "prompt", "refreshForm", "renderReport", "selectedRows", "self",
             "sendEmail", "sendWhatsApp", "sendWhatsAppApproval", "setElementDisabled", "setElementEnabled",
             "setElementReadonly", "setElementValue", "setElementVisible",
             "showDialog", "showError", "showMainTab", "showOptionsDialog", "showSuccess",

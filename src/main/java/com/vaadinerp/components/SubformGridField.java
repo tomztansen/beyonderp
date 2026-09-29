@@ -1510,6 +1510,25 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             return "true".equals(str) || "1".equals(str) || "t".equals(str) || "yes".equals(str) || "y".equals(str)
                     || "on".equals(str);
         }
+        // ChosenBox (multi-select) butuh Set, tapi di database tersimpan sebagai teks "1, 2, 3"
+        // (lihat DynamicDataService.sanitizeJdbcValue). Tanpa ini teksnya lolos mentah ke
+        // setValue -> ClassCastException String ke Set saat baris dibuka. Pola sama dengan
+        // GenericFormView untuk form utama.
+        if (comp instanceof com.vaadin.flow.component.combobox.MultiSelectComboBox) {
+            if (rawVal instanceof java.util.Set) {
+                return rawVal;
+            }
+            if (rawVal instanceof java.util.Collection<?> col) {
+                return new java.util.HashSet<>(col);
+            }
+            java.util.Set<String> set = new java.util.HashSet<>();
+            for (String part : rawVal.toString().split(",")) {
+                if (!part.trim().isEmpty()) {
+                    set.add(part.trim());
+                }
+            }
+            return set;
+        }
         if (comp instanceof TextField || comp instanceof com.vaadin.flow.component.textfield.TextArea ||
                 comp instanceof com.vaadin.flow.component.combobox.ComboBox ||
                 comp instanceof com.vaadin.flow.component.select.Select ||

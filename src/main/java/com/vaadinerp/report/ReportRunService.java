@@ -65,6 +65,32 @@ public class ReportRunService {
             return ReportRunResult.stimulsoft(url.toString());
         }
 
+        Rendered r = render(report, params, format, sample, engine);
+        if (!sample) {
+            afterRun(report, params, r.data() != null ? r.data().size() : 0);
+        }
+        return ReportRunResult.rendered(r.output(), r.data() == null || r.data().isEmpty());
+    }
+
+    /**
+     * Render ke file TANPA before/after script -- dipakai renderReport() di Groovy (mis. untuk
+     * lampiran email). Itu bukan "report dicetak", jadi tidak boleh ikut menaikkan printcount,
+     * mengalokasikan NDT, dst. Stimulsoft ditolak: hasilnya URL viewer, bukan file.
+     */
+    public ReportOutput renderWithoutScripts(ReportMeta report, Map<String, Object> params, String format) {
+        String engine = report.getEngineType() != null ? report.getEngineType() : "STANDARD";
+        if ("STIMULSOFT".equalsIgnoreCase(engine)) {
+            throw new IllegalArgumentException("Report " + report.getReportCode()
+                    + " uses Stimulsoft, which has no file output to attach.");
+        }
+        return render(report, params, format, false, engine).output();
+    }
+
+    private record Rendered(ReportOutput output, List<Map<String, Object>> data) {
+    }
+
+    private Rendered render(ReportMeta report, Map<String, Object> params, String format, boolean sample,
+            String engine) {
         List<Map<String, Object>> data = dataService.fetchData(report, params, sample);
         File template = "STANDARD".equalsIgnoreCase(engine)
                 ? null
@@ -84,10 +110,7 @@ public class ReportRunService {
         // renderer (JasperRenderer) cuma cek "XLSX", jadi "EXCEL" dulu jatuh ke default PDF.
         String normalizedFormat = "EXCEL".equalsIgnoreCase(format) ? "XLSX" : format;
         ReportOutput out = renderer.export(ctx, normalizedFormat != null ? normalizedFormat : "PDF");
-        if (!sample) {
-            afterRun(report, params, data != null ? data.size() : 0);
-        }
-        return ReportRunResult.rendered(out, data == null || data.isEmpty());
+        return new Rendered(out, data);
     }
 
     private static void appendParam(StringBuilder url, String key, Object value) {

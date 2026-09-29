@@ -118,6 +118,43 @@ public class FileStorageService {
         }
     }
 
+    /** Subfolder khusus file hasil render report -- dipisah dari upload user. */
+    private static final String REPORT_OUTPUT_DIR = "report_out";
+
+    /**
+     * Simpan file hasil render report (renderReport() di Groovy) dengan nama PERSIS yang
+     * diminta, di subfolder report_out. Sengaja beda dari storeFile(): ini file buatan sistem,
+     * bukan upload user, jadi nama sama = dokumen sama dan DITIMPA (hemat storage) -- aturan
+     * prefix UUID di AGENTS.md tetap berlaku utuh untuk upload karena foldernya terpisah.
+     * Huruf besar dipertahankan; selain A-Z a-z 0-9 . - _ dibuang supaya nama dari script
+     * tidak bisa dipakai menulis ke luar folder upload.
+     *
+     * @return path relatif terhadap upload dir (mis. "report_out/SPK_10001.pdf"), siap dipakai
+     *         sebagai attachment sendEmail().
+     */
+    public String storeReportOutput(byte[] bytes, String baseName, String extension) {
+        String ext = extension.toLowerCase();
+        String name = baseName == null ? ""
+                : baseName.trim().replaceAll("\\s+", "_").replaceAll("[^A-Za-z0-9._-]", "");
+        name = name.replaceAll("^\\.+", "");
+        if (name.toLowerCase().endsWith("." + ext)) {
+            name = name.substring(0, name.length() - ext.length() - 1);
+        }
+        if (name.isEmpty()) {
+            throw new IllegalArgumentException("Report output file name is empty after sanitizing: " + baseName);
+        }
+        String fileName = name + "." + ext;
+        try {
+            Path dir = this.uploadDir.resolve(REPORT_OUTPUT_DIR);
+            Files.createDirectories(dir);
+            Files.write(dir.resolve(fileName), bytes);
+            log.info("Report output disimpan: {}/{}", REPORT_OUTPUT_DIR, fileName);
+            return REPORT_OUTPUT_DIR + "/" + fileName;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to save report output " + fileName, e);
+        }
+    }
+
     /**
      * Kompres ulang JPEG ke kualitas 70%. Kalau gambarnya gagal di-decode (rusak,
      * atau ternyata bukan JPEG asli walau ekstensinya .jpg) atau proses kompresi
