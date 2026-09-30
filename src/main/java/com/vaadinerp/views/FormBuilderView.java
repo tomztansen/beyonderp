@@ -698,7 +698,8 @@ public class FormBuilderView extends VerticalLayout {
                 createPaletteButton("Image Upload", VaadinIcon.PICTURE, "IMAGE_UPLOAD"),
                 createPaletteButton("Label", VaadinIcon.TAG, "LABEL"),
                 createPaletteButton("QR Scan", VaadinIcon.CAMERA, "QR_SCAN"),
-                createPaletteButton("Groovy Editor", VaadinIcon.CODE, "GROOVY_EDITOR"));
+                createPaletteButton("Groovy Editor", VaadinIcon.CODE, "GROOVY_EDITOR"),
+                createPaletteButton("Cron Schedule", VaadinIcon.CLOCK, "CRON_SCHEDULE"));
 
         // COLUMN B: CANVAS PREVIEW
         canvasPanel.setHeightFull();
@@ -996,7 +997,7 @@ public class FormBuilderView extends VerticalLayout {
 
         propComponentType.setItems("TEXTBOX", "INTBOX", "DECIMALBOX", "DATEBOX", "DATETIMEBOX", "TIMEBOX", "CHECKBOX",
                 "TEXTAREA", "COMBOBOX", "LISTBOX", "BANDBOX", "CHOSENBOX", "SUBFORM_GRID", "FILE_UPLOAD",
-                "IMAGE_UPLOAD", "LABEL", "QR_SCAN", "GROOVY_EDITOR");
+                "IMAGE_UPLOAD", "LABEL", "QR_SCAN", "GROOVY_EDITOR", "CRON_SCHEDULE");
 
         // Configure propLovCode BandboxField
         propLovCode.setGridConfigurator(grid -> {
@@ -1941,7 +1942,7 @@ public class FormBuilderView extends VerticalLayout {
 
         String[] components = {"TEXTBOX", "INTBOX", "DECIMALBOX", "DATEBOX", "DATETIMEBOX", "TIMEBOX", "CHECKBOX",
                 "TEXTAREA", "COMBOBOX", "LISTBOX", "BANDBOX", "CHOSENBOX", "SUBFORM_GRID", "FILE_UPLOAD",
-                "IMAGE_UPLOAD", "LABEL", "QR_SCAN", "GROOVY_EDITOR"};
+                "IMAGE_UPLOAD", "LABEL", "QR_SCAN", "GROOVY_EDITOR", "CRON_SCHEDULE"};
 
         for (String type : components) {
             Button btn = new Button(type, VaadinIcon.PLUS.create());
@@ -2656,6 +2657,8 @@ public class FormBuilderView extends VerticalLayout {
                 return new com.vaadinerp.components.GroovyEditorField(label,
                         com.vaadinerp.service.ScriptExecutorService.SCHEDULED_JOB_SCRIPT_NAMES,
                         com.vaadinerp.components.GroovyDsl.scheduledJobSnippets());
+            case "CRON_SCHEDULE":
+                return new com.vaadinerp.components.CronScheduleField(label);
             default:
                 return new TextField(label);
         }

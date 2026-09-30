@@ -1125,6 +1125,11 @@ public class ComponentFactory {
                         GroovyDsl.scheduledJobSnippets());
                 groovyEditor.setReadOnly(field.isReadonly());
                 return groovyEditor;
+            case "CRON_SCHEDULE":
+                CronScheduleField cronField = new CronScheduleField(label);
+                cronField.setReadOnly(field.isReadonly());
+                cronField.setRequiredIndicatorVisible(field.isRequired());
+                return cronField;
             default:
                 TextField defaultField = new TextField(label);
                 defaultField.setReadOnly(field.isReadonly());
