@@ -1119,6 +1119,12 @@ public class ComponentFactory {
                 }
                 qrScan.setReadOnly(field.isReadonly());
                 return qrScan;
+            case "GROOVY_EDITOR":
+                GroovyEditorField groovyEditor = new GroovyEditorField(label,
+                        com.vaadinerp.service.ScriptExecutorService.SCHEDULED_JOB_SCRIPT_NAMES,
+                        GroovyDsl.scheduledJobSnippets());
+                groovyEditor.setReadOnly(field.isReadonly());
+                return groovyEditor;
             default:
                 TextField defaultField = new TextField(label);
                 defaultField.setReadOnly(field.isReadonly());

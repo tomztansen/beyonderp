@@ -190,4 +190,21 @@ public final class GroovyDsl {
                         }""");
         return m;
     }
+
+    /** Potongan kode untuk script job terjadwal (GROOVY_EDITOR di form job). */
+    public static Map<String, String> scheduledJobSnippets() {
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put("Send a summary email",
+                """
+                        def rows = db.queryForList("SELECT to_char(now(), 'DD Mon YYYY') AS today")
+                        sendEmail('someone@growthsteel.com', null, 'Daily summary ' + rows[0].today,
+                                '<p>Hello, this is your daily summary.</p>', null)
+                        """);
+        m.put("Send a report as attachment",
+                """
+                        def file = renderReport('REPORT_CODE', [:], 'PDF', 'DAILY_' + jobCode)
+                        sendEmail('someone@growthsteel.com', null, 'Daily report', '<p>See attachment.</p>', file)
+                        """);
+        return m;
+    }
 }

@@ -1,8 +1,10 @@
 package com.vaadinerp.components;
 
 import com.vaadin.flow.component.AttachEvent;
+import com.vaadin.flow.component.ClientCallable;
 import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.internal.AllowInert;
 import com.vaadin.flow.function.SerializableConsumer;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -35,6 +37,29 @@ public class CodeEditorField extends Div {
     private String pendingValue = "";
     private boolean pendingReadOnly = false;
 
+    /** null = mode dialog lama (nilai dibaca on-demand lewat getValue). Non-null = mode form. */
+    private SerializableConsumer<String> onValueChanged;
+
+    /**
+     * Mode form: browser mengirim isi editor ke server saat blur dan 1 detik setelah ketikan berhenti,
+     * jadi field form punya nilai sinkron saat Save. Panggil SEBELUM komponen terpasang.
+     */
+    public void setOnValueChanged(SerializableConsumer<String> callback) {
+        this.onValueChanged = callback;
+    }
+
+    @ClientCallable
+    @AllowInert
+    private void cmSync(String value) {
+        String v = value != null ? value : "";
+        // Simpan juga sebagai nilai awal: bila komponen dilepas lalu dipasang lagi (mis. pindah tab),
+        // editor dibuat ulang dari pendingValue dan tidak boleh kembali ke nilai basi.
+        this.pendingValue = v;
+        if (onValueChanged != null) {
+            onValueChanged.accept(v);
+        }
+    }
+
     public CodeEditorField(String mode, String modeScript) {
         this.mode = mode;
         this.modeScript = modeScript;
@@ -60,7 +85,7 @@ public class CodeEditorField extends Div {
         // ini bisa terpanggil berkali-kali untuk instance yang sama.
         attachEvent.getUI().getPage().executeJs(
                 """
-                        (function(editorId, cmVar, initVal, mode, modeScript, ver, readOnly) {
+                        (function(editorId, cmVar, initVal, mode, modeScript, ver, readOnly, formMode) {
                             function init() {
                                 var el = document.getElementById(editorId);
                                 if (!el) {
@@ -136,6 +161,30 @@ public class CodeEditorField extends Div {
                                 };
                                 window.addEventListener('resize', onResize);
                                 window[cmVar + '_resize'] = onResize;
+
+                                if (formMode) {
+                                    var timer = null;
+                                    var push = function() {
+                                        if (window[cmVar] === cm && el.$server) el.$server.cmSync(cm.getValue());
+                                    };
+                                    cm.on('change', function() {
+                                        if (timer) clearTimeout(timer);
+                                        timer = setTimeout(push, 1000);
+                                        window[cmVar + '_t'] = timer;
+                                    });
+                                    cm.on('blur', function() {
+                                        if (timer) { clearTimeout(timer); timer = null; }
+                                        push();
+                                    });
+                                    // Di tab/panel tersembunyi CodeMirror berukuran 0; segarkan begitu terlihat.
+                                    if (window.IntersectionObserver) {
+                                        var io = new IntersectionObserver(function(entries) {
+                                            if (entries[0].isIntersecting) syncLayout();
+                                        });
+                                        io.observe(el);
+                                        window[cmVar + '_io'] = io;
+                                    }
+                                }
                             }
                             // Fokuskan editor begitu terbuka supaya user tidak perlu klik
                             // dulu. Script kosong mulai di baris pertama; script yang sudah
@@ -179,9 +228,10 @@ public class CodeEditorField extends Div {
                             }
                             if (typeof CodeMirror !== 'undefined') { withMode(); return; }
                             loadScript(base + 'codemirror.min.js', withMode);
-                        })($0, $1, $2, $3, $4, $5, $6)
+                        })($0, $1, $2, $3, $4, $5, $6, $7)
                         """,
-                elementId, cmVar, pendingValue, mode, modeScript, CM_VERSION, pendingReadOnly);
+                elementId, cmVar, pendingValue, mode, modeScript, CM_VERSION, pendingReadOnly,
+                onValueChanged != null);
     }
 
     @Override
@@ -199,6 +249,14 @@ public class CodeEditorField extends Div {
                             if (window[cmVar + '_resize']) {
                                 window.removeEventListener('resize', window[cmVar + '_resize']);
                                 try { delete window[cmVar + '_resize']; } catch (e) { window[cmVar + '_resize'] = undefined; }
+                            }
+                            if (window[cmVar + '_t']) {
+                                clearTimeout(window[cmVar + '_t']);
+                                try { delete window[cmVar + '_t']; } catch (e) { window[cmVar + '_t'] = undefined; }
+                            }
+                            if (window[cmVar + '_io']) {
+                                window[cmVar + '_io'].disconnect();
+                                try { delete window[cmVar + '_io']; } catch (e) { window[cmVar + '_io'] = undefined; }
                             }
                             try { delete window[cmVar]; } catch (e) { window[cmVar] = undefined; }
                         })($0, $1)
