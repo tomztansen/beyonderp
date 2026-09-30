@@ -110,6 +110,38 @@ public class ScriptExecutorService {
     }
 
     /**
+     * Binding 'runScheduledJob' (action scope): tombol Run now di form job terjadwal. Bean diambil
+     * lewat SpringContextHolder saat dipanggil (ScheduledJobService bergantung ke service ini).
+     * Menjalankan versi job yang TERSIMPAN, lewat jalur yang sama dengan ticker.
+     */
+    private groovy.lang.Closure<String> buildRunScheduledJobClosure(ActionContext ctx) {
+        return new groovy.lang.Closure<String>(null) {
+            @SuppressWarnings("unused")
+            public String doCall(Object jobCode) {
+                String code = jobCode != null ? jobCode.toString().trim() : "";
+                if (code.isEmpty()) {
+                    ctx.showError("Run now", "Save the job first.");
+                    return "NOT_SAVED";
+                }
+                try {
+                    var result = com.vaadinerp.config.SpringContextHolder
+                            .getBean(com.vaadinerp.scheduler.ScheduledJobService.class).runNow(code);
+                    switch (result) {
+                        case QUEUED -> ctx.showSuccess("Run now",
+                                "Job \"" + code + "\" queued (last saved version). Reopen the form to see the result.");
+                        case ALREADY_RUNNING -> ctx.showError("Run now", "Job \"" + code + "\" is already running.");
+                        case QUEUE_FULL -> ctx.showError("Run now", "The job queue is full. Try again shortly.");
+                    }
+                    return result.name();
+                } catch (IllegalArgumentException e) {
+                    ctx.showError("Run now", e.getMessage());
+                    return "NOT_FOUND";
+                }
+            }
+        };
+    }
+
+    /**
      * Binding 'sendEmail' untuk script (row & action scope). Cuma INSERT ke
      * antrean (lihat EmailOutboxService.queueEmail) -- pengiriman sungguhan
      * dikerjakan worker terjadwal terpisah, tidak pernah menahan script/UI
@@ -804,6 +836,7 @@ public class ScriptExecutorService {
             });
             binding.setVariable("sendEmail", buildSendEmailClosure(ctx));
             binding.setVariable("renderReport", buildRenderReportClosure(ctx));
+            binding.setVariable("runScheduledJob", buildRunScheduledJobClosure(ctx));
             binding.setVariable("sendWhatsApp", buildSendWhatsAppClosure(ctx));
             binding.setVariable("sendWhatsAppApproval", buildSendWhatsAppApprovalClosure(ctx));
             binding.setVariable("setElementDisabled", new groovy.lang.Closure<Void>(null) {
@@ -1353,7 +1386,8 @@ public class ScriptExecutorService {
      */
     public static final java.util.Set<String> ACTION_SCRIPT_NAMES = java.util.Set.of(
             "JsonOutput", "JsonSlurper", "clearForm", "ctx", "db", "executeProcedure",
-            "getElementValue", "header", "lov", "msgBox", "prompt", "refreshForm", "renderReport", "selectedRows", "self",
+            "getElementValue", "header", "lov", "msgBox", "prompt", "refreshForm", "renderReport", "runScheduledJob",
+            "selectedRows", "self",
             "sendEmail", "sendWhatsApp", "sendWhatsAppApproval", "setElementDisabled", "setElementEnabled",
             "setElementReadonly", "setElementValue", "setElementVisible",
             "showDialog", "showError", "showMainTab", "showOptionsDialog", "showSuccess",
