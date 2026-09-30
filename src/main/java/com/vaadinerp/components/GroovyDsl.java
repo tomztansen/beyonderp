@@ -50,10 +50,10 @@ public final class GroovyDsl {
                 + "Designer terisi otomatis seperti di Report Runner; params dari script menimpanya. "
                 + "Nama file sama = ditimpa. Hasilnya langsung dipakai sebagai "
                 + "attachments sendEmail(). Stimulsoft tidak didukung");
-        m.put("runScheduledJob", "runScheduledJob(jobCode) -> String — jalankan job terjadwal SEKARANG (versi yang "
-                + "tersimpan) lewat antrean yang sama dengan jadwal normal. Job yang sedang berjalan tidak dijalankan "
-                + "dobel. Untuk tombol Extra Toolbar di form job: runScheduledJob(header.job_code)");
-        m.put("jobCode", "Kode job yang sedang berjalan (hanya di script job terjadwal)");
+        m.put("runScheduledJob", "runScheduledJob(jobCode) -> String — run a scheduled job NOW (the saved version) "
+                + "through the same queue as the normal schedule. A job that is already running is not started "
+                + "twice. For an Extra Toolbar button on the job form: runScheduledJob(header.job_code)");
+        m.put("jobCode", "Code of the job that is currently running (only in scheduled job scripts)");
         m.put("sendWhatsApp", "sendWhatsApp(chatId, message, sessionId) — antre notifikasi WhatsApp (worker "
                 + "terjadwal yang mengirim). chatId format '<nomor>@c.us' (personal) atau '<groupId>@g.us' (grup). "
                 + "sessionId isi null untuk pakai nomor default (app.whatsapp.session-id), atau nama sesi OpenWA "

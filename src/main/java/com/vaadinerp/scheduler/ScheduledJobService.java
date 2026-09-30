@@ -27,6 +27,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Ticker job Groovy terjadwal. Satu query kecil per menit; job yang jatuh tempo diantre ke
  * {@link JobDispatcher}. Hanya untuk SATU instance aplikasi. sys_scheduled_job diakses lewat
  * JdbcTemplate (bukan entity JPA) supaya aplikasi tetap start bila tabelnya belum dibuat.
+ *
+ * Default MATI (app.scheduler.enabled=false): hanya server produksi yang boleh menjalankan job,
+ * jangan sampai mesin developer yang memakai konfigurasi menuju DB produksi ikut menjadi scheduler kedua.
  */
 @Service
 public class ScheduledJobService {
@@ -44,25 +47,45 @@ public class ScheduledJobService {
 
     /** Diisi saat start: job yang jadwalnya terlewat sebelum ini tidak dikejar. */
     private volatile ZonedDateTime lastTick = ZonedDateTime.now(ZONE);
+
+    /** Hanya untuk test. */
+    void setLastTick(ZonedDateTime t) {
+        this.lastTick = t;
+    }
+
+    ZonedDateTime getLastTick() {
+        return lastTick;
+    }
     private long lastDbErrorLogMs;
 
     public ScheduledJobService(JdbcTemplate jdbc, PlatformTransactionManager txManager,
             ScriptExecutorService scripts,
             @Value("${app.scheduler.threads:3}") int threads,
-            @Value("${app.scheduler.enabled:true}") boolean enabled) {
+            @Value("${app.scheduler.enabled:false}") boolean enabled) {
         this.jdbc = jdbc;
         this.tx = new TransactionTemplate(txManager);
         this.scripts = scripts;
         this.enabled = enabled;
-        this.dispatcher = new JobDispatcher(threads, 50, this::execute, this::record, System::currentTimeMillis);
+        int poolSize = Math.max(1, threads);
+        this.dispatcher = new JobDispatcher(poolSize, 50, this::execute, this::record, System::currentTimeMillis);
+        // Satu baris log agar properti produksi yang terlupa langsung terlihat.
+        if (enabled) {
+            log.info("Scheduled jobs: ENABLED (threads={})", poolSize);
+        } else {
+            log.info("Scheduled jobs: DISABLED (set app.scheduler.enabled=true to run jobs)");
+        }
     }
 
     @Scheduled(cron = "0 * * * * *", zone = "Asia/Jakarta")
     public void tick() {
+        tick(ZonedDateTime.now(ZONE));
+    }
+
+    /** Seam untuk test: waktu "sekarang" dapat disuntik. */
+    void tick(ZonedDateTime now) {
         if (!enabled) {
             return;
         }
-        ZonedDateTime now = ZonedDateTime.now(ZONE);
         ZonedDateTime from = lastTick;
         lastTick = now;
         dispatcher.expire(WATCHDOG_MS);
@@ -96,10 +119,12 @@ public class ScheduledJobService {
         try {
             cron = CronExpression.parse(String.valueOf(row.get("schedule")).trim());
         } catch (IllegalArgumentException e) {
-            // Hanya menulis bila pesannya berubah, supaya tidak ada UPDATE tiap menit.
+            // Hanya menulis bila ada yang berubah (pesan baru atau next_run_at masih terisi), supaya tidak
+            // ada UPDATE tiap menit. next_run_at dikosongkan agar tidak menampilkan jadwal basi.
             String msg = "Invalid schedule: " + e.getMessage();
-            jdbc.update("UPDATE public.sys_scheduled_job SET last_status = 'FAILED', last_error = ? "
-                    + "WHERE id = ? AND last_error IS DISTINCT FROM ?", msg, id, msg);
+            jdbc.update("UPDATE public.sys_scheduled_job SET last_status = 'FAILED', last_error = ?, "
+                    + "next_run_at = NULL WHERE id = ? "
+                    + "AND (last_error IS DISTINCT FROM ? OR next_run_at IS NOT NULL)", msg, id, msg);
             return;
         }
         ZonedDateTime next = cron.next(now);
@@ -152,6 +177,7 @@ public class ScheduledJobService {
      */
     private void record(Job job, Outcome out) {
         if ("SKIPPED".equals(out.status())) {
+            // Sengaja tidak menyentuh last_run_at/last_duration_ms: keduanya tetap milik run nyata terakhir.
             jdbc.update("UPDATE public.sys_scheduled_job SET last_status = 'SKIPPED', last_error = ? WHERE id = ?",
                     out.error(), job.id());
             return;

@@ -1124,6 +1124,7 @@ public class ComponentFactory {
                         com.vaadinerp.service.ScriptExecutorService.SCHEDULED_JOB_SCRIPT_NAMES,
                         GroovyDsl.scheduledJobSnippets());
                 groovyEditor.setReadOnly(field.isReadonly());
+                groovyEditor.setRequiredIndicatorVisible(field.isRequired());
                 return groovyEditor;
             case "CRON_SCHEDULE":
                 CronScheduleField cronField = new CronScheduleField(label);

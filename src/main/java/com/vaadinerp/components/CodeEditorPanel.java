@@ -52,6 +52,7 @@ public class CodeEditorPanel extends VerticalLayout {
     /** Potongan kode untuk scope ini; kosong berarti ComboBox snippet disembunyikan. */
     private java.util.Map<String, String> snippets = java.util.Map.of();
 
+    private final Button formatBtn = new SafeButton("Format", VaadinIcon.ALIGN_LEFT.create());
     private final Button cheatBtn = new SafeButton("Cheat Sheet", VaadinIcon.BOOK.create());
     private final com.vaadin.flow.component.combobox.ComboBox<String> snippetCombo =
             new com.vaadin.flow.component.combobox.ComboBox<>();
@@ -64,7 +65,7 @@ public class CodeEditorPanel extends VerticalLayout {
         setSpacing(false);
         getStyle().set("gap", "6px");
 
-        Button formatBtn = new SafeButton("Format", VaadinIcon.ALIGN_LEFT.create(), e -> editor.format());
+        formatBtn.addClickListener(e -> editor.format());
         formatBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
 
         Button checkBtn = new SafeButton("Check Syntax", VaadinIcon.CHECK_CIRCLE.create(),
@@ -180,6 +181,15 @@ public class CodeEditorPanel extends VerticalLayout {
 
     public void setReadOnly(boolean readOnly) {
         editor.setReadOnly(readOnly);
+    }
+
+    /**
+     * Matikan kontrol yang mengubah isi editor (Format, snippet). Check Syntax dan Cheat Sheet
+     * hanya membaca, jadi tetap aktif. Terpisah dari setReadOnly, yang dipakai ScriptEditorDialog.
+     */
+    public void setToolbarEnabled(boolean enabled) {
+        formatBtn.setEnabled(enabled);
+        snippetCombo.setEnabled(enabled);
     }
 
     public void insertAtCursor(String text) {

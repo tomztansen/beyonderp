@@ -15,6 +15,9 @@ public class GroovyEditorField extends CustomField<String> {
     private String current = "";
 
     public GroovyEditorField(String label, Set<String> knownNames, Map<String, String> snippets) {
+        // Default "" (bukan null) supaya asRequired Binder menganggap "" kosong; manualValueUpdate=true
+        // supaya event "change" DOM dari dalam tidak memicu updateValue() -- hanya callback editor di bawah.
+        super("", true);
         if (label != null && !label.isBlank()) {
             setLabel(label);
         }
@@ -37,6 +40,7 @@ public class GroovyEditorField extends CustomField<String> {
     public void setReadOnly(boolean readOnly) {
         getElement().setProperty("readonly", readOnly);
         panel.setReadOnly(readOnly);
+        panel.setToolbarEnabled(!readOnly);
     }
 
     @Override

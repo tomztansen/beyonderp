@@ -167,19 +167,23 @@ public class CodeEditorField extends Div {
                                     var push = function() {
                                         if (window[cmVar] === cm && el.$server) el.$server.cmSync(cm.getValue());
                                     };
-                                    cm.on('change', function() {
+                                    cm.on('change', function(inst, chg) {
+                                        // setValue dari server tidak boleh dipantulkan lagi sebagai cmSync.
+                                        if (chg && chg.origin === 'setValue') return;
                                         if (timer) clearTimeout(timer);
                                         timer = setTimeout(push, 1000);
                                         window[cmVar + '_t'] = timer;
                                     });
                                     cm.on('blur', function() {
                                         if (timer) { clearTimeout(timer); timer = null; }
+                                        window[cmVar + '_t'] = undefined;
                                         push();
                                     });
                                     // Di tab/panel tersembunyi CodeMirror berukuran 0; segarkan begitu terlihat.
                                     if (window.IntersectionObserver) {
                                         var io = new IntersectionObserver(function(entries) {
-                                            if (entries[0].isIntersecting) syncLayout();
+                                            // onResize tanpa fokus: syncLayout berujung di cm.focus().
+                                            if (entries[0].isIntersecting) onResize();
                                         });
                                         io.observe(el);
                                         window[cmVar + '_io'] = io;
@@ -273,6 +277,8 @@ public class CodeEditorField extends Div {
         this.pendingValue = value != null ? value : "";
         // setValue menaruh kursor di akhir dokumen dan ikut menggulir ke sana, sehingga
         // script yang baru dimuat terbuka di tengah-tengah. Kembalikan ke baris pertama.
+        // Fokus/scroll hanya di mode dialog; di form (onValueChanged != null) membuka atau menyegarkan
+        // record tidak boleh merebut fokus.
         getUI().ifPresent(ui -> ui.getPage().executeJs(
                 """
                         if (window[$0]) {
@@ -285,11 +291,13 @@ public class CodeEditorField extends Div {
                                 var last = cm.lastLine();
                                 cm.setCursor({line: last, ch: cm.getLine(last).length});
                             }
-                            if (!cm.getOption('readOnly')) cm.focus();
-                            cm.scrollIntoView(null);
+                            if ($2) {
+                                if (!cm.getOption('readOnly')) cm.focus();
+                                cm.scrollIntoView(null);
+                            }
                         }
                         """,
-                cmVar, pendingValue));
+                cmVar, pendingValue, onValueChanged == null));
     }
 
     /**
