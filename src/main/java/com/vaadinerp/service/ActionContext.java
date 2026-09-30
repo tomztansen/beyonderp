@@ -27,6 +27,13 @@ public class ActionContext {
     private final List<Map<String, Object>> selectedGridRows;
     private final Component currentView;
 
+    /** Diisi job terjadwal (tanpa sesi Vaadin) supaya audit tidak jatuh ke "admin". */
+    private String userIdOverride;
+
+    public void setUserIdOverride(String userId) {
+        this.userIdOverride = userId;
+    }
+
     public ActionContext(DynamicDataService dataService,
             Map<String, Object> headerBean,
             List<Map<String, Object>> selectedGridRows,
@@ -749,6 +756,9 @@ public class ActionContext {
     }
 
     public String getUserId() {
+        if (userIdOverride != null) {
+            return userIdOverride;
+        }
         try {
             VaadinSession session = VaadinSession.getCurrent();
             if (session != null) {

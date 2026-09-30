@@ -26,6 +26,7 @@ public class ScriptExecutorService {
             .build();
 
     private CompilerConfiguration compilerConfiguration;
+    private CompilerConfiguration jobCompilerConfiguration;
 
     public ScriptExecutorService(
             org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider,
@@ -200,6 +201,11 @@ public class ScriptExecutorService {
     }
 
     private void initCompilerConfig() {
+        compilerConfiguration = buildCompilerConfig(60L);
+        jobCompilerConfiguration = buildCompilerConfig(JOB_TIMEOUT_SECONDS);
+    }
+
+    private CompilerConfiguration buildCompilerConfig(long timeoutSeconds) {
         SecureASTCustomizer secure = new SecureASTCustomizer();
         secure.setIndirectImportCheckEnabled(true);
         // Block dangerous imports & receivers
@@ -238,16 +244,17 @@ public class ScriptExecutorService {
         // Security is enforced via disallowed imports, receivers, methods, and
         // execution timeout.
 
-        compilerConfiguration = new CompilerConfiguration();
-        compilerConfiguration.addCompilationCustomizers(secure);
+        CompilerConfiguration config = new CompilerConfiguration();
+        config.addCompilationCustomizers(secure);
 
-        // Add timeout protection (max 60 seconds)
+        // Add timeout protection
         try {
             ASTTransformationCustomizer timerCustomizer = new ASTTransformationCustomizer(
-                    Collections.singletonMap("value", 60L), TimedInterrupt.class);
-            compilerConfiguration.addCompilationCustomizers(timerCustomizer);
+                    Collections.singletonMap("value", timeoutSeconds), TimedInterrupt.class);
+            config.addCompilationCustomizers(timerCustomizer);
         } catch (Exception ignored) {
         }
+        return config;
     }
 
     public void executeOnAddScript(FieldMeta fieldMeta, Map<String, Object> newRow, int rowIndex,
@@ -344,6 +351,47 @@ public class ScriptExecutorService {
             scriptInstance.run();
         } catch (Exception ex) {
             throw new RuntimeException("Report Script Error: " + ex.getMessage(), ex);
+        }
+    }
+
+    /** Batas waktu total script job terjadwal (detik); script form/action tetap 60 detik. */
+    public static final long JOB_TIMEOUT_SECONDS = 120L;
+    public static final String SCHEDULER_USER = "SCHEDULER";
+
+    /** Nama yang tersedia di script job terjadwal — lihat {@link #executeScheduledJobScript}. */
+    public static final java.util.Set<String> SCHEDULED_JOB_SCRIPT_NAMES = java.util.Set.of(
+            "dataService", "db", "jobCode", "log", "renderReport", "sendEmail", "username");
+
+    /**
+     * Jalankan script job terjadwal. Tanpa UI/sesi: tidak ada fungsi layar (showError, msgBox, dst.).
+     * Pemanggil membungkusnya dalam transaksi; exception dilempar apa adanya (dibungkus RuntimeException)
+     * supaya transaksi di-rollback. Kunci cache diawali "job_" karena kelasnya dikompilasi dengan
+     * config 120 detik, terpisah dari script form/action.
+     */
+    public void executeScheduledJobScript(String jobCode, String scriptText, org.slf4j.Logger log) {
+        if (scriptText == null || scriptText.isBlank()) {
+            return;
+        }
+        ActionContext ctx = new ActionContext(dataServiceProvider.getIfAvailable(), null, null, null);
+        ctx.setUserIdOverride(SCHEDULER_USER);
+        try {
+            String scriptId = "job_" + scriptText.hashCode() + "_" + scriptText.length();
+            Class<? extends Script> scriptClass = scriptCache.get(scriptId,
+                    id -> new GroovyShell(jobCompilerConfiguration).parse(scriptText).getClass());
+
+            Script scriptInstance = scriptClass.getDeclaredConstructor().newInstance();
+            Binding binding = new Binding();
+            binding.setVariable("jobCode", jobCode);
+            binding.setVariable("username", SCHEDULER_USER);
+            binding.setVariable("log", log);
+            binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
+            binding.setVariable("dataService", dataServiceProvider.getIfAvailable());
+            binding.setVariable("sendEmail", buildSendEmailClosure(ctx));
+            binding.setVariable("renderReport", buildRenderReportClosure(ctx));
+            scriptInstance.setBinding(binding);
+            scriptInstance.run();
+        } catch (Exception ex) {
+            throw new RuntimeException("Scheduled Job Script Error: " + ex.getMessage(), ex);
         }
     }
 
