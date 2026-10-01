@@ -1574,6 +1574,49 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 return null;
             }
         }
+        // JDBC mengembalikan java.sql.Timestamp/Time, sementara DateTimePicker butuh LocalDateTime
+        // dan TimePicker butuh LocalTime. Tanpa konversi ini nilainya lolos mentah ke setValue
+        // -> ClassCastException "Timestamp cannot be cast to LocalDateTime". Pola sama dengan
+        // GenericFormView.convertToFieldValue untuk form utama.
+        if (comp instanceof com.vaadin.flow.component.datetimepicker.DateTimePicker) {
+            if (rawVal instanceof java.time.LocalDateTime) {
+                return rawVal;
+            }
+            if (rawVal instanceof java.time.LocalDate ld) {
+                return ld.atStartOfDay();
+            }
+            if (rawVal instanceof java.sql.Timestamp ts) {
+                return ts.toLocalDateTime();
+            }
+            if (rawVal instanceof java.util.Date d) {
+                return new java.sql.Timestamp(d.getTime()).toLocalDateTime();
+            }
+            try {
+                return java.time.LocalDateTime.parse(rawVal.toString().replace(" ", "T"));
+            } catch (Exception e) {
+                try {
+                    return java.time.LocalDate.parse(rawVal.toString()).atStartOfDay();
+                } catch (Exception ex) {
+                    return null;
+                }
+            }
+        }
+        if (comp instanceof com.vaadin.flow.component.timepicker.TimePicker) {
+            if (rawVal instanceof java.time.LocalTime) {
+                return rawVal;
+            }
+            if (rawVal instanceof java.sql.Time t) {
+                return t.toLocalTime();
+            }
+            if (rawVal instanceof java.sql.Timestamp ts) {
+                return ts.toLocalDateTime().toLocalTime();
+            }
+            try {
+                return java.time.LocalTime.parse(rawVal.toString());
+            } catch (Exception e) {
+                return null;
+            }
+        }
         return rawVal;
     }
 
