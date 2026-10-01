@@ -16,7 +16,6 @@ import com.vaadin.flow.data.binder.Validator;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadinerp.scheduler.CronCodec;
 import java.time.DayOfWeek;
-import java.time.Duration;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -31,8 +30,8 @@ import java.util.stream.IntStream;
 /**
  * Input jadwal visual; nilai tersimpan sebagai cron 6 field (lihat {@link CronCodec}).
  *
- * Nilai kosong tampil sebagai "Daily 09:00" di kontrol, tetapi nilai model tetap "" sampai
- * pengguna mengubah kontrol -- supaya field wajib-isi yang tak disentuh tetap ditolak.
+ * Nilai kosong tampil sebagai "Daily" dengan jam kosong, dan nilai model tetap "" sampai
+ * pengguna memilih jam -- supaya field wajib-isi yang tak disentuh tetap ditolak.
  * Memuat nilai (setPresentationValue) tidak pernah memanggil updateValue(): cron lama yang
  * tidak persis pola bergambar dibuka di mode Advanced apa adanya, tanpa ditulis ulang.
  *
@@ -73,8 +72,11 @@ public class CronScheduleField extends CustomField<String> implements HasValidat
         interval.setLabel("Every (minutes)");
         interval.setItems(CronCodec.INTERVALS);
 
-        time.setStep(Duration.ofMinutes(1));
-        time.setLocale(Locale.UK); // format 24 jam, sama dengan cron
+        // Sama persis dengan komponen TIMEBOX di ComponentFactory (TimePicker, step bawaan 1 jam, locale
+        // id-ID), supaya tampilan dan perilakunya seragam dengan field jam di form lain. Jangan menambah
+        // setStep < 15 menit: overlay daftar jam tidak muncul (aturan Vaadin). Menit bebas (mis. 07.01)
+        // tetap bisa diketik karena nilai tidak harus sejajar step. Nilai awal kosong.
+        time.setLocale(Locale.of("id", "ID"));
 
         days.setLabel("On days (none = every day)");
         days.setItems(DayOfWeek.values());
@@ -132,13 +134,17 @@ public class CronScheduleField extends CustomField<String> implements HasValidat
         if (updating) {
             return;
         }
+        // Jam wajib dipilih untuk Daily/Monthly: tanpa jam, cron dikosongkan (bukan diam-diam memakai
+        // jam bawaan) sehingga validasi "Schedule is required" menolak simpan.
+        LocalTime t = time.getValue();
         String cron;
         try {
             cron = switch (String.valueOf(repeat.getValue())) {
                 case M_EVERY -> CronCodec.everyNMinutes(interval.getValue() != null ? interval.getValue() : 5);
-                case M_DAILY -> CronCodec.daily(hour(), minute(), days.getValue());
-                case M_MONTHLY -> CronCodec.monthly(dayOfMonth.getValue() != null ? dayOfMonth.getValue() : 1,
-                        hour(), minute());
+                case M_DAILY -> t == null ? "" : CronCodec.daily(t.getHour(), t.getMinute(), days.getValue());
+                case M_MONTHLY -> t == null ? ""
+                        : CronCodec.monthly(dayOfMonth.getValue() != null ? dayOfMonth.getValue() : 1,
+                                t.getHour(), t.getMinute());
                 default -> raw.getValue() != null ? raw.getValue().trim() : "";
             };
         } catch (IllegalArgumentException ex) {
@@ -149,24 +155,16 @@ public class CronScheduleField extends CustomField<String> implements HasValidat
         updateValue();
     }
 
-    private int hour() {
-        return time.getValue() != null ? time.getValue().getHour() : 9;
-    }
-
-    private int minute() {
-        return time.getValue() != null ? time.getValue().getMinute() : 0;
-    }
-
     /**
      * Isi kontrol dari cron yang ada. Hanya pola persis yang memakai mode bergambar; nilai kosong
-     * tampil sebagai Daily 09:00. Tidak pernah memanggil updateValue().
+     * tampil sebagai Daily dengan jam kosong. Tidak pernah memanggil updateValue().
      */
     private void applyCron(String cron) {
         updating = true;
         try {
             current = cron != null ? cron.trim() : "";
             interval.setValue(5);
-            time.setValue(LocalTime.of(9, 0));
+            time.clear();
             days.clear();
             dayOfMonth.setValue(1);
             raw.setValue(current);

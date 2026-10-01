@@ -11,6 +11,8 @@ import java.util.Set;
  */
 public class GroovyEditorField extends CustomField<String> {
 
+    private static final String EDITOR_HEIGHT = "360px";
+
     private final CodeEditorPanel panel;
     private String current = "";
 
@@ -29,9 +31,21 @@ public class GroovyEditorField extends CustomField<String> {
             updateValue();
         });
         setWidthFull();
-        // CodeEditorField default mengisi tinggi induk (untuk dialog); di form biasa perlu tinggi tetap.
-        setHeight("360px");
-        panel.setHeightFull();
+        // CodeEditorField mengisi tinggi induknya (flex 1, min-height 0, overflow hidden) dan itu cocok untuk
+        // dialog. Di sini induknya slot CustomField yang tingginya auto: "100%" tidak punya acuan sehingga
+        // panel menciut setinggi toolbar dan editor CodeMirror terpotong jadi 0 px. Beri tinggi px eksplisit
+        // pada panel (bukan pada host) supaya flex editor punya ruang yang pasti.
+        panel.setHeight(EDITOR_HEIGHT);
+        // Bingkai seperti field Lumo lain; hanya untuk field form ini (dialog script tetap tanpa bingkai).
+        panel.getEditor().getStyle()
+                .set("border", "1px solid var(--lumo-contrast-30pct)")
+                .set("border-radius", "var(--lumo-border-radius-m)")
+                .set("box-sizing", "border-box")
+                // Hasil diagnosis: panel selebar form (376 px) tetapi host editor hanya 81 px, jadi host tidak
+                // meregang di dalam layout vertikal. Lebar dipaksa penuh dan boleh menyusut (min-width 0).
+                .set("width", "100%")
+                .set("align-self", "stretch")
+                .set("min-width", "0");
         add(panel);
     }
 

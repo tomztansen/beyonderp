@@ -440,6 +440,9 @@ public class FormActionBuilderView extends VerticalLayout {
 
         com.vaadinerp.components.CodeEditorField editor = com.vaadinerp.components.CodeEditorField.groovy();
         editor.setValue(scriptContentField.getValue());
+        // Host editor tidak meregang di layout vertikal: lebarnya mengikuti baris terpanjang sehingga
+        // editor hanya ~2/3 lebar dialog. Lebar penuh khusus untuk dialog Extra Toolbar ini.
+        editor.getStyle().set("width", "100%").set("min-width", "0");
 
         com.vaadin.flow.component.orderedlayout.VerticalLayout layout = new com.vaadin.flow.component.orderedlayout.VerticalLayout();
         layout.setSizeFull();
