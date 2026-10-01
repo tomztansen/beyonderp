@@ -1099,11 +1099,15 @@ public class ComponentFactory {
                 FileUploadField fileUpload = new FileUploadField(label,
                         dataService != null ? dataService.getFileStorageService() : null, false);
                 fileUpload.setReadOnly(field.isReadonly());
+                // hideLabel == editor di dalam sel grid; pakai tampilan ringkas biar tidak
+                // membuat baris grid setinggi kotak drag & drop.
+                fileUpload.setCompact(hideLabel);
                 return fileUpload;
             case "IMAGE_UPLOAD":
                 FileUploadField imageUpload = new FileUploadField(label,
                         dataService != null ? dataService.getFileStorageService() : null, true);
                 imageUpload.setReadOnly(field.isReadonly());
+                imageUpload.setCompact(hideLabel);
                 return imageUpload;
             case "LABEL":
                 return new LabelField("", field.getFieldLabel(), field.getDisplayFormat());

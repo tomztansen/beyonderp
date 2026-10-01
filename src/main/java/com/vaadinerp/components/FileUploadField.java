@@ -33,6 +33,8 @@ public class FileUploadField extends CustomField<String> {
     // setelah saveData() sukses). Batal/Cancel cukup buang daftar ini, file tetap ada.
     private final List<String> pendingDeletes = new ArrayList<>();
 
+    private boolean compact = false;
+
     private final Upload upload;
     private final VerticalLayout fileListLayout;
     private final VerticalLayout mainLayout;
@@ -136,6 +138,34 @@ public class FileUploadField extends CustomField<String> {
         add(this.mainLayout);
     }
 
+    /**
+     * Tampilan ringkas untuk dipakai sebagai editor di dalam sel grid (subform / master-detail).
+     * Area drag & drop dan label panjang dibuang karena sel grid terlalu sempit -- teksnya
+     * membungkus dan barisnya jadi setinggi beberapa baris. Form biasa (GenericFormView)
+     * tidak memanggil ini, jadi tampilannya tetap seperti semula.
+     */
+    public void setCompact(boolean compact) {
+        this.compact = compact;
+        if (!compact) {
+            return;
+        }
+        mainLayout.setSpacing(false);
+        if (isImageOnly) {
+            mainLayout.setWidth("auto");
+        } else {
+            upload.setDropAllowed(false);
+            Button uploadBtn = new com.vaadinerp.components.SafeButton("Upload", VaadinIcon.UPLOAD.create());
+            uploadBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+            upload.setUploadButton(uploadBtn);
+            upload.getElement().getStyle()
+                    .set("padding", "0")
+                    .set("margin", "0")
+                    .set("border", "none")
+                    .set("background", "transparent");
+        }
+        refreshFileList();
+    }
+
     @Override
     protected String generateModelValue() {
         return FileStorageService.formatDelimitedFilenames(currentFiles);
@@ -181,8 +211,8 @@ public class FileUploadField extends CustomField<String> {
         if (isImageOnly) {
             Div photoFrame = new Div();
             photoFrame.getStyle()
-                    .set("width", "160px")
-                    .set("height", "200px")
+                    .set("width", compact ? "40px" : "160px")
+                    .set("height", compact ? "40px" : "200px")
                     .set("border", "2px solid #cbd5e1")
                     .set("border-radius", "6px")
                     .set("background-color", "#f8fafc")
@@ -244,7 +274,7 @@ public class FileUploadField extends CustomField<String> {
         card.setSpacing(true);
         card.setWidthFull();
         card.getStyle()
-                .set("padding", "8px 12px")
+                .set("padding", compact ? "2px 6px" : "8px 12px")
                 .set("border", "1px solid #e2e8f0")
                 .set("border-radius", "6px")
                 .set("background-color", "#f8fafc")
@@ -259,8 +289,9 @@ public class FileUploadField extends CustomField<String> {
         if (resource != null && (this.isImageOnly || fileStorageService.isImageFile(storedFilename))) {
             Image img = new Image();
             img.setSrc(resource);
-            img.setWidth(this.isImageOnly ? "56px" : "40px");
-            img.setHeight(this.isImageOnly ? "56px" : "40px");
+            String thumbSize = compact ? "20px" : (this.isImageOnly ? "56px" : "40px");
+            img.setWidth(thumbSize);
+            img.setHeight(thumbSize);
             img.getStyle()
                     .set("object-fit", "cover")
                     .set("border-radius", "6px")
@@ -293,7 +324,12 @@ public class FileUploadField extends CustomField<String> {
         infoLayout.getStyle().set("flex-grow", "1").set("overflow", "hidden");
 
         // 3. Tombol Download / Lihat
-        Button downloadBtn = new com.vaadinerp.components.SafeButton("Unduh", VaadinIcon.DOWNLOAD.create());
+        Button downloadBtn = compact
+                ? new com.vaadinerp.components.SafeButton(VaadinIcon.DOWNLOAD.create())
+                : new com.vaadinerp.components.SafeButton("Unduh", VaadinIcon.DOWNLOAD.create());
+        if (compact) {
+            downloadBtn.getElement().setAttribute("title", "Download");
+        }
         downloadBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         downloadBtn.getStyle().set("cursor", "pointer");
 
