@@ -15,7 +15,6 @@ public class ReportResolver {
 
     private static final java.util.regex.Pattern CODE = java.util.regex.Pattern.compile("^[A-Za-z0-9_-]+$");
 
-    @SuppressWarnings("unused")
     private final ReportMetaRepository reportMetaRepository;
 
     @Value("${app.upload.dir:./uploads}")
@@ -68,6 +67,28 @@ public class ReportResolver {
         }
         String safeName = paramName.trim().replaceAll("[^A-Za-z0-9_-]", "_");
         return new File(resolveSubreportDir(code), safeName + ".jrxml");
+    }
+
+    /**
+     * Report yang memegang FILE template untuk {@code report}: sumber bila report ini memakai
+     * template report lain (template_source_code), kalau tidak report itu sendiri. Master,
+     * ekstensi, dan subreport semuanya dibaca dari pemilik ini.
+     *
+     * @throws IllegalStateException sumber sudah tidak ada atau tidak valid
+     */
+    public com.vaadinerp.meta.ReportMeta templateOwner(com.vaadinerp.meta.ReportMeta report) {
+        String src = report.getTemplateSourceCode();
+        if (src == null || src.isBlank()) {
+            return report;
+        }
+        com.vaadinerp.meta.ReportMeta owner = reportMetaRepository.findById(src.trim()).orElseThrow(
+                () -> new IllegalStateException("Template source report '" + src.trim()
+                        + "' no longer exists. Open this report in Design and upload a template or choose another report."));
+        if (owner.getTemplateSourceCode() != null && !owner.getTemplateSourceCode().isBlank()) {
+            throw new IllegalStateException("Template source report '" + owner.getReportCode()
+                    + "' itself uses another report's template; choose the original report.");
+        }
+        return owner;
     }
 
     public File resolveMasterTemplate(String code, String engineType, String templatePath) {

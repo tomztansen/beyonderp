@@ -64,6 +64,15 @@ public class JasperRenderer implements ReportRenderer {
         }
     }
 
+    /**
+     * Report tanpa halaman = query internal tidak menghasilkan baris dan template tidak punya
+     * bagian "No Data". Template yang sengaja mencetak satu halaman saat data kosong (No Data Section,
+     * All Sections No Detail, Blank Page) tetap menghasilkan halaman, jadi tidak terdeteksi di sini.
+     */
+    public static boolean hasNoPages(JasperPrint print) {
+        return print == null || print.getPages() == null || print.getPages().isEmpty();
+    }
+
     @Override
     public ReportOutput render(ReportContext ctx) {
         return export(ctx, "PDF");
@@ -94,11 +103,12 @@ public class JasperRenderer implements ReportRenderer {
 
                 exporter.exportReport();
                 return new ReportOutput(
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray(),
+                        hasNoPages(print));
             }
             // default PDF
             byte[] pdf = JasperExportManager.exportReportToPdf(print);
-            return ReportOutput.pdf(pdf);
+            return new ReportOutput("application/pdf", pdf, hasNoPages(print));
         } catch (JRException e) {
             throw new RuntimeException("Failed to render Jasper report: " + e.getMessage(), e);
         }

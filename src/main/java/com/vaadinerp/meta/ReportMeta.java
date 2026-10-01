@@ -33,6 +33,14 @@ public class ReportMeta extends BaseAuditableEntity {
     private String templatePath; // Path for .mrt or .jrxml files
 
     /**
+     * Kode report lain yang file template-nya DIPAKAI report ini (JASPER/STIMULSOFT): master dan
+     * subreport dibaca dari report itu, tidak ada file sendiri. Kosong = pakai file sendiri.
+     * Satu tingkat saja (sumber tidak boleh ikut meminjam) -- lihat ReportTemplateRef.
+     */
+    @Column(name = "template_source_code", length = 50)
+    private String templateSourceCode;
+
+    /**
      * JASPER saja: daftar subreport (0..N), JSON array of {paramName, displayName} -- lihat
      * {@link com.vaadinerp.report.SubreportConfig}. paramName harus sama dengan nama parameter
      * di elemen Sub-Report .jrxml utama yang menerima objek JasperReport hasil compile-nya.

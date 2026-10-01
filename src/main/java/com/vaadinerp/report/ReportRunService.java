@@ -52,6 +52,9 @@ public class ReportRunService {
                 for (Map.Entry<String, Object> e : params.entrySet()) {
                     Object v = e.getValue();
                     if (v == null) continue;
+                    // _label / .kolom turunan parameter LOV hanya untuk script dan engine query;
+                    // tidak perlu (dan tidak boleh membengkakkan) URL viewer.
+                    if (ReportParamResolver.isLovExtraKey(e.getKey(), report.getParams())) continue;
                     // Parameter FORM_FIELD berisi List: ulangi key untuk tiap nilai, karena
                     // toString sebuah List ("[38, 42]") bukan parameter query yang valid.
                     if (v instanceof java.util.Collection<?> c) {
@@ -70,7 +73,21 @@ public class ReportRunService {
         if (!sample) {
             afterRun(report, params, r.data() != null ? r.data().size() : 0, messages);
         }
-        return ReportRunResult.rendered(r.output(), r.data() == null || r.data().isEmpty(), messages);
+        return ReportRunResult.rendered(r.output(), isDataEmpty(r.data(), r.output()), messages);
+    }
+
+    /**
+     * Kosong menurut siapa: bila aplikasi memegang datanya sendiri (STANDARD / Jasper dengan query
+     * dari pengaturan report) -> daftar barisnya. Bila null (Jasper menjalankan query di dalam
+     * .jrxml lewat JDBC) data itu memang tidak ada di sini, jadi bukan "kosong": ikuti pernyataan
+     * renderer (tanpa halaman). Tidak diketahui = tidak dianggap kosong, supaya tidak ada
+     * peringatan palsu.
+     */
+    static boolean isDataEmpty(List<Map<String, Object>> data, com.vaadinerp.report.render.ReportOutput output) {
+        if (data != null) {
+            return data.isEmpty();
+        }
+        return output != null && Boolean.TRUE.equals(output.noData());
     }
 
     /**
@@ -93,14 +110,16 @@ public class ReportRunService {
     private Rendered render(ReportMeta report, Map<String, Object> params, String format, boolean sample,
             String engine) {
         List<Map<String, Object>> data = dataService.fetchData(report, params, sample);
+        // File template milik report ini, atau milik report sumber bila memakai template report lain.
+        ReportMeta tpl = "STANDARD".equalsIgnoreCase(engine) ? report : resolver.templateOwner(report);
         File template = "STANDARD".equalsIgnoreCase(engine)
                 ? null
-                : resolver.resolveMasterTemplate(report.getReportCode(), engine, report.getTemplatePath());
+                : resolver.resolveMasterTemplate(tpl.getReportCode(), engine, tpl.getTemplatePath());
         Map<String, File> subreports = new java.util.HashMap<>();
         if ("JASPER".equalsIgnoreCase(engine)) {
             for (com.vaadinerp.report.SubreportConfig.Entry e
-                    : com.vaadinerp.report.SubreportConfig.parse(report.getSubreportsJson())) {
-                subreports.put(e.paramName(), resolver.resolveSubreportFile(report.getReportCode(), e.paramName()));
+                    : com.vaadinerp.report.SubreportConfig.parse(tpl.getSubreportsJson())) {
+                subreports.put(e.paramName(), resolver.resolveSubreportFile(tpl.getReportCode(), e.paramName()));
             }
         }
         ReportContext ctx = new ReportContext(report.getReportCode(), engine, template, data, params,

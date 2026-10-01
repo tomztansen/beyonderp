@@ -22,6 +22,80 @@ public final class ReportParamResolver {
 
     private ReportParamResolver() {}
 
+    /**
+     * Kunci tambahan untuk parameter ber-LOV, meniru bean GenericFormView: nilai utama tetap di
+     * {@code out[paramName]} (tidak disentuh), ditambah {@code paramName_label} (teks tampilan) dan
+     * {@code paramName.kolom} untuk tiap kolom record LOV yang dipilih. Satu record -> nilai
+     * biasa (kolom null dilewati, sama seperti GenericFormView); banyak record (ChosenBox) ->
+     * daftar nilai per record dengan urutan yang sama (null tetap ada supaya sejajar).
+     *
+     * @param label   teks tampilan; null = kunci _label tidak ditulis
+     * @param records record LOV terpilih; null/kosong = tidak ada kunci kolom
+     */
+    public static void putLovExtras(Map<String, Object> out, String paramName, String label,
+                                    List<Map<String, Object>> records) {
+        putLovExtras(out, paramName, label, records, false);
+    }
+
+    /**
+     * @param alwaysList true untuk komponen multi-pilih (ChosenBox): kolom SELALU berupa daftar,
+     *                   juga saat hanya satu record terpilih, supaya script tidak perlu menebak tipenya.
+     */
+    public static void putLovExtras(Map<String, Object> out, String paramName, String label,
+                                    List<Map<String, Object>> records, boolean alwaysList) {
+        if (label != null) {
+            out.put(paramName + "_label", label);
+        }
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        if (records.size() == 1 && !alwaysList) {
+            for (Map.Entry<String, Object> e : records.get(0).entrySet()) {
+                if (e.getKey() != null && e.getValue() != null) {
+                    out.put(paramName + "." + e.getKey(), e.getValue());
+                }
+            }
+            return;
+        }
+        java.util.Set<String> columns = new java.util.LinkedHashSet<>();
+        for (Map<String, Object> r : records) {
+            for (String k : r.keySet()) {
+                if (k != null) columns.add(k);
+            }
+        }
+        for (String col : columns) {
+            List<Object> values = new ArrayList<>(records.size());
+            for (Map<String, Object> r : records) {
+                values.add(r.get(col));
+            }
+            out.put(paramName + "." + col, values);
+        }
+    }
+
+    /**
+     * Apakah {@code key} kunci turunan LOV ({@code param_label} / {@code param.kolom}) dari parameter
+     * yang dideklarasikan report? Dipakai engine yang menyalin semua params ke luar (Stimulsoft:
+     * query string viewer) supaya turunan ini tidak ikut. Parameter yang memang dideklarasikan
+     * dengan nama persis itu tetap dianggap parameter biasa.
+     */
+    public static boolean isLovExtraKey(String key, List<ReportParamMeta> declared) {
+        if (key == null || declared == null) {
+            return false;
+        }
+        for (ReportParamMeta p : declared) {
+            if (key.equals(p.getParamName())) {
+                return false;
+            }
+        }
+        for (ReportParamMeta p : declared) {
+            String n = p.getParamName();
+            if (n != null && (key.equals(n + "_label") || key.startsWith(n + "."))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static String sourceOf(ReportParamMeta p) {
         return p.getSource() == null ? "USER_INPUT" : p.getSource().trim().toUpperCase();
     }

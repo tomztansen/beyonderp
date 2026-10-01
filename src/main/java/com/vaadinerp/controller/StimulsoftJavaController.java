@@ -57,15 +57,27 @@ public class StimulsoftJavaController {
             return;
         }
 
+        // Report yang memakai template report lain (template_source_code) membaca .mrt milik sumbernya.
+        String templateCode = code;
+        com.vaadinerp.meta.ReportMeta ownMeta = reportMetaRepository.findById(code).orElse(null);
+        if (ownMeta != null) {
+            templateCode = com.vaadinerp.report.ReportTemplateRef.ownerCode(code, ownMeta.getTemplateSourceCode());
+            if (!isValidReportCode(templateCode)) {
+                writeError(response, "Invalid Template Source",
+                        "The template source report code contains disallowed characters: " + templateCode);
+                return;
+            }
+        }
+
         File base = new File(uploadDir).getCanonicalFile();
-        File file = new File(base, "stimulsoft/" + code + ".mrt").getCanonicalFile();
+        File file = new File(base, "stimulsoft/" + templateCode + ".mrt").getCanonicalFile();
         if (!file.toPath().startsWith(base.toPath())) {
             writeError(response, "Invalid Report Path", "Invalid path.");
             return;
         }
         if (!file.exists()) {
             writeError(response, "Report Template Missing",
-                    "File template (" + code + ".mrt) was not found on the server.\n" +
+                    "File template (" + templateCode + ".mrt) was not found on the server.\n" +
                     "Make sure you have saved it through the Report Builder.");
             return;
         }

@@ -80,15 +80,61 @@ public class ReportParameterForm extends VerticalLayout {
                 flt.getLogicalOperator(), flt.getComparisonOperator()));
     }
 
-    /** Kumpulkan nilai tiap input by paramName. */
+    /** Batas record LOV terpilih yang dibuatkan kunci kolom (ChosenBox): menjaga jumlah query lookup. */
+    private static final int MAX_EXTRA_RECORDS = 200;
+
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(ReportParameterForm.class);
+
+    /**
+     * Kumpulkan nilai tiap input by paramName. Untuk parameter ber-LOV, nilai utama tetap seperti
+     * biasa dan ditambah {@code paramName_label} serta {@code paramName.kolom} (kolom lain dari
+     * record yang dipilih) seperti bean GenericFormView -- lihat ReportParamResolver.putLovExtras.
+     */
     public Map<String, Object> collectValues() {
         Map<String, Object> out = new HashMap<>();
         for (Map.Entry<String, Component> e : inputs.entrySet()) {
             if (e.getValue() instanceof HasValue<?, ?> hv) {
                 out.put(e.getKey(), hv.getValue());
+                addLovExtras(out, e.getKey(), e.getValue());
             }
         }
         return out;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void addLovExtras(Map<String, Object> out, String name, Component c) {
+        try {
+            String label;
+            List<Map<String, Object>> records;
+            boolean multi = false;
+            if (c instanceof LovComboBox combo) {
+                label = combo.getDisplayLabel();
+                records = singleOrEmpty(combo.getSelectedRecord());
+            } else if (c instanceof LovSelect select) {
+                label = select.getDisplayLabel();
+                records = singleOrEmpty(select.getSelectedRecord());
+            } else if (c instanceof BandboxField<?, ?> bandbox) {
+                label = bandbox.getDisplayLabel();
+                Object item = bandbox.getSelectedItem();
+                records = item instanceof Map ? singleOrEmpty((Map<String, Object>) item) : List.of();
+            } else if (c instanceof LovChosenBox chosen) {
+                label = chosen.getDisplayLabel();
+                multi = true; // ChosenBox: kolom selalu daftar, juga untuk satu pilihan
+                java.util.Set<String> selected = chosen.getValue();
+                records = (selected == null || selected.isEmpty() || selected.size() > MAX_EXTRA_RECORDS)
+                        ? List.of() : chosen.getSelectedRecords();
+            } else {
+                return;
+            }
+            ReportParamResolver.putLovExtras(out, name, label, records, multi);
+        } catch (RuntimeException ex) {
+            // Kunci tambahan hanya kemudahan; gagal mengambilnya tidak boleh menggagalkan report.
+            LOG.warn("Gagal mengambil label/kolom LOV untuk parameter {}: {}", name, ex.toString());
+        }
+    }
+
+    private static List<Map<String, Object>> singleOrEmpty(Map<String, Object> record) {
+        return record == null || record.isEmpty() ? List.of() : List.of(record);
     }
 
     /** Apakah paramName ini dirender sebagai field di form ini (USER_INPUT). */

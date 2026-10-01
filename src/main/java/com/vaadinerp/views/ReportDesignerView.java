@@ -69,6 +69,12 @@ public class ReportDesignerView extends VerticalLayout {
     private byte[] pendingJasperBytes = null;
     private String pendingJasperFilename = null;
     private boolean pendingJasperDelete = false;
+    /** Kode report sumber template (null = file sendiri). Diisi saat load, diubah lewat pilihan di Design. */
+    private String templateSourceState = null;
+    /** Elemen band hasil Copy (STANDARD) untuk report baru; null bila bukan salinan. */
+    private List<ReportElementMeta> copiedElements = null;
+    /** Pilihan "Use existing report" aktif tetapi report sumbernya belum dipilih -- Save ditolak. */
+    private boolean templateSourceRequired = false;
 
     /** Satu baris subreport di editor Designer -- lihat buildSubreportSection(). */
     private static class SubreportRow {
@@ -182,6 +188,7 @@ public class ReportDesignerView extends VerticalLayout {
             mainToolbar.add(
                     tbBtn("New", com.vaadin.flow.component.icon.VaadinIcon.PLUS_CIRCLE, e -> openEditor(null)),
                     tbBtn("Edit", com.vaadin.flow.component.icon.VaadinIcon.EDIT, e -> withSelected(this::openEditor)),
+                    tbBtn("Copy", com.vaadin.flow.component.icon.VaadinIcon.COPY, e -> copySelected()),
                     tbBtn("Design", com.vaadin.flow.component.icon.VaadinIcon.MAGIC,
                             e -> withSelected(this::openDesigner)),
                     tbBtn("Delete", com.vaadin.flow.component.icon.VaadinIcon.CLOSE_CIRCLE, e -> {
@@ -348,11 +355,13 @@ public class ReportDesignerView extends VerticalLayout {
         
         beforeScriptArea.setMinHeight("100px");
         beforeScriptArea.getStyle().set("font-family", "monospace");
-        beforeScriptArea.setPlaceholder("Available: params, username, log, db, dataService, showInfo, showSuccess, showWarning, showError");
+        beforeScriptArea.setPlaceholder("Available: params, username, log, db, dataService, showInfo, showSuccess, showWarning, showError. "
+                + "LOV parameter: params.NAME (value), params.NAME_label (label), params['NAME.column'] (other LOV column)");
         
         afterScriptArea.setMinHeight("100px");
         afterScriptArea.getStyle().set("font-family", "monospace");
-        afterScriptArea.setPlaceholder("Available: params, username, log, db, dataService, showInfo, showSuccess, showWarning, showError");
+        afterScriptArea.setPlaceholder("Available: params, username, log, db, dataService, showInfo, showSuccess, showWarning, showError. "
+                + "LOV parameter: params.NAME (value), params.NAME_label (label), params['NAME.column'] (other LOV column)");
 
         try {
             rolesSelect.setItems(com.vaadinerp.config.SpringContextHolder
@@ -564,6 +573,9 @@ public class ReportDesignerView extends VerticalLayout {
         pendingJasperBytes = null;
         pendingJasperFilename = null;
         pendingJasperDelete = false;
+        templateSourceState = null;
+        templateSourceRequired = false;
+        copiedElements = null;
         subreportRows.clear();
         loadedSubreportParamNames.clear();
 
@@ -586,6 +598,8 @@ public class ReportDesignerView extends VerticalLayout {
             afterScriptArea.clear();
         } else {
             editingCode = report.getReportCode();
+            templateSourceState = report.getTemplateSourceCode() == null || report.getTemplateSourceCode().isBlank()
+                    ? null : report.getTemplateSourceCode().trim();
             codeField.setValue(nz(report.getReportCode()));
             codeField.setReadOnly(true);
             titleField.setValue(nz(report.getReportTitle()));
@@ -661,6 +675,55 @@ public class ReportDesignerView extends VerticalLayout {
         return c;
     }
 
+    private ReportElementMeta cloneElement(ReportElementMeta s) {
+        ReportElementMeta c = new ReportElementMeta();
+        c.setBandType(s.getBandType());
+        c.setElementType(s.getElementType());
+        c.setElementValue(s.getElementValue());
+        c.setColumnWidth(s.getColumnWidth());
+        c.setAlignment(s.getAlignment());
+        c.setFontWeight(s.getFontWeight());
+        c.setColOrder(s.getColOrder());
+        c.setFormatPattern(s.getFormatPattern());
+        return c;
+    }
+
+    /**
+     * Copy: buka editor berisi semua isi report terpilih KECUALI kode (dikosongkan, wajib diisi baru)
+     * dan file template (tidak disalin). Sama seperti Copy di Form Builder, tidak ada yang tersimpan
+     * sebelum Save. Template diisi sesudahnya lewat Design: upload file baru atau pakai report lain.
+     */
+    private void copySelected() {
+        java.util.Set<ReportMeta> sel = grid.getSelectedItems();
+        if (sel.size() != 1) {
+            Notification.show(sel.isEmpty() ? "Please select a report to copy." : "Select exactly one report to copy.");
+            return;
+        }
+        ReportMeta source = reportMetaRepository.findById(sel.iterator().next().getReportCode()).orElse(null);
+        if (source == null) {
+            Notification.show("That report no longer exists.");
+            refreshGrid();
+            return;
+        }
+        loadReportState(source); // judul, query, role, script, parameter + filter LOV (disalin sebagai baris baru)
+        editingCode = null; // report baru
+        codeField.clear();
+        codeField.setReadOnly(false);
+        titleField.setValue(nz(source.getReportTitle()) + " - Copy");
+        // Tanpa file: subreport tidak ikut (file-nya milik report asal).
+        subreportRows.clear();
+        loadedSubreportParamNames.clear();
+        if (source.getElements() != null && !source.getElements().isEmpty()) {
+            copiedElements = new ArrayList<>(source.getElements());
+        }
+        showForm();
+        tabs.setSelectedIndex(1);
+        codeField.focus();
+        Notification.show("Enter a new Report Code and press Save. The template file is not copied: afterwards "
+                + "use Design to upload a file or choose an existing report's template.", 6000,
+                Notification.Position.MIDDLE);
+    }
+
     private void saveReport() {
         String code = codeField.getValue() == null ? "" : codeField.getValue().trim();
         String title = titleField.getValue() == null ? "" : titleField.getValue().trim();
@@ -672,12 +735,44 @@ public class ReportDesignerView extends VerticalLayout {
             Notification.show("Report Code may only contain letters, digits, underscore and hyphen.");
             return;
         }
+        // Report baru (New/Copy) tidak boleh menimpa report lain yang kodenya sama: save() pada id yang
+        // sudah ada akan diam-diam menggantinya.
+        if (editingCode == null && reportMetaRepository.existsById(code)) {
+            Notification.show("Report code '" + code + "' already exists. Choose a different code.");
+            return;
+        }
         FormMeta src = sourceCombo.getValue();
         String query = queryArea.getValue();
+
+        // Template bersama: hanya engine berbasis file; STANDARD tidak punya file template.
+        String engineNow = engineSelect.getValue();
+        boolean fileBased = "JASPER".equalsIgnoreCase(engineNow) || "STIMULSOFT".equalsIgnoreCase(engineNow);
+        if (fileBased && templateSourceRequired) {
+            Notification.show("Choose the report whose template this report should use, or switch back to "
+                    + "'Upload new file'.", 5000, Notification.Position.MIDDLE);
+            return;
+        }
+        String sourceCode = fileBased ? templateSourceState : null;
+        List<String> dependents = com.vaadinerp.report.ReportTemplateRef
+                .dependentsOf(reportMetaRepository.findAll(), code);
+        String sourceError = com.vaadinerp.report.ReportTemplateRef.validateSource(code, engineNow, sourceCode,
+                sourceCode == null ? null : reportMetaRepository.findById(sourceCode).orElse(null),
+                !dependents.isEmpty());
+        if (sourceError != null) {
+            Notification.show(sourceError, 6000, Notification.Position.MIDDLE);
+            return;
+        }
 
         ReportMeta rep = (editingCode == null)
                 ? new ReportMeta()
                 : reportMetaRepository.findById(editingCode).orElse(new ReportMeta());
+        if (editingCode != null && !dependents.isEmpty() && rep.getEngineType() != null
+                && !rep.getEngineType().equalsIgnoreCase(engineNow)) {
+            Notification.show("Other reports (" + String.join(", ", dependents)
+                    + ") use this report's template, so its engine cannot be changed.", 6000,
+                    Notification.Position.MIDDLE);
+            return;
+        }
         rep.setReportCode(code);
         rep.setReportTitle(title);
         rep.setTableName(src != null ? sourceKeyOf(src) : rep.getTableName());
@@ -727,10 +822,44 @@ public class ReportDesignerView extends VerticalLayout {
                 el.setReportMeta(rep);
                 rep.getElements().add(el);
             }
+        } else if (editingCode == null && copiedElements != null) {
+            // Report baru hasil Copy: elemen band disalin sebagai baris baru (tanpa id), tidak dibagi dengan asal.
+            if (rep.getElements() == null)
+                rep.setElements(new ArrayList<>());
+            rep.getElements().clear();
+            for (ReportElementMeta el : copiedElements) {
+                ReportElementMeta c = cloneElement(el);
+                c.setReportMeta(rep);
+                rep.getElements().add(c);
+            }
         }
 
         try {
-            if ("JASPER".equalsIgnoreCase(rep.getEngineType())) {
+            // Pemilik template (dipinjam report lain) tidak boleh menghapus file/subreport yang dipakai peminjam.
+            if (sourceCode == null && "JASPER".equalsIgnoreCase(rep.getEngineType()) && !dependents.isEmpty()) {
+                java.util.Set<String> keep = new java.util.HashSet<>();
+                for (SubreportRow row : subreportRows) {
+                    if (row.originalParamName != null)
+                        keep.add(row.originalParamName);
+                }
+                boolean removesSubreport = loadedSubreportParamNames.stream().anyMatch(n -> !keep.contains(n));
+                if (pendingJasperDelete || removesSubreport) {
+                    Notification.show("Other reports (" + String.join(", ", dependents)
+                            + ") use this report's template; its template file or subreports cannot be removed.", 6000,
+                            Notification.Position.MIDDLE);
+                    return;
+                }
+            }
+
+            if (sourceCode != null) {
+                // Memakai template report lain: tidak ada file sendiri (master dan subreport dibaca dari sumber).
+                rep.setTemplateSourceCode(sourceCode);
+                rep.setTemplatePath(null);
+                rep.setSubreportsJson(null);
+            } else {
+                rep.setTemplateSourceCode(null);
+            }
+            if (sourceCode == null && "JASPER".equalsIgnoreCase(rep.getEngineType())) {
                 if (pendingJasperDelete && rep.getTemplatePath() != null) {
                     // Backup file before deleting
                     java.io.File f = reportResolver.resolveMasterTemplate(rep.getReportCode(), "JASPER", rep.getTemplatePath());
@@ -794,16 +923,31 @@ public class ReportDesignerView extends VerticalLayout {
 
             reportMetaRepository.save(rep);
             editingCode = rep.getReportCode();
+            copiedElements = null;
             codeField.setReadOnly(true);
             refreshGrid();
             tabs.setSelectedIndex(0);
-            Notification.show("Report saved.");
+            boolean noTemplate = sourceCode == null && fileBased
+                    && ("JASPER".equalsIgnoreCase(rep.getEngineType()) ? rep.getTemplatePath() == null
+                            : !reportResolver.resolveMasterTemplate(rep.getReportCode(), rep.getEngineType(),
+                                    rep.getTemplatePath()).exists());
+            Notification.show(noTemplate
+                    ? "Report saved. It has no template yet: select it and use Design to upload a file or "
+                            + "choose an existing report's template."
+                    : "Report saved.", noTemplate ? 6000 : 3000, Notification.Position.BOTTOM_START);
         } catch (Exception ex) {
             Notification.show("Failed to save report: " + ex.getMessage());
         }
     }
 
     private void deleteReports(java.util.Set<ReportMeta> reports) {
+        // Report yang templatenya dipakai report lain tidak boleh dihapus (kecuali pemakainya ikut dihapus).
+        String blocked = com.vaadinerp.report.ReportTemplateRef.blockDeleteMessage(reportMetaRepository.findAll(),
+                reports.stream().map(ReportMeta::getReportCode).collect(java.util.stream.Collectors.toSet()));
+        if (blocked != null) {
+            Notification.show(blocked, 8000, Notification.Position.MIDDLE);
+            return;
+        }
         ConfirmDialog dlg = new ConfirmDialog();
         dlg.setHeader("Delete Report");
         String msg = reports.size() == 1
@@ -855,16 +999,24 @@ public class ReportDesignerView extends VerticalLayout {
         designSurface.setVisible(true);
 
         String engine = engineOf(report);
-        if ("STIMULSOFT".equalsIgnoreCase(engine)) {
-            IFrame ifr = new IFrame("/stimulsoft-java/designer?code=" + report.getReportCode());
-            ifr.setWidthFull();
-            ifr.setHeight("1000px");
-            ifr.getStyle().set("border", "none").set("min-height", "1000px");
-            designSurface.getStyle().set("overflow", "auto");
-            designSurface.add(ifr);
-            designSurface.setFlexGrow(1, ifr);
-        } else if ("JASPER".equalsIgnoreCase(engine)) {
-            designSurface.add(buildJasperUpload(report), buildSubreportSection(report));
+        if ("STIMULSOFT".equalsIgnoreCase(engine) || "JASPER".equalsIgnoreCase(engine)) {
+            // Template: file sendiri (upload / desainer) ATAU pakai template report lain -- dipilih di atas.
+            VerticalLayout ownBox = new VerticalLayout();
+            ownBox.setSizeFull();
+            ownBox.setPadding(false);
+            if ("STIMULSOFT".equalsIgnoreCase(engine)) {
+                IFrame ifr = new IFrame("/stimulsoft-java/designer?code=" + report.getReportCode());
+                ifr.setWidthFull();
+                ifr.setHeight("1000px");
+                ifr.getStyle().set("border", "none").set("min-height", "1000px");
+                designSurface.getStyle().set("overflow", "auto");
+                ownBox.add(ifr);
+                ownBox.setFlexGrow(1, ifr);
+            } else {
+                ownBox.add(buildJasperUpload(report), buildSubreportSection(report));
+            }
+            designSurface.add(buildTemplateSourcePicker(report, engine, ownBox), ownBox);
+            designSurface.setFlexGrow(1, ownBox);
         } else { // STANDARD — embed band designer (canvas only); the single top toolbar Save
                  // persists it
             ReportBuilderView rb = new ReportBuilderView(reportMetaRepository, formMetaRepository, this::refreshGrid);
@@ -876,6 +1028,76 @@ public class ReportDesignerView extends VerticalLayout {
             designSurface.setFlexGrow(1, rb);
         }
         tabs.setSelectedIndex(1);
+    }
+
+    private static final String MODE_OWN_TEMPLATE = "Upload new file";
+    private static final String MODE_EXISTING_TEMPLATE = "Use existing report";
+
+    /**
+     * Pilihan sumber template (JASPER/STIMULSOFT): file sendiri atau template report lain. Hanya mengubah
+     * state editor (templateSourceState); disimpan oleh tombol Save di toolbar, divalidasi di saveReport().
+     * Report yang templatenya dipinjam report lain tidak boleh balik meminjam (satu tingkat).
+     */
+    private com.vaadin.flow.component.Component buildTemplateSourcePicker(ReportMeta report, String engine,
+            com.vaadin.flow.component.Component ownBox) {
+        VerticalLayout box = new VerticalLayout();
+        box.setPadding(false);
+        box.add(new com.vaadin.flow.component.html.H4("Template"));
+
+        List<ReportMeta> all = reportMetaRepository.findAll();
+        List<String> dependents = com.vaadinerp.report.ReportTemplateRef.dependentsOf(all, report.getReportCode());
+
+        com.vaadin.flow.component.radiobutton.RadioButtonGroup<String> mode = new com.vaadin.flow.component.radiobutton.RadioButtonGroup<>();
+        mode.setItems(MODE_OWN_TEMPLATE, MODE_EXISTING_TEMPLATE);
+
+        ComboBox<ReportMeta> sourceBox = new ComboBox<>("Report whose template to use");
+        sourceBox.setWidth("420px");
+        sourceBox.setItems(all.stream()
+                .filter(r -> engine.equalsIgnoreCase(engineOf(r))
+                        && !r.getReportCode().equals(report.getReportCode())
+                        && (r.getTemplateSourceCode() == null || r.getTemplateSourceCode().isBlank()))
+                .sorted(java.util.Comparator.comparing(ReportMeta::getReportCode))
+                .toList());
+        sourceBox.setItemLabelGenerator(r -> r.getReportCode() + " - " + nz(r.getReportTitle()));
+        if (templateSourceState != null) {
+            sourceBox.setValue(reportMetaRepository.findById(templateSourceState).orElse(null));
+        }
+
+        com.vaadin.flow.component.html.Span info = new com.vaadin.flow.component.html.Span();
+        info.getStyle().set("color", "var(--lumo-secondary-text-color)");
+
+        Runnable refresh = () -> {
+            boolean existing = MODE_EXISTING_TEMPLATE.equals(mode.getValue());
+            ownBox.setVisible(!existing);
+            sourceBox.setVisible(existing);
+            templateSourceRequired = existing && sourceBox.getValue() == null;
+            info.setText(existing
+                    ? "This report runs with the template file (and subreports) of the chosen report. Changing "
+                            + "that report's template changes this one. Press Save to apply."
+                    : "");
+        };
+        mode.setValue(templateSourceState != null ? MODE_EXISTING_TEMPLATE : MODE_OWN_TEMPLATE);
+        mode.addValueChangeListener(e -> {
+            templateSourceState = MODE_EXISTING_TEMPLATE.equals(e.getValue()) && sourceBox.getValue() != null
+                    ? sourceBox.getValue().getReportCode() : null;
+            refresh.run();
+        });
+        sourceBox.addValueChangeListener(e -> {
+            templateSourceState = e.getValue() != null ? e.getValue().getReportCode() : null;
+            refresh.run();
+        });
+
+        if (!dependents.isEmpty()) {
+            mode.setItemEnabledProvider(item -> !MODE_EXISTING_TEMPLATE.equals(item));
+            com.vaadin.flow.component.html.Span used = new com.vaadin.flow.component.html.Span(
+                    "This template is used by: " + String.join(", ", dependents)
+                            + ". It cannot be deleted, and this report cannot use another template.");
+            used.getStyle().set("color", "var(--lumo-warning-text-color)");
+            box.add(used);
+        }
+        refresh.run();
+        box.add(mode, sourceBox, info);
+        return box;
     }
 
     private com.vaadin.flow.component.Component buildJasperUpload(ReportMeta report) {
