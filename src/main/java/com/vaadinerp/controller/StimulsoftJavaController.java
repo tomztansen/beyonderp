@@ -104,7 +104,7 @@ public class StimulsoftJavaController {
 
         options.getAppearance().setScrollbarsMode(true);
 
-        URL requestUrl = new URL(request.getRequestURL().toString());
+        URL requestUrl = java.net.URI.create(request.getRequestURL().toString()).toURL();
         String rawHtml = new StiWebViewerHelper().getWebViewer(
                 options, null, requestUrl,
                 new StiHttpServletRequest(request),
@@ -202,7 +202,7 @@ public class StimulsoftJavaController {
             public void onNewReportTemplate(StiReport report, HttpServletRequest requestHandler) {}
         };
 
-        URL requestUrl = new URL(request.getRequestURL().toString());
+        URL requestUrl = java.net.URI.create(request.getRequestURL().toString()).toURL();
         String rawHtml = new StiWebDesignerHelper().getWebDesigner(
                 options, requestUrl,
                 new StiHttpServletRequest(request),
