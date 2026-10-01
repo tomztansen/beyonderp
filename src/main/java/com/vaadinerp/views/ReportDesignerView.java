@@ -348,11 +348,11 @@ public class ReportDesignerView extends VerticalLayout {
         
         beforeScriptArea.setMinHeight("100px");
         beforeScriptArea.getStyle().set("font-family", "monospace");
-        beforeScriptArea.setPlaceholder("Available variables: dataService, params, username, log");
+        beforeScriptArea.setPlaceholder("Available: params, username, log, db, dataService, showInfo, showSuccess, showWarning, showError");
         
         afterScriptArea.setMinHeight("100px");
         afterScriptArea.getStyle().set("font-family", "monospace");
-        afterScriptArea.setPlaceholder("Available variables: dataService, params, username, log");
+        afterScriptArea.setPlaceholder("Available: params, username, log, db, dataService, showInfo, showSuccess, showWarning, showError");
 
         try {
             rolesSelect.setItems(com.vaadinerp.config.SpringContextHolder

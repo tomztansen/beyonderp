@@ -38,11 +38,12 @@ public class ReportRunService {
 
     public ReportRunResult run(ReportMeta report, Map<String, Object> params, String format, boolean sample) {
         String engine = report.getEngineType() != null ? report.getEngineType() : "STANDARD";
+        java.util.List<ReportMessage> messages = new java.util.ArrayList<>();
         // Preview (Report Designer) tidak boleh ikut memicu before/after script -- itu bukan
         // "report benar-benar dijalankan", cuma pratinjau. Kalau tidak dijaga, klik Preview
         // berulang kali ikut menambah print_count dsb. seolah-olah report itu di-run beneran.
         if (!sample) {
-            beforeRun(report, params);
+            beforeRun(report, params, messages);
         }
 
         if ("STIMULSOFT".equalsIgnoreCase(engine)) {
@@ -62,14 +63,14 @@ public class ReportRunService {
                     }
                 }
             }
-            return ReportRunResult.stimulsoft(url.toString());
+            return ReportRunResult.stimulsoft(url.toString(), messages);
         }
 
         Rendered r = render(report, params, format, sample, engine);
         if (!sample) {
-            afterRun(report, params, r.data() != null ? r.data().size() : 0);
+            afterRun(report, params, r.data() != null ? r.data().size() : 0, messages);
         }
-        return ReportRunResult.rendered(r.output(), r.data() == null || r.data().isEmpty());
+        return ReportRunResult.rendered(r.output(), r.data() == null || r.data().isEmpty(), messages);
     }
 
     /**
@@ -126,10 +127,14 @@ public class ReportRunService {
      * Titik ekstensi sebelum report dijalankan. 
      */
     protected void beforeRun(ReportMeta report, Map<String, Object> params) {
+        beforeRun(report, params, null);
+    }
+
+    protected void beforeRun(ReportMeta report, Map<String, Object> params, List<ReportMessage> messages) {
         if (report.getBeforeScript() != null && !report.getBeforeScript().isBlank()) {
             String username = securityService != null && securityService.getCurrentUser() != null
                 ? securityService.getCurrentUser().getUsername() : "system";
-            scriptExecutor.executeReportScript(report.getBeforeScript(), params, username, log);
+            scriptExecutor.executeReportScript(report.getBeforeScript(), params, username, log, messages);
         }
     }
 
@@ -142,10 +147,14 @@ public class ReportRunService {
      * user apa pun hasil script-nya, jadi tidak bisa dipakai buat hal yang wajib berhasil.
      */
     protected void afterRun(ReportMeta report, Map<String, Object> params, int rowCount) {
+        afterRun(report, params, rowCount, null);
+    }
+
+    protected void afterRun(ReportMeta report, Map<String, Object> params, int rowCount, List<ReportMessage> messages) {
         if (report.getAfterScript() != null && !report.getAfterScript().isBlank()) {
             String username = securityService != null && securityService.getCurrentUser() != null
                 ? securityService.getCurrentUser().getUsername() : "system";
-            scriptExecutor.executeReportScript(report.getAfterScript(), params, username, log);
+            scriptExecutor.executeReportScript(report.getAfterScript(), params, username, log, messages);
         }
     }
 }

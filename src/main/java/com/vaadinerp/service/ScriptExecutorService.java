@@ -11,6 +11,7 @@ import org.codehaus.groovy.control.customizers.SecureASTCustomizer;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import com.vaadinerp.report.ReportMessage;
 
 @Service
 public class ScriptExecutorService {
@@ -362,6 +363,11 @@ public class ScriptExecutorService {
     }
 
     public void executeReportScript(String scriptText, Map<String, Object> params, String username, org.slf4j.Logger log) {
+        executeReportScript(scriptText, params, username, log, null);
+    }
+
+    public void executeReportScript(String scriptText, Map<String, Object> params, String username, org.slf4j.Logger log,
+                                    List<ReportMessage> messages) {
         if (scriptText == null || scriptText.trim().isEmpty()) {
             return;
         }
@@ -379,11 +385,95 @@ public class ScriptExecutorService {
             binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
             binding.setVariable("dataService", dataServiceProvider.getIfAvailable());
 
+            // Feedback closures ke UI (ringan, batas terukur, tanpa memory leaks)
+            binding.setVariable("showInfo", new groovy.lang.Closure<Void>(null) {
+                public void doCall(Object... args) {
+                    addReportMessage(messages, ReportMessage.Level.INFO, args);
+                }
+            });
+            binding.setVariable("showSuccess", new groovy.lang.Closure<Void>(null) {
+                public void doCall(Object... args) {
+                    addReportMessage(messages, ReportMessage.Level.SUCCESS, args);
+                }
+            });
+            binding.setVariable("showWarning", new groovy.lang.Closure<Void>(null) {
+                public void doCall(Object... args) {
+                    addReportMessage(messages, ReportMessage.Level.WARNING, args);
+                }
+            });
+            binding.setVariable("showError", new groovy.lang.Closure<Void>(null) {
+                public void doCall(Object... args) {
+                    addReportMessage(messages, ReportMessage.Level.ERROR, args);
+                }
+            });
+
             scriptInstance.setBinding(binding);
             scriptInstance.run();
         } catch (Exception ex) {
             throw new RuntimeException("Report Script Error: " + ex.getMessage(), ex);
         }
+    }
+
+    private static void addReportMessage(List<ReportMessage> messages,
+                                         ReportMessage.Level level,
+                                         Object... args) {
+        if (messages == null || args == null || args.length == 0) {
+            return;
+        }
+        // Batasi maksimal 20 pesan per run report untuk mencegah kebocoran memori akibat infinite loop di script
+        if (messages.size() >= 20) {
+            return;
+        }
+        String text = formatReportMessage(args);
+        if (text == null || text.isBlank()) {
+            return;
+        }
+        // Batasi panjang pesan maksimal 1000 karakter agar tidak membebani memori / payload UI
+        if (text.length() > 1000) {
+            text = text.substring(0, 997) + "...";
+        }
+        messages.add(new ReportMessage(text, level));
+    }
+
+    private static String formatReportMessage(Object... args) {
+        if (args == null || args.length == 0 || args[0] == null) {
+            return "";
+        }
+        String first = args[0].toString();
+        if (args.length == 1) {
+            return first;
+        }
+        // Dukung placeholder "{}" gaya SLF4J (seperti log.info("auto: {} dari {}", a, b))
+        if (first.contains("{}")) {
+            StringBuilder sb = new StringBuilder();
+            int argIdx = 1;
+            int cur = 0;
+            while (cur < first.length()) {
+                int placeholder = first.indexOf("{}", cur);
+                if (placeholder == -1 || argIdx >= args.length) {
+                    sb.append(first.substring(cur));
+                    break;
+                }
+                sb.append(first, cur, placeholder);
+                sb.append(args[argIdx] != null ? args[argIdx].toString() : "null");
+                argIdx++;
+                cur = placeholder + 2;
+            }
+            return sb.toString();
+        }
+        // Dua argumen tanpa "{}": diperlakukan sebagai (title, message)
+        if (args.length == 2) {
+            String title = first.trim();
+            String body = args[1] != null ? args[1].toString().trim() : "";
+            if (title.isEmpty()) return body;
+            if (body.isEmpty()) return title;
+            return "<b>" + title + "</b>: " + body;
+        }
+        StringBuilder sb = new StringBuilder(first);
+        for (int i = 1; i < args.length; i++) {
+            sb.append(" ").append(args[i] != null ? args[i].toString() : "");
+        }
+        return sb.toString();
     }
 
     /** Batas waktu total script job terjadwal (detik); script form/action tetap 60 detik. */

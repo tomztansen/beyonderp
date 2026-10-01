@@ -143,6 +143,26 @@ public final class ReportLauncher {
                                 Notification.Position.TOP_CENTER);
                         n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
                     }
+                    if (res.messages() != null && !res.messages().isEmpty()) {
+                        for (ReportMessage msg : res.messages()) {
+                            if (msg == null || msg.text() == null || msg.text().isBlank()) continue;
+                            Notification n = new Notification();
+                            String text = msg.text();
+                            if (text.contains("<br") || text.contains("</br>") || text.contains("<b") || text.contains("</b>")) {
+                                n.add(new com.vaadin.flow.component.Html("<div>" + text.replace("</br>", "<br/>") + "</div>"));
+                            } else {
+                                n.setText(text);
+                            }
+                            n.setDuration(5000);
+                            n.setPosition(Notification.Position.TOP_CENTER);
+                            switch (msg.level()) {
+                                case SUCCESS -> n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
+                                case WARNING, ERROR -> n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+                                default -> n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_PRIMARY);
+                            }
+                            n.open();
+                        }
+                    }
                     if (onFinish != null) onFinish.run();
                 });
             } catch (org.springframework.dao.QueryTimeoutException te) {
