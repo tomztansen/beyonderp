@@ -3,6 +3,7 @@ package com.vaadinerp.service;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.server.streams.DownloadHandler;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
@@ -646,6 +647,89 @@ public class ActionContext {
         }
 
         return message;
+    }
+
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(ActionContext.class);
+
+    /**
+     * Kirim file dari report_out ke browser user (biasanya hasil renderReport()). Hanya file
+     * biasa di report_out -- lihat FileStorageService.resolveReportOutputFile. Isi file TIDAK
+     * dimuat ke memori: DownloadHandler.forFile menyalurkannya dari disk saat browser meminta.
+     * Satu Anchor tersembunyi dipakai ulang per UI (href-nya saja yang diganti), jadi berapa pun
+     * unduhan tidak menambah komponen maupun resource yang tertahan di sesi.
+     *
+     * @param downloadName nama file yang dilihat user; null = nama file aslinya.
+     * @throws IllegalArgumentException nama file tidak sah / tidak ditemukan.
+     * @throws IllegalStateException    tidak ada sesi browser (mis. job terjadwal).
+     */
+    public void downloadFile(String path, String downloadName) {
+        FileStorageService fs = dataService != null ? dataService.getFileStorageService() : null;
+        if (fs == null) {
+            throw new IllegalStateException("File storage is not available");
+        }
+        java.nio.file.Path file = fs.resolveReportOutputFile(path);
+
+        String name = file.getFileName().toString();
+        if (downloadName != null && !downloadName.isBlank()) {
+            String clean = downloadName.trim().replaceAll("[^A-Za-z0-9._ -]", "_");
+            if (!clean.isBlank()) {
+                name = clean;
+            }
+        }
+
+        UI ui = requireUi("downloadFile");
+        final java.io.File f = file.toFile();
+        final String fileName = name;
+        final String user = getUserId();
+        // Jejak keluarnya data: siapa mengunduh file apa.
+        triggerDownload(ui, DownloadHandler.forFile(f, fileName),
+                () -> LOG.info("downloadFile: user={} file={} size={}B", user, f.getName(), f.length()));
+    }
+
+    /**
+     * Kirim hasil query sebagai CSV ke browser user. CSV disusun di Java (lihat CsvExport: kutip/escape,
+     * BOM UTF-8, netralisasi rumus, batas {@value CsvExport#MAX_ROWS} baris), BUKAN dirakit di Groovy.
+     * Isi disimpan sebagai satu byte[] di handler sampai browser mengambilnya; handler diganti pada
+     * unduhan berikutnya, jadi paling banyak satu CSV tertahan per UI.
+     *
+     * @param headers       null = judul dari nama kolom baris pertama; berisi = pilih/urutkan/beri judul kolom
+     * @param includeHeader false = tanpa baris judul
+     * @param delimiter     null/kosong = titik koma; boleh , ; tab |
+     * @return jumlah baris data
+     * @throws IllegalArgumentException tanpa data, terlalu banyak baris, atau pemisah tidak sah.
+     * @throws IllegalStateException    tidak ada sesi browser (mis. job terjadwal).
+     */
+    public int downloadCsv(String fileName, java.util.List<? extends Map<String, ?>> rows,
+            Map<String, String> headers, boolean includeHeader, String delimiter) {
+        UI ui = requireUi("downloadCsv"); // gagal cepat sebelum menyusun data
+        char d = CsvExport.delimiterOf(delimiter);
+        final byte[] bytes = CsvExport.build(rows, headers, includeHeader, d, CsvExport.MAX_ROWS);
+        final String name = CsvExport.fileName(fileName);
+        final int count = rows == null ? 0 : rows.size();
+        final String user = getUserId();
+        DownloadHandler handler = BrowserDownload.bytes(bytes, name, "text/csv;charset=UTF-8");
+        triggerDownload(ui, handler,
+                () -> LOG.info("downloadCsv: user={} file={} rows={} bytes={}", user, name, count, bytes.length));
+        return count;
+    }
+
+    private UI requireUi(String what) {
+        UI ui = UI.getCurrent();
+        if (ui == null && currentView != null && currentView.getUI().isPresent()) {
+            ui = currentView.getUI().get();
+        }
+        if (ui == null) {
+            throw new IllegalStateException(what + " needs an open browser session");
+        }
+        return ui;
+    }
+
+    /** Ganti href anchor tersembunyi ke handler ini lalu klik; audit dicatat setelah dipicu. */
+    private static void triggerDownload(UI ui, DownloadHandler handler, Runnable audit) {
+        ui.access(() -> {
+            BrowserDownload.trigger(ui, handler);
+            audit.run();
+        });
     }
 
     public void showSuccess(String title, String message) {

@@ -123,6 +123,12 @@ public final class ReportLauncher {
         UI ui = UI.getCurrent();
         String title = report.getReportTitle() != null ? report.getReportTitle() : report.getReportCode();
         RUN_EXEC.submit(() -> {
+            if (ui != null) {
+                UI.setCurrent(ui);
+                if (ui.getSession() != null) {
+                    com.vaadin.flow.server.VaadinSession.setCurrent(ui.getSession());
+                }
+            }
             try {
                 ReportRunResult res = svc.run(report, values, format, false);
                 ui.access(() -> {
@@ -180,6 +186,9 @@ public final class ReportLauncher {
                     n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
                     if (onFinish != null) onFinish.run();
                 });
+            } finally {
+                UI.setCurrent(null);
+                com.vaadin.flow.server.VaadinSession.setCurrent(null);
             }
         });
     }

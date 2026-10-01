@@ -155,6 +155,54 @@ public class FileStorageService {
         }
     }
 
+    /** Nama file report_out yang sah: persis himpunan karakter yang dihasilkan storeReportOutput. */
+    private static final java.util.regex.Pattern REPORT_OUTPUT_NAME = java.util.regex.Pattern
+            .compile("[A-Za-z0-9_-][A-Za-z0-9._-]*");
+
+    /**
+     * Ubah nama dari script (mis. hasil renderReport: "report_out/SPK_10001.pdf", atau cukup
+     * "SPK_10001.pdf") menjadi path file di report_out untuk downloadFile(). Sengaja SANGAT ketat:
+     * hanya satu nama datar dari daftar karakter aman, jadi tidak ada ".." , pemisah path, drive
+     * atau subfolder yang bisa dipakai membaca file lain di server (application.properties, upload
+     * user, dst). Setelah itu dicek lagi: harus file biasa dan, lewat symlink sekalipun, tetap di
+     * dalam report_out.
+     *
+     * @throws IllegalArgumentException pesan berawalan "Invalid file" (nama tak sah) atau
+     *                                  "File not found".
+     */
+    public static Path resolveReportOutputFile(Path uploadDir, String name) {
+        String n = name == null ? "" : name.trim();
+        String prefix = REPORT_OUTPUT_DIR + "/";
+        if (n.startsWith(prefix)) {
+            n = n.substring(prefix.length());
+        }
+        if (!REPORT_OUTPUT_NAME.matcher(n).matches() || n.equals("..")) {
+            throw new IllegalArgumentException("Invalid file name for download: " + name);
+        }
+        try {
+            Path base = uploadDir.resolve(REPORT_OUTPUT_DIR).toAbsolutePath().normalize();
+            Path target = base.resolve(n).normalize();
+            if (!target.getParent().equals(base)) {
+                throw new IllegalArgumentException("Invalid file name for download: " + name);
+            }
+            if (!Files.isRegularFile(target)) {
+                throw new IllegalArgumentException("File not found: " + n);
+            }
+            // Symlink di dalam report_out yang menunjuk ke luar tidak boleh lolos.
+            if (!target.toRealPath().startsWith(base.toRealPath())) {
+                throw new IllegalArgumentException("Invalid file name for download: " + name);
+            }
+            return target;
+        } catch (IOException e) {
+            throw new IllegalArgumentException("File not found: " + n, e);
+        }
+    }
+
+    /** Path file report_out untuk downloadFile() -- lihat {@link #resolveReportOutputFile(Path, String)}. */
+    public Path resolveReportOutputFile(String name) {
+        return resolveReportOutputFile(this.uploadDir, name);
+    }
+
     /**
      * Kompres ulang JPEG ke kualitas 70%. Kalau gambarnya gagal di-decode (rusak,
      * atau ternyata bukan JPEG asli walau ekstensinya .jpg) atau proses kompresi

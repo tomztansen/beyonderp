@@ -111,6 +111,94 @@ public class ScriptExecutorService {
     }
 
     /**
+     * Binding 'downloadFile' (action scope): kirim file hasil renderReport() ke browser user.
+     * downloadFile(path) atau downloadFile(path, namaUnduhan). Mengembalikan true bila unduhan
+     * dipicu, false (plus pesan error di layar) bila nama file tidak sah / tidak ada / tidak ada
+     * sesi browser -- supaya script bisa `if (!downloadFile(f)) return`.
+     */
+    private groovy.lang.Closure<Boolean> buildDownloadFileClosure(ActionContext ctx) {
+        return new groovy.lang.Closure<Boolean>(null) {
+            @SuppressWarnings("unused")
+            public Boolean doCall(Object path) {
+                return doCall(path, null);
+            }
+
+            public Boolean doCall(Object path, Object downloadName) {
+                try {
+                    ctx.downloadFile(path != null ? path.toString() : null,
+                            downloadName != null ? downloadName.toString() : null);
+                    return true;
+                } catch (IllegalArgumentException | IllegalStateException e) {
+                    ctx.showError("Download", e.getMessage());
+                    return false;
+                }
+            }
+        };
+    }
+
+    /**
+     * Binding 'downloadCsv' (action scope): kirim hasil query sebagai CSV ke browser user.
+     * downloadCsv(namaFile, rows[, headers[, pemisah]]). rows = list of Map (mis. hasil db.queryForList).
+     * headers: Map kolom->judul (memilih, mengurutkan, memberi judul; judul null = nama kolom),
+     * false = tanpa baris judul, null = judul dari nama kolom baris pertama. pemisah default ";".
+     * Mengembalikan true bila unduhan dipicu, false (plus pesan error) bila ditolak -- tanpa data,
+     * terlalu banyak baris, atau tanpa sesi browser.
+     */
+    private groovy.lang.Closure<Boolean> buildDownloadCsvClosure(ActionContext ctx) {
+        return new groovy.lang.Closure<Boolean>(null) {
+            @SuppressWarnings("unused")
+            public Boolean doCall(Object fileName, Object rows) {
+                return doCall(fileName, rows, null, null);
+            }
+
+            @SuppressWarnings("unused")
+            public Boolean doCall(Object fileName, Object rows, Object headers) {
+                return doCall(fileName, rows, headers, null);
+            }
+
+            @SuppressWarnings("unchecked")
+            public Boolean doCall(Object fileName, Object rows, Object headers, Object delimiter) {
+                try {
+                    java.util.List<Map<String, ?>> list = new ArrayList<>();
+                    if (rows instanceof java.util.Collection<?> c) {
+                        for (Object r : c) {
+                            if (!(r instanceof Map)) {
+                                throw new IllegalArgumentException(
+                                        "rows must be a list of maps, e.g. the result of db.queryForList");
+                            }
+                            list.add((Map<String, ?>) r);
+                        }
+                    } else if (rows != null) {
+                        throw new IllegalArgumentException(
+                                "rows must be a list of maps, e.g. the result of db.queryForList");
+                    }
+
+                    Map<String, String> titles = null;
+                    boolean includeHeader = true;
+                    if (headers instanceof Map<?, ?> m) {
+                        titles = new java.util.LinkedHashMap<>();
+                        for (Map.Entry<?, ?> e : m.entrySet()) {
+                            titles.put(String.valueOf(e.getKey()), e.getValue() != null ? e.getValue().toString() : null);
+                        }
+                    } else if (Boolean.FALSE.equals(headers)) {
+                        includeHeader = false;
+                    } else if (headers != null && !Boolean.TRUE.equals(headers)) {
+                        throw new IllegalArgumentException(
+                                "headers must be a map of column -> title, false (no header row) or null");
+                    }
+
+                    ctx.downloadCsv(fileName != null ? fileName.toString() : null, list, titles, includeHeader,
+                            delimiter != null ? delimiter.toString() : null);
+                    return true;
+                } catch (IllegalArgumentException | IllegalStateException e) {
+                    ctx.showError("Download", e.getMessage());
+                    return false;
+                }
+            }
+        };
+    }
+
+    /**
      * Binding 'runScheduledJob' (action scope): tombol Run now di form job terjadwal. Bean diambil
      * lewat SpringContextHolder saat dipanggil (ScheduledJobService bergantung ke service ini).
      * Menjalankan versi job yang TERSIMPAN, lewat jalur yang sama dengan ticker.
@@ -384,6 +472,10 @@ public class ScriptExecutorService {
             binding.setVariable("log", log);
             binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
             binding.setVariable("dataService", dataServiceProvider.getIfAvailable());
+
+            ActionContext ctx = new ActionContext(dataServiceProvider.getIfAvailable(), null, null, null);
+            binding.setVariable("downloadCsv", buildDownloadCsvClosure(ctx));
+            binding.setVariable("downloadFile", buildDownloadFileClosure(ctx));
 
             // Feedback closures ke UI (ringan, batas terukur, tanpa memory leaks)
             binding.setVariable("showInfo", new groovy.lang.Closure<Void>(null) {
@@ -927,6 +1019,14 @@ public class ScriptExecutorService {
             binding.setVariable("sendEmail", buildSendEmailClosure(ctx));
             binding.setVariable("renderReport", buildRenderReportClosure(ctx));
             binding.setVariable("runScheduledJob", buildRunScheduledJobClosure(ctx));
+            binding.setVariable("downloadFile", buildDownloadFileClosure(ctx));
+            binding.setVariable("downloadCsv", buildDownloadCsvClosure(ctx));
+            binding.setVariable("plain", new groovy.lang.Closure<Object>(null) {
+                @SuppressWarnings("unused")
+                public Object doCall(Object value) {
+                    return plain(value);
+                }
+            });
             binding.setVariable("sendWhatsApp", buildSendWhatsAppClosure(ctx));
             binding.setVariable("sendWhatsAppApproval", buildSendWhatsAppApprovalClosure(ctx));
             binding.setVariable("setElementDisabled", new groovy.lang.Closure<Void>(null) {
@@ -982,6 +1082,43 @@ public class ScriptExecutorService {
 
     public void clearAllCache() {
         scriptCache.invalidateAll();
+    }
+
+    /**
+     * Buka bungkusan header (SmartHeaderNode / LovValueNode) menjadi nilai aslinya, menembus Map dan
+     * List bersarang (salinan baru; objek asli tidak diubah). Perlu sebelum JsonOutput.toJson:
+     * SmartHeaderNode turunan Number, jadi JsonOutput menulisnya apa adanya lewat toString() --
+     * teks tanpa tanda kutip (JSON tidak valid), dan nilai kosong menjadi {}.
+     */
+    public static Object plain(Object v) {
+        return plain(v, 0);
+    }
+
+    private static Object plain(Object v, int depth) {
+        if (depth > 20) {
+            return v; // pengaman struktur melingkar
+        }
+        if (v instanceof SmartHeaderNode n) {
+            return plain(n.getPrimaryValue(), depth + 1);
+        }
+        if (v instanceof LovValueNode l) {
+            return plain(l.getPrimaryValue(), depth + 1);
+        }
+        if (v instanceof Map<?, ?> m) {
+            Map<Object, Object> out = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : m.entrySet()) {
+                out.put(e.getKey(), plain(e.getValue(), depth + 1));
+            }
+            return out;
+        }
+        if (v instanceof java.util.Collection<?> c) {
+            List<Object> out = new ArrayList<>(c.size());
+            for (Object o : c) {
+                out.add(plain(o, depth + 1));
+            }
+            return out;
+        }
+        return v;
     }
 
     public static Map<String, Object> prepareHeaderForScript(Map<String, Object> sourceBean) {
@@ -1475,8 +1612,8 @@ public class ScriptExecutorService {
      * ON_CHANGE, dan Extra Toolbar.
      */
     public static final java.util.Set<String> ACTION_SCRIPT_NAMES = java.util.Set.of(
-            "JsonOutput", "JsonSlurper", "clearForm", "ctx", "db", "executeProcedure",
-            "getElementValue", "header", "lov", "msgBox", "prompt", "refreshForm", "renderReport", "runScheduledJob",
+            "JsonOutput", "JsonSlurper", "clearForm", "ctx", "db", "downloadCsv", "downloadFile", "executeProcedure",
+            "getElementValue", "header", "lov", "msgBox", "plain", "prompt", "refreshForm", "renderReport", "runScheduledJob",
             "selectedRows", "self",
             "sendEmail", "sendWhatsApp", "sendWhatsAppApproval", "setElementDisabled", "setElementEnabled",
             "setElementReadonly", "setElementValue", "setElementVisible",

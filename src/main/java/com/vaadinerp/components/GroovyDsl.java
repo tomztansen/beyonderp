@@ -50,6 +50,28 @@ public final class GroovyDsl {
                 + "Designer terisi otomatis seperti di Report Runner; params dari script menimpanya. "
                 + "Nama file sama = ditimpa. Hasilnya langsung dipakai sebagai "
                 + "attachments sendEmail(). Stimulsoft tidak didukung");
+        m.put("plain", "plain(value) -> value without the header wrappers. header.xxx values are wrapped objects "
+                + "(they behave like numbers/maps), so JsonOutput.toJson writes text without quotes and empty values as "
+                + "{} -> invalid JSON. Always wrap what you build from header/selectedRows before JsonOutput.toJson: "
+                + "JsonOutput.toJson(plain([[table: 'thx', data: [des: header.des, wh: header.mswarehouseid]]])). "
+                + "Works on single values, maps and lists (nested); returns a copy");
+        m.put("downloadCsv", "downloadCsv(fileName, rows[, headers[, delimiter]]) -> boolean — send query results to "
+                + "the user's browser as a CSV download. rows = list of maps, e.g. db.queryForList(\"SELECT idno AS \\\"Serial No\\\" "
+                + "FROM ...\"). Column titles come from the column names of the first row (use SQL aliases to rename). "
+                + "headers: a map column->title picks, orders and renames columns ([idno: 'Serial No']); false = no "
+                + "title row. delimiter defaults to ';' (Excel Indonesia), or use ',' '|' or a tab. UTF-8 with BOM, "
+                + "fields are quoted/escaped, null = empty, cells starting with = + - @ are neutralised. Limit: "
+                + "50,000 rows (otherwise nothing is downloaded and an error is shown). IMPORTANT: db.queryForList loads "
+                + "ALL rows into memory before this check, so put a LIMIT in the query (e.g. LIMIT 50001); and if the "
+                + "SQL itself fails, db.queryForList returns an empty list, which shows up here as \"No data to "
+                + "export\". Needs a browser session: not available in scheduled jobs");
+        m.put("downloadFile", "downloadFile(path[, downloadName]) -> boolean — send a file from report_out to the "
+                + "user's browser as a download, typically the result of renderReport(): "
+                + "def f = renderReport('RPT_X', [P_ID: header.id], 'XLSX', 'X_' + header.idno); downloadFile(f). "
+                + "Only files inside report_out are allowed (no other path). Returns false and shows an error if the "
+                + "file is invalid or missing. Needs a browser session: not available in scheduled jobs. "
+                + "Include the user or time in the renderReport file name so two users do not overwrite each "
+                + "other's file");
         m.put("runScheduledJob", "runScheduledJob(jobCode) -> String — run a scheduled job NOW (the saved version) "
                 + "through the same queue as the normal schedule. A job that is already running is not started "
                 + "twice. For an Extra Toolbar button on the job form: runScheduledJob(header.job_code)");
