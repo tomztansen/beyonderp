@@ -92,3 +92,10 @@ logging.level.org.springframework.jdbc.core.StatementCreatorUtils=INFO
 management.endpoints.web.exposure.include=health,info,logfile
 actuator.security.username=adminlog
 actuator.security.password=GANTI_PASSWORD_ACTUATOR_BARU
+
+
+# --- Scheduled Jobs ---
+# Nyalakan HANYA di satu instance (tidak ada kunci antar-instance).
+app.scheduler.enabled=true
+# Thread tugas @Scheduled (bawaan Spring: 1) supaya SMTP lambat tidak menunda ticker job.
+spring.task.scheduling.pool.size=3
