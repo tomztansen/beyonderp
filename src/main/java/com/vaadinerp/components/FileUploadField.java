@@ -77,7 +77,9 @@ public class FileUploadField extends CustomField<String> {
             this.upload.setMaxFiles(1); // Untuk kotak foto profil/barang, 1 foto utama
             this.upload.setAcceptedFileTypes("image/jpeg", "image/png", "image/webp", "image/gif", ".jpg", ".jpeg", ".png", ".webp", ".gif");
 
-            Button setFotoBtn = new com.vaadinerp.components.SafeButton("Set Foto");
+            // Button biasa, bukan SafeButton: tombol ini tidak punya click listener server (kliknya
+            // ditangani vaadin-upload di client), jadi disableOnClick membuatnya abu-abu selamanya.
+            Button setFotoBtn = new Button("Set Foto");
             setFotoBtn.addThemeVariants(ButtonVariant.LUMO_SMALL);
             setFotoBtn.setWidthFull();
             setFotoBtn.getStyle().set("cursor", "pointer");
@@ -154,7 +156,7 @@ public class FileUploadField extends CustomField<String> {
             mainLayout.setWidth("auto");
         } else {
             upload.setDropAllowed(false);
-            Button uploadBtn = new com.vaadinerp.components.SafeButton("Upload", VaadinIcon.UPLOAD.create());
+            Button uploadBtn = new Button("Upload", VaadinIcon.UPLOAD.create()); // bukan SafeButton, lihat Set Foto
             uploadBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
             upload.setUploadButton(uploadBtn);
             upload.getElement().getStyle()
