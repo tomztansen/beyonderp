@@ -682,13 +682,15 @@ public class ScriptExecutorService {
             binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
             binding.setVariable("uploadDir", resolveUploadDir());
 
+            com.vaadin.flow.component.Component parentView = currentView;
+            if (currentView instanceof com.vaadinerp.components.SubformGridField sub) {
+                parentView = sub.findParentView();
+            }
+            ActionContext ctx = new ActionContext(dataServiceProvider.getIfAvailable(), headerData, items,
+                    parentView);
+            binding.setVariable("ctx", ctx); // ctx.getUserId() dst., sama seperti di scope action
+
             if (currentView != null) {
-                com.vaadin.flow.component.Component parentView = currentView;
-                if (currentView instanceof com.vaadinerp.components.SubformGridField sub) {
-                    parentView = sub.findParentView();
-                }
-                ActionContext ctx = new ActionContext(dataServiceProvider.getIfAvailable(), headerData, items,
-                        parentView);
                 binding.setVariable("setElementEnabled", new groovy.lang.Closure<Void>(null) {
                     @SuppressWarnings("unused")
                     public void doCall(Object ref, boolean enabled) {
@@ -1118,6 +1120,23 @@ public class ScriptExecutorService {
             }
             return out;
         }
+        // Tanggal/waktu: JsonOutput menulisnya sebagai bean Java ({"chronology":...,"year":2026}) --
+        // diganti teks ISO yang diterima PostgreSQL. Subclass java.sql.* dicek lebih dulu.
+        if (v instanceof java.sql.Timestamp t) {
+            return t.toLocalDateTime().toString();
+        }
+        if (v instanceof java.sql.Date d) {
+            return d.toLocalDate().toString();
+        }
+        if (v instanceof java.sql.Time t) {
+            return t.toLocalTime().toString();
+        }
+        if (v instanceof java.util.Date d) {
+            return java.time.LocalDateTime.ofInstant(d.toInstant(), java.time.ZoneId.systemDefault()).toString();
+        }
+        if (v instanceof java.time.temporal.TemporalAccessor) {
+            return v.toString();
+        }
         return v;
     }
 
@@ -1427,7 +1446,7 @@ public class ScriptExecutorService {
      * binding berubah; pemeriksa nama di editor script memakainya.
      */
     public static final java.util.Set<String> ROW_SCRIPT_NAMES = java.util.Set.of(
-            "db", "form", "getElementValue", "header", "items", "lov", "msgBox", "row", "rowIndex", "self",
+            "ctx", "db", "form", "getElementValue", "header", "items", "lov", "msgBox", "row", "rowIndex", "self",
             "sendEmail", "sendWhatsApp", "sendWhatsAppApproval", "setElementEnabled", "setElementReadonly",
             "setElementValue", "setElementVisible", "uploadDir");
 

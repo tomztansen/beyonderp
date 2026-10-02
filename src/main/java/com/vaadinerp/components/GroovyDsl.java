@@ -54,7 +54,8 @@ public final class GroovyDsl {
                 + "(they behave like numbers/maps), so JsonOutput.toJson writes text without quotes and empty values as "
                 + "{} -> invalid JSON. Always wrap what you build from header/selectedRows before JsonOutput.toJson: "
                 + "JsonOutput.toJson(plain([[table: 'thx', data: [des: header.des, wh: header.mswarehouseid]]])). "
-                + "Works on single values, maps and lists (nested); returns a copy");
+                + "Works on single values, maps and lists (nested); returns a copy. Dates/times become ISO text "
+                + "(\"2026-10-01\", \"2026-10-01T11:30:05\") instead of a Java bean object");
         m.put("downloadCsv", "downloadCsv(fileName, rows[, headers[, delimiter]]) -> boolean — send query results to "
                 + "the user's browser as a CSV download. rows = list of maps, e.g. db.queryForList(\"SELECT idno AS \\\"Serial No\\\" "
                 + "FROM ...\"). Column titles come from the column names of the first row (use SQL aliases to rename). "
