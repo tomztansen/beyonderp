@@ -31,9 +31,37 @@ public class JasperRenderer implements ReportRenderer {
         return "JASPER";
     }
 
+    /**
+     * Parameter yang dideklarasikan bertipe List/Collection di template tetapi datang sebagai teks
+     * (mis. id yang diketik user: "172" atau "172, 171") diubah menjadi daftar; token angka menjadi Long.
+     * Dipakai oleh $X{IN, kolom, param}. Nilai yang sudah berupa daftar atau tidak dikirim tidak disentuh.
+     */
+    public static void coerceCollectionParams(net.sf.jasperreports.engine.JasperReport jr, Map<String, Object> params) {
+        for (net.sf.jasperreports.engine.JRParameter p : jr.getParameters()) {
+            if (p.isSystemDefined() || p.getValueClass() == null
+                    || !java.util.Collection.class.isAssignableFrom(p.getValueClass())) {
+                continue;
+            }
+            Object v = params.get(p.getName());
+            if (!(v instanceof String s)) {
+                continue;
+            }
+            List<Object> out = new java.util.ArrayList<>();
+            for (String token : s.split(",")) {
+                String t = token.trim();
+                if (t.isEmpty()) {
+                    continue;
+                }
+                out.add(t.matches("-?[0-9]{1,18}") ? (Object) Long.valueOf(t) : t);
+            }
+            params.put(p.getName(), out);
+        }
+    }
+
     private JasperPrint fill(ReportContext ctx) throws JRException {
         JasperReport jr = templates.loadCompiled(ctx.template());
         Map<String, Object> params = ctx.params() != null ? new HashMap<>(ctx.params()) : new HashMap<>();
+        coerceCollectionParams(jr, params);
 
         if (ctx.subreports() != null) {
             for (Map.Entry<String, java.io.File> e : ctx.subreports().entrySet()) {

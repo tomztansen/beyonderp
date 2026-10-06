@@ -4,6 +4,7 @@ import com.vaadinerp.meta.ReportParamMeta;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -166,5 +167,41 @@ public final class ReportParamResolver {
                 .filter(p -> p.getSource() == null || "USER_INPUT".equalsIgnoreCase(p.getSource().trim())
                         || "BOTH".equalsIgnoreCase(p.getSource().trim()))
                 .collect(Collectors.toList());
+    }
+
+    /** Nama parameter yang disediakan otomatis untuk setiap report (Jasper/STANDARD), tanpa baris di Designer. */
+    public static final String P_CURRENT_USER = "CURRENT_USER";
+    public static final String P_CURRENT_USER_NAME = "CURRENT_USER_NAME";
+    public static final String P_CURRENT_ROLE = "CURRENT_ROLE";
+
+    /**
+     * Identitas pengguna yang sedang menjalankan report. Nilai kosong TIDAK dimasukkan (bukan null), supaya
+     * defaultValueExpression di template tetap berlaku bila datanya tidak ada (mis. job tanpa sesi).
+     * Peran lebih dari satu diurutkan dan digabung dengan koma.
+     */
+    public static Map<String, Object> currentUserParams(String username, String fullName, Collection<String> roles) {
+        Map<String, Object> out = new HashMap<>();
+        if (username != null && !username.isBlank()) out.put(P_CURRENT_USER, username.trim());
+        if (fullName != null && !fullName.isBlank()) out.put(P_CURRENT_USER_NAME, fullName.trim());
+        if (roles != null && !roles.isEmpty()) {
+            String joined = roles.stream().filter(r -> r != null && !r.isBlank()).map(String::trim)
+                    .sorted().collect(Collectors.joining(", "));
+            if (!joined.isEmpty()) out.put(P_CURRENT_ROLE, joined);
+        }
+        return out;
+    }
+
+    /**
+     * Salinan {@code params} ditambah {@code system}. Nilai yang sudah diisi pemanggil/Designer MENANG; hanya
+     * kunci yang belum ada atau bernilai null yang diisi. Peta asli tidak diubah.
+     */
+    public static Map<String, Object> withSystemParams(Map<String, Object> params, Map<String, Object> system) {
+        Map<String, Object> out = params != null ? new HashMap<>(params) : new HashMap<>();
+        if (system != null) {
+            system.forEach((k, v) -> {
+                if (out.get(k) == null) out.put(k, v);
+            });
+        }
+        return out;
     }
 }

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Subreport RPT_JOBORDER_JSP: routing production order (tsproductionorderrouted), tabel bergaris sempit.
+     Hanya baris data; judul kolom (Department / UOM / Per) ada di report induk, lebarnya HARUS sama:
+     No 14, Department 78, UOM 38, Per 20 (total 150). Param name di Designer: RPT_PO_ROUTE_SUB. -->
+<jasperReport name="RPT_PO_ROUTE_SUB" language="java" pageWidth="150" pageHeight="842" columnWidth="150" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="5b2e7c10-3a41-4c8e-9f21-7d0a1b2c3d4e">
+	<parameter name="P_ORDER_ID" class="java.lang.Long"/>
+	<query language="sql"><![CDATA[SELECT r.sequence,
+       COALESCE(d.description, d.code) AS department,
+       r.qty,
+       u.code AS uom,
+       r.perseries AS per
+FROM dynamic.tsproductionorderrouted r
+LEFT JOIN dynamic.mdlookup d ON r.resourceid = d.id
+LEFT JOIN dynamic.mdlookup u ON r.uomid = u.id
+WHERE r.tsproductionorderid = $P{P_ORDER_ID}
+ORDER BY r.sequence]]></query>
+	<field name="sequence" class="java.lang.Long"/>
+	<field name="department" class="java.lang.String"/>
+	<field name="qty" class="java.math.BigDecimal"/>
+	<field name="uom" class="java.lang.String"/>
+	<field name="per" class="java.math.BigDecimal"/>
+	<detail>
+		<band height="14">
+			<element kind="textField" uuid="5b2e7c10-0001-4000-8000-000000000001" stretchType="ContainerHeight" x="0" y="0" width="14" height="14" fontName="Arial" fontSize="6.5" blankWhenNull="true" hTextAlign="Center" vTextAlign="Top">
+				<expression><![CDATA[$F{sequence}]]></expression>
+				<box padding="1">
+					<pen lineWidth="0.5"/>
+				</box>
+			</element>
+			<element kind="textField" uuid="5b2e7c10-0001-4000-8000-000000000002" textAdjust="StretchHeight" x="14" y="0" width="78" height="14" fontName="Arial" fontSize="6.5" blankWhenNull="true" vTextAlign="Top">
+				<expression><![CDATA[$F{department}]]></expression>
+				<box padding="1">
+					<pen lineWidth="0.5"/>
+				</box>
+			</element>
+			<element kind="textField" uuid="5b2e7c10-0001-4000-8000-000000000003" stretchType="ContainerHeight" x="92" y="0" width="38" height="14" fontName="Arial" fontSize="6.5" blankWhenNull="true" vTextAlign="Top">
+				<expression><![CDATA[($F{qty} != null ? new java.text.DecimalFormat("#,##0.00", java.text.DecimalFormatSymbols.getInstance(new java.util.Locale("id", "ID"))).format($F{qty}) : "")
++ ($F{uom} != null ? " " + $F{uom} : "")]]></expression>
+				<box padding="1">
+					<pen lineWidth="0.5"/>
+				</box>
+			</element>
+			<element kind="textField" uuid="5b2e7c10-0001-4000-8000-000000000004" stretchType="ContainerHeight" x="130" y="0" width="20" height="14" fontName="Arial" fontSize="6.5" pattern="#,##0.##" blankWhenNull="true" hTextAlign="Center" vTextAlign="Top">
+				<expression><![CDATA[$F{per}]]></expression>
+				<box padding="1">
+					<pen lineWidth="0.5"/>
+				</box>
+			</element>
+		</band>
+	</detail>
+</jasperReport>

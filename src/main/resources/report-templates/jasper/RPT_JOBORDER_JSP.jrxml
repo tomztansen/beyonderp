@@ -1,0 +1,535 @@
+<!-- Created with Jaspersoft Studio version 7.0.6.final using JasperReports Library version 7.0.6-5d2a603fdc6b3db8f842a83383e594f41891534d  -->
+<jasperReport name="RPT_JOBORDER_JSP" language="java" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="a10fc1bb-4781-40f1-8fcc-6f7c82c81ecf">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="live postgre"/>
+	<parameter name="prod_id" class="java.util.List"/>
+	<parameter name="RPT_PO_ROUTE_SUB" class="net.sf.jasperreports.engine.JasperReport"/>
+	<query language="sql"><![CDATA[select a.*,
+b.salesid,b.abmexternallinenumber,b.externalitemid,
+c.itemcode,c.itemname,
+d.itemcode itemcodeset,d.itemname itemnameset,
+b.qtyordered,
+e.estnetweight,e.grossweight,e.netweight,
+e.hardness,c.abmengineermaterialid,
+f."name" enduser,g.code categoryname,
+h.code scope,b.abmisitemset isitemset,i."name" customer,
+e.estgrossweight
+ from dynamic.tsproductionorder a
+left join dynamic.tssalesline b on a.tssaleslineid = b.id
+left join dynamic.msitem c on a.itemid = c.id
+left join dynamic.msitem d on b.itemsetid = d."id"
+left join dynamic.msmethod e on a.itemid = e.itemid
+left join dynamic.mscustomer f on b.abmenduser = f."id" and f.enduser = true
+left join dynamic.mdlookup g on c.salescategoryid = g."id"
+left join dynamic.mdlookup h on e.scopeid = h.id
+left join dynamic.mscustomer i on b.invoiceaccount = i."id" and i.enduser = false
+where $X{IN, a.id, prod_id}
+order by a.id]]></query>
+	<field name="id" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="id"/>
+		<property name="com.jaspersoft.studio.field.label" value="id"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="status" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="status"/>
+		<property name="com.jaspersoft.studio.field.label" value="status"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="routeid" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="routeid"/>
+		<property name="com.jaspersoft.studio.field.label" value="routeid"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="bomid" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="bomid"/>
+		<property name="com.jaspersoft.studio.field.label" value="bomid"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="resourcegroupid" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="resourcegroupid"/>
+		<property name="com.jaspersoft.studio.field.label" value="resourcegroupid"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="tssaleslineid" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="tssaleslineid"/>
+		<property name="com.jaspersoft.studio.field.label" value="tssaleslineid"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="statusdate" class="java.sql.Timestamp">
+		<property name="com.jaspersoft.studio.field.name" value="statusdate"/>
+		<property name="com.jaspersoft.studio.field.label" value="statusdate"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="itemid" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="itemid"/>
+		<property name="com.jaspersoft.studio.field.label" value="itemid"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="uomid" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="uomid"/>
+		<property name="com.jaspersoft.studio.field.label" value="uomid"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="qty" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="qty"/>
+		<property name="com.jaspersoft.studio.field.label" value="qty"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="shippingdaterequested" class="java.sql.Timestamp">
+		<property name="com.jaspersoft.studio.field.name" value="shippingdaterequested"/>
+		<property name="com.jaspersoft.studio.field.label" value="shippingdaterequested"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="shippingdateconfirmed" class="java.sql.Timestamp">
+		<property name="com.jaspersoft.studio.field.name" value="shippingdateconfirmed"/>
+		<property name="com.jaspersoft.studio.field.label" value="shippingdateconfirmed"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="drawingno" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="drawingno"/>
+		<property name="com.jaspersoft.studio.field.label" value="drawingno"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="drawingnorev" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="drawingnorev"/>
+		<property name="com.jaspersoft.studio.field.label" value="drawingnorev"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="inputby" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="inputby"/>
+		<property name="com.jaspersoft.studio.field.label" value="inputby"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="inputdt" class="java.sql.Timestamp">
+		<property name="com.jaspersoft.studio.field.name" value="inputdt"/>
+		<property name="com.jaspersoft.studio.field.label" value="inputdt"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="updateby" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="updateby"/>
+		<property name="com.jaspersoft.studio.field.label" value="updateby"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="updatedt" class="java.sql.Timestamp">
+		<property name="com.jaspersoft.studio.field.name" value="updatedt"/>
+		<property name="com.jaspersoft.studio.field.label" value="updatedt"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="version" class="java.lang.Integer">
+		<property name="com.jaspersoft.studio.field.name" value="version"/>
+		<property name="com.jaspersoft.studio.field.label" value="version"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="iddate" class="java.sql.Date">
+		<property name="com.jaspersoft.studio.field.name" value="iddate"/>
+		<property name="com.jaspersoft.studio.field.label" value="iddate"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="idno" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="idno"/>
+		<property name="com.jaspersoft.studio.field.label" value="idno"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="internal" class="java.lang.Boolean">
+		<property name="com.jaspersoft.studio.field.name" value="internal"/>
+		<property name="com.jaspersoft.studio.field.label" value="internal"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="noteref" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="noteref"/>
+		<property name="com.jaspersoft.studio.field.label" value="noteref"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="note" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="note"/>
+		<property name="com.jaspersoft.studio.field.label" value="note"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="criticaldate" class="java.sql.Date">
+		<property name="com.jaspersoft.studio.field.name" value="criticaldate"/>
+		<property name="com.jaspersoft.studio.field.label" value="criticaldate"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="ishold" class="java.lang.Boolean">
+		<property name="com.jaspersoft.studio.field.name" value="ishold"/>
+		<property name="com.jaspersoft.studio.field.label" value="ishold"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="prodtypeid" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="prodtypeid"/>
+		<property name="com.jaspersoft.studio.field.label" value="prodtypeid"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="toolingtypeid" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="toolingtypeid"/>
+		<property name="com.jaspersoft.studio.field.label" value="toolingtypeid"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tsproductionorder"/>
+	</field>
+	<field name="salesid" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="salesid"/>
+		<property name="com.jaspersoft.studio.field.label" value="salesid"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tssalesline"/>
+	</field>
+	<field name="abmexternallinenumber" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="abmexternallinenumber"/>
+		<property name="com.jaspersoft.studio.field.label" value="abmexternallinenumber"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tssalesline"/>
+	</field>
+	<field name="externalitemid" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="externalitemid"/>
+		<property name="com.jaspersoft.studio.field.label" value="externalitemid"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tssalesline"/>
+	</field>
+	<field name="itemcode" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="itemcode"/>
+		<property name="com.jaspersoft.studio.field.label" value="itemcode"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msitem"/>
+	</field>
+	<field name="itemname" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="itemname"/>
+		<property name="com.jaspersoft.studio.field.label" value="itemname"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msitem"/>
+	</field>
+	<field name="itemcodeset" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="itemcodeset"/>
+		<property name="com.jaspersoft.studio.field.label" value="itemcodeset"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msitem"/>
+	</field>
+	<field name="itemnameset" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="itemnameset"/>
+		<property name="com.jaspersoft.studio.field.label" value="itemnameset"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msitem"/>
+	</field>
+	<field name="qtyordered" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="qtyordered"/>
+		<property name="com.jaspersoft.studio.field.label" value="qtyordered"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tssalesline"/>
+	</field>
+	<field name="estnetweight" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="estnetweight"/>
+		<property name="com.jaspersoft.studio.field.label" value="estnetweight"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
+	</field>
+	<field name="grossweight" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="grossweight"/>
+		<property name="com.jaspersoft.studio.field.label" value="grossweight"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
+	</field>
+	<field name="netweight" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="netweight"/>
+		<property name="com.jaspersoft.studio.field.label" value="netweight"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
+	</field>
+	<field name="hardness" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="hardness"/>
+		<property name="com.jaspersoft.studio.field.label" value="hardness"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
+	</field>
+	<field name="abmengineermaterialid" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="abmengineermaterialid"/>
+		<property name="com.jaspersoft.studio.field.label" value="abmengineermaterialid"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msitem"/>
+	</field>
+	<field name="enduser" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="enduser"/>
+		<property name="com.jaspersoft.studio.field.label" value="enduser"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="mscustomer"/>
+	</field>
+	<field name="categoryname" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="categoryname"/>
+		<property name="com.jaspersoft.studio.field.label" value="categoryname"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="mdlookup"/>
+	</field>
+	<field name="scope" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="scope"/>
+		<property name="com.jaspersoft.studio.field.label" value="scope"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="mdlookup"/>
+	</field>
+	<field name="isitemset" class="java.lang.Boolean">
+		<property name="com.jaspersoft.studio.field.name" value="isitemset"/>
+		<property name="com.jaspersoft.studio.field.label" value="isitemset"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tssalesline"/>
+	</field>
+	<field name="customer" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="customer"/>
+		<property name="com.jaspersoft.studio.field.label" value="customer"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="mscustomer"/>
+	</field>
+	<field name="estgrossweight" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="estgrossweight"/>
+		<property name="com.jaspersoft.studio.field.label" value="estgrossweight"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
+	</field>
+	<group name="Group1">
+		<expression><![CDATA[$F{id}]]></expression>
+		<groupHeader>
+			<band height="310">
+				<element kind="frame" uuid="b1a7c3e2-4f10-4d5a-9c21-0e6a1f3d7a01" stretchType="ContainerHeight" x="0" y="0" width="555" height="310">
+					<element kind="staticText" uuid="e5ce3e10-82d6-45bf-9da3-5b6b4286056e" x="11" y="11" width="89" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[No. SPK		: ]]></text>
+						<property name="com.jaspersoft.studio.unit.y" value="px"/>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="a86fe252-1880-4f74-8324-b2f0c12a649e" x="101" y="11" width="131" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<expression><![CDATA[$F{idno}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="staticText" uuid="1fa53cf0-9008-4c30-a451-03e04556f1c4" x="11" y="32" width="89" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Item O.C.		: ]]></text>
+						<property name="com.jaspersoft.studio.unit.y" value="px"/>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000001" x="11" y="95" width="89" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Customer		: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000002" x="11" y="116" width="89" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Lokasi Pattern	: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000003" x="11" y="137" width="89" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Kode Barang	: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000004" x="11" y="158" width="89" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Nama Barang	: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000005" x="11" y="181" width="89" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[End User		: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000006" x="11" y="202" width="89" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Group Stock	: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000007" x="11" y="223" width="89" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Material		: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000008" x="11" y="244" width="89" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Jumlah Order	: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000009" x="11" y="265" width="89" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Est. Net Wet	: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000010" x="11" y="286" width="89" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Est. Cast Wet	: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000012" x="325" y="11" width="95" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Tgl. SPK		: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000013" x="325" y="32" width="95" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[No. OC		: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000014" x="325" y="53" width="95" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Critical Date	: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000015" x="325" y="74" width="95" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Tgl. Kirim		: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000016" x="325" y="95" width="95" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[No. Gambar	: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000017" x="325" y="181" width="95" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[End User Part #	: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000018" x="325" y="202" width="95" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Scope		: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000019" x="325" y="223" width="95" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Hardness		: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000020" x="325" y="244" width="95" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Jumlah Produksi	: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000021" x="325" y="265" width="95" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Act. Net Wet	: ]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000022" x="325" y="286" width="95" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Act. Cast Wet	: ]]></text>
+					</element>
+					<element kind="textField" uuid="91465a6d-d528-4e78-9abb-da3c04859772" x="421" y="11" width="132" height="14" pattern="dd-MMM-yyyy">
+						<expression><![CDATA[$F{iddate}]]></expression>
+					</element>
+					<element kind="textField" uuid="79cb3605-2d11-438b-96ee-80d2b3b7559f" x="421" y="32" width="131" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<expression><![CDATA[$F{salesid}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="6bb9f74f-465b-49eb-9689-9c95170b7322" x="421" y="53" width="132" height="14" pattern="dd-MMM-yyyy">
+						<expression><![CDATA[$F{criticaldate}]]></expression>
+					</element>
+					<element kind="textField" uuid="c8f62be7-e8b8-4082-9516-3bba921b771e" x="421" y="74" width="132" height="14" pattern="dd-MMM-yyyy">
+						<expression><![CDATA[$F{shippingdateconfirmed}]]></expression>
+					</element>
+					<element kind="textField" uuid="5924c80e-4c35-4862-aaf6-08b064a9e129" x="101" y="32" width="131" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<expression><![CDATA[$F{abmexternallinenumber}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="2e26e979-7d00-4f8b-a6e1-c537f1ac4bd6" x="421" y="95" width="131" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<expression><![CDATA[$F{drawingno}+ " REV.#"+$F{drawingnorev}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="4944f97d-0645-4493-a518-5400a0c0c2c8" x="101" y="51" width="209" height="37" fontName="Arial" fontSize="9.0" blankWhenNull="true" hTextAlign="Justified" vTextAlign="Top">
+						<printWhenExpression><![CDATA[$F{isitemset} != null && $F{isitemset}.booleanValue()]]></printWhenExpression>
+						<expression><![CDATA["Item set: " + ($F{itemcodeset} == null ? "" : $F{itemcodeset}) + " / "
++ (($F{externalitemid} == null || $F{externalitemid}.trim().isEmpty()) ? "" : $F{externalitemid} + " / ")
++ ($F{itemnameset} == null ? "" : $F{itemnameset})]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="fa7fcce3-02c5-47bf-9a31-68733d7fb8ab" x="101" y="95" width="209" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<expression><![CDATA[$F{customer}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="staticText" uuid="381f0cc1-3a13-43a4-bc7b-55a94876f96d" x="101" y="116" width="89" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[S : GA MDN]]></text>
+					</element>
+					<element kind="textField" uuid="9bccdb4d-2341-4e74-b8f2-5e3e7ccae7e7" x="101" y="137" width="451" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<expression><![CDATA[$F{itemcode}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="90c5408b-5321-4b9f-bbf2-ed319204a05b" x="101" y="158" width="451" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<expression><![CDATA[$F{itemname}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="01f9e437-5276-4cc3-b6bd-4faf866f5360" x="101" y="181" width="209" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<expression><![CDATA[$F{enduser}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="8b7fb388-32b8-45a2-8468-332be463193c" x="421" y="181" width="130" height="14" fontName="Arial" fontSize="9.0" blankWhenNull="true" vTextAlign="Middle">
+						<expression><![CDATA[$F{externalitemid}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="d327132b-9073-4c8c-88d5-f8ac92e7ac55" x="101" y="202" width="209" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<expression><![CDATA[$F{categoryname}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="d62fbc2b-7b39-4308-a4ac-1bf989d156ae" x="421" y="202" width="130" height="14" fontName="Arial" fontSize="9.0" blankWhenNull="true" vTextAlign="Middle">
+						<expression><![CDATA[$F{scope}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="cad96866-7869-4fa6-bf83-49867f8cf29a" x="421" y="223" width="130" height="14" fontName="Arial" fontSize="9.0" blankWhenNull="true" vTextAlign="Middle">
+						<expression><![CDATA[$F{hardness}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="741717de-0de0-4947-a67e-4509756d0b81" x="101" y="223" width="209" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<expression><![CDATA[$F{abmengineermaterialid}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="e738cdbd-4a79-489e-8db5-bf132f5563ce" x="101" y="244" width="131" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.00#;(#,##0.00#-)" hTextAlign="Right" vTextAlign="Middle">
+						<expression><![CDATA[$F{qtyordered}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="d041ed73-0cbc-48e0-a554-bb73a7a05646" x="421" y="244" width="118" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.00#;(#,##0.00#-)" hTextAlign="Right" vTextAlign="Middle">
+						<expression><![CDATA[$F{qty}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="9869c349-82a3-4f96-b53d-91aeacfaaba1" x="101" y="265" width="131" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.###;(#,##0.###-)" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+						<expression><![CDATA[$F{estnetweight}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="248535a9-39f8-4cd4-9d73-3df3610dc219" x="101" y="286" width="131" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.###;(#,##0.###-)" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+						<expression><![CDATA[$F{estgrossweight}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="1bc198b0-d36b-47c1-aaf5-b9f471a3f4ea" x="421" y="265" width="118" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.###;(#,##0.###-)" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+						<expression><![CDATA[$F{netweight}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<element kind="textField" uuid="6a608752-e137-4048-81c1-f55b79bd3b74" x="421" y="286" width="118" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.###;(#,##0.###-)" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+						<expression><![CDATA[$F{grossweight}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
+					<box>
+						<topPen lineWidth="0.75"/>
+						<leftPen lineWidth="0.75"/>
+						<rightPen lineWidth="0.75"/>
+					</box>
+				</element>
+			</band>
+			<band height="130">
+				<element kind="frame" uuid="b1a7c3e2-4f10-4d5a-9c21-0e6a1f3d7a04" stretchType="ContainerHeight" x="0" y="0" width="555" height="130">
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000024" x="19" y="3" width="78" height="12" fontName="Arial" fontSize="7.0" underline="true" vTextAlign="Middle">
+						<text><![CDATA[Department]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000025" x="97" y="3" width="38" height="12" fontName="Arial" fontSize="7.0" underline="true" vTextAlign="Middle">
+						<text><![CDATA[UOM]]></text>
+					</element>
+					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000026" x="135" y="3" width="20" height="12" fontName="Arial" fontSize="7.0" underline="true" vTextAlign="Middle">
+						<text><![CDATA[Per]]></text>
+					</element>
+					<element kind="frame" uuid="7a100001-0000-4000-8000-000000000051" stretchType="ContainerHeight" x="175" y="0" width="380" height="130">
+						<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000052" x="7" y="3" width="120" height="12" fontName="Arial" fontSize="7.0" underline="true" vTextAlign="Middle">
+							<text><![CDATA[Notes :]]></text>
+						</element>
+						<box>
+							<leftPen lineWidth="0.75"/>
+						</box>
+					</element>
+					<element kind="subreport" uuid="7a100001-0000-4000-8000-000000000031" positionType="Float" x="5" y="17" width="150" height="14">
+						<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+						<expression><![CDATA[$P{RPT_PO_ROUTE_SUB}]]></expression>
+						<parameter name="P_ORDER_ID">
+							<expression><![CDATA[$F{id}]]></expression>
+						</parameter>
+					</element>
+					<box>
+						<topPen lineWidth="0.75"/>
+						<leftPen lineWidth="0.75"/>
+						<rightPen lineWidth="0.75"/>
+					</box>
+				</element>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="110">
+				<element kind="frame" uuid="b1a7c3e2-4f10-4d5a-9c21-0e6a1f3d7a02" x="0" y="0" width="555" height="22">
+					<element kind="frame" uuid="7a100001-0000-4000-8000-000000000053" x="175" y="0" width="380" height="22">
+						<box>
+							<leftPen lineWidth="0.75"/>
+						</box>
+					</element>
+					<box>
+						<leftPen lineWidth="0.75"/>
+						<bottomPen lineWidth="0.75"/>
+						<rightPen lineWidth="0.75"/>
+					</box>
+				</element>
+				<element kind="component" uuid="7a100001-0000-4000-8000-000000000043" x="25" y="30" width="72" height="72">
+					<component kind="barcode4j:QRCode">
+						<codeExpression><![CDATA[$F{idno}]]></codeExpression>
+					</component>
+				</element>
+				<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000027" x="451" y="30" width="70" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+					<text><![CDATA[Dibuat Oleh]]></text>
+				</element>
+				<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000044" x="521" y="30" width="10" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+					<text><![CDATA[:]]></text>
+				</element>
+			</band>
+		</groupFooter>
+	</group>
+	<background splitType="Stretch"/>
+	<pageHeader height="33" splitType="Stretch">
+		<element kind="staticText" uuid="0ad79845-fe49-44ac-bdb4-6d24136f360a" x="0" y="0" width="232" height="19" fontName="Arial" fontSize="16.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[SURAT PERINTAH KERJA]]></text>
+		</element>
+		<element kind="staticText" uuid="cf633561-5681-43b1-bc1a-6bc9e4e954cd" x="0" y="19" width="232" height="14" fontName="Arial" fontSize="8.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[ PT. GROWTH ASIA]]></text>
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+		</element>
+		<element kind="staticText" uuid="4d086b9a-c9e1-4528-bdcf-6cd917ecd054" x="460" y="0" width="94" height="33" fontName="Arial" fontSize="6.0" bold="false" hTextAlign="Left" vTextAlign="Top">
+			<text><![CDATA[DOC. NO 	: GA/FM/MK-021
+REV	: 21-02
+EFF. DATE	: 06-Sep-2021]]></text>
+		</element>
+	</pageHeader>
+	<detail>
+		<band height="0"/>
+	</detail>
+	<pageFooter height="22" splitType="Stretch">
+		<element kind="textField" uuid="7a100001-0000-4000-8000-000000000045" x="0" y="4" width="60" height="14" fontName="Arial" fontSize="8.0" hTextAlign="Right" vTextAlign="Middle">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of "]]></expression>
+		</element>
+		<element kind="textField" uuid="7a100001-0000-4000-8000-000000000046" evaluationTime="Report" x="60" y="4" width="40" height="14" fontName="Arial" fontSize="8.0" vTextAlign="Middle">
+			<expression><![CDATA[$V{PAGE_NUMBER}]]></expression>
+			<box leftPadding="2"/>
+		</element>
+		<element kind="textField" uuid="7a100001-0000-4000-8000-000000000047" x="355" y="4" width="200" height="14" fontName="Arial" fontSize="8.0" hTextAlign="Right" vTextAlign="Middle">
+			<expression><![CDATA["Printed: " + new java.text.SimpleDateFormat("dd-MMM-yy HH:mm:ss", new java.util.Locale("id", "ID")).format(new java.util.Date())]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

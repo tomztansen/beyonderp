@@ -93,13 +93,19 @@ public class StimulsoftJavaController {
                 // supaya ReportDataService bisa membangun IN (:param).
                 params.put(k, v.length == 1 ? v[0] : java.util.List.of((Object[]) v));
             });
+            // Identitas dari sesi server, bukan dari URL (yang bisa dipalsukan).
+            java.util.Map<String, Object> sys = com.vaadinerp.report.render.StimulsoftRenderer
+                    .systemParamsFromSessionUser(request.getSession().getAttribute("SPRING_MVC_USER"));
+            java.util.Map<String, Object> trustedParams = com.vaadinerp.report.render.StimulsoftRenderer
+                    .paramsWithTrustedIdentity(params, sys);
             java.util.List<java.util.Map<String, Object>> rawData;
             if (meta != null) {
-                rawData = reportDataService.fetchData(meta, params, false);
+                rawData = reportDataService.fetchData(meta, trustedParams, false);
             } else {
                 rawData = dynamicDataService.fetchTableData(code);
             }
             if (rawData == null) rawData = new java.util.ArrayList<>();
+            rawData = com.vaadinerp.report.render.StimulsoftRenderer.withSystemColumns(rawData, sys);
             com.vaadinerp.report.render.StimulsoftRenderer.bindData(report, rawData);
         } catch (Exception e) {
             e.printStackTrace();
@@ -163,6 +169,10 @@ public class StimulsoftJavaController {
             tempRawData = new java.util.ArrayList<>();
         }
         if (tempRawData == null) tempRawData = new java.util.ArrayList<>();
+        // Kolom identitas ikut muncul di Dictionary saat mendesain (nilai contoh = user yang sedang membuka designer).
+        tempRawData = com.vaadinerp.report.render.StimulsoftRenderer.withSystemColumns(tempRawData,
+                com.vaadinerp.report.render.StimulsoftRenderer
+                        .systemParamsFromSessionUser(request.getSession().getAttribute("SPRING_MVC_USER")));
         final java.util.List<java.util.Map<String, Object>> rawData = tempRawData;
 
         StiWebDesignerOptions options = new StiWebDesignerOptions();

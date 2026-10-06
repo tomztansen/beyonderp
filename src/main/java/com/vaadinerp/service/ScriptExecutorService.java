@@ -99,6 +99,11 @@ public class ScriptExecutorService {
                         cleanParams.putIfAbsent(p.getParamName(), p.getDefaultValue());
                     }
                 }
+                // Pemicunya (user action / SCHEDULER pada job) -- ReportRunService melengkapi nama dan peran
+                // bila ada sesi login.
+                if (ctx != null && ctx.getUserId() != null) {
+                    cleanParams.putIfAbsent(com.vaadinerp.report.ReportParamResolver.P_CURRENT_USER, ctx.getUserId());
+                }
 
                 com.vaadinerp.report.render.ReportOutput out = com.vaadinerp.config.SpringContextHolder
                         .getBean(com.vaadinerp.report.ReportRunService.class)

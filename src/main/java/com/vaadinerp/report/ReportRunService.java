@@ -39,6 +39,10 @@ public class ReportRunService {
     public ReportRunResult run(ReportMeta report, Map<String, Object> params, String format, boolean sample) {
         String engine = report.getEngineType() != null ? report.getEngineType() : "STANDARD";
         java.util.List<ReportMessage> messages = new java.util.ArrayList<>();
+        // CURRENT_USER / CURRENT_USER_NAME / CURRENT_ROLE otomatis (Jasper & STANDARD); Stimulsoft ditunda.
+        if (!"STIMULSOFT".equalsIgnoreCase(engine)) {
+            params = ReportParamResolver.withSystemParams(params, currentUserParams());
+        }
         // Preview (Report Designer) tidak boleh ikut memicu before/after script -- itu bukan
         // "report benar-benar dijalankan", cuma pratinjau. Kalau tidak dijaga, klik Preview
         // berulang kali ikut menambah print_count dsb. seolah-olah report itu di-run beneran.
@@ -101,20 +105,46 @@ public class ReportRunService {
             throw new IllegalArgumentException("Report " + report.getReportCode()
                     + " uses Stimulsoft, which has no file output to attach.");
         }
-        return render(report, params, format, false, engine).output();
+        return render(report, ReportParamResolver.withSystemParams(params, currentUserParams()), format, false, engine)
+                .output();
+    }
+
+    /** Identitas pengguna dari sesi saat ini; kosong bila tidak ada sesi (mis. Scheduled Job) atau gagal dibaca. */
+    private Map<String, Object> currentUserParams() {
+        try {
+            com.vaadinerp.security.entity.AppUser u = securityService != null ? securityService.getCurrentUser() : null;
+            return u == null ? Map.of()
+                    : ReportParamResolver.currentUserParams(u.getUsername(), u.getFullName(), u.getRoles());
+        } catch (Exception e) {
+            return Map.of();
+        }
     }
 
     private record Rendered(ReportOutput output, List<Map<String, Object>> data) {
     }
 
+    /**
+     * Sumber data report Jasper: "Custom SQL Query" di pengaturan report kalau terisi; kalau kosong dan
+     * template punya query sendiri, query template itu (dijalankan Jasper lewat JDBC); selain itu
+     * perilaku lama (view/tabel form). Dengan begitu report boleh menyimpan query di salah satu tempat.
+     */
+    static boolean useTemplateQuery(ReportMeta report, String engine, File template) {
+        return "JASPER".equalsIgnoreCase(engine)
+                && (report.getDataQuery() == null || report.getDataQuery().isBlank())
+                && JrxmlQuery.hasOwnQuery(template);
+    }
+
     private Rendered render(ReportMeta report, Map<String, Object> params, String format, boolean sample,
             String engine) {
-        List<Map<String, Object>> data = dataService.fetchData(report, params, sample);
         // File template milik report ini, atau milik report sumber bila memakai template report lain.
         ReportMeta tpl = "STANDARD".equalsIgnoreCase(engine) ? report : resolver.templateOwner(report);
         File template = "STANDARD".equalsIgnoreCase(engine)
                 ? null
                 : resolver.resolveMasterTemplate(tpl.getReportCode(), engine, tpl.getTemplatePath());
+        // null = Jasper menjalankan query di dalam .jrxml lewat JDBC (lihat useTemplateQuery).
+        List<Map<String, Object>> data = useTemplateQuery(report, engine, template)
+                ? null
+                : dataService.fetchData(report, params, sample);
         Map<String, File> subreports = new java.util.HashMap<>();
         if ("JASPER".equalsIgnoreCase(engine)) {
             for (com.vaadinerp.report.SubreportConfig.Entry e
