@@ -21,6 +21,15 @@ public class ReportMeta extends BaseAuditableEntity {
     @Column(name = "table_name", length = 100)
     private String tableName;
 
+    /**
+     * Opsional: batasi report ke SATU form. Kosong (report lama) = muncul di Print semua form yang
+     * tabelnya sama dengan {@code tableName}, dan datanya dibaca dari form pertama hasil pencarian.
+     * Terisi = hanya muncul di form itu, dan data/label LOV dibaca dari form itu -- perlu bila beberapa
+     * form berbagi satu tabel tetapi view-nya berbeda.
+     */
+    @Column(name = "source_form_code", length = 50)
+    private String sourceFormCode;
+
     @Column(name = "page_size", length = 20)
     private String pageSize; // A4, LETTER
 
@@ -87,6 +96,18 @@ public class ReportMeta extends BaseAuditableEntity {
         if (scope == null) return false;
         String s = (usageScope == null || usageScope.isBlank()) ? "RUNNER" : usageScope.trim();
         return s.equalsIgnoreCase("BOTH") || s.equalsIgnoreCase(scope.trim());
+    }
+
+    /** Apakah report ini boleh muncul di tombol Print milik {@code form}. Lihat {@link #sourceFormCode}. */
+    @Transient
+    public boolean isPrintableFrom(FormMeta form) {
+        if (form == null) return false;
+        String key = form.reportSourceKey();
+        if (key == null) return false;
+        if (sourceFormCode != null && !sourceFormCode.isBlank()) {
+            return sourceFormCode.trim().equalsIgnoreCase(form.getFormCode());
+        }
+        return key.equalsIgnoreCase(tableName);
     }
 
     @ElementCollection(fetch = FetchType.EAGER)

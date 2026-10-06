@@ -93,6 +93,7 @@ public class ReportDesignerView extends VerticalLayout {
     private final TextField codeField = new TextField("Report Code");
     private final TextField titleField = new TextField("Report Title");
     private final ComboBox<FormMeta> sourceCombo = new ComboBox<>("Source Table / Form");
+    private final Checkbox restrictFormCheck = new Checkbox("Only for the selected form");
     private final TextArea queryArea = new TextArea("Custom SQL Query (overrides source)");
     private final Select<String> pageSelect = new Select<>();
     private final Select<String> orientSelect = new Select<>();
@@ -282,16 +283,6 @@ public class ReportDesignerView extends VerticalLayout {
         return f.reportSourceKey();
     }
 
-    /**
-     * Cari FormMeta by tableName tanpa mengasumsikan unik (findByTableName melempar
-     * bila >1).
-     */
-    private FormMeta findFormBySourceKey(String key) {
-        if (key == null || key.isBlank())
-            return null;
-        return formMetaRepository.findByReportSourceKey(key).stream().findFirst().orElse(null);
-    }
-
     private void refreshGrid() {
         reapplyFilters.run();
     }
@@ -372,7 +363,7 @@ public class ReportDesignerView extends VerticalLayout {
         }
         rolesSelect.setHelperText("Empty = only SUPER_ADMIN can run this report");
 
-        FormLayout meta = new FormLayout(codeField, titleField, categoryCombo, sourceCombo,
+        FormLayout meta = new FormLayout(codeField, titleField, categoryCombo, sourceCombo, restrictFormCheck,
                 usageScopeSelect, groupByField, queryArea,
                 descriptionArea, rolesSelect, pageSelect, orientSelect, engineSelect,
                 beforeScriptArea, afterScriptArea);
@@ -382,6 +373,9 @@ public class ReportDesignerView extends VerticalLayout {
                 new FormLayout.ResponsiveStep("900px", 4));
         meta.setColspan(titleField, 3);
         meta.setColspan(sourceCombo, 2);
+        meta.setColspan(restrictFormCheck, 2);
+        restrictFormCheck.setHelperText("Unchecked: the report is offered by Print on every form that uses the "
+                + "same table. Checked: only on the selected form, and its data comes from that form.");
         meta.setColspan(groupByField, 2);
         meta.setColspan(queryArea, 4);
         meta.setColspan(descriptionArea, 2);
@@ -485,6 +479,13 @@ public class ReportDesignerView extends VerticalLayout {
 
         sourceCombo.addValueChangeListener(e -> {
             FormMeta fm = e.getValue();
+            int sharing = 0;
+            if (fm != null && fm.reportSourceKey() != null) {
+                sharing = formMetaRepository.findByReportSourceKey(fm.reportSourceKey()).size();
+            }
+            restrictFormCheck.setLabel(sharing > 1
+                    ? "Only for the selected form (" + sharing + " forms share this table)"
+                    : "Only for the selected form");
             List<String> cols = new ArrayList<>();
             if (fm != null && fm.getTableName() != null) {
                 try {
@@ -585,6 +586,7 @@ public class ReportDesignerView extends VerticalLayout {
             codeField.setReadOnly(false);
             titleField.clear();
             sourceCombo.clear();
+            restrictFormCheck.setValue(false);
             queryArea.clear();
             pageSelect.setValue("A4");
             orientSelect.setValue("PORTRAIT");
@@ -603,7 +605,8 @@ public class ReportDesignerView extends VerticalLayout {
             codeField.setValue(nz(report.getReportCode()));
             codeField.setReadOnly(true);
             titleField.setValue(nz(report.getReportTitle()));
-            sourceCombo.setValue(findFormBySourceKey(report.getTableName()));
+            sourceCombo.setValue(formMetaRepository.findForReport(report));
+            restrictFormCheck.setValue(report.getSourceFormCode() != null && !report.getSourceFormCode().isBlank());
             queryArea.setValue(nz(report.getDataQuery()));
             pageSelect.setValue(report.getPageSize() != null ? report.getPageSize() : "A4");
             orientSelect.setValue(report.getOrientation() != null ? report.getOrientation() : "PORTRAIT");
@@ -776,6 +779,7 @@ public class ReportDesignerView extends VerticalLayout {
         rep.setReportCode(code);
         rep.setReportTitle(title);
         rep.setTableName(src != null ? sourceKeyOf(src) : rep.getTableName());
+        rep.setSourceFormCode(src != null && restrictFormCheck.getValue() ? src.getFormCode() : null);
         rep.setDataQuery(query == null || query.isBlank() ? null : query);
         rep.setPageSize(pageSelect.getValue());
         rep.setOrientation(orientSelect.getValue());

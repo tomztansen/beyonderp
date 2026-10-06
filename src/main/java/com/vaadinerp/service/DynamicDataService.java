@@ -3936,9 +3936,7 @@ public class DynamicDataService {
             // Fallback to form viewTable or tableName. The source key may be a table
             // name, a view name, or a form_code (forms with no base table) — same
             // matching rule as ReportDataService, defined once in the repository.
-            FormMeta formMeta = reportMeta.getTableName() == null ? null
-                    : formMetaRepository.findByReportSourceKey(reportMeta.getTableName().trim())
-                            .stream().findFirst().orElse(null);
+            FormMeta formMeta = formMetaRepository.findForReport(reportMeta);
             if (formMeta != null && formMeta.getViewTable() != null && !formMeta.getViewTable().trim().isEmpty()) {
                 String vt = formMeta.getViewTable().trim();
                 String vtLower = vt.toLowerCase();
@@ -3991,9 +3989,7 @@ public class DynamicDataService {
             
             // Collect LOV fields — same source-key rule as above, otherwise a report keyed
             // by form_code would read its data fine but silently lose every _label column.
-            FormMeta formMeta = reportMeta.getTableName() == null ? null
-                    : formMetaRepository.findByReportSourceKey(reportMeta.getTableName().trim())
-                            .stream().findFirst().orElse(null);
+            FormMeta formMeta = formMetaRepository.findForReport(reportMeta);
             List<com.vaadinerp.meta.FieldMeta> lovFields = new ArrayList<>();
             if (formMeta != null && formMeta.getFields() != null) {
                 for (com.vaadinerp.meta.FieldMeta field : formMeta.getFields()) {

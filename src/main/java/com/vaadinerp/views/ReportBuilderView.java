@@ -350,8 +350,8 @@ public class ReportBuilderView extends VerticalLayout {
             // table_name holds the form's source key, NOT the form_code that findById
             // would need. A report may also point straight at a table with no form —
             // then nothing is selected and sourceColumns() falls back to the key.
-            formMetaRepository.findByReportSourceKey(loadedSourceKey)
-                    .stream().findFirst().ifPresent(tableCombo::setValue);
+            java.util.Optional.ofNullable(formMetaRepository.findForReport(selectedReport))
+                    .ifPresent(tableCombo::setValue);
         }
         dataQueryArea.setValue(selectedReport.getDataQuery() != null ? selectedReport.getDataQuery() : "");
 
@@ -949,6 +949,11 @@ public class ReportBuilderView extends VerticalLayout {
         repMeta.setReportCode(reportCode);
         repMeta.setReportTitle(reportTitle);
         repMeta.setTableName(sourceForm != null ? sourceForm.getTableName() : "");
+        // Pembatasan ke satu form hanya berlaku selama form itu masih sumbernya.
+        if (repMeta.getSourceFormCode() != null && (sourceForm == null
+                || !repMeta.getSourceFormCode().trim().equalsIgnoreCase(sourceForm.getFormCode()))) {
+            repMeta.setSourceFormCode(null);
+        }
         repMeta.setDataQuery(dataQuery.isEmpty() ? null : dataQuery);
         repMeta.setPageSize(pageSize);
         repMeta.setOrientation(orientation);

@@ -1004,7 +1004,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             com.vaadinerp.report.ReportAccessService access = com.vaadinerp.config.SpringContextHolder
                     .getBean(com.vaadinerp.report.ReportAccessService.class);
             available = reportRepo.findAll().stream()
-                    .filter(r -> sourceKey.equalsIgnoreCase(r.getTableName()))
+                    .filter(r -> r.isPrintableFrom(currentFormDef))
                     .filter(r -> r.isUsableFrom("FORM"))
                     .filter(access::canAccess)
                     .toList();

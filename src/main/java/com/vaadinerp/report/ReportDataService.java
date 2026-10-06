@@ -46,16 +46,6 @@ public class ReportDataService {
     }
 
     /**
-     * Cari FormMeta dari source key report. Key itu bisa table_name, view_table, atau
-     * form_code (dipakai untuk form yang tak punya tabel dasar) — satu-satunya definisi
-     * pencocokan ada di repository, supaya jalur run dan Stimulsoft tidak berbeda.
-     */
-    private FormMeta findFormBySourceKey(String key) {
-        if (key == null || key.trim().isEmpty()) return null;
-        return formMetaRepository.findByReportSourceKey(key.trim()).stream().findFirst().orElse(null);
-    }
-
-    /**
      * Bangun WHERE dari parameter Model B (filterColumn + operator + nilai). Param tanpa
      * filterColumn/operator (=Model A) atau tanpa nilai dilewati. Nilai di-bind ke outBind
      * (LIKE/ILIKE dibungkus %..%). Operator & kolom divalidasi.
@@ -143,7 +133,7 @@ public class ReportDataService {
     }
 
     public List<Map<String, Object>> fetchData(ReportMeta report, Map<String, Object> params, boolean sample) {
-        FormMeta form = findFormBySourceKey(report.getTableName());
+        FormMeta form = formMetaRepository.findForReport(report);
 
         String sql = resolveBaseQuery(report, form, dynamicDataService);
         if (sql == null) return null; // Return null so JasperRenderer knows to use JDBC connection

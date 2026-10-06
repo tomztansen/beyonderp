@@ -27,6 +27,23 @@ public interface FormMetaRepository extends JpaRepository<FormMeta, String> {
     List<FormMeta> findByReportSourceKey(@Param("key") String key);
 
     /**
+     * Form yang menjadi sumber data/label sebuah report. {@code sourceFormCode} terisi = form itu; kosong
+     * (report lama) atau form-nya sudah dihapus = hasil pertama pencarian kunci tabel, seperti sebelumnya.
+     * Satu definisi untuk semua pemanggil supaya aturannya tidak berbeda-beda.
+     */
+    default FormMeta findForReport(ReportMeta report) {
+        if (report == null) return null;
+        String code = report.getSourceFormCode();
+        if (code != null && !code.isBlank()) {
+            Optional<FormMeta> chosen = findById(code.trim());
+            if (chosen.isPresent()) return chosen.get();
+        }
+        String key = report.getTableName();
+        if (key == null || key.isBlank()) return null;
+        return findByReportSourceKey(key.trim()).stream().findFirst().orElse(null);
+    }
+
+    /**
      * Hanya kode form, terurut. FormMeta.fields dipetakan EAGER, jadi findAll()
      * ikut menarik seluruh baris meta_field (ratusan) meski pemanggilnya cuma
      * butuh daftar kode untuk mengisi ComboBox.
