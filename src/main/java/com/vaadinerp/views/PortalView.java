@@ -85,6 +85,7 @@ public class PortalView extends AppLayout {
     private final VerticalLayout menuContainer = new VerticalLayout();
 
     // TabSheet on the right
+    private final com.vaadinerp.service.EnvironmentInfo environmentInfo;
     private final TabSheet tabSheet = new TabSheet();
     private final Map<String, Tab> openTabs = new HashMap<>();
     private final List<Div> leafRows = new ArrayList<>();
@@ -96,7 +97,9 @@ public class PortalView extends AppLayout {
             AppMenuRepository appMenuRepository, RoleMenuPermissionRepository roleMenuPermissionRepository,
             AppUserFavoriteMenuRepository appUserFavoriteMenuRepository,
             StandardFormatService standardFormatService,
-            SchedulerConfigRepository schedulerConfigRepository) {
+            SchedulerConfigRepository schedulerConfigRepository,
+            com.vaadinerp.service.EnvironmentInfo environmentInfo) {
+        this.environmentInfo = environmentInfo;
         this.formMetaRepository = formMetaRepository;
         this.lovMetaRepository = lovMetaRepository;
         this.reportMetaRepository = reportMetaRepository;
@@ -138,6 +141,10 @@ public class PortalView extends AppLayout {
 
         HorizontalLayout leftSection = new HorizontalLayout(toggle, titleSpan);
         leftSection.setAlignItems(FlexComponent.Alignment.CENTER);
+        Span envBadge = com.vaadinerp.components.EnvironmentBadge.create(environmentInfo); // null di PROD
+        if (envBadge != null) {
+            leftSection.add(envBadge);
+        }
 
         // Right Section: IP Badge, User Profile, Change Password, Logout
         HorizontalLayout rightSection = new HorizontalLayout();

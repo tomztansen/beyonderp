@@ -32,7 +32,8 @@ public class LoginView extends Div {
 
         private final SessionSecurityService securityService;
 
-        public LoginView(SessionSecurityService securityService) {
+        public LoginView(SessionSecurityService securityService,
+                        com.vaadinerp.service.EnvironmentInfo environmentInfo) {
                 this.securityService = securityService;
 
                 setSizeFull();
@@ -190,6 +191,16 @@ public class LoginView extends Div {
                 // card.add(hintBox);
 
                 add(card);
+
+                // Penanda server non-produksi, di atas card supaya terlihat sebelum user mengetik password.
+                Span envBadge = com.vaadinerp.components.EnvironmentBadge.create(environmentInfo);
+                if (envBadge != null) {
+                        // fixed, bukan absolute: container ini overflow:hidden dan bisa tergulir (autofocus),
+                        // badge absolute ikut terbawa keluar layar.
+                        envBadge.getStyle().set("position", "fixed").set("top", "16px").set("right", "16px")
+                                        .set("z-index", "10");
+                        add(envBadge);
+                }
 
                 // ── Footer below card ──
                 Paragraph footer = new Paragraph("© 2026 GMS • Powered by IT");
