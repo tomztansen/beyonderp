@@ -769,11 +769,44 @@ public class ScriptExecutorService {
         }
     }
 
+    /**
+     * Apakah record pada {@code headerBean} sedang/baru saja disimpan sebagai INSERT. Nilai {@code explicitIsNew}
+     * dari form menang (form menghitungnya SEBELUM simpan, karena sesudahnya primary key sudah terisi); bila
+     * null, diturunkan dari primary key header: kosong = baru, terisi = sudah ada.
+     */
+    public static boolean resolveIsNew(com.vaadinerp.meta.FormMeta form, Map<String, Object> headerBean,
+            Boolean explicitIsNew) {
+        if (explicitIsNew != null) {
+            return explicitIsNew;
+        }
+        if (headerBean == null) {
+            return true;
+        }
+        String pk = form != null && form.getPrimaryKey() != null && !form.getPrimaryKey().isBlank()
+                ? form.getPrimaryKey().trim() : "id";
+        Object v = headerBean.get(pk);
+        return v == null || v.toString().trim().isEmpty();
+    }
+
     @SuppressWarnings("unused")
     public boolean executeActionScript(com.vaadinerp.meta.FormActionMeta act,
             Map<String, Object> headerBean,
             List<Map<String, Object>> selectedGridRows,
             com.vaadin.flow.component.Component currentView) {
+        return executeActionScript(act, headerBean, selectedGridRows, currentView, null);
+    }
+
+    /**
+     * @param isNew mode simpan dari form ({@code true} = INSERT) -- dipakai BEFORE_SAVE/AFTER_SAVE; null =
+     *              diturunkan dari primary key header. Tersedia di script sebagai {@code isNew} dan
+     *              {@code saveMode} ("INSERT" / "UPDATE").
+     */
+    @SuppressWarnings("unused")
+    public boolean executeActionScript(com.vaadinerp.meta.FormActionMeta act,
+            Map<String, Object> headerBean,
+            List<Map<String, Object>> selectedGridRows,
+            com.vaadin.flow.component.Component currentView,
+            Boolean isNew) {
         if (act == null || act.getScriptContent() == null || act.getScriptContent().isBlank()) {
             return true;
         }
@@ -830,6 +863,9 @@ public class ScriptExecutorService {
 
             Binding binding = new Binding();
             binding.setVariable("ctx", ctx);
+            boolean newRecord = resolveIsNew(act.getFormMeta(), headerBean, isNew);
+            binding.setVariable("isNew", newRecord);
+            binding.setVariable("saveMode", newRecord ? "INSERT" : "UPDATE");
             binding.setVariable("header", headerBean != null ? prepareHeaderForScript(headerBean) : new HashMap<>());
             // Nilai mentah, bukan SmartHeaderNode, supaya `if (self)` berperilaku wajar.
             // Untuk field LOV dibungkus LovValueNode: tetap berperilaku seperti nilainya,
@@ -1637,7 +1673,8 @@ public class ScriptExecutorService {
      */
     public static final java.util.Set<String> ACTION_SCRIPT_NAMES = java.util.Set.of(
             "JsonOutput", "JsonSlurper", "clearForm", "ctx", "db", "downloadCsv", "downloadFile", "executeProcedure",
-            "getElementValue", "header", "lov", "msgBox", "plain", "prompt", "refreshForm", "renderReport", "runScheduledJob",
+            "getElementValue", "header", "isNew", "lov", "msgBox", "plain", "prompt", "refreshForm", "renderReport",
+            "runScheduledJob", "saveMode",
             "selectedRows", "self",
             "sendEmail", "sendWhatsApp", "sendWhatsAppApproval", "setElementDisabled", "setElementEnabled",
             "setElementReadonly", "setElementValue", "setElementVisible",

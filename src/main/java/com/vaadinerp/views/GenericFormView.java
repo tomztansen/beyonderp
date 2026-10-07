@@ -582,10 +582,12 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             .getFormActions(formDef.getFormCode(), null);
                     if (saveActions != null) {
                         for (com.vaadinerp.meta.FormActionMeta act : saveActions) {
+                    // Mode simpan dihitung SEBELUM saveData (sesudahnya id sudah terisi); dipakai script sebagai isNew/saveMode.
+                    final boolean saveIsNew = com.vaadinerp.service.ScriptExecutorService.resolveIsNew(formDef, parentData, null);
                             if ("BEFORE_SAVE".equalsIgnoreCase(act.getTargetScope())) {
                                 if (dynamicDataService.getScriptExecutorService() != null) {
                                     groovyOk = dynamicDataService.getScriptExecutorService().executeActionScript(act,
-                                            parentData, null, GenericFormView.this);
+                                            parentData, null, GenericFormView.this, saveIsNew);
                                     if (!groovyOk)
                                         break;
                                 }
@@ -613,7 +615,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             if ("AFTER_SAVE".equalsIgnoreCase(act.getTargetScope())) {
                                 if (dynamicDataService.getScriptExecutorService() != null) {
                                     dynamicDataService.getScriptExecutorService().executeActionScript(act, parentData,
-                                            null, GenericFormView.this);
+                                            null, GenericFormView.this, saveIsNew);
                                 }
                             }
                         }

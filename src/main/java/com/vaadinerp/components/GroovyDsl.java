@@ -30,6 +30,8 @@ public final class GroovyDsl {
         m.put("items", "List semua baris yang sudah ada di grid");
         m.put("selectedRows", "List baris yang tercentang di grid");
         m.put("ctx", "Konteks aksi — ctx.getUserId()");
+        m.put("isNew", "Mode simpan: true bila record baru (INSERT), false bila UPDATE. Dihitung form SEBELUM simpan, jadi di AFTER_SAVE tetap benar walau id sudah terisi. saveMode berisi \"INSERT\" atau \"UPDATE\". Di script lain diturunkan dari ada tidaknya primary key");
+        m.put("saveMode", "\"INSERT\" atau \"UPDATE\" -- lihat isNew");
         m.put("self", "Nilai field pemicu (trigger) saat ini. Berperilaku seperti nilai aslinya "
                 + "(if (self), self == 'Y'); kalau fieldnya LOV, properti record-nya bisa diakses langsung, mis. self.itemname");
         // Database

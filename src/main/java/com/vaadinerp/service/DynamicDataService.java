@@ -1501,6 +1501,25 @@ public class DynamicDataService {
      * transaksi supaya menangkap semua jalur gagal, bukan hanya yang tertangkap
      * catch di sini.
      */
+    /** Kunci dasar ditambah nama field bernomor otomatis yang baru dibuat, untuk didaftarkan ke restoreOnRollback. */
+    static String[] keysWithGenerated(Map<String, Object> generated, String... base) {
+        List<String> keys = new ArrayList<>(java.util.Arrays.asList(base));
+        if (generated != null) {
+            keys.addAll(generated.keySet());
+        }
+        return keys.toArray(new String[0]);
+    }
+
+    /**
+     * Tulis balik nomor dokumen yang baru dibuat ke map pemanggil. HARUS didahului restoreOnRollback untuk
+     * kunci yang sama, kalau tidak nilai yang tidak pernah tersimpan tertinggal di form saat transaksi gagal.
+     */
+    static void writeGeneratedBack(Map<String, Object> target, Map<String, Object> generated) {
+        if (target != null && generated != null) {
+            generated.forEach(target::put);
+        }
+    }
+
     private void restoreOnRollback(Map<String, Object> target, String... keys) {
         if (target == null || keys == null || keys.length == 0)
             return;
@@ -1692,6 +1711,9 @@ public class DynamicDataService {
                 }
             } else {
                 // INSERT: Jika primary key tidak ada nilainya
+                // Nomor dokumen yang dibuat di sini juga ditulis balik ke map pemanggil (lihat restoreOnRollback di bawah),
+                // supaya script AFTER_SAVE bisa membaca mis. header.idno.
+                final Map<String, Object> generatedSeq = new java.util.LinkedHashMap<>();
                 if (formMeta.getFields() != null) {
                     for (FieldMeta field : formMeta.getFields()) {
                         if (field.getSequenceCode() != null && !field.getSequenceCode().trim().isEmpty()) {
@@ -1701,6 +1723,7 @@ public class DynamicDataService {
                                     || val.toString().startsWith("⚡")) {
                                 String genNum = generateNextSequence(field.getSequenceCode());
                                 data.put(fieldName, genNum);
+                                generatedSeq.put(fieldName, genNum);
                                 log.info("Auto-generated sequence '{}' for field '{}' -> {}", field.getSequenceCode(),
                                         fieldName, genNum);
                             }
@@ -1768,7 +1791,8 @@ public class DynamicDataService {
                 String sql = "INSERT INTO " + qMasterTable + " (" + columns.toString() + ") VALUES ("
                         + valuesParam.toString() + ")";
                 final String finalMasterPk = pk;
-                restoreOnRollback(rawData, pk, "id");
+                restoreOnRollback(rawData, keysWithGenerated(generatedSeq, pk, "id"));
+                writeGeneratedBack(rawData, generatedSeq);
                 try {
                     String returningSql = sql + " RETURNING " + finalMasterPk;
                     System.out.println("EXECUTING INSERT WITH RETURNING: " + returningSql);
@@ -4836,6 +4860,8 @@ public class DynamicDataService {
                 }
             } else {
                 // INSERT Master with KeyHolder
+                // Nomor dokumen yang dibuat di sini juga ditulis balik ke map pemanggil (lihat restoreOnRollback di bawah).
+                final Map<String, Object> generatedSeq = new java.util.LinkedHashMap<>();
                 if (formMeta.getFields() != null) {
                     for (FieldMeta field : formMeta.getFields()) {
                         if (!field.isDetail() && field.getSequenceCode() != null
@@ -4846,6 +4872,7 @@ public class DynamicDataService {
                                     || val.toString().startsWith("⚡")) {
                                 String genNum = generateNextSequence(field.getSequenceCode());
                                 masterData.put(fieldName, genNum);
+                                generatedSeq.put(fieldName, genNum);
                                 log.info("Auto-generated sequence '{}' for master field '{}' -> {}",
                                         field.getSequenceCode(), fieldName, genNum);
                             }
@@ -4893,7 +4920,8 @@ public class DynamicDataService {
                 String qMasterTable = getQualifiedTableName(formMeta.getTableName());
                 String sql = "INSERT INTO " + qMasterTable + " (" + columns.toString() + ") VALUES ("
                         + valuesParam.toString() + ")";
-                restoreOnRollback(rawMasterData, masterPk, "id");
+                restoreOnRollback(rawMasterData, keysWithGenerated(generatedSeq, masterPk, "id"));
+                writeGeneratedBack(rawMasterData, generatedSeq);
                 try {
                     String returningSql = sql + " RETURNING " + finalMasterPk;
                     System.out.println("EXECUTING MASTER INSERT WITH RETURNING: " + returningSql);

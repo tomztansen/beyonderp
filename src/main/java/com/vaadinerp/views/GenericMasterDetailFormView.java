@@ -1123,8 +1123,10 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     if (saveActions != null) {
                         for (com.vaadinerp.meta.FormActionMeta act : saveActions) {
                             if ("BEFORE_SAVE".equalsIgnoreCase(act.getTargetScope())) {
+                    // Mode simpan dihitung SEBELUM saveMasterDetailData (sesudahnya id sudah terisi); dipakai script sebagai isNew/saveMode.
+                    final boolean saveIsNew = com.vaadinerp.service.ScriptExecutorService.resolveIsNew(formDef, formBinder.getBean(), null);
                                 if (dynamicDataService.getScriptExecutorService() != null) {
-                                    groovyOk = dynamicDataService.getScriptExecutorService().executeActionScript(act, formBinder.getBean(), detailsList, GenericMasterDetailFormView.this);
+                                    groovyOk = dynamicDataService.getScriptExecutorService().executeActionScript(act, formBinder.getBean(), detailsList, GenericMasterDetailFormView.this, saveIsNew);
                                     if (!groovyOk) break;
                                 }
                             }
@@ -1145,7 +1147,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                         for (com.vaadinerp.meta.FormActionMeta act : saveActions) {
                             if ("AFTER_SAVE".equalsIgnoreCase(act.getTargetScope())) {
                                 if (dynamicDataService.getScriptExecutorService() != null) {
-                                    dynamicDataService.getScriptExecutorService().executeActionScript(act, formBinder.getBean(), detailsList, GenericMasterDetailFormView.this);
+                                    dynamicDataService.getScriptExecutorService().executeActionScript(act, formBinder.getBean(), detailsList, GenericMasterDetailFormView.this, saveIsNew);
                                 }
                             }
                         }
