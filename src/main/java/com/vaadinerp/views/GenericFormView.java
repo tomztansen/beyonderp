@@ -207,6 +207,11 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private Button btnSave;
     private Button btnCancel;
     private Button btnPrint;
+    /** Panah di samping Print: menu "Export to Excel" (hanya report Jasper). */
+    private Button btnPrintMore;
+    private final HorizontalLayout printGroup = new HorizontalLayout();
+    /** Format yang sedang dicetak: PDF (tombol Print) atau XLSX (menu panah). Dibaca launchPrint. */
+    private String printFormat = "PDF";
     private Button btnRefresh;
     private Button btnDebug;
     private com.vaadinerp.components.StandardActionToolbar.MenuAccessAuthority auth;
@@ -577,13 +582,13 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                         }
                     }
 
+                    // Mode simpan dihitung SEBELUM saveData (sesudahnya id sudah terisi); dipakai script sebagai isNew/saveMode.
+                    final boolean saveIsNew = com.vaadinerp.service.ScriptExecutorService.resolveIsNew(formDef, parentData, null);
                     boolean groovyOk = true;
                     java.util.List<com.vaadinerp.meta.FormActionMeta> saveActions = dynamicDataService
                             .getFormActions(formDef.getFormCode(), null);
                     if (saveActions != null) {
                         for (com.vaadinerp.meta.FormActionMeta act : saveActions) {
-                    // Mode simpan dihitung SEBELUM saveData (sesudahnya id sudah terisi); dipakai script sebagai isNew/saveMode.
-                    final boolean saveIsNew = com.vaadinerp.service.ScriptExecutorService.resolveIsNew(formDef, parentData, null);
                             if ("BEFORE_SAVE".equalsIgnoreCase(act.getTargetScope())) {
                                 if (dynamicDataService.getScriptExecutorService() != null) {
                                     groovyOk = dynamicDataService.getScriptExecutorService().executeActionScript(act,
@@ -692,7 +697,24 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnPrint.setIcon(iconPrint);
         btnPrint.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
         btnPrint.getStyle().set("font-weight", "500").set("color", "#374151");
-        btnPrint.addClickListener(e -> openPrintDialog());
+        btnPrint.addClickListener(e -> openPrintDialog("PDF"));
+
+        // Panah di samping Print (split button): klik Print = PDF, klik panah = menu Export to Excel.
+        // Button biasa, bukan SafeButton: tombol ini hanya membuka menu, tidak perlu disable-on-click.
+        btnPrintMore = new Button(VaadinIcon.ANGLE_DOWN.create());
+        btnPrintMore.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
+        btnPrintMore.setTooltipText("More print options");
+        btnPrintMore.getElement().setAttribute("aria-label", "More print options");
+        btnPrintMore.getStyle().set("color", "#374151").set("min-width", "0").set("padding", "0 0.25rem")
+                .set("margin-left", "-0.5rem");
+        com.vaadin.flow.component.contextmenu.ContextMenu printMenu =
+                new com.vaadin.flow.component.contextmenu.ContextMenu(btnPrintMore);
+        printMenu.setOpenOnClick(true);
+        printMenu.addItem("Export to Excel", e -> openPrintDialog("XLSX"));
+        printGroup.setSpacing(false);
+        printGroup.setPadding(false);
+        printGroup.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
+        printGroup.add(btnPrint, btnPrintMore);
 
         // 6. REFRESH BUTTON
         btnRefresh = new com.vaadinerp.components.SafeButton("Refresh");
@@ -786,6 +808,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         if (!auth.canPrint) {
             btnPrint.setVisible(false);
             btnPrint.setEnabled(false);
+            btnPrintMore.setVisible(false);
         }
 
         if (!auth.canAdd && !auth.canEdit) {
@@ -813,7 +836,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         modeBadge.getStyle().set("margin-left", "auto");
         modeBadge.setVisible(false);
 
-        toolbar.add(btnView, btnNew, btnEdit, btnDelete, btnSave, btnCancel, btnRefresh, btnPrint, btnDebug,
+        toolbar.add(btnView, btnNew, btnEdit, btnDelete, btnSave, btnCancel, btnRefresh, printGroup, btnDebug,
                 extraActionsContainer, modeBadge);
         refreshExtraToolbarButtons();
     }
@@ -988,7 +1011,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     /**
      * Report yang boleh dicetak dari form ini, untuk baris yang sedang tercentang.
      */
-    private void openPrintDialog() {
+    private void openPrintDialog(String format) {
+        printFormat = format;
         if (currentFormDef == null) {
             Notification.show("Form definition is not loaded yet.", 3000, Notification.Position.MIDDLE);
             return;
@@ -1009,6 +1033,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     .filter(r -> r.isPrintableFrom(currentFormDef))
                     .filter(r -> r.isUsableFrom("FORM"))
                     .filter(access::canAccess)
+                    // Excel hanya untuk report Jasper (renderer lain tidak diekspor lewat jalur ini)
+                    .filter(r -> !"XLSX".equals(format) || "JASPER".equalsIgnoreCase(r.getEngineType()))
                     .toList();
         } catch (Exception ex) {
             Notification.show("Failed to load the report list.", 3000, Notification.Position.MIDDLE);
@@ -1016,7 +1042,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         }
 
         if (available.isEmpty()) {
-            Notification.show("No report is configured for this form.", 3000, Notification.Position.MIDDLE);
+            Notification.show("XLSX".equals(format)
+                    ? "No Jasper report is available for Excel export on this form."
+                    : "No report is configured for this form.", 3000, Notification.Position.MIDDLE);
             return;
         }
         if (available.size() == 1) {
@@ -1028,10 +1056,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         chooser.setHeaderTitle("Select Report");
         VerticalLayout list = new VerticalLayout();
         for (com.vaadinerp.meta.ReportMeta rep : available) {
-            String engine = rep.getEngineType() != null ? rep.getEngineType() : "STANDARD";
             com.vaadinerp.components.SafeButton pick = new com.vaadinerp.components.SafeButton(
-                    (rep.getReportTitle() != null ? rep.getReportTitle() : rep.getReportCode())
-                            + " (" + engine + ")",
+                    rep.getReportTitle() != null ? rep.getReportTitle() : rep.getReportCode(),
                     ev -> {
                         chooser.close();
                         preparePrint(rep);
@@ -1141,8 +1167,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         try {
             com.vaadinerp.report.ReportRunService runService = com.vaadinerp.config.SpringContextHolder
                     .getBean(com.vaadinerp.report.ReportRunService.class);
-            // Cetak dari form selalu PDF: dialog ini tidak punya pemilih format.
-            com.vaadinerp.report.ReportLauncher.runAndOpenTab(this, runService, report, values, "PDF", null);
+            // PDF dari tombol Print, XLSX dari menu panah di sebelahnya (lihat printFormat).
+            com.vaadinerp.report.ReportLauncher.runAndOpenTab(this, runService, report, values, printFormat, null);
         } catch (Exception ex) {
             Notification.show("Failed to start the report: "
                     + (ex.getMessage() != null ? ex.getMessage() : ex.toString()),
@@ -3245,8 +3271,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             btnEdit.setVisible(auth.canEdit);
         if (btnDelete != null)
             btnDelete.setVisible(auth.canDelete);
-        if (btnPrint != null)
+        if (btnPrint != null) {
             btnPrint.setVisible(auth.canPrint);
+            btnPrintMore.setVisible(auth.canPrint);
+        }
 
         if (btnSave != null)
             btnSave.setVisible(auth.canEdit);
