@@ -4,6 +4,7 @@
 	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="live postgre"/>
 	<parameter name="prod_id" class="java.util.List"/>
 	<parameter name="RPT_PO_ROUTE_SUB" class="net.sf.jasperreports.engine.JasperReport"/>
+	<parameter name="RPT_PO_NOTES_SUB" class="net.sf.jasperreports.engine.JasperReport"/>
 	<query language="sql"><![CDATA[select a.*,
 b.salesid,b.abmexternallinenumber,b.externalitemid,
 c.itemcode,c.itemname,
@@ -13,7 +14,8 @@ e.estnetweight,e.grossweight,e.netweight,
 e.hardness,c.abmengineermaterialid,
 f."name" enduser,g.code categoryname,
 h.code scope,b.abmisitemset isitemset,i."name" customer,
-e.estgrossweight
+e.estgrossweight,j.description toolingtype,
+c.note
  from dynamic.tsproductionorder a
 left join dynamic.tssalesline b on a.tssaleslineid = b.id
 left join dynamic.msitem c on a.itemid = c.id
@@ -23,6 +25,7 @@ left join dynamic.mscustomer f on b.abmenduser = f."id" and f.enduser = true
 left join dynamic.mdlookup g on c.salescategoryid = g."id"
 left join dynamic.mdlookup h on e.scopeid = h.id
 left join dynamic.mscustomer i on b.invoiceaccount = i."id" and i.enduser = false
+left join dynamic.mdlookup j on a.toolingtypeid = j."id"
 where $X{IN, a.id, prod_id}
 order by a.id]]></query>
 	<field name="id" class="java.lang.Long">
@@ -260,6 +263,11 @@ order by a.id]]></query>
 		<property name="com.jaspersoft.studio.field.label" value="estgrossweight"/>
 		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
 	</field>
+	<field name="toolingtype" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="toolingtype"/>
+		<property name="com.jaspersoft.studio.field.label" value="toolingtype"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="mdlookup"/>
+	</field>
 	<group name="Group1">
 		<expression><![CDATA[$F{id}]]></expression>
 		<groupHeader>
@@ -433,6 +441,13 @@ order by a.id]]></query>
 						<expression><![CDATA[$F{grossweight}]]></expression>
 						<property name="com.jaspersoft.studio.unit.height" value="px"/>
 					</element>
+					<element kind="staticText" uuid="a4b77b9e-fe09-4681-91da-6d899610bc75" x="326" y="117" width="94" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
+						<text><![CDATA[Type Pattern	: ]]></text>
+					</element>
+					<element kind="textField" uuid="7c44f26b-f452-4bdc-9074-7a3cdd93a2fb" x="421" y="117" width="130" height="14" fontName="Arial" fontSize="9.0" blankWhenNull="true" vTextAlign="Middle">
+						<expression><![CDATA[$F{toolingtype}]]></expression>
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</element>
 					<box>
 						<topPen lineWidth="0.75"/>
 						<leftPen lineWidth="0.75"/>
@@ -454,6 +469,13 @@ order by a.id]]></query>
 					<element kind="frame" uuid="7a100001-0000-4000-8000-000000000051" stretchType="ContainerHeight" x="175" y="0" width="380" height="130">
 						<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000052" x="7" y="3" width="120" height="12" fontName="Arial" fontSize="7.0" underline="true" vTextAlign="Middle">
 							<text><![CDATA[Notes :]]></text>
+						</element>
+						<element kind="subreport" uuid="7a100001-0000-4000-8000-000000000061" positionType="Float" x="7" y="17" width="368" height="11">
+							<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+							<expression><![CDATA[$P{RPT_PO_NOTES_SUB}]]></expression>
+							<parameter name="P_ORDER_ID">
+								<expression><![CDATA[$F{id}]]></expression>
+							</parameter>
 						</element>
 						<box>
 							<leftPen lineWidth="0.75"/>
@@ -518,13 +540,13 @@ EFF. DATE	: 06-Sep-2021]]></text>
 		</element>
 	</pageHeader>
 	<detail>
-		<band height="0"/>
+		<band/>
 	</detail>
 	<pageFooter height="22" splitType="Stretch">
 		<element kind="textField" uuid="7a100001-0000-4000-8000-000000000045" x="0" y="4" width="60" height="14" fontName="Arial" fontSize="8.0" hTextAlign="Right" vTextAlign="Middle">
 			<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of "]]></expression>
 		</element>
-		<element kind="textField" uuid="7a100001-0000-4000-8000-000000000046" evaluationTime="Report" x="60" y="4" width="40" height="14" fontName="Arial" fontSize="8.0" vTextAlign="Middle">
+		<element kind="textField" uuid="7a100001-0000-4000-8000-000000000046" x="60" y="4" width="40" height="14" fontName="Arial" fontSize="8.0" evaluationTime="Report" vTextAlign="Middle">
 			<expression><![CDATA[$V{PAGE_NUMBER}]]></expression>
 			<box leftPadding="2"/>
 		</element>

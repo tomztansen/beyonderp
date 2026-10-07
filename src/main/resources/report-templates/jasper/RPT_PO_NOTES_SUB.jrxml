@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Subreport RPT_JOBORDER_JSP: kolom Notes (tabel catatan). Satu query menghasilkan SATU BARIS DATA PER BARIS CETAK,
+     dikelompokkan per bagian; bagian tanpa baris tidak mencetak judulnya dan baris kosong tidak meninggalkan celah.
+     Menambah bagian baru = menambah satu blok SELECT ... UNION ALL dengan nomor sec berikutnya.
+     Param name di Designer: RPT_PO_NOTES_SUB. Lebar 368 = area Notes (380) dikurangi padding. -->
+<jasperReport name="RPT_PO_NOTES_SUB" language="java" pageWidth="368" pageHeight="842" columnWidth="368" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="6c3f8d21-4b52-4d9f-a032-8e1b2c3d4e5f">
+	<parameter name="P_ORDER_ID" class="java.lang.Long"/>
+	<query language="sql"><![CDATA[WITH t AS (
+  SELECT c.*
+  FROM dynamic.tsproductionorder a
+  JOIN dynamic.tssalesline b ON a.tssaleslineid = b.id
+  JOIN dynamic.mstechrec c ON b.abmtechreqid = c.techreqid
+  WHERE a.id = $P{P_ORDER_ID}
+  LIMIT 1
+)
+SELECT 1 AS sec, 'Testing Requirements :' AS sec_title, v.seq, v.txt AS line, 1 AS bullet
+FROM t CROSS JOIN LATERAL (VALUES
+  (1,  'Chemical',               t.testingchemical),
+  (2,  'Hardness',               t.testinghardness),
+  (3,  'Tensile',                t.testingtensile),
+  (4,  'Impact',                 t.testingimpact),
+  (5,  'Dye Panetrant(DPI)',     t.testingdye),
+  (6,  'Magnetic Particle(MPI)', t.testingmagnetic),
+  (7,  'Radiography',            t.testingradio),
+  (8,  'Dimensional',            t.testingdimensional),
+  (9,  'Microstructure',         t.testingmicrostructure),
+  (10, 'Ultra Sonic (UT)',       t.testingultrasonic)
+) AS v(seq, txt, flag)
+WHERE v.flag = 1
+UNION ALL
+SELECT 2, 'Manufacture Requirements :', v.seq, v.txt, 1
+FROM t CROSS JOIN LATERAL (VALUES
+  (1, 'ITP',                 t.manufactureitp),
+  (2, 'MDR',                 t.manufacturemdr),
+  (3, 'Production Schedule', t.manufactureproduction)
+) AS v(seq, txt, flag)
+WHERE v.flag = 1
+UNION ALL
+SELECT 2, 'Manufacture Requirements :', 4, trim(t.manufactureotherdes), 1
+FROM t
+WHERE t.manufactureother = 1 AND coalesce(trim(t.manufactureotherdes), '') <> ''
+UNION ALL
+SELECT 2, 'Manufacture Requirements :', 100 + d.ord::int, trim(d.txt), 0
+FROM t CROSS JOIN LATERAL regexp_split_to_table(t.manufacturedes, '\r?\n') WITH ORDINALITY AS d(txt, ord)
+WHERE coalesce(trim(d.txt), '') <> ''
+UNION ALL
+SELECT 3, 'Internal note :', 1, trim(a.note), 0
+FROM dynamic.tsproductionorder a
+WHERE a.id = $P{P_ORDER_ID} AND coalesce(trim(a.note), '') <> ''
+UNION ALL
+SELECT 4, 'Product note :', 1, trim(i.note), 0
+FROM dynamic.tsproductionorder a
+JOIN dynamic.msitem i ON a.itemid = i.id
+WHERE a.id = $P{P_ORDER_ID} AND coalesce(trim(i.note), '') <> ''
+ORDER BY sec, seq]]></query>
+	<field name="sec" class="java.lang.Integer"/>
+	<field name="sec_title" class="java.lang.String"/>
+	<field name="seq" class="java.lang.Integer"/>
+	<field name="line" class="java.lang.String"/>
+	<field name="bullet" class="java.lang.Integer"/>
+	<group name="Section">
+		<expression><![CDATA[$F{sec}]]></expression>
+		<groupHeader>
+			<band height="14">
+				<element kind="textField" uuid="6c3f8d21-0001-4000-8000-000000000001" x="0" y="1" width="368" height="12" fontName="Arial" fontSize="7.5" bold="true" blankWhenNull="true" vTextAlign="Middle">
+					<expression><![CDATA[$F{sec_title}]]></expression>
+				</element>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="4"/>
+		</groupFooter>
+	</group>
+	<detail>
+		<band height="11">
+			<element kind="textField" uuid="6c3f8d21-0001-4000-8000-000000000002" textAdjust="StretchHeight" x="0" y="0" width="368" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" vTextAlign="Top">
+				<expression><![CDATA[($F{bullet} != null && $F{bullet} == 1 ? "- " : "") + $F{line}]]></expression>
+			</element>
+		</band>
+	</detail>
+</jasperReport>

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Kartu Tag produksi: daftar Core per tag (Print dari form FO_PRD_TAG). Sumber lama: axis lp003.jrxml.
+     Data: query di template ini (data_query kosong). Satu halaman per tag; tag tanpa Core tidak tercetak.
+     Param name di Designer: tag_id (FORM_FIELD, key id -> List dari baris form yang dicentang).
+     Filter tetap: resource group 1253 (Foundry) dan alat induk grup Pattern (mdlookup 2357), sesuai permintaan.
+     Param otomatis: CURRENT_USER_NAME (nama pencetak). -->
+<jasperReport name="RPT_PRD_TAG_CORE_JSP" language="java" pageWidth="421" pageHeight="595" columnWidth="381" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="3a9e5c14-72b8-4d60-9f1a-5b2c8d7e6f01">
+	<parameter name="tag_id" class="java.util.List"/>
+	<parameter name="CURRENT_USER_NAME" class="java.lang.String"/>
+	<query language="sql"><![CDATA[SELECT a.id, a.idno, c.itemcode, f.toolingcode, f.qtyperbox, f.gangqty
+FROM dynamic.thproductiontag a
+JOIN dynamic.tsproductionorder b ON a.tsproductionorderid = b.id
+JOIN dynamic.msitem c ON b.itemid = c.id
+JOIN dynamic.mstooling d ON d.msitemid = c.id AND d.toolinggroupid = 2357
+JOIN dynamic.mstoolingcore e ON e.mstoolingid = d.id
+JOIN dynamic.mstooling f ON e.coreid = f.id
+WHERE a.msresourcegroupid = 1253 AND $X{IN, a.id, tag_id}
+ORDER BY a.idno, f.toolingcode]]></query>
+	<field name="id" class="java.lang.Long"/>
+	<field name="idno" class="java.lang.String"/>
+	<field name="itemcode" class="java.lang.String"/>
+	<field name="toolingcode" class="java.lang.String"/>
+	<field name="qtyperbox" class="java.lang.Integer"/>
+	<field name="gangqty" class="java.lang.Integer"/>
+	<variable name="No" class="java.lang.Integer" resetType="Group" resetGroup="Tag" calculation="Count">
+		<expression><![CDATA[$F{toolingcode}]]></expression>
+	</variable>
+	<group name="Tag" startNewPage="true" reprintHeaderOnEachPage="true">
+		<expression><![CDATA[$F{id}]]></expression>
+		<groupHeader>
+			<band height="128">
+				<element kind="staticText" uuid="3a9e5c14-0001-4000-8000-000000000001" x="0" y="0" width="381" height="20" fontName="Arial" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+					<text><![CDATA[PRODUCT CODE]]></text>
+				</element>
+				<element kind="textField" uuid="3a9e5c14-0001-4000-8000-000000000002" textAdjust="ScaleFont" x="1" y="20" width="379" height="55" fontName="Arial" fontSize="34.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+					<expression><![CDATA[$F{itemcode}]]></expression>
+				</element>
+				<element kind="staticText" uuid="3a9e5c14-0001-4000-8000-000000000003" x="0" y="80" width="48" height="20" fontName="Arial" fontSize="10.0" bold="true" vTextAlign="Middle">
+					<text><![CDATA[NO. Tag]]></text>
+					<box leftPadding="3"/>
+				</element>
+				<element kind="staticText" uuid="3a9e5c14-0001-4000-8000-000000000004" x="48" y="80" width="5" height="20" fontName="Arial" fontSize="11.0" bold="true" vTextAlign="Middle">
+					<text><![CDATA[:]]></text>
+				</element>
+				<element kind="textField" uuid="3a9e5c14-0001-4000-8000-000000000005" textAdjust="ScaleFont" mode="Opaque" x="53" y="80" width="100" height="20" backcolor="#999999" fontName="Arial" fontSize="13.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+					<expression><![CDATA[$F{idno}]]></expression>
+				</element>
+				<element kind="staticText" uuid="3a9e5c14-0001-4000-8000-000000000006" x="0" y="107" width="30" height="21" fontName="Arial" fontSize="11.0" bold="true" vTextAlign="Middle">
+					<text><![CDATA[NO.]]></text>
+					<box leftPadding="3">
+						<pen lineWidth="0.75"/>
+					</box>
+				</element>
+				<element kind="staticText" uuid="3a9e5c14-0001-4000-8000-000000000007" x="30" y="107" width="178" height="21" fontName="Arial" fontSize="11.0" bold="true" vTextAlign="Middle">
+					<text><![CDATA[Component Description]]></text>
+					<box leftPadding="3">
+						<pen lineWidth="0.75"/>
+					</box>
+				</element>
+				<element kind="staticText" uuid="3a9e5c14-0001-4000-8000-000000000008" x="208" y="107" width="92" height="21" fontName="Arial" fontSize="11.0" bold="true" vTextAlign="Middle">
+					<text><![CDATA[Core Qty/Box]]></text>
+					<box leftPadding="3">
+						<pen lineWidth="0.75"/>
+					</box>
+				</element>
+				<element kind="staticText" uuid="3a9e5c14-0001-4000-8000-000000000009" x="300" y="107" width="81" height="21" fontName="Arial" fontSize="11.0" bold="true" vTextAlign="Middle">
+					<text><![CDATA[Gang Qty]]></text>
+					<box leftPadding="3">
+						<pen lineWidth="0.75"/>
+					</box>
+				</element>
+			</band>
+		</groupHeader>
+	</group>
+	<detail>
+		<band height="21" splitType="Stretch">
+			<element kind="textField" uuid="3a9e5c14-0001-4000-8000-000000000010" x="0" y="0" width="30" height="21" fontName="Arial" fontSize="10.0" vTextAlign="Middle">
+				<expression><![CDATA[$V{No}]]></expression>
+				<box leftPadding="3">
+					<pen lineWidth="0.75"/>
+				</box>
+			</element>
+			<element kind="textField" uuid="3a9e5c14-0001-4000-8000-000000000011" x="30" y="0" width="178" height="21" fontName="Arial" fontSize="10.0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{toolingcode}]]></expression>
+				<box leftPadding="3">
+					<pen lineWidth="0.75"/>
+				</box>
+			</element>
+			<element kind="textField" uuid="3a9e5c14-0001-4000-8000-000000000012" x="208" y="0" width="92" height="21" fontName="Arial" fontSize="10.0" pattern="#,##0;-#,##0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+				<expression><![CDATA[$F{qtyperbox}]]></expression>
+				<box rightPadding="5">
+					<pen lineWidth="0.75"/>
+				</box>
+			</element>
+			<element kind="textField" uuid="3a9e5c14-0001-4000-8000-000000000013" x="300" y="0" width="81" height="21" fontName="Arial" fontSize="10.0" pattern="#,##0;-#,##0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+				<expression><![CDATA[$F{gangqty}]]></expression>
+				<box rightPadding="5">
+					<pen lineWidth="0.75"/>
+				</box>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="151">
+		<element kind="staticText" uuid="3a9e5c14-0001-4000-8000-000000000020" x="0" y="0" width="95" height="18" fontName="Arial" fontSize="11.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Keterangan :]]></text>
+			<box leftPadding="3"/>
+		</element>
+		<element kind="textField" uuid="3a9e5c14-0001-4000-8000-000000000021" textAdjust="StretchHeight" x="16" y="18" width="365" height="36" fontName="Arial" fontSize="10.0" bold="true" vTextAlign="Top">
+			<expression><![CDATA["1. Jumlah Pattern yang diterima harus dicek, apakah sudah sesuai dengan kartu ini"]]></expression>
+		</element>
+		<element kind="textField" uuid="3a9e5c14-0001-4000-8000-000000000022" textAdjust="StretchHeight" x="16" y="54" width="365" height="36" fontName="Arial" fontSize="10.0" bold="true" vTextAlign="Top">
+			<expression><![CDATA["2. Sebelum core qty/box belum terpenuhi, jangan transfer kartu ke Papan Informasi"]]></expression>
+		</element>
+		<element kind="textField" uuid="3a9e5c14-0001-4000-8000-000000000023" textAdjust="StretchHeight" x="16" y="90" width="365" height="36" fontName="Arial" fontSize="10.0" bold="true" vTextAlign="Top">
+			<expression><![CDATA["3. Selesai produksi, semua pattern yang diterima harus dikembalikan ke Dept. Pattern"]]></expression>
+		</element>
+		<element kind="staticText" uuid="3a9e5c14-0001-4000-8000-000000000024" x="0" y="136" width="62" height="15" fontName="Arial" fontSize="8.0">
+			<text><![CDATA[Dicetak oleh: ]]></text>
+			<box leftPadding="3"/>
+		</element>
+		<element kind="textField" uuid="3a9e5c14-0001-4000-8000-000000000025" x="62" y="136" width="150" height="15" fontName="Arial" fontSize="8.0" blankWhenNull="true">
+			<expression><![CDATA[$P{CURRENT_USER_NAME}]]></expression>
+		</element>
+		<element kind="textField" uuid="3a9e5c14-0001-4000-8000-000000000026" x="261" y="136" width="120" height="15" fontName="Arial" fontSize="8.0" pattern="dd-MMM-yy HH:mm:ss" hTextAlign="Right">
+			<expression><![CDATA[new java.util.Date()]]></expression>
+			<box rightPadding="2"/>
+		</element>
+	</pageFooter>
+</jasperReport>

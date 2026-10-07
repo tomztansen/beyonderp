@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Subreport RPT_PRD_TAG_RM_JSP: isi kotak SERIAL NUMBER / BATCH NUMBER. Semua nomor (tsproductionserial.idno) dari
+     detail tag (tdproductiontag) digabung menjadi SATU baris dipisah koma, urut lineno lalu id. Tag tanpa detail tidak
+     menghasilkan baris (HAVING), jadi kotak tetap kosong. Teks mengecil otomatis (ScaleFont) bila daftar panjang.
+     Param name di Designer: RPT_PRD_TAG_SERIAL_SUB. Lebar 176 = kotak 180 di kartu dikurangi tepi. -->
+<jasperReport name="RPT_PRD_TAG_SERIAL_SUB" language="java" pageWidth="176" pageHeight="30" columnWidth="176" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="9c1e7a52-3d64-4b8f-a1c0-6e5f4d3c2b10">
+	<parameter name="P_TAG_ID" class="java.lang.Long"/>
+	<query language="sql"><![CDATA[SELECT string_agg(s.idno, ', ' ORDER BY d.lineno, d.id) AS serials
+FROM dynamic.tdproductiontag d
+JOIN dynamic.tsproductionserial s ON s.id = d.tsproductionserialid
+WHERE d.thproductiontagid = $P{P_TAG_ID}
+HAVING count(*) > 0]]></query>
+	<field name="serials" class="java.lang.String"/>
+	<detail>
+		<band height="30">
+			<element kind="textField" uuid="9c1e7a52-0001-4000-8000-000000000001" textAdjust="ScaleFont" x="0" y="0" width="176" height="30" fontName="Arial" fontSize="18.0" bold="true" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{serials}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+		</band>
+	</detail>
+</jasperReport>
