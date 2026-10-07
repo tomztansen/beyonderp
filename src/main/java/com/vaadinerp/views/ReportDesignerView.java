@@ -752,7 +752,7 @@ public class ReportDesignerView extends VerticalLayout {
         boolean fileBased = "JASPER".equalsIgnoreCase(engineNow) || "STIMULSOFT".equalsIgnoreCase(engineNow);
         if (fileBased && templateSourceRequired) {
             Notification.show("Choose the report whose template this report should use, or switch back to "
-                    + "'Upload new file'.", 5000, Notification.Position.MIDDLE);
+                    + "'" + ownTemplateLabel(engineNow) + "'.", 5000, Notification.Position.MIDDLE);
             return;
         }
         String sourceCode = fileBased ? templateSourceState : null;
@@ -1034,7 +1034,13 @@ public class ReportDesignerView extends VerticalLayout {
         tabs.setSelectedIndex(1);
     }
 
-    private static final String MODE_OWN_TEMPLATE = "Upload new file";
+    /** Label pilihan "template sendiri"; Stimulsoft tidak punya tombol unggah (berkas dimasukkan lewat File > Open Document). */
+    static String ownTemplateLabel(String engine) {
+        return "STIMULSOFT".equalsIgnoreCase(engine)
+                ? "Own template (design here, or File > Open Document)"
+                : "Upload new file";
+    }
+
     private static final String MODE_EXISTING_TEMPLATE = "Use existing report";
 
     /**
@@ -1052,7 +1058,8 @@ public class ReportDesignerView extends VerticalLayout {
         List<String> dependents = com.vaadinerp.report.ReportTemplateRef.dependentsOf(all, report.getReportCode());
 
         com.vaadin.flow.component.radiobutton.RadioButtonGroup<String> mode = new com.vaadin.flow.component.radiobutton.RadioButtonGroup<>();
-        mode.setItems(MODE_OWN_TEMPLATE, MODE_EXISTING_TEMPLATE);
+        final String ownLabel = ownTemplateLabel(engine);
+        mode.setItems(ownLabel, MODE_EXISTING_TEMPLATE);
 
         ComboBox<ReportMeta> sourceBox = new ComboBox<>("Report whose template to use");
         sourceBox.setWidth("420px");
@@ -1080,7 +1087,7 @@ public class ReportDesignerView extends VerticalLayout {
                             + "that report's template changes this one. Press Save to apply."
                     : "");
         };
-        mode.setValue(templateSourceState != null ? MODE_EXISTING_TEMPLATE : MODE_OWN_TEMPLATE);
+        mode.setValue(templateSourceState != null ? MODE_EXISTING_TEMPLATE : ownLabel);
         mode.addValueChangeListener(e -> {
             templateSourceState = MODE_EXISTING_TEMPLATE.equals(e.getValue()) && sourceBox.getValue() != null
                     ? sourceBox.getValue().getReportCode() : null;
