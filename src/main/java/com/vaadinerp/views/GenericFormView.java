@@ -188,6 +188,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     }
 
     private java.util.Map<String, FilterCriteria> filterValues = new java.util.HashMap<>();
+
+    /** Kolom terkunci dari parameter awal _FIXED_<kolom>=<nilai> (lihat FixedParams). */
+    private Map<String, String> fixedValues = new java.util.LinkedHashMap<>();
+
+    /** filterValues ditimpa kolom terkunci; dipakai untuk SEMUA query grid. Tanpa kolom terkunci = filterValues. */
+    private java.util.Map<String, FilterCriteria> effectiveFilters() {
+        return FixedParams.overlay(filterValues, fixedValues);
+    }
     private Map<String, Object> draggedItem;
     private Map<String, Object> currentlyOpenDetailItem = null;
     private com.vaadinerp.components.PaginationBar paginationBar;
@@ -407,6 +415,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             tabSheet.setSelectedTab(transaksiTab);
             refreshMode();
             executeOnLoadActions("ON_LOAD_NEW");
+            applyFixedValuesToForm();
         });
 
         // 1.5. EDIT BUTTON
@@ -606,6 +615,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     }
 
                     stripSubformDataIfDetailLocked(formDef, parentData);
+                    FixedParams.force(parentData, fixedValues);
                     dynamicDataService.saveData(formDef, parentData);
 
                     // Baru sekarang record-nya benar-benar tersimpan -- file yang tadi
@@ -1424,6 +1434,11 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 }
             } else if (extra instanceof Map<?, ?> mapExtra) {
                 boolean needsFilterApply = false;
+                if (FixedParams.has(mapExtra)) {
+                    // Parameter terkunci menggantikan yang lama (tab yang sama bisa dibuka ulang untuk kategori lain).
+                    fixedValues = FixedParams.parse(mapExtra);
+                    needsFilterApply = true;
+                }
                 for (Map.Entry<?, ?> entry : mapExtra.entrySet()) {
                     String key = entry.getKey() != null ? entry.getKey().toString().trim() : "";
                     Object val = entry.getValue();
@@ -1443,6 +1458,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                                 tabSheet.setSelectedTab(transaksiTab);
                             }
                         }
+                    } else if (key.regionMatches(true, 0, FixedParams.PREFIX, 0, FixedParams.PREFIX.length())) {
+                        // sudah dibaca lewat FixedParams.parse di atas
                     } else if (key.toUpperCase().startsWith("FILTER_OP_")) {
                         String fieldName = key.substring(10);
                         FilterCriteria criteria = filterValues.get(fieldName);
@@ -1498,7 +1515,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                             // Grid memakai CallbackDataProvider (berhalaman), jadi ambil 1 baris terfilter
                             // langsung dari service -- cast ke ListDataProvider yang lama selalu gagal diam-diam.
                             java.util.List<Map<String, Object>> firstPage = dynamicDataService.fetchGridDataPaged(
-                                    currentFormDef, 0, 1, filterValues, currentSortField, currentSortDir);
+                                    currentFormDef, 0, 1, effectiveFilters(), currentSortField, currentSortDir);
                             if (firstPage != null && !firstPage.isEmpty()) {
                                 // Ikuti otoritas: tanpa hak Edit -> mode View (field readonly, tanpa Save)
                                 if (auth != null && !auth.canEdit) {
@@ -1534,6 +1551,11 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         if (comp instanceof com.vaadin.flow.component.HasValue) {
             presetFieldFromQuery(comp, val);
         }
+    }
+
+    /** Isi kolom terkunci pada form yang sedang terbuka (record baru), sesudah script ON_LOAD_NEW. */
+    private void applyFixedValuesToForm() {
+        fixedValues.forEach(this::applySingleParameter);
     }
 
     private void presetFieldFromQuery(Component targetComponent, Object value) {
@@ -2048,7 +2070,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     int offset = paginationBar != null ? paginationBar.getOffset() : 0;
                     int limit = paginationBar != null ? paginationBar.getLimit() : 1000;
                     java.util.List<Map<String, Object>> pageItems = dynamicDataService.fetchGridDataPaged(
-                            currentFormDef, offset, limit, filterValues, currentSortField, currentSortDir);
+                            currentFormDef, offset, limit, effectiveFilters(), currentSortField, currentSortDir);
                     grid.asMultiSelect().select(pageItems);
                     Notification.show("Selected " + pageItems.size() + " rows on this page.", 1500,
                             Notification.Position.BOTTOM_END);
@@ -2067,7 +2089,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             if (e.isFromClient() && currentFormDef != null) {
                 if (Boolean.TRUE.equals(e.getValue())) {
                     java.util.List<Map<String, Object>> allItems = dynamicDataService.fetchGridDataPaged(
-                            currentFormDef, 0, Integer.MAX_VALUE, filterValues, currentSortField, currentSortDir);
+                            currentFormDef, 0, Integer.MAX_VALUE, effectiveFilters(), currentSortField, currentSortDir);
                     grid.asMultiSelect().select(allItems);
                     cbPilihSemuaHalIni.setValue(true);
                     Notification.show("Selected all " + allItems.size() + " rows.", 2000,
@@ -2527,7 +2549,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 return java.util.Collections.emptyList();
             int offset = paginationBar != null ? paginationBar.getOffset() : 0;
             int limit = paginationBar != null ? paginationBar.getLimit() : 1000;
-            return dynamicDataService.fetchGridDataPaged(currentFormDef, offset, limit, filterValues, currentSortField,
+            return dynamicDataService.fetchGridDataPaged(currentFormDef, offset, limit, effectiveFilters(), currentSortField,
                     currentSortDir);
         });
 
@@ -2680,7 +2702,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private void applyFilters() {
         if (currentFormDef == null)
             return;
-        long totalRecords = dynamicDataService.countGridData(currentFormDef, filterValues);
+        long totalRecords = dynamicDataService.countGridData(currentFormDef, effectiveFilters());
         if (paginationBar != null) {
             paginationBar.setTotalRecords(totalRecords);
         }
@@ -2712,7 +2734,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     }
 
                     java.util.List<Map<String, Object>> chunk = dynamicDataService.fetchGridDataPaged(
-                            currentFormDef, effectiveOffset, queryLimit, filterValues, sortField, sortDir);
+                            currentFormDef, effectiveOffset, queryLimit, effectiveFilters(), sortField, sortDir);
 
                     allGridItems.clear();
                     allGridItems.addAll(chunk);
@@ -2723,7 +2745,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     return chunk.stream();
                 },
                 query -> {
-                    long total = dynamicDataService.countGridData(currentFormDef, filterValues);
+                    long total = dynamicDataService.countGridData(currentFormDef, effectiveFilters());
                     if (paginationBar != null) {
                         paginationBar.setTotalRecords(total);
                         long pageLimit = paginationBar.getLimit();
@@ -2749,7 +2771,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 return java.util.Collections.emptyList();
             int offset = paginationBar != null ? paginationBar.getOffset() : 0;
             int limit = paginationBar != null ? paginationBar.getLimit() : 1000;
-            return dynamicDataService.fetchGridDataPaged(currentFormDef, offset, limit, filterValues, currentSortField,
+            return dynamicDataService.fetchGridDataPaged(currentFormDef, offset, limit, effectiveFilters(), currentSortField,
                     currentSortDir);
         });
     }

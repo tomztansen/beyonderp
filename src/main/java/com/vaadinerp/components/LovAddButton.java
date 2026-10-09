@@ -127,9 +127,24 @@ public final class LovAddButton {
         if (portal == null) {
             return "Cannot open the form: portal not available.";
         }
-        // tabId tetap per form: klik berulang hanya memilih tab yang sudah ada, tidak menumpuk tab.
-        portal.openTabByCode(form, "LOVADD_" + form, null, extra);
+        // tabId tetap per form+parameter: klik berulang hanya memilih tab yang sudah ada, tidak menumpuk tab,
+        // dan kategori berbeda (parameter beda) tidak saling menimpa isian di satu tab.
+        portal.openTabByCode(form, tabIdFor(form, extra), tabTitleFor(extra), extra);
         return null;
+    }
+
+    static String tabIdFor(String form, Map<String, Object> extra) {
+        if (extra.isEmpty()) {
+            return "LOVADD_" + form;
+        }
+        // TreeMap: urutan kunci tidak boleh mempengaruhi id.
+        return "LOVADD_" + form + "_" + Integer.toHexString(new java.util.TreeMap<>(extra).toString().hashCode());
+    }
+
+    /** Judul tab dari parameter _TAB_TITLE; null = judul form. */
+    static String tabTitleFor(Map<String, Object> extra) {
+        Object title = extra.get("_TAB_TITLE");
+        return title == null || title.toString().isBlank() ? null : title.toString().trim();
     }
 
     static PortalView findPortal(Component from) {
