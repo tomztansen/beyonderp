@@ -231,6 +231,14 @@ public class FieldMeta extends BaseAuditableEntity {
     @Column(name = "lov_switch", columnDefinition = "TEXT")
     private String lovSwitch;
 
+    /** Kode form tujuan tombol "+ New" di LOV. Null = tidak ada tombol. */
+    @Column(name = "lov_add_form", length = 50)
+    private String lovAddForm;
+
+    /** JSON peta nilai awal untuk form tujuan, mis. {"FILTER_category_code":"MAS0037"}. Opsional. */
+    @Column(name = "lov_add_params", columnDefinition = "TEXT")
+    private String lovAddParams;
+
     @OneToMany(mappedBy = "fieldMeta", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     private java.util.List<FieldLovTargetMeta> lovTargets;
 
