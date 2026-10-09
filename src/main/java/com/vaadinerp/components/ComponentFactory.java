@@ -29,6 +29,10 @@ public class ComponentFactory {
     public static Component create(FieldMeta field, DynamicDataService dataService,
             BiConsumer<String, Object> updateFieldValue, boolean hideLabel) {
         Component component = createInternal(field, dataService, updateFieldValue, hideLabel);
+        // Tautan "Add new" untuk LOV; tidak di editor sel grid (hideLabel): ruangnya sempit.
+        if (!hideLabel) {
+            LovAddButton.attach(component, field);
+        }
 
         if (component instanceof com.vaadin.flow.component.HasValue) {
             boolean req = field.isRequired();
