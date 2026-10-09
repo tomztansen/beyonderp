@@ -865,6 +865,23 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                     continue;
                 }
 
+                // Rentang tanggal dari filter Between: nilainya "yyyy-MM-dd|yyyy-MM-dd"
+                if (StandardGridUtils.DATE_OP_BETWEEN.equals(op)) {
+                    String[] parts = query.trim().split("\\|");
+                    if (parts.length != 2)
+                        continue;
+                    try {
+                        java.time.LocalDate from = java.time.LocalDate.parse(parts[0]);
+                        java.time.LocalDate to = java.time.LocalDate.parse(parts[1]);
+                        java.time.LocalDate itemDate = toLocalDate(val);
+                        if (itemDate == null || itemDate.isBefore(from) || itemDate.isAfter(to))
+                            return false;
+                    } catch (Exception e) {
+                        continue;
+                    }
+                    continue;
+                }
+
                 // Penanganan khusus untuk operator tanggal (≥ / ≤)
                 if (op.startsWith("\u2265") || op.startsWith("\u2264")) {
                     try {
@@ -1114,15 +1131,15 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                                 sourceComp = editorComponents.get("isunique");
                         }
                         if (sourceComp instanceof HasValue) {
+                            // Juga saat masih kosong: LOV tidak menampilkan data sebelum sumbernya diisi.
                             Object val = ((HasValue<?, ?>) sourceComp).getValue();
-                            if (val != null) {
-                                FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
-                                        filter.getFilterColumn(), val, filter.getLogicalOperator(),
-                                        filter.getComparisonOperator());
-                                applyFilterToSubformEditor(editorComp, condition);
-                            }
+                            FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
+                                    filter.getFilterColumn(), val, filter.getLogicalOperator(),
+                                    filter.getComparisonOperator());
+                            applyFilterToSubformEditor(editorComp, condition);
                         } else {
-                            Object fallbackVal = filter.getSourceName();
+                            // Sumber header.x/detail.x yang nilainya belum ada = kosong, bukan teks "header.x".
+                            Object fallbackVal = isRecordRef(sourceFieldName) ? null : filter.getSourceName();
                             if (headerRecordSupplier != null && headerRecordSupplier.get() != null
                                     && lookupKey != null) {
                                 Object hv = getCaseInsensitiveVal(headerRecordSupplier.get(), lookupKey);
@@ -1293,62 +1310,16 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
                 filterRow.getCell(col).setComponent(filterCombo);
             } else if (isDate) {
-                com.vaadin.flow.component.datepicker.DatePicker filterDatePicker = new com.vaadin.flow.component.datepicker.DatePicker();
-                filterDatePicker.setPlaceholder("Filter...");
-                filterDatePicker.setClearButtonVisible(true);
-                filterDatePicker.setWidthFull();
-                filterDatePicker.getElement().getThemeList().add("small");
-                filterDatePicker.setLocale(java.util.Locale.ENGLISH);
-
-                Button filterButton = new Button(VaadinIcon.FILTER.create());
-                filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
-                filterButton.getStyle().set("cursor", "pointer");
-                filterButton.getElement().setProperty("title", "Equals");
-                filterDatePicker.setPrefixComponent(filterButton);
-
-                criteria.operator = "Equals";
-
-                ContextMenu dateCtx = new ContextMenu(filterButton);
-                dateCtx.setOpenOnClick(true);
-
-                Runnable applyDateOperatorUI = () -> {
-                    String op = criteria.operator;
-                    filterButton.getElement().setProperty("title", op);
-                    boolean needsInput = !("Blank".equals(op) || "Not blank".equals(op));
-                    if (!needsInput) {
-                        filterDatePicker.clear();
-                        filterDatePicker.setPlaceholder(op);
-                        filterDatePicker.setReadOnly(true);
-                    } else {
-                        filterDatePicker.setPlaceholder("Filter...");
-                        filterDatePicker.setReadOnly(false);
-                    }
-                };
-
-                com.vaadin.flow.component.ComponentEventListener<com.vaadin.flow.component.ClickEvent<MenuItem>> dateListener = event -> {
-                    if (event.getSource().getText() != null) {
-                        criteria.operator = event.getSource().getText();
-                        applyDateOperatorUI.run();
-                        applyFilters();
-                    }
-                };
-
-                dateCtx.addItem("Equals", dateListener);
-                dateCtx.addItem("\u2265 From date", dateListener);
-                dateCtx.addItem("\u2264 To date", dateListener);
-                dateCtx.addItem("Blank", dateListener);
-                dateCtx.addItem("Not blank", dateListener);
-
-                filterDatePicker.addValueChangeListener(e -> {
-                    if (grid.getEditor().isOpen()) {
-                        grid.getEditor().cancel();
-                    }
-                    java.time.LocalDate picked = e.getValue();
-                    criteria.value = picked != null ? picked.toString() : "";
-                    applyFilters();
-                });
-
-                filterRow.getCell(col).setComponent(filterDatePicker);
+                criteria.operator = StandardGridUtils.DATE_OP_EQUALS;
+                filterRow.getCell(col).setComponent(StandardGridUtils.buildDateFilterCell(
+                        op -> criteria.operator = op,
+                        v -> criteria.value = v,
+                        () -> {
+                            if (grid.getEditor().isOpen()) {
+                                grid.getEditor().cancel();
+                            }
+                            applyFilters();
+                        }));
             } else {
                 TextField filterField = new TextField();
                 filterField.setPlaceholder("Filter...");
@@ -1687,10 +1658,11 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                                         foundInSupplier = true;
                                     }
                                 }
-                                if (foundInSupplier) {
+                                // Sumber header.x yang kini kosong: kondisi ikut kosong, jangan tinggalkan nilai lama.
+                                if (foundInSupplier || isRecordRef(srcName)) {
                                     FilterCondition condition = new FilterCondition(String.valueOf(filter.getId()),
-                                            filter.getFilterColumn(), fallbackVal, filter.getLogicalOperator(),
-                                            filter.getComparisonOperator());
+                                            filter.getFilterColumn(), foundInSupplier ? fallbackVal : null,
+                                            filter.getLogicalOperator(), filter.getComparisonOperator());
                                     applyFilterToSubformEditor(editorComp, condition);
                                 }
                             }
@@ -1729,6 +1701,14 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 }
             }
         }
+    }
+
+    /** Sumber filter berupa rujukan ke record (header.x / detail.x), bukan nilai tetap. */
+    private static boolean isRecordRef(String src) {
+        if (src == null)
+            return false;
+        String s = src.replace("\"", "").trim();
+        return s.startsWith("header.") || s.startsWith("detail.");
     }
 
     private void applyFilterToSubformEditor(Component editorComp, FilterCondition condition) {

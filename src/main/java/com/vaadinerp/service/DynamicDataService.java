@@ -3189,6 +3189,17 @@ public class DynamicDataService {
                 Object resolvedValue = resolveFilterKeyword(condition.getValue());
                 boolean isNullOp = "IS NULL".equalsIgnoreCase(condition.getComparisonOperator())
                         || "IS NOT NULL".equalsIgnoreCase(condition.getComparisonOperator());
+                if (!isNullOp && (resolvedValue == null || resolvedValue.toString().trim().isEmpty())) {
+                    // Sumber filter belum diisi: LOV tidak menampilkan data sampai sumbernya diisi
+                    // (dulu kondisi ini dilewati sehingga semua data muncul).
+                    if (!isFirst) {
+                        filterBuilder.append(" ").append(validateLogicalOperator(condition.getLogicalOperator()))
+                                .append(" ");
+                    }
+                    isFirst = false;
+                    filterBuilder.append("1=0");
+                    continue;
+                }
                 if (isNullOp || (resolvedValue != null && !resolvedValue.toString().trim().isEmpty())) {
                     String safeFilterCol = condition.getFilterColumn() != null ? condition.getFilterColumn().trim()
                             : "";
@@ -3501,6 +3512,17 @@ public class DynamicDataService {
                 Object resolvedValue = resolveFilterKeyword(condition.getValue());
                 boolean isNullOp = "IS NULL".equalsIgnoreCase(condition.getComparisonOperator())
                         || "IS NOT NULL".equalsIgnoreCase(condition.getComparisonOperator());
+                if (!isNullOp && (resolvedValue == null || resolvedValue.toString().trim().isEmpty())) {
+                    // Sumber filter belum diisi: LOV tidak menampilkan data sampai sumbernya diisi
+                    // (dulu kondisi ini dilewati sehingga semua data muncul).
+                    if (!isFirst) {
+                        filterBuilder.append(" ").append(validateLogicalOperator(condition.getLogicalOperator()))
+                                .append(" ");
+                    }
+                    isFirst = false;
+                    filterBuilder.append("1=0");
+                    continue;
+                }
                 if (isNullOp || (resolvedValue != null && !resolvedValue.toString().trim().isEmpty())) {
                     String safeFilterCol = condition.getFilterColumn() != null ? condition.getFilterColumn().trim()
                             : "";
@@ -3692,6 +3714,17 @@ public class DynamicDataService {
                 Object resolvedValue = resolveFilterKeyword(condition.getValue());
                 boolean isNullOp = "IS NULL".equalsIgnoreCase(condition.getComparisonOperator())
                         || "IS NOT NULL".equalsIgnoreCase(condition.getComparisonOperator());
+                if (!isNullOp && (resolvedValue == null || resolvedValue.toString().trim().isEmpty())) {
+                    // Sumber filter belum diisi: LOV tidak menampilkan data sampai sumbernya diisi
+                    // (dulu kondisi ini dilewati sehingga semua data muncul).
+                    if (!isFirst) {
+                        filterBuilder.append(" ").append(validateLogicalOperator(condition.getLogicalOperator()))
+                                .append(" ");
+                    }
+                    isFirst = false;
+                    filterBuilder.append("1=0");
+                    continue;
+                }
                 if (isNullOp || (resolvedValue != null && !resolvedValue.toString().trim().isEmpty())) {
                     String safeFilterCol = condition.getFilterColumn() != null ? condition.getFilterColumn().trim()
                             : "";
@@ -4121,29 +4154,97 @@ public class DynamicDataService {
             } else if (val != null && !val.trim().isEmpty()) {
                 val = val.trim();
                 // Deteksi filter tanggal (format ISO yyyy-MM-dd dari DatePicker)
-                if (val.matches("\\d{4}-\\d{2}-\\d{2}") && (op.startsWith("\u2265") || op.startsWith("\u2264") || "Equals".equals(op))) {
-                    try {
-                        java.time.LocalDate filterDate = java.time.LocalDate.parse(val);
-                        if (op.startsWith("\u2265")) {
-                            where.append(" AND CAST(").append(colName).append(" AS DATE) >= ? ");
-                            args.add(java.sql.Date.valueOf(filterDate));
-                        } else if (op.startsWith("\u2264")) {
-                            where.append(" AND CAST(").append(colName).append(" AS DATE) <= ? ");
-                            args.add(java.sql.Date.valueOf(filterDate));
-                        } else {
-                            // Equals: untuk DATETIMEBOX, cari di rentang satu hari penuh
-                            where.append(" AND CAST(").append(colName).append(" AS DATE) = ? ");
-                            args.add(java.sql.Date.valueOf(filterDate));
-                        }
-                    } catch (Exception dateEx) {
-                        // Fallback ke pencarian teks biasa jika parsing gagal
-                        appendConditionWithLov(where, args, colName, op, val, formMeta);
-                    }
+                java.time.LocalDate[] range = parseDateFilterRange(op, val);
+                if (range != null) {
+                    appendDateRangeCondition(where, args, colName, range[0], range[1], formMeta);
                 } else {
                     appendConditionWithLov(where, args, colName, op, val, formMeta);
                 }
             }
         }
+    }
+
+    /**
+     * Terjemahkan operator + nilai filter tanggal menjadi rentang setengah terbuka
+     * {@code [from, toExclusive)}; salah satu elemennya boleh null untuk sisi yang
+     * terbuka. Mengembalikan null kalau nilainya bukan tanggal -- pemanggil lalu
+     * memperlakukannya sebagai pencarian teks biasa, sama seperti sebelumnya.
+     *
+     * Formatnya wajib diperiksa di sini, bukan dipercaya dari UI: nilai filter juga
+     * bisa datang dari deep-link (?FILTER_OP_x=Between&FILTER_x=...) yang tidak lewat
+     * DatePicker sama sekali.
+     */
+    static java.time.LocalDate[] parseDateFilterRange(String op, String val) {
+        if (op == null || val == null)
+            return null;
+        try {
+            if (com.vaadinerp.components.StandardGridUtils.DATE_OP_BETWEEN.equals(op)) {
+                if (!val.matches("\\d{4}-\\d{2}-\\d{2}\\|\\d{4}-\\d{2}-\\d{2}"))
+                    return null;
+                String[] parts = val.split("\\|");
+                java.time.LocalDate from = java.time.LocalDate.parse(parts[0]);
+                java.time.LocalDate to = java.time.LocalDate.parse(parts[1]);
+                if (to.isBefore(from))
+                    return null;
+                return new java.time.LocalDate[] { from, to.plusDays(1) };
+            }
+            if (!val.matches("\\d{4}-\\d{2}-\\d{2}"))
+                return null;
+            java.time.LocalDate d = java.time.LocalDate.parse(val);
+            if (op.startsWith("\u2265"))
+                return new java.time.LocalDate[] { d, null };
+            if (op.startsWith("\u2264"))
+                return new java.time.LocalDate[] { null, d.plusDays(1) };
+            if ("Equals".equals(op))
+                return new java.time.LocalDate[] { d, d.plusDays(1) };
+            return null;
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    /**
+     * Rentang tanggal setengah terbuka: {@code col >= from AND col < toExclusive}.
+     * Bentuknya sargable -- index pada kolom itu tetap terpakai, beda dengan
+     * {@code CAST(col AS DATE)} yang memaksa seq scan pada kolom timestamp.
+     *
+     * CAST tetap dipakai kalau kolomnya bukan date/timestamp (mis. tanggal yang
+     * disimpan sebagai teks, atau sumber datanya custom query): di PostgreSQL
+     * {@code text >= date} tidak punya operator dan querynya langsung gagal.
+     */
+    private void appendDateRangeCondition(StringBuilder where, List<Object> args, String colName,
+            java.time.LocalDate from, java.time.LocalDate toExclusive, FormMeta formMeta) {
+        boolean sargable = isNativeDateColumn(formMeta, colName);
+        if (from != null) {
+            where.append(sargable ? " AND " + colName + " >= ? " : " AND CAST(" + colName + " AS DATE) >= ? ");
+            args.add(java.sql.Date.valueOf(from));
+        }
+        if (toExclusive != null) {
+            if (sargable) {
+                where.append(" AND ").append(colName).append(" < ? ");
+                args.add(java.sql.Date.valueOf(toExclusive));
+            } else {
+                // CAST sudah membuang jamnya, jadi batas atas cukup inklusif di H-1
+                where.append(" AND CAST(").append(colName).append(" AS DATE) <= ? ");
+                args.add(java.sql.Date.valueOf(toExclusive.minusDays(1)));
+            }
+        }
+    }
+
+    /**
+     * Kolomnya benar-benar bertipe date/timestamp di sumber data form? Custom query
+     * dilewati karena {@link #getColumnDataType} memotong nama tabel di titik pertama,
+     * jadi query yang mengandung "." akan salah dibaca.
+     */
+    private boolean isNativeDateColumn(FormMeta formMeta, String colName) {
+        if (formMeta == null)
+            return false;
+        String viewTable = formMeta.getViewTable();
+        String source = viewTable != null && !viewTable.trim().isEmpty() ? viewTable.trim() : formMeta.getTableName();
+        if (source == null || source.trim().isEmpty() || isCustomSelectQuery(source) || source.contains(" "))
+            return false;
+        String type = getColumnDataType(source, colName);
+        return type.startsWith("date") || type.startsWith("timestamp");
     }
 
     /**

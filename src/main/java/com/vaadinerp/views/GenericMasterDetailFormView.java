@@ -99,6 +99,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
     private final HorizontalLayout printGroup = new HorizontalLayout();
     /** Format yang sedang dicetak: PDF (tombol Print) atau XLSX (menu panah). Dibaca launchPrint. */
     private String printFormat = "PDF";
+    /** Bar loading tema + penjaga: report cetak yang sama tidak dijalankan dua kali bersamaan. */
+    private final com.vaadinerp.components.RunIndicator printIndicator = new com.vaadinerp.components.RunIndicator();
     private Button btnRefresh;
     private Button btnDebug;
     private Button btnAddRow;
@@ -2312,65 +2314,15 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
                 filterRow.getCell(col).setComponent(filterCombo);
             } else if (isDate) {
-                com.vaadin.flow.component.datepicker.DatePicker filterDatePicker = new com.vaadin.flow.component.datepicker.DatePicker();
-                filterDatePicker.setPlaceholder("Filter...");
-                filterDatePicker.setClearButtonVisible(true);
-                filterDatePicker.setWidthFull();
-                filterDatePicker.getElement().getThemeList().add("small");
-                filterDatePicker.setLocale(java.util.Locale.ENGLISH);
-
-                Button filterButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.FILTER.create());
-                filterButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
-                filterButton.getStyle().set("cursor", "pointer");
-                filterButton.getElement().setProperty("title", "Equals");
-                filterDatePicker.setPrefixComponent(filterButton);
-
-                criteria.operator = "Equals";
-
-                com.vaadin.flow.component.contextmenu.ContextMenu dateCtx = new com.vaadin.flow.component.contextmenu.ContextMenu(filterButton);
-                dateCtx.setOpenOnClick(true);
-
-                Runnable applyDateOperatorUI = () -> {
-                    String op = criteria.operator;
-                    filterButton.getElement().setProperty("title", op);
-                    boolean needsInput = !("Blank".equals(op) || "Not blank".equals(op));
-                    if (!needsInput) {
-                        filterDatePicker.clear();
-                        filterDatePicker.setPlaceholder(op);
-                        filterDatePicker.setReadOnly(true);
-                    } else {
-                        filterDatePicker.setPlaceholder("Filter...");
-                        filterDatePicker.setReadOnly(false);
-                    }
-                };
-
-                com.vaadin.flow.component.ComponentEventListener<com.vaadin.flow.component.ClickEvent<com.vaadin.flow.component.contextmenu.MenuItem>> dateListener = event -> {
-                    if (event.getSource().getText() != null) {
-                        criteria.operator = event.getSource().getText();
-                        applyDateOperatorUI.run();
-                        if (paginationBar != null)
-                            paginationBar.resetPage();
-                        applyFilters();
-                    }
-                };
-
-                dateCtx.addItem("Equals", dateListener);
-                dateCtx.addItem("\u2265 From date", dateListener);
-                dateCtx.addItem("\u2264 To date", dateListener);
-                dateCtx.addItem("Blank", dateListener);
-                dateCtx.addItem("Not blank", dateListener);
-
-                filterDatePicker.addValueChangeListener(e -> {
-                    if (e.isFromClient()) {
-                        java.time.LocalDate picked = e.getValue();
-                        criteria.value = picked != null ? picked.toString() : "";
-                        if (paginationBar != null)
-                            paginationBar.resetPage();
-                        applyFilters();
-                    }
-                });
-
-                filterRow.getCell(col).setComponent(filterDatePicker);
+                criteria.operator = com.vaadinerp.components.StandardGridUtils.DATE_OP_EQUALS;
+                filterRow.getCell(col).setComponent(com.vaadinerp.components.StandardGridUtils.buildDateFilterCell(
+                        op -> criteria.operator = op,
+                        v -> criteria.value = v,
+                        () -> {
+                            if (paginationBar != null)
+                                paginationBar.resetPage();
+                            applyFilters();
+                        }));
             } else {
                 TextField filterField = new TextField();
                 filterField.setPlaceholder("Filter...");
@@ -2804,14 +2756,13 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                                 applyFilterToComponent(targetComponent, condition);
                             });
 
-                            // Apply initial/current filter value
+                            // Apply initial/current filter value -- juga saat masih kosong, supaya LOV
+                            // tidak menampilkan data sebelum sumbernya diisi.
                             Object initVal = hasValueSource.getValue();
-                            if (initVal != null) {
-                                com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(
-                                        String.valueOf(filter.getId()), filter.getFilterColumn(), initVal,
-                                        filter.getLogicalOperator(), filter.getComparisonOperator());
-                                applyFilterToComponent(targetComponent, condition);
-                            }
+                            com.vaadinerp.components.FilterCondition condition = new com.vaadinerp.components.FilterCondition(
+                                    String.valueOf(filter.getId()), filter.getFilterColumn(), initVal,
+                                    filter.getLogicalOperator(), filter.getComparisonOperator());
+                            applyFilterToComponent(targetComponent, condition);
                         } else {
                             Map<String, Object> currentMasterRecordData = formBinder != null ? formBinder.getBean()
                                     : null;
@@ -3931,7 +3882,20 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         try {
             com.vaadinerp.report.ReportRunService runService = com.vaadinerp.config.SpringContextHolder
                     .getBean(com.vaadinerp.report.ReportRunService.class);
-            com.vaadinerp.report.ReportLauncher.runAndOpenTab(this, runService, report, values, printFormat, null);
+            // Bar loading tema tampil sampai report selesai (berhasil maupun gagal). Status tombol tidak diubah;
+            // klik Print lagi saat masih berjalan diabaikan.
+            Runnable done = printIndicator.tryStart(com.vaadin.flow.component.UI.getCurrent());
+            if (done == null) {
+                Notification.show("A report is still being generated. Please wait.", 3000,
+                        Notification.Position.MIDDLE);
+                return;
+            }
+            try {
+                com.vaadinerp.report.ReportLauncher.runAndOpenTab(this, runService, report, values, printFormat, done);
+            } catch (RuntimeException ex) {
+                done.run();
+                throw ex;
+            }
         } catch (Exception ex) {
             Notification.show("Failed to start the report: "
                     + (ex.getMessage() != null ? ex.getMessage() : ex.toString()),

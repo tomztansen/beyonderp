@@ -35,11 +35,8 @@ public class BandboxField<T, V> extends CustomField<V> {
     private final java.util.Map<String, FilterCondition> activeFilters = new java.util.HashMap<>();
 
     public void setFilterValue(FilterCondition condition) {
-        if (condition.getValue() == null || condition.getValue().toString().trim().isEmpty()) {
-            activeFilters.remove(condition.getFilterId());
-        } else {
-            activeFilters.put(condition.getFilterId(), condition);
-        }
+        // Nilai kosong tetap disimpan: query LOV mengubahnya jadi "tidak ada data" sampai sumbernya diisi.
+        activeFilters.put(condition.getFilterId(), condition);
     }
 
     public java.util.Map<String, FilterCondition> getActiveFilters() {
