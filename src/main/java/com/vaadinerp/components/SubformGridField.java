@@ -29,6 +29,37 @@ import java.util.stream.Collectors;
 
 public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
+    // Desktop: isi sisa layar lalu potong sebesar luapan container scroll (satu scrollbar); HP <=600px: 60% layar.
+    private static final String FIT_HEIGHT_JS = """
+            const g = this;
+            const set = h => { g.style.height = Math.max(300, Math.round(h)) + 'px'; };
+            const overflowingAncestor = () => {
+              for (let n = g.parentNode || g.host; n; n = n.parentNode || n.host) {
+                if (n.nodeType !== 1) continue;
+                const oy = getComputedStyle(n).overflowY;
+                if ((oy === 'auto' || oy === 'scroll') && n.scrollHeight > n.clientHeight + 1) return n;
+              }
+              const d = document.scrollingElement;
+              return d && d.scrollHeight > d.clientHeight + 1 ? d : null;
+            };
+            const fit = () => {
+              if (!g.isConnected) { window.removeEventListener('resize', fit); return; }
+              window.addEventListener('resize', fit);
+              if (g.allRowsVisible) { g.style.height = ''; return; }
+              const vh = window.innerHeight;
+              if (window.matchMedia('(max-width: 600px)').matches) { set(vh * 0.6); return; }
+              set(vh - g.getBoundingClientRect().top);
+              const sc = overflowingAncestor();
+              if (sc) set(g.offsetHeight - (sc.scrollHeight - sc.clientHeight));
+            };
+            g.__sfFit = fit;
+            let w = -1;
+            new ResizeObserver(e => {
+              const nw = e[0].contentRect.width;
+              if (nw !== w) { w = nw; fit(); }
+            }).observe(g);
+            """;
+
     private final DynamicDataService dataService;
     private final FieldMeta fieldMeta;
     private FormMeta childFormDef;
@@ -461,7 +492,8 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         com.vaadinerp.components.StandardGridUtils.enableRowClickSelection(grid);
         grid.setMultiSort(true);
         grid.setAllRowsVisible(true);
-        grid.setPageSize(500);
+        grid.setPageSize(50);
+        grid.getElement().executeJs(FIT_HEIGHT_JS);
         grid.setDataProvider(createDataProvider());
         com.vaadinerp.components.StandardGridUtils.enableCellClipboardCopy(grid);
 
@@ -1960,6 +1992,9 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
         }
         primeLovLabels();
+        // allRowsVisible mematikan virtualisasi; ratusan baris butuh beberapa detik di browser
+        grid.setAllRowsVisible(items.size() <= 50);
+        grid.getElement().executeJs("requestAnimationFrame(() => this.__sfFit && this.__sfFit())");
         java.util.List<com.vaadin.flow.component.grid.GridSortOrder<Map<String, Object>>> currentSort = grid
                 .getSortOrder();
         grid.setDataProvider(createDataProvider());
