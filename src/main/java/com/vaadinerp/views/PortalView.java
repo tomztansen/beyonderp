@@ -59,6 +59,7 @@ public class PortalView extends AppLayout {
     private final ReportMetaRepository reportMetaRepository;
     private final DynamicDataService dynamicDataService;
     private final SessionSecurityService securityService;
+    private final com.vaadinerp.security.sso.SsoService ssoService;
     private final AppUserRepository appUserRepository;
     private final AppRoleRepository appRoleRepository;
     private final AppMenuRepository appMenuRepository;
@@ -98,7 +99,9 @@ public class PortalView extends AppLayout {
             AppUserFavoriteMenuRepository appUserFavoriteMenuRepository,
             StandardFormatService standardFormatService,
             SchedulerConfigRepository schedulerConfigRepository,
-            com.vaadinerp.service.EnvironmentInfo environmentInfo) {
+            com.vaadinerp.service.EnvironmentInfo environmentInfo,
+            com.vaadinerp.security.sso.SsoService ssoService) {
+        this.ssoService = ssoService;
         this.environmentInfo = environmentInfo;
         this.formMetaRepository = formMetaRepository;
         this.lovMetaRepository = lovMetaRepository;
@@ -218,8 +221,22 @@ public class PortalView extends AppLayout {
         changePassBtn.getStyle().set("color", "#4f46e5").set("font-weight", "600").set("cursor", "pointer");
 
         Button logoutBtn = new com.vaadinerp.components.SafeButton("Logout", VaadinIcon.SIGN_OUT.create(), e -> {
+            // Logout aplikasi saja: sesi GMS berakhir, user dialihkan ke portal Authentik; sesi SSO
+            // tetap hidup (bisa langsung buka aplikasi lain / logout penuh dari portal). Login manual
+            // -> kembali ke form manual.
+            com.vaadin.flow.server.VaadinSession s = com.vaadin.flow.server.VaadinSession.getCurrent();
+            boolean viaSso = s != null
+                    && Boolean.TRUE.equals(s.getAttribute(com.vaadinerp.views.SsoCallbackView.ATTR_SSO_LOGIN));
+            String target = "login?manual=1";
+            if (viaSso && ssoService != null && ssoService.isEnabled()) {
+                String portal = ssoService.portalUrl();
+                if (portal != null && !portal.isBlank()) {
+                    target = portal;
+                }
+            }
             securityService.logout();
-            getUI().ifPresent(ui -> ui.getPage().setLocation("login"));
+            final String dest = target;
+            getUI().ifPresent(ui -> ui.getPage().setLocation(dest));
         });
         logoutBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
         logoutBtn.getStyle().set("color", "#ef4444").set("font-weight", "600").set("cursor", "pointer");

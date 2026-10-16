@@ -40,8 +40,10 @@ public class SecurityNavigationGuard implements VaadinServiceInitListener {
             uiEvent.getUI().addBeforeEnterListener(enterEvent -> {
                 String location = enterEvent.getLocation().getPath();
 
-                // Rute halaman 'login' dan 'actuator' dikecualikan dari pemeriksaan sesi
-                if ("login".equalsIgnoreCase(location) || location.startsWith("actuator")) {
+                // Rute 'login', 'actuator', dan endpoint SSO (sso/login, sso/callback) dikecualikan
+                // dari pemeriksaan sesi — callback SSO justru berjalan sebelum user punya sesi.
+                if ("login".equalsIgnoreCase(location) || location.startsWith("actuator")
+                        || "sso/login".equalsIgnoreCase(location) || "sso/callback".equalsIgnoreCase(location)) {
                     return;
                 }
 

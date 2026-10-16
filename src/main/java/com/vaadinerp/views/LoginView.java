@@ -28,13 +28,16 @@ import com.vaadinerp.security.service.SessionSecurityService.SameIpTakeoverNeede
 
 @Route("login")
 @PageTitle("Login | Growth Manufacturing And Operational System")
-public class LoginView extends Div {
+public class LoginView extends Div implements com.vaadin.flow.router.BeforeEnterObserver {
 
         private final SessionSecurityService securityService;
+        private final com.vaadinerp.security.sso.SsoService ssoService;
 
         public LoginView(SessionSecurityService securityService,
-                        com.vaadinerp.service.EnvironmentInfo environmentInfo) {
+                        com.vaadinerp.service.EnvironmentInfo environmentInfo,
+                        com.vaadinerp.security.sso.SsoService ssoService) {
                 this.securityService = securityService;
+                this.ssoService = ssoService;
 
                 setSizeFull();
                 getStyle()
@@ -158,6 +161,9 @@ public class LoginView extends Div {
 
                 // Enter key shortcut
                 loginBtn.addClickShortcut(com.vaadin.flow.component.Key.ENTER);
+
+                // Catatan: tidak ada tombol "Login with SSO". SSO dijalankan lewat auto-redirect di
+                // beforeEnter (/login -> /sso/login). Form ini hanya tampil pada /login?manual=1.
 
                 // ── Divider ──
                 Div divider = new Div();
@@ -319,5 +325,44 @@ public class LoginView extends Div {
                                 .set("pointer-events", "none")
                                 .set("z-index", "0");
                 return orb;
+        }
+
+        /**
+         * SSO-first: bila SSO aktif, buka /login otomatis diarahkan ke /sso/login.
+         * Pengecualian (form manual tetap tampil): ada {@code ?manual=1} (untuk dev/laptop lokal),
+         * atau ada error SSO tertunda (cegah loop redirect setelah SSO gagal).
+         */
+        @Override
+        public void beforeEnter(com.vaadin.flow.router.BeforeEnterEvent event) {
+                if (ssoService == null || !ssoService.isEnabled()) {
+                        return; // SSO mati -> selalu form manual
+                }
+                boolean manual = event.getLocation().getQueryParameters()
+                                .getSingleParameter("manual").isPresent();
+                if (manual) {
+                        return; // escape manual eksplisit
+                }
+                com.vaadin.flow.server.VaadinSession vs = com.vaadin.flow.server.VaadinSession.getCurrent();
+                boolean hasSsoError = vs != null && vs.getAttribute(SsoCallbackView.ATTR_ERROR) != null;
+                if (hasSsoError) {
+                        return; // tampilkan form + pesan error, jangan auto-redirect (anti-loop)
+                }
+                event.forwardTo("sso/login");
+        }
+
+        /** Tampilkan pesan error SSO (disimpan SsoCallbackView) setelah redirect kembali ke login. */
+        @Override
+        protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
+                super.onAttach(attachEvent);
+                com.vaadin.flow.server.VaadinSession vs = com.vaadin.flow.server.VaadinSession.getCurrent();
+                if (vs == null) {
+                        return;
+                }
+                Object err = vs.getAttribute(SsoCallbackView.ATTR_ERROR);
+                if (err instanceof String msg && !msg.isBlank()) {
+                        vs.setAttribute(SsoCallbackView.ATTR_ERROR, null);
+                        Notification n = Notification.show(msg, 6000, Notification.Position.TOP_CENTER);
+                        n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                }
         }
 }
