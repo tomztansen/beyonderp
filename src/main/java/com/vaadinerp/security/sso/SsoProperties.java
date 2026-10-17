@@ -17,6 +17,18 @@ public class SsoProperties {
     private String issuer;
     private String clientId;
     private String clientSecret;
+    /**
+     * Redirect URI (callback) yang TETAP, mis. https://gms.growthsteel.com/sso/callback. Wajib diisi di
+     * produksi: di belakang Nginx aplikasi tidak melihat scheme/port asli, dan alamat yang disusun dari
+     * header Host bisa dipengaruhi pemanggil. Kosong = disusun dari request (hanya untuk dev).
+     */
+    private String redirectUri;
+    /**
+     * Penerbit (iss) tambahan yang diterima pada token back-channel logout, dipisah koma. Biasanya kosong:
+     * yang diterima otomatis hanya {@link #issuer}. Isi bila log menunjukkan "iss tidak dikenal" karena
+     * Authentik menulis penerbit token logout dengan alamat berbeda dari yang dipakai saat login.
+     */
+    private java.util.List<String> logoutAcceptedIssuers = new java.util.ArrayList<>();
     /** Teks tombol pada halaman login. */
     private String buttonLabel = "Login with SSO";
 
@@ -60,6 +72,22 @@ public class SsoProperties {
 
     public void setClientSecret(String clientSecret) {
         this.clientSecret = clientSecret;
+    }
+
+    public String getRedirectUri() {
+        return redirectUri;
+    }
+
+    public void setRedirectUri(String redirectUri) {
+        this.redirectUri = redirectUri;
+    }
+
+    public java.util.List<String> getLogoutAcceptedIssuers() {
+        return logoutAcceptedIssuers;
+    }
+
+    public void setLogoutAcceptedIssuers(java.util.List<String> logoutAcceptedIssuers) {
+        this.logoutAcceptedIssuers = logoutAcceptedIssuers;
     }
 
     public String getButtonLabel() {

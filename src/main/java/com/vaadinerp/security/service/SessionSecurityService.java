@@ -161,9 +161,11 @@ public class SessionSecurityService {
      * Mengikuti aturan sesi tunggal — sesi aktif di IP yang sama diambil alih otomatis (tanpa dialog),
      * sesi aktif di IP berbeda ditolak.
      *
+     * @param sub pengenal pengguna di IdP (klaim {@code sub}); sesi ditandai dengannya supaya IdP bisa memutusnya
+     *            lewat back-channel logout. Null = sesi tidak bisa diputus dari IdP.
      * @return true bila berhasil; false bila user tidak ada / tidak aktif di aplikasi.
      */
-    public boolean loginViaSso(String username) {
+    public boolean loginViaSso(String username, String sub) {
         if (username == null || username.isBlank())
             return false;
 
@@ -190,7 +192,11 @@ public class SessionSecurityService {
             }
         }
 
-        return establishSession(u);
+        boolean ok = establishSession(u);
+        if (ok) {
+            loginHistory.tagSsoSession(sub);
+        }
+        return ok;
     }
 
     private boolean establishSession(AppUser u) {

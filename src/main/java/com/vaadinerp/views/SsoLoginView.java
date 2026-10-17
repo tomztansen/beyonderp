@@ -34,7 +34,9 @@ public class SsoLoginView extends Div implements BeforeEnterObserver {
             event.forwardTo("login");
             return;
         }
-        String redirectUri = buildRedirectUri();
+        // Produksi: alamat callback tetap dari konfigurasi; dev: disusun dari request.
+        String fixed = sso.configuredRedirectUri();
+        String redirectUri = fixed != null ? fixed : buildRedirectUri();
         String state = sso.newState();
         String verifier = sso.newCodeVerifier();
 

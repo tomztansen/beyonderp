@@ -13,7 +13,7 @@ import com.vaadinerp.security.sso.SsoService;
 
 /**
  * Endpoint callback OIDC: menerima {@code code}+{@code state} dari Authentik, memverifikasi state,
- * menukar code menjadi identitas, lalu login lewat {@link SessionSecurityService#loginViaSso(String)}.
+ * menukar code menjadi identitas, lalu login lewat {@link SessionSecurityService#loginViaSso(String, String)}.
  * Berhasil -> reload ke portal; gagal -> kembali ke /login dengan pesan (disimpan di session).
  * Rute ini dikecualikan dari penjaga sesi (lihat SecurityNavigationGuard).
  */
@@ -37,6 +37,13 @@ public class SsoCallbackView extends Div implements BeforeEnterObserver {
     public void beforeEnter(BeforeEnterEvent event) {
         if (!sso.isEnabled()) {
             event.forwardTo("login");
+            return;
+        }
+        // Idempoten: setelah login sukses, sesi diganti (anti session-fixation) sehingga Vaadin memuat ulang
+        // halaman pada URL callback yang SAMA. State/PKCE sudah terpakai, jadi pembacaan kedua akan gagal
+        // dengan "Invalid SSO session" padahal user sudah masuk. Bila sudah login, langsung ke portal.
+        if (security.isLoggedIn()) {
+            event.getUI().getPage().setLocation("/");
             return;
         }
         VaadinSession s = VaadinSession.getCurrent();
@@ -63,14 +70,15 @@ public class SsoCallbackView extends Div implements BeforeEnterObserver {
             return;
         }
 
-        String username = sso.exchangeAndGetUsername(code, redirectUri, verifier);
-        if (username == null) {
+        SsoService.SsoIdentity identity = sso.exchange(code, redirectUri, verifier);
+        if (identity == null) {
             fail(event, s, "Could not verify your SSO account.");
             return;
         }
+        String username = identity.username();
 
         try {
-            boolean ok = security.loginViaSso(username);
+            boolean ok = security.loginViaSso(username, identity.sub());
             if (!ok) {
                 fail(event, s, "Account '" + username + "' is not registered in this application.");
                 return;

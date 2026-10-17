@@ -39,6 +39,14 @@ public class LoginHistoryService implements VaadinServiceInitListener {
     private final ConcurrentHashMap<Long, VaadinSession> live = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, String> liveUser = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, String> liveIp = new ConcurrentHashMap<>();
+    /** Sesi yang dibuat lewat login SSO: id riwayat -> (sub di IdP, waktu login). Dipakai back-channel logout. */
+    private final ConcurrentHashMap<Long, SsoTag> liveSso = new ConcurrentHashMap<>();
+    /** Sesi yang dimulai sampai selisih ini SEBELUM waktu token logout dianggap sesi baru dan tidak diputus. */
+    static final long CLOCK_SKEW_MS = 5_000;
+
+    record SsoTag(String sub, long loginAtMs) {
+    }
+
     private final JdbcTemplate jdbc;
     private final org.springframework.core.env.Environment env;
 
@@ -167,6 +175,49 @@ public class LoginHistoryService implements VaadinServiceInitListener {
         }
     }
 
+    /**
+     * Menandai sesi yang sedang login (baru dicatat {@link #recordLogin}) sebagai sesi SSO milik {@code sub}
+     * di IdP. Hanya sesi bertanda ini yang bisa diputus oleh {@link #kickSsoSessions}; login manual tidak.
+     */
+    public void tagSsoSession(String sub) {
+        if (sub == null || sub.isBlank())
+            return;
+        VaadinSession s = VaadinSession.getCurrent();
+        if (s != null && s.getAttribute(ATTR_HISTORY_ID) instanceof Long id) {
+            liveSso.put(id, new SsoTag(sub, System.currentTimeMillis()));
+        }
+    }
+
+    /**
+     * Memutus sesi hasil login SSO milik {@code sub} saat IdP memberi tahu sesi SSO-nya berakhir
+     * (back-channel logout). Hanya sesi yang dimulai SEBELUM waktu token ({@code iatSeconds}) yang diputus:
+     * logout lama yang terlambat tiba tidak boleh membunuh sesi baru hasil login ulang.
+     *
+     * @return jumlah sesi yang diputus
+     */
+    public int kickSsoSessions(String sub, long iatSeconds, String reason, String by) {
+        int n = 0;
+        for (Map.Entry<Long, SsoTag> e : liveSso.entrySet()) {
+            SsoTag t = e.getValue();
+            if (!t.sub().equals(sub) || !shouldKick(t.loginAtMs(), iatSeconds))
+                continue;
+            Long id = e.getKey();
+            close(id, reason, by); // juga menghapus penanda SSO
+            liveUser.remove(id);
+            liveIp.remove(id);
+            VaadinSession s = live.remove(id);
+            if (s != null)
+                invalidate(s);
+            n++;
+        }
+        return n;
+    }
+
+    /** Sesi diputus hanya bila dimulai lebih dari {@link #CLOCK_SKEW_MS} sebelum waktu token logout. */
+    static boolean shouldKick(long loginAtMs, long iatSeconds) {
+        return loginAtMs < iatSeconds * 1000 - CLOCK_SKEW_MS;
+    }
+
     /** Dipanggil dari SessionSecurityService.logout() sebelum session.close(). */
     public void recordLogout() {
         VaadinSession s = VaadinSession.getCurrent();
@@ -272,6 +323,7 @@ public class LoginHistoryService implements VaadinServiceInitListener {
     }
 
     private void close(Long id, String reason, String by) {
+        liveSso.remove(id);
         try {
             jdbc.update("UPDATE public.app_login_history SET logout_at = now(), logout_reason = ?, logout_by = ?"
                     + " WHERE id = ? AND logout_at IS NULL", reason, by, id);
