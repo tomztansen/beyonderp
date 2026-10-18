@@ -1,0 +1,210 @@
+/* Growth Steel Group - Split-screen login (foto pabrik kiri, form kanan).
+   Scope: hanya halaman flow login (.pf-c-login / ak-flow-card); admin & user interface tidak tersentuh.
+   Foto latar memakai variabel bawaan Authentik --ak-global--background-image (URL bertoken selalu segar).
+   Tanpa @import font eksternal: klien kantor tidak punya internet. */
+
+/* ---------- Kanvas dua kolom ---------- */
+.pf-c-login {
+  --gs-split: 54%;
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  min-height: 0 !important;
+  padding: clamp(24px, 14vh, 150px) 24px 24px calc(var(--gs-split) + 24px) !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  background: #232a32 !important;
+  font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif !important;
+}
+
+/* Panel kiri: foto pabrik + lapisan gelap */
+.pf-c-login::before {
+  content: "";
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: var(--gs-split);
+  background:
+    linear-gradient(180deg, rgba(8, 12, 18, 0.30) 0%, rgba(8, 12, 18, 0.55) 100%),
+    var(--ak-global--background-image) 0% 50% / cover no-repeat,
+    #0d131f;
+  z-index: 0;
+}
+
+
+/* Elemen bawaan yang tidak dipakai di desain ini */
+.pf-c-login__header,
+.pf-c-login ak-locale-select { display: none !important; }
+
+/* ---------- Kartu form (kolom kanan, tanpa kotak) ---------- */
+.pf-c-login__main {
+  position: relative !important;
+  z-index: 2 !important;
+  width: 100% !important;
+  max-width: 380px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Logo + wordmark */
+.pf-c-login__main .pf-c-login__main-header.pf-c-brand {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 14px !important;
+  margin: 0 0 52px 0 !important;
+  padding: 0 !important;
+}
+.pf-c-login .branding-logo {
+  height: 30px !important;
+  max-height: 30px !important;
+  width: auto !important;
+  margin: 0 !important;
+  display: block !important;
+  filter: none !important;
+}
+
+/* Judul "Sign In" (di dalam ak-flow-card) */
+.pf-c-login__main-header:not(.pf-c-brand) {
+  padding: 0 !important;
+  margin: 0 0 18px 0 !important;
+  text-align: left !important;
+}
+.pf-c-login__main-header:not(.pf-c-brand) h1,
+.pf-c-login__main-header:not(.pf-c-brand) .pf-c-title {
+  color: #ffffff !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  text-align: left !important;
+  margin: 0 !important;
+  letter-spacing: 0 !important;
+}
+.pf-c-login__main-body { padding: 0 !important; }
+
+/* ---------- Isi form (di dalam stage, anak langsung ak-flow-card) ---------- */
+ak-flow-card form > p { display: none !important; }
+
+ak-flow-card form.pf-c-form { gap: 18px !important; }
+ak-flow-card .pf-c-form__group { margin: 0 !important; }
+
+ak-flow-card .pf-c-form__label-text {
+  color: #9aa5b1 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+ak-flow-card label[for="ak-identifier-input"] .pf-c-form__label-text { font-size: 0 !important; }
+ak-flow-card label[for="ak-identifier-input"] .pf-c-form__label-text::before {
+  content: "User ID";
+  font-size: 12px;
+  font-weight: 500;
+  color: #9aa5b1;
+}
+
+ak-flow-card .pf-c-form-control {
+  background-color: #1b2128 !important;
+  color: #e6edf3 !important;
+  border: 1px solid #3a4553 !important;
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  padding: 11px 12px !important;
+  height: auto !important;
+}
+ak-flow-card .pf-c-form-control::before,
+ak-flow-card .pf-c-form-control::after { display: none !important; }
+ak-flow-card .pf-c-form-control::placeholder { color: #6b7684 !important; }
+ak-flow-card .pf-c-form-control:focus {
+  border-color: #2f6fd6 !important;
+  box-shadow: 0 0 0 2px rgba(47, 111, 214, 0.35) !important;
+  outline: none !important;
+}
+
+/* Tombol SIGN IN */
+ak-flow-card .pf-c-button.pf-m-primary {
+  width: 100% !important;
+  background: #1c4a9e !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  padding: 13px 18px !important;
+  color: #ffffff !important;
+  font-size: 0 !important;
+  box-shadow: none !important;
+  transition: background 0.2s ease !important;
+}
+ak-flow-card .pf-c-button.pf-m-primary::after {
+  content: "SIGN IN";
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+ak-flow-card .pf-c-button.pf-m-primary:hover { background: #17408b !important; }
+
+/* Tautan (Forgot Password / Request Access bila ada) */
+ak-flow-card a { color: #8ea2bd !important; font-size: 12px !important; }
+ak-flow-card a:hover { color: #ffffff !important; }
+
+/* ---------- Footer: badge SSO di bawah panel kanan ---------- */
+.pf-c-login__footer {
+  position: fixed !important;
+  bottom: 28px !important;
+  left: var(--gs-split) !important;
+  right: 0 !important;
+  z-index: 2 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: center !important;
+  background: transparent !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+}
+.pf-c-login__footer::before {
+  content: "Enterprise Single Sign-On (SSO)";
+  display: block;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  box-sizing: border-box;
+  text-align: center;
+  margin: 0 auto 10px auto;
+  padding: 9px 18px;
+  border: 1px solid #4a5563;
+  border-radius: 4px;
+  color: #cbd5e1;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.pf-c-login__footer, .pf-c-login__footer a {
+  color: #6b7684 !important;
+  font-size: 11px !important;
+  text-decoration: none !important;
+}
+
+/* Layar sempit: sembunyikan foto, form penuh */
+@media (max-width: 900px), (max-aspect-ratio: 7/5) {
+  .pf-c-login { padding: clamp(24px, 9vh, 80px) 20px 24px 20px !important; }
+  .pf-c-login::before { display: none !important; }
+  .pf-c-login__main { max-width: 440px !important; }
+  .pf-c-login__main .pf-c-login__main-header.pf-c-brand { margin-bottom: 36px !important; }
+  .pf-c-login .branding-logo { height: 28px !important; max-height: 28px !important; }
+  /* input 16px: iOS tidak zoom saat fokus; area sentuh nyaman */
+  ak-flow-card .pf-c-form-control { font-size: 16px !important; padding: 13px 12px !important; }
+  ak-flow-card .pf-c-button.pf-m-primary { padding: 15px 18px !important; }
+  /* footer ikut alur (bukan fixed) supaya tidak menimpa form saat keyboard muncul */
+  .pf-c-login__footer {
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    align-self: stretch !important;
+    box-sizing: border-box !important;
+    margin: 28px 0 0 0 !important;
+  }
+}

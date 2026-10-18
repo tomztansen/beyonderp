@@ -1,0 +1,141 @@
+/* Growth Steel Group - Pure Login Page Theme (Strictly Scoped) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* Scope variables strictly to .pf-c-login so Admin Dashboard is NEVER touched */
+.pf-c-login {
+  --pf-global--primary-color--100: #18428f !important;
+  --pf-global--primary-color--200: #123370 !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  
+  /* Rich, subtle dark industrial canvas - never cuts off or collides with any text */
+  background: 
+    radial-gradient(circle at 50% 25%, rgba(24, 66, 143, 0.22) 0%, transparent 55%),
+    radial-gradient(circle at 85% 85%, rgba(30, 41, 59, 0.4) 0%, transparent 50%),
+    linear-gradient(180deg, #0d131f 0%, #080c14 100%) !important;
+  background-attachment: fixed !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  padding: 24px !important;
+  box-sizing: border-box !important;
+}
+
+/* Center and isolate the Login Card */
+.pf-c-login__main {
+  background: rgba(19, 26, 36, 0.88) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  padding: 36px 32px !important;
+  max-width: 420px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+  box-sizing: border-box !important;
+}
+
+/* Growth Steel Logo */
+.pf-c-login .branding-logo {
+  max-height: 44px !important;
+  width: auto !important;
+  margin: 0 auto 16px auto !important;
+  display: block !important;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+}
+
+/* Card Title */
+.pf-c-login .pf-c-title, 
+.pf-c-login [data-test-id="card-title"] {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  text-align: center !important;
+  letter-spacing: -0.3px !important;
+  margin-bottom: 24px !important;
+}
+
+/* Input Fields */
+.pf-c-login .pf-c-form-control,
+.pf-c-login input.pf-c-form-control {
+  background-color: #131b26 !important;
+  border: 1px solid #334155 !important;
+  border-radius: 8px !important;
+  color: #f8fafc !important;
+  font-size: 14px !important;
+  padding: 11px 14px !important;
+  transition: all 0.2s ease !important;
+}
+
+.pf-c-login .pf-c-form-control:focus,
+.pf-c-login input.pf-c-form-control:focus {
+  border-color: #18428f !important;
+  box-shadow: 0 0 0 3px rgba(24, 66, 143, 0.35) !important;
+  background-color: #16202e !important;
+}
+
+/* Replace Username/Email label with "User Account" */
+.pf-c-login label[for="uidField"] .pf-c-form__label-text,
+.pf-c-login .pf-c-form__group:has(input[name="uidField"]) .pf-c-form__label-text {
+  font-size: 0 !important;
+}
+
+.pf-c-login label[for="uidField"] .pf-c-form__label-text::after,
+.pf-c-login .pf-c-form__group:has(input[name="uidField"]) .pf-c-form__label-text::after {
+  content: "User Account" !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #e2e8f0 !important;
+}
+
+/* Primary Button in Growth Blue */
+.pf-c-login .pf-c-button.pf-m-primary {
+  background-color: #18428f !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  padding: 12px 18px !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(24, 66, 143, 0.45) !important;
+  transition: all 0.2s ease-in-out !important;
+  width: 100% !important;
+}
+
+.pf-c-login .pf-c-button.pf-m-primary:hover {
+  background-color: #123370 !important;
+  box-shadow: 0 6px 18px rgba(24, 66, 143, 0.65) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Hide Request Access & Self-Enrollment links */
+.pf-c-login a[href*="request"],
+.pf-c-login a[href*="enrollment"],
+.pf-c-login a[href*="enroll"],
+.pf-c-login .ak-request-access,
+.pf-c-login li:has(a[href*="request"]) {
+  display: none !important;
+}
+
+/* Clean Footer */
+.pf-c-login .pf-c-login__footer {
+  margin-top: 24px !important;
+  padding: 0 !important;
+  font-size: 12px !important;
+  color: #64748b !important;
+  text-align: center !important;
+}
+
+.pf-c-login .pf-c-login__footer a {
+  color: #94a3b8 !important;
+  text-decoration: none !important;
+}
+
+.pf-c-login .pf-c-login__footer a:hover {
+  color: #ffffff !important;
+}

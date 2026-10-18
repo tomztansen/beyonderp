@@ -135,6 +135,8 @@ public class FormBuilderView extends VerticalLayout {
     private final Checkbox propSaveLineNoToDb = new Checkbox("Save Line No to DB");
     private final TextField propHyperlinkTargetForm = new TextField("Hyperlink Target Form");
     private final TextArea propHyperlinkFilterMapping = new TextArea("Hyperlink Filter Mapping (JSON)");
+    private final TextField propLovAddForm = new TextField("LOV Add Form");
+    private final TextArea propLovAddParams = new TextArea("LOV Add Params (JSON)");
     private final Button propBtnFilters = new com.vaadinerp.components.SafeButton("Configure Filters",
             VaadinIcon.FILTER.create());
     private final Button propBtnLovTargets = new com.vaadinerp.components.SafeButton("Configure LOV Targets",
@@ -178,6 +180,8 @@ public class FormBuilderView extends VerticalLayout {
         public String onAddAiPrompt;
         public String hyperlinkTargetForm;
         public String hyperlinkFilterMapping;
+        public String lovAddForm;
+        public String lovAddParams;
         public String lovSwitch;
         public List<FieldFilterMetaTemp> filters = new ArrayList<>();
         public List<FieldLovTargetMetaTemp> lovTargets = new ArrayList<>();
@@ -1126,6 +1130,7 @@ public class FormBuilderView extends VerticalLayout {
                 propReadonlyMode,
                 propFormula, propDisplayFormat, propLabelStyle, propQrInputMode, propValidationRule, propSequenceCode, propBtnCustomValidation,
                 propHyperlinkTargetForm, propHyperlinkFilterMapping,
+                propLovAddForm, propLovAddParams,
                 checkBoxLayout,
                 propBtnOnAddScript, propBtnOnChangeScript);
 
@@ -1156,6 +1161,16 @@ public class FormBuilderView extends VerticalLayout {
             if (!selectedFields.isEmpty() && e.isFromClient()) {
                 selectedFields.iterator().next().hyperlinkFilterMapping = e.getValue();
                 rebuildCanvas();
+            }
+        });
+        propLovAddForm.addValueChangeListener(e -> {
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().lovAddForm = e.getValue();
+            }
+        });
+        propLovAddParams.addValueChangeListener(e -> {
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().lovAddParams = e.getValue();
             }
         });
         propComponentType.addValueChangeListener(e -> {
@@ -1471,6 +1486,8 @@ public class FormBuilderView extends VerticalLayout {
                     propBtnOnAddScript.setVisible(true);
                     propHyperlinkTargetForm.setVisible(true);
                     propHyperlinkFilterMapping.setVisible(true);
+                    propLovAddForm.setVisible(true);
+                    propLovAddParams.setVisible(true);
 
                     propFieldName.setValue(first.fieldName != null ? first.fieldName : "");
                     propFieldLabel.setValue(first.fieldLabel != null ? first.fieldLabel : "");
@@ -1512,6 +1529,8 @@ public class FormBuilderView extends VerticalLayout {
                             .setValue(first.hyperlinkTargetForm != null ? first.hyperlinkTargetForm : "");
                     propHyperlinkFilterMapping
                             .setValue(first.hyperlinkFilterMapping != null ? first.hyperlinkFilterMapping : "");
+                    propLovAddForm.setValue(first.lovAddForm != null ? first.lovAddForm : "");
+                    propLovAddParams.setValue(first.lovAddParams != null ? first.lovAddParams : "");
                     propSaveOnInsert.setValue(first.saveOnInsert);
                     propSaveOnUpdate.setValue(first.saveOnUpdate);
                     propIsAuditLog.setValue(first.isAuditLog);
@@ -1538,6 +1557,8 @@ public class FormBuilderView extends VerticalLayout {
                     propBtnOnChangeScript.setVisible(false);
                     propHyperlinkTargetForm.setVisible(false);
                     propHyperlinkFilterMapping.setVisible(false);
+                    propLovAddForm.setVisible(false);
+                    propLovAddParams.setVisible(false);
 
                     boolean sameRow = true;
                     int firstRow = -1;
@@ -3329,6 +3350,9 @@ public class FormBuilderView extends VerticalLayout {
             field.setOnAddScript(temp.onAddScript);
             field.setHyperlinkTargetForm(temp.hyperlinkTargetForm);
             field.setHyperlinkFilterMapping(temp.hyperlinkFilterMapping);
+            field.setLovAddForm(temp.lovAddForm == null || temp.lovAddForm.isBlank() ? null : temp.lovAddForm.trim());
+            field.setLovAddParams(
+                    temp.lovAddParams == null || temp.lovAddParams.isBlank() ? null : temp.lovAddParams.trim());
             field.setLovSwitch(temp.lovSwitch);
             field.setRowGroup(temp.rowGroup);
             field.setColSpan(temp.colSpan);
@@ -4239,6 +4263,8 @@ public class FormBuilderView extends VerticalLayout {
                     temp.onAddScript = field.getOnAddScript();
                     temp.hyperlinkTargetForm = field.getHyperlinkTargetForm();
                     temp.hyperlinkFilterMapping = field.getHyperlinkFilterMapping();
+                    temp.lovAddForm = field.getLovAddForm();
+                    temp.lovAddParams = field.getLovAddParams();
                     temp.lovSwitch = field.getLovSwitch();
 
                     // Load filters

@@ -1,11 +1,17 @@
 package com.vaadinerp.components;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.contextmenu.ContextMenu;
+import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.popover.Popover;
+import com.vaadin.flow.component.popover.PopoverPosition;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.textfield.TextFieldVariant;
 import com.vaadin.flow.component.html.Anchor;
@@ -14,6 +20,7 @@ import com.vaadin.flow.server.streams.DownloadHandler;
 import com.vaadin.flow.server.streams.DownloadResponse;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -21,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -30,6 +38,197 @@ public class StandardGridUtils {
     public static class FilterCriteria {
         public String operator = "Contains";
         public String value = "";
+    }
+
+    // Label operator filter tanggal. Dipakai bersama oleh header grid dan
+    // DynamicDataService.buildWhereClause -- jangan diubah di satu sisi saja.
+    public static final String DATE_OP_EQUALS = "Equals";
+    public static final String DATE_OP_FROM = "\u2265 From date";
+    public static final String DATE_OP_TO = "\u2264 To date";
+    public static final String DATE_OP_BETWEEN = "Between";
+
+    /**
+     * Sel filter tanggal untuk header row grid. Operator biasa (Equals, >=, <=, Blank)
+     * memakai satu DatePicker seperti kolom lain. Operator "Between" menukar isi sel
+     * jadi field teks read-only berisi rentang yang dipilih, dan dua DatePicker-nya
+     * pindah ke dalam Popover yang dibuka lewat ikon kalender di kanan field. Popover
+     * dipilih ketimbang picker kedua inline karena sel header grid terlalu sempit untuk
+     * dua field, sementara overlay tidak terikat lebar sel.
+     *
+     * Tiap view punya kelas FilterCriteria-nya sendiri (ada 6 salinan di proyek ini),
+     * jadi helper ini tidak menyentuh kriteria langsung -- operator dan nilainya
+     * disetor lewat consumer, lalu {@code onChange} memicu applyFilters milik
+     * pemanggil.
+     *
+     * Nilai Between dikirim sebagai {@code "yyyy-MM-dd|yyyy-MM-dd"} dan hanya berubah
+     * lewat tombol Apply, jadi satu rentang = satu query, bukan dua. Rentang setengah
+     * matang tidak pernah terkirim karena Apply baru aktif setelah dua sisi terisi --
+     * tapi format tetap diperiksa ulang di
+     * {@code DynamicDataService.parseDateFilterRange}, karena nilai filter juga bisa
+     * datang dari deep-link yang tidak lewat UI ini.
+     */
+    public static Component buildDateFilterCell(Consumer<String> operatorSink, Consumer<String> valueSink,
+            Runnable onChange) {
+        DatePicker singlePicker = buildSmallDatePicker("Filter...");
+
+        Button filterButton = new Button(VaadinIcon.FILTER.create());
+        filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+        filterButton.getStyle().set("cursor", "pointer");
+        filterButton.getElement().setProperty("title", DATE_OP_EQUALS);
+        singlePicker.setPrefixComponent(filterButton);
+
+        TextField rangeField = new TextField();
+        rangeField.setReadOnly(true);
+        rangeField.setPlaceholder("From - To");
+        rangeField.setWidthFull();
+        rangeField.addThemeVariants(TextFieldVariant.LUMO_SMALL);
+        rangeField.setVisible(false);
+
+        Button calendarButton = new Button(VaadinIcon.CALENDAR.create());
+        calendarButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+        calendarButton.getStyle().set("cursor", "pointer");
+        calendarButton.getElement().setProperty("title", "Pick date range");
+        rangeField.setSuffixComponent(calendarButton);
+
+        DatePicker fromPicker = buildSmallDatePicker("From");
+        DatePicker toPicker = buildSmallDatePicker("To");
+
+        Button applyButton = new Button("Apply");
+        applyButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+        applyButton.setEnabled(false);
+        Button clearButton = new Button("Clear");
+        clearButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+
+        VerticalLayout popoverContent = new VerticalLayout(fromPicker, toPicker,
+                new HorizontalLayout(applyButton, clearButton));
+        popoverContent.setPadding(false);
+        popoverContent.setSpacing(false);
+        popoverContent.getThemeList().add("spacing-s");
+
+        Popover rangePopover = new Popover();
+        rangePopover.setTarget(calendarButton);
+        rangePopover.setPosition(PopoverPosition.BOTTOM_END);
+        rangePopover.setWidth("15em");
+        rangePopover.add(popoverContent);
+
+        String[] uiOperator = { DATE_OP_EQUALS };
+        // Nilai Between disimpan terpisah: ia hanya berubah lewat Apply/Clear, bukan
+        // setiap kali salah satu picker di popover disentuh.
+        String[] rangeValue = { "" };
+
+        Runnable emit = () -> {
+            String op = uiOperator[0];
+            if (DATE_OP_BETWEEN.equals(op)) {
+                operatorSink.accept(DATE_OP_BETWEEN);
+                valueSink.accept(rangeValue[0]);
+            } else {
+                operatorSink.accept(op);
+                LocalDate picked = singlePicker.getValue();
+                valueSink.accept(picked != null ? picked.toString() : "");
+            }
+            onChange.run();
+        };
+
+        Runnable applyOperatorUi = () -> {
+            String op = uiOperator[0];
+            filterButton.getElement().setProperty("title", op);
+            boolean between = DATE_OP_BETWEEN.equals(op);
+            rangeField.setVisible(between);
+            singlePicker.setVisible(!between);
+            // Ikon filternya dipindahkan, bukan diduplikasi: satu komponen cuma boleh
+            // punya satu induk, dan ContextMenu-nya tetap menempel ke tombol yang sama.
+            if (between) {
+                singlePicker.setPrefixComponent(null);
+                rangeField.setPrefixComponent(filterButton);
+            } else {
+                rangeField.setPrefixComponent(null);
+                singlePicker.setPrefixComponent(filterButton);
+            }
+            boolean needsInput = !("Blank".equals(op) || "Not blank".equals(op));
+            if (!needsInput) {
+                singlePicker.clear();
+                singlePicker.setPlaceholder(op);
+                singlePicker.setReadOnly(true);
+            } else {
+                singlePicker.setPlaceholder("Filter...");
+                singlePicker.setReadOnly(false);
+            }
+        };
+
+        ContextMenu dateCtx = new ContextMenu(filterButton);
+        dateCtx.setOpenOnClick(true);
+        for (String op : new String[] { DATE_OP_EQUALS, DATE_OP_FROM, DATE_OP_TO, DATE_OP_BETWEEN, "Blank",
+                "Not blank" }) {
+            dateCtx.addItem(op, event -> {
+                uiOperator[0] = op;
+                // Pindah operator membuang nilai operator sebelumnya, supaya yang tampil
+                // di sel selalu sama dengan filter yang benar-benar jalan di grid.
+                rangeValue[0] = "";
+                rangeField.clear();
+                fromPicker.clear();
+                toPicker.clear();
+                applyOperatorUi.run();
+                emit.run();
+                if (DATE_OP_BETWEEN.equals(op)) {
+                    rangePopover.setOpened(true);
+                }
+            });
+        }
+
+        Runnable syncRangeBounds = () -> {
+            LocalDate from = fromPicker.getValue();
+            LocalDate to = toPicker.getValue();
+            // Batas dijaga lewat komponennya, bukan validasi di kode.
+            toPicker.setMin(from);
+            fromPicker.setMax(to);
+            applyButton.setEnabled(from != null && to != null);
+        };
+        fromPicker.addValueChangeListener(e -> syncRangeBounds.run());
+        toPicker.addValueChangeListener(e -> syncRangeBounds.run());
+
+        applyButton.addClickListener(e -> {
+            LocalDate from = fromPicker.getValue();
+            LocalDate to = toPicker.getValue();
+            if (from == null || to == null) {
+                return;
+            }
+            rangeValue[0] = from + "|" + to;
+            rangeField.setValue(from + " \u2192 " + to);
+            rangePopover.close();
+            emit.run();
+        });
+
+        clearButton.addClickListener(e -> {
+            fromPicker.clear();
+            toPicker.clear();
+            rangeValue[0] = "";
+            rangeField.clear();
+            rangePopover.close();
+            emit.run();
+        });
+
+        singlePicker.addValueChangeListener(e -> {
+            if (e.isFromClient())
+                emit.run();
+        });
+
+        HorizontalLayout cell = new HorizontalLayout(singlePicker, rangeField, rangePopover);
+        cell.setPadding(false);
+        cell.setSpacing(false);
+        cell.setWidthFull();
+        cell.setFlexGrow(1, singlePicker);
+        cell.setFlexGrow(1, rangeField);
+        return cell;
+    }
+
+    private static DatePicker buildSmallDatePicker(String placeholder) {
+        DatePicker picker = new DatePicker();
+        picker.setPlaceholder(placeholder);
+        picker.setClearButtonVisible(true);
+        picker.setWidthFull();
+        picker.getElement().getThemeList().add("small");
+        picker.setLocale(java.util.Locale.ENGLISH);
+        return picker;
     }
 
     /**

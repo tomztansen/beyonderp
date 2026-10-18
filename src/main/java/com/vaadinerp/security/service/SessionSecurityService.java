@@ -156,6 +156,49 @@ public class SessionSecurityService {
         return establishSession(u);
     }
 
+    /**
+     * Login lewat SSO (OIDC): identitas sudah diverifikasi penyedia SSO, jadi TANPA cek password.
+     * Mengikuti aturan sesi tunggal — sesi aktif di IP yang sama diambil alih otomatis (tanpa dialog),
+     * sesi aktif di IP berbeda ditolak.
+     *
+     * @param sub pengenal pengguna di IdP (klaim {@code sub}); sesi ditandai dengannya supaya IdP bisa memutusnya
+     *            lewat back-channel logout. Null = sesi tidak bisa diputus dari IdP.
+     * @return true bila berhasil; false bila user tidak ada / tidak aktif di aplikasi.
+     */
+    public boolean loginViaSso(String username, String sub) {
+        if (username == null || username.isBlank())
+            return false;
+
+        Optional<AppUser> opt = userRepository.findByUsernameIgnoreCaseAndIsActiveTrue(username.trim());
+        if (opt.isEmpty()) {
+            loginHistory.recordLogin(username.trim(), false);
+            return false;
+        }
+
+        AppUser u = opt.get();
+
+        if (maintenance.isActive()) {
+            throw new MaintenanceException();
+        }
+
+        String activeIp = loginHistory.findActiveSessionIp(u.getUsername());
+        if (activeIp != null) {
+            String currentIp = LoginHistoryService.clientIp();
+            if (isSameIp(currentIp, activeIp)) {
+                // Mesin/IP sama -> ambil alih otomatis (redirect SSO tidak bisa menampilkan dialog)
+                loginHistory.kickUserSessions(u.getUsername(), "TAKEOVER", u.getUsername());
+            } else {
+                throw new DifferentIpActiveSessionException(activeIp);
+            }
+        }
+
+        boolean ok = establishSession(u);
+        if (ok) {
+            loginHistory.tagSsoSession(sub);
+        }
+        return ok;
+    }
+
     private boolean establishSession(AppUser u) {
         VaadinSession session = VaadinSession.getCurrent();
         if (session != null) {
