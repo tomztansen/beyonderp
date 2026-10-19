@@ -919,6 +919,19 @@ public class PortalView extends AppLayout {
             return;
         }
 
+        // Sesi SSO: password ada di Authentik, jadi ganti password dibuka di Authentik (tab baru agar
+        // pekerjaan di GMS tidak hilang). Login manual tetap memakai dialog lokal di bawah.
+        com.vaadin.flow.server.VaadinSession vs = com.vaadin.flow.server.VaadinSession.getCurrent();
+        boolean viaSso = vs != null
+                && Boolean.TRUE.equals(vs.getAttribute(com.vaadinerp.views.SsoCallbackView.ATTR_SSO_LOGIN));
+        if (viaSso && ssoService != null && ssoService.isEnabled()) {
+            String url = ssoService.changePasswordUrl();
+            if (url != null && !url.isBlank()) {
+                getUI().ifPresent(ui -> ui.getPage().open(url));
+                return;
+            }
+        }
+
         Dialog dialog = new Dialog();
         dialog.setWidth("400px");
         dialog.setCloseOnEsc(true);

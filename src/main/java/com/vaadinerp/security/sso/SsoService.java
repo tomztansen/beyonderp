@@ -280,6 +280,21 @@ public class SsoService {
         return base + "/if/user/";
     }
 
+    /**
+     * URL halaman ganti password Authentik ({@code <base>/if/flow/default-password-change/}), diturunkan
+     * dari issuer. Dipakai tombol "Change Password" untuk sesi SSO: password SSO hanya ada di Authentik,
+     * jadi mengubah hash lokal tidak berguna.
+     */
+    public String changePasswordUrl() {
+        String issuer = props.getIssuer();
+        if (issuer == null || issuer.isBlank()) {
+            return null;
+        }
+        int i = issuer.indexOf("/application/o/");
+        String base = i > 0 ? issuer.substring(0, i) : issuer;
+        return base + "/if/flow/default-password-change/";
+    }
+
     private static String enc(String v) {
         return URLEncoder.encode(v, StandardCharsets.UTF_8);
     }
