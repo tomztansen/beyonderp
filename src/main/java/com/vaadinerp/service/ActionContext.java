@@ -662,6 +662,15 @@ public class ActionContext {
      * @throws IllegalArgumentException nama file tidak sah / tidak ditemukan.
      * @throws IllegalStateException    tidak ada sesi browser (mis. job terjadwal).
      */
+    /** Baca file upload CSV/Excel jadi list Map -- lihat {@link UploadFileReader}. */
+    public List<Map<String, Object>> readUpload(String storedFilename) {
+        FileStorageService fs = dataService != null ? dataService.getFileStorageService() : null;
+        if (fs == null) {
+            throw new IllegalStateException("File storage is not available");
+        }
+        return UploadFileReader.read(fs.resolveUploadedFile(storedFilename));
+    }
+
     public void downloadFile(String path, String downloadName) {
         FileStorageService fs = dataService != null ? dataService.getFileStorageService() : null;
         if (fs == null) {

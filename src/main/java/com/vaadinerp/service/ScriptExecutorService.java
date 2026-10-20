@@ -116,6 +116,26 @@ public class ScriptExecutorService {
     }
 
     /**
+     * Binding 'readUpload' (action scope): baca file upload CSV/XLSX/XLS (nama file tersimpan, mis. nilai
+     * field FILE_UPLOAD) menjadi list of Map. Baris pertama = judul kolom (dinormalkan: huruf kecil, spasi
+     * dan simbol jadi "_"). Mengembalikan null (plus pesan error di layar) bila file tidak sah / tidak ada /
+     * terlalu besar -- supaya script bisa `if (rows == null) return`.
+     */
+    private groovy.lang.Closure<List<Map<String, Object>>> buildReadUploadClosure(ActionContext ctx) {
+        return new groovy.lang.Closure<List<Map<String, Object>>>(null) {
+            @SuppressWarnings("unused")
+            public List<Map<String, Object>> doCall(Object fileName) {
+                try {
+                    return ctx.readUpload(fileName != null ? plain(fileName).toString() : null);
+                } catch (IllegalArgumentException | IllegalStateException e) {
+                    ctx.showError("Read upload", e.getMessage());
+                    return null;
+                }
+            }
+        };
+    }
+
+    /**
      * Binding 'downloadFile' (action scope): kirim file hasil renderReport() ke browser user.
      * downloadFile(path) atau downloadFile(path, namaUnduhan). Mengembalikan true bila unduhan
      * dipicu, false (plus pesan error di layar) bila nama file tidak sah / tidak ada / tidak ada
@@ -1064,6 +1084,7 @@ public class ScriptExecutorService {
             binding.setVariable("runScheduledJob", buildRunScheduledJobClosure(ctx));
             binding.setVariable("downloadFile", buildDownloadFileClosure(ctx));
             binding.setVariable("downloadCsv", buildDownloadCsvClosure(ctx));
+            binding.setVariable("readUpload", buildReadUploadClosure(ctx));
             binding.setVariable("plain", new groovy.lang.Closure<Object>(null) {
                 @SuppressWarnings("unused")
                 public Object doCall(Object value) {
@@ -1673,7 +1694,7 @@ public class ScriptExecutorService {
      */
     public static final java.util.Set<String> ACTION_SCRIPT_NAMES = java.util.Set.of(
             "JsonOutput", "JsonSlurper", "clearForm", "ctx", "db", "downloadCsv", "downloadFile", "executeProcedure",
-            "getElementValue", "header", "isNew", "lov", "msgBox", "plain", "prompt", "refreshForm", "renderReport",
+            "getElementValue", "header", "isNew", "lov", "msgBox", "plain", "prompt", "readUpload", "refreshForm", "renderReport",
             "runScheduledJob", "saveMode",
             "selectedRows", "self",
             "sendEmail", "sendWhatsApp", "sendWhatsAppApproval", "setElementDisabled", "setElementEnabled",

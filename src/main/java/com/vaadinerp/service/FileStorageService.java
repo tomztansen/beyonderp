@@ -456,6 +456,24 @@ public class FileStorageService {
         return tmpDir;
     }
 
+    /**
+     * Path file upload (permanen atau sementara) untuk dibaca script ({@code readUpload}).
+     * Nama harus nama file polos hasil upload -- tanpa folder atau "..".
+     *
+     * @throws IllegalArgumentException "Invalid file name" atau "File not found"
+     */
+    public Path resolveUploadedFile(String storedFilename) {
+        String n = storedFilename == null ? "" : storedFilename.trim();
+        if (n.isEmpty() || n.contains("/") || n.contains("\\") || n.contains("..")) {
+            throw new IllegalArgumentException("Invalid file name: " + storedFilename);
+        }
+        Path p = resolveExistingPath(n);
+        if (p == null) {
+            throw new IllegalArgumentException("File not found: " + n);
+        }
+        return p;
+    }
+
     /** Cari file di folder permanen dulu, baru folder sementara. Null kalau tidak ada di keduanya. */
     private Path resolveExistingPath(String storedFilename) {
         Path permanent = this.uploadDir.resolve(storedFilename).normalize();
