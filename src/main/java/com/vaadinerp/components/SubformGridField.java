@@ -1226,6 +1226,14 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             if (changeAct != null) {
                 hasValue.addValueChangeListener(ev -> {
                     if (ev.isFromClient()) {
+                        // Jangan bergantung pada urutan listener Binder: kolom yang tidak ada di DB
+                        // (mis. checkbox pembantu) bisa belum tertulis ke map saat script membacanya.
+                        // Kolom bernilai angka (checkbox 1/0) sudah ditangani setter binder -- jangan ditimpa Boolean.
+                        Map<String, Object> editRow = grid.getEditor().getItem() != null ? grid.getEditor().getItem()
+                                : editingItem;
+                        if (editRow != null && !(getCaseInsensitiveVal(editRow, fieldName) instanceof Number)) {
+                            putCaseInsensitiveVal(editRow, fieldName, ev.getValue());
+                        }
                         runRowChangeScript(changeAct);
                     }
                 });

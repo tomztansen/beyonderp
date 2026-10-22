@@ -133,6 +133,7 @@ public class FormBuilderView extends VerticalLayout {
     private final Checkbox propIsAuditLog = new Checkbox("Audit Log");
     private final Checkbox propShowLineNo = new Checkbox("Show Line No");
     private final Checkbox propSaveLineNoToDb = new Checkbox("Save Line No to DB");
+    private final Checkbox propShowSignToggle = new Checkbox("Show +/- Toggle");
     private final TextField propHyperlinkTargetForm = new TextField("Hyperlink Target Form");
     private final TextArea propHyperlinkFilterMapping = new TextArea("Hyperlink Filter Mapping (JSON)");
     private final TextField propLovAddForm = new TextField("LOV Add Form");
@@ -176,6 +177,7 @@ public class FormBuilderView extends VerticalLayout {
         public boolean isAuditLog;
         public boolean showLineNo = true;
         public boolean saveLineNoToDb = false;
+        public boolean showSignToggle = false;
         public String onAddScript;
         public String onAddAiPrompt;
         public String hyperlinkTargetForm;
@@ -1063,7 +1065,8 @@ public class FormBuilderView extends VerticalLayout {
         checkBoxLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 2));
         propIsSortable.setValue(true);
         checkBoxLayout.add(propIsRequired, propIsReadonly, propShowInGrid, propHideInForm, propIsDetail, propIsSortable,
-                propSaveOnInsert, propSaveOnUpdate, propIsAuditLog, propShowLineNo, propSaveLineNoToDb);
+                propSaveOnInsert, propSaveOnUpdate, propIsAuditLog, propShowLineNo, propSaveLineNoToDb,
+                propShowSignToggle);
 
         propBtnFilters.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_CONTRAST);
         propBtnFilters.setWidthFull();
@@ -1321,6 +1324,11 @@ public class FormBuilderView extends VerticalLayout {
                 selectedFields.iterator().next().saveLineNoToDb = e.getValue();
             }
         });
+        propShowSignToggle.addValueChangeListener(e -> {
+            if (!selectedFields.isEmpty() && e.isFromClient()) {
+                selectedFields.iterator().next().showSignToggle = e.getValue();
+            }
+        });
     }
 
     private void updatePropertyFieldsState(String componentType) {
@@ -1341,6 +1349,8 @@ public class FormBuilderView extends VerticalLayout {
         // dan LABEL tidak pernah menghasilkan perubahan seperti itu, jadi tidak
         // ditawarkan sebagai pemicu — sama seperti pengecualian di evaluateFormulas().
         propBtnOnChangeScript.setVisible(!isLabel && !isSubform);
+        propShowSignToggle.setVisible("INTBOX".equalsIgnoreCase(componentType)
+                || "DECIMALBOX".equalsIgnoreCase(componentType));
         boolean isSelection = "COMBOBOX".equalsIgnoreCase(componentType) ||
                 "LISTBOX".equalsIgnoreCase(componentType) ||
                 "BANDBOX".equalsIgnoreCase(componentType) ||
@@ -1536,6 +1546,7 @@ public class FormBuilderView extends VerticalLayout {
                     propIsAuditLog.setValue(first.isAuditLog);
                     propShowLineNo.setValue(first.showLineNo);
                     propSaveLineNoToDb.setValue(first.saveLineNoToDb);
+                    propShowSignToggle.setValue(first.showSignToggle);
                     // Panggil terakhir supaya visibilitas Format/Style/Formula final
                     // (mengalahkan setVisible(true) paksa di blok base di atas).
                     updatePropertyFieldsState(first.componentType);
@@ -2662,11 +2673,14 @@ public class FormBuilderView extends VerticalLayout {
 
                 return subformContainer;
             case "FILE_UPLOAD":
-                return new FileUploadField(label,
-                        dynamicDataService != null ? dynamicDataService.getFileStorageService() : null, false);
             case "IMAGE_UPLOAD":
-                return new FileUploadField(label,
-                        dynamicDataService != null ? dynamicDataService.getFileStorageService() : null, true);
+                // Preview di canvas builder: kolomnya sempit, tampilan penuh (area drag & drop + label
+                // panjang) membungkus dan meluap dari kartu -- pakai tampilan ringkas.
+                FileUploadField uploadPreview = new FileUploadField(label,
+                        dynamicDataService != null ? dynamicDataService.getFileStorageService() : null,
+                        "IMAGE_UPLOAD".equalsIgnoreCase(temp.componentType));
+                uploadPreview.setCompact(true);
+                return uploadPreview;
             case "LABEL":
                 return new com.vaadinerp.components.LabelField(
                         temp.fieldLabel,
@@ -3347,6 +3361,7 @@ public class FormBuilderView extends VerticalLayout {
             field.setAuditLog(temp.isAuditLog);
             field.setShowLineNo(temp.showLineNo);
             field.setSaveLineNoToDb(temp.saveLineNoToDb);
+            field.setShowSignToggle(temp.showSignToggle);
             field.setOnAddScript(temp.onAddScript);
             field.setHyperlinkTargetForm(temp.hyperlinkTargetForm);
             field.setHyperlinkFilterMapping(temp.hyperlinkFilterMapping);
@@ -4260,6 +4275,7 @@ public class FormBuilderView extends VerticalLayout {
                     temp.isAuditLog = field.isAuditLog();
                     temp.showLineNo = field.isShowLineNo();
                     temp.saveLineNoToDb = field.isSaveLineNoToDb();
+                    temp.showSignToggle = field.isShowSignToggle();
                     temp.onAddScript = field.getOnAddScript();
                     temp.hyperlinkTargetForm = field.getHyperlinkTargetForm();
                     temp.hyperlinkFilterMapping = field.getHyperlinkFilterMapping();

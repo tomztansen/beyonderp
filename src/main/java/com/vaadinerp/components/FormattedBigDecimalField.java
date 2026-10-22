@@ -13,6 +13,7 @@ public class FormattedBigDecimalField extends CustomField<BigDecimal> {
     private String displayFormat;
     private boolean isReadOnly = false;
     private boolean isRequired = false;
+    private SignToggle signToggle;
 
     public FormattedBigDecimalField(String label) {
         setLabel(label);
@@ -60,10 +61,21 @@ public class FormattedBigDecimalField extends CustomField<BigDecimal> {
         }
     }
 
+    /** Pasang tombol +/-. Dipanggil sesudah setDisplayFormat supaya prefix Rp/$ ikut dipertahankan. */
+    public void enableSignToggle() {
+        if (signToggle != null)
+            return;
+        signToggle = new SignToggle(textField, this::updateValue);
+        textField.setAllowedCharPattern("[0-9.,]");
+        signToggle.setEnabled(!isReadOnly);
+    }
+
     @Override
     public void setReadOnly(boolean readOnly) {
         this.isReadOnly = readOnly;
         textField.setReadOnly(readOnly);
+        if (signToggle != null)
+            signToggle.setEnabled(!readOnly);
     }
 
     @Override
@@ -96,7 +108,10 @@ public class FormattedBigDecimalField extends CustomField<BigDecimal> {
                 .replaceAll("(?i)pcs", "")
                 .trim();
             clean = clean.replace(".", "").replace(",", ".");
-            return new BigDecimal(clean);
+            BigDecimal parsed = new BigDecimal(clean);
+            if (signToggle == null)
+                return parsed;
+            return signToggle.isNegative() ? parsed.abs().negate() : parsed.abs();
         } catch (Exception e) {
             return null;
         }
@@ -105,9 +120,13 @@ public class FormattedBigDecimalField extends CustomField<BigDecimal> {
     @Override
     protected void setPresentationValue(BigDecimal newPresentationValue) {
         if (newPresentationValue == null) {
+            if (signToggle != null)
+                signToggle.setNegative(false);
             textField.setValue("");
             return;
         }
+        if (signToggle != null)
+            signToggle.setNegative(newPresentationValue.signum() < 0);
         formatValue(newPresentationValue);
     }
 
@@ -119,6 +138,8 @@ public class FormattedBigDecimalField extends CustomField<BigDecimal> {
     }
 
     private void formatValue(BigDecimal val) {
+        if (signToggle != null)
+            val = val.abs(); // tanda ditampilkan oleh tombol, bukan di kotak
         try {
             String pattern = displayFormat != null && !displayFormat.trim().isEmpty() && !"NONE".equalsIgnoreCase(displayFormat) 
                 ? displayFormat.trim() : "#,##0.00";

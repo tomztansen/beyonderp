@@ -2,12 +2,18 @@ package com.vaadinerp.report;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.IFrame;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.server.streams.DownloadHandler;
 import com.vaadin.flow.server.streams.DownloadResponse;
+import com.vaadinerp.components.RunIndicator;
 import com.vaadinerp.meta.ReportMeta;
 import com.vaadinerp.report.render.ReportOutput;
 import com.vaadinerp.views.PortalView;
@@ -115,6 +121,89 @@ public final class ReportLauncher {
     }
 
     /**
+     * Tombol Excel ditawarkan di tab hasil PDF hanya untuk report Jasper tanpa script before/after: Excel dibuat
+     * dengan merender ulang tanpa script (script bisa mengubah data atau punya efek samping seperti printcount),
+     * jadi report yang bergantung pada script tidak dijamin menghasilkan isi yang sama.
+     */
+    static boolean canExportExcel(ReportMeta report, boolean stimulsoftViewer) {
+        return !stimulsoftViewer
+                && "JASPER".equalsIgnoreCase(report.getEngineType())
+                && isBlank(report.getBeforeScript())
+                && isBlank(report.getAfterScript());
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
+    }
+
+    /**
+     * Sisipkan bar tipis berisi satu tombol kecil "Excel" di atas output. Klik = render ulang report yang sama dengan
+     * parameter yang sama (salinan saat report dijalankan) tanpa before/after script, lalu unduh .xlsx.
+     */
+    static Component withExcelButton(Component output, Component origin, ReportRunService svc, ReportMeta report,
+                                     Map<String, Object> values) {
+        final Map<String, Object> frozen = values == null ? new java.util.HashMap<>() : new java.util.HashMap<>(values);
+        Button excel = new Button("Excel", VaadinIcon.DOWNLOAD_ALT.create());
+        excel.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        excel.setTooltipText("Export to Excel");
+        // Bar loading tema tampil selama ekspor; klik lagi saat masih berjalan diabaikan. Status tombol tidak diubah.
+        final RunIndicator indicator = new RunIndicator();
+        excel.addClickListener(e -> {
+            Runnable done = indicator.tryStart(UI.getCurrent());
+            if (done == null) {
+                Notification.show("A report is still being generated. Please wait.", 3000,
+                        Notification.Position.MIDDLE);
+                return;
+            }
+            exportExcel(svc, report, frozen, done);
+        });
+        HorizontalLayout bar = new HorizontalLayout(excel);
+        bar.setWidthFull();
+        bar.setPadding(false);
+        bar.setSpacing(false);
+        bar.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
+        bar.getStyle().set("padding", "0 var(--lumo-space-s)").set("flex-shrink", "0");
+        if (output instanceof VerticalLayout box) {
+            box.addComponentAtIndex(0, bar);
+        }
+        return output;
+    }
+
+    private static void exportExcel(ReportRunService svc, ReportMeta report, Map<String, Object> values,
+                                    Runnable done) {
+        UI ui = UI.getCurrent();
+        if (ui == null) {
+            done.run();
+            return;
+        }
+        RUN_EXEC.submit(() -> {
+            UI.setCurrent(ui);
+            if (ui.getSession() != null) {
+                com.vaadin.flow.server.VaadinSession.setCurrent(ui.getSession());
+            }
+            try {
+                ReportOutput out = svc.renderWithoutScripts(report, values, "XLSX");
+                ui.access(() -> {
+                    try {
+                        download(ui, out);
+                    } finally {
+                        done.run();
+                    }
+                });
+            } catch (Exception ex) {
+                String msg = ex.getMessage() != null ? ex.getMessage() : ex.toString();
+                ui.access(() -> {
+                    try {
+                        Notification.show("Failed to export Excel: " + msg, 5000, Notification.Position.MIDDLE);
+                    } finally {
+                        done.run();
+                    }
+                });
+            }
+        });
+    }
+
+    /**
      * Jalankan report di thread latar lalu buka hasilnya sebagai tab. {@code onFinish}
      * dijalankan di thread UI setelah sukses maupun gagal, untuk memulihkan panel pemanggil.
      */
@@ -132,44 +221,51 @@ public final class ReportLauncher {
             try {
                 ReportRunResult res = svc.run(report, values, format, false);
                 ui.access(() -> {
-                    if ("EXCEL".equalsIgnoreCase(format) || "XLSX".equalsIgnoreCase(format)) {
-                        download(ui, res.output());
-                    } else {
-                        PortalView portal = findPortal(origin);
-                        if (portal == null) {
-                            Notification.show("Cannot find app shell to open output tab.");
+                    try {
+                        if ("EXCEL".equalsIgnoreCase(format) || "XLSX".equalsIgnoreCase(format)) {
+                            download(ui, res.output());
                         } else {
-                            portal.openComponentTab(tabId(report.getReportCode()), title, buildOutput(res));
-                        }
-                    }
-                    // Notifikasi saja -- output-nya (mis. dokumen berkop kosong buat print manual)
-                    // tetap dibuka, tidak diblokir.
-                    if (res.dataEmpty()) {
-                        Notification n = Notification.show("⚠️ Data report is empty", 4000,
-                                Notification.Position.TOP_CENTER);
-                        n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
-                    }
-                    if (res.messages() != null && !res.messages().isEmpty()) {
-                        for (ReportMessage msg : res.messages()) {
-                            if (msg == null || msg.text() == null || msg.text().isBlank()) continue;
-                            Notification n = new Notification();
-                            String text = msg.text();
-                            if (text.contains("<br") || text.contains("</br>") || text.contains("<b") || text.contains("</b>")) {
-                                n.add(new com.vaadin.flow.component.Html("<div>" + text.replace("</br>", "<br/>") + "</div>"));
+                            PortalView portal = findPortal(origin);
+                            if (portal == null) {
+                                Notification.show("Cannot find app shell to open output tab.");
                             } else {
-                                n.setText(text);
+                                Component tabContent = buildOutput(res);
+                                if (canExportExcel(report, res.stimulsoftViewer())) {
+                                    tabContent = withExcelButton(tabContent, origin, svc, report, values);
+                                }
+                                portal.openComponentTab(tabId(report.getReportCode()), title, tabContent);
                             }
-                            n.setDuration(5000);
-                            n.setPosition(Notification.Position.TOP_CENTER);
-                            switch (msg.level()) {
-                                case SUCCESS -> n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
-                                case WARNING, ERROR -> n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
-                                default -> n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_PRIMARY);
-                            }
-                            n.open();
                         }
+                        // Notifikasi saja -- output-nya (mis. dokumen berkop kosong buat print manual)
+                        // tetap dibuka, tidak diblokir.
+                        if (res.dataEmpty()) {
+                            Notification n = Notification.show("⚠️ Data report is empty", 4000,
+                                    Notification.Position.TOP_CENTER);
+                            n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+                        }
+                        if (res.messages() != null && !res.messages().isEmpty()) {
+                            for (ReportMessage msg : res.messages()) {
+                                if (msg == null || msg.text() == null || msg.text().isBlank()) continue;
+                                Notification n = new Notification();
+                                String text = msg.text();
+                                if (text.contains("<br") || text.contains("</br>") || text.contains("<b") || text.contains("</b>")) {
+                                    n.add(new com.vaadin.flow.component.Html("<div>" + text.replace("</br>", "<br/>") + "</div>"));
+                                } else {
+                                    n.setText(text);
+                                }
+                                n.setDuration(5000);
+                                n.setPosition(Notification.Position.TOP_CENTER);
+                                switch (msg.level()) {
+                                    case SUCCESS -> n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_SUCCESS);
+                                    case WARNING, ERROR -> n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+                                    default -> n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_PRIMARY);
+                                }
+                                n.open();
+                            }
+                        }
+                    } finally {
+                        if (onFinish != null) onFinish.run();
                     }
-                    if (onFinish != null) onFinish.run();
                 });
             } catch (org.springframework.dao.QueryTimeoutException te) {
                 ui.access(() -> {

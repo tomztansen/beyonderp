@@ -66,6 +66,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
     private final FormMetaRepository formMetaRepository;
     private final ReportMetaRepository reportMetaRepository;
     private final SessionSecurityService securityService;
+    private final com.vaadinerp.security.sso.SsoService ssoService;
 
     private final Grid<AppUser> userGrid = new Grid<>(AppUser.class, false);
     private final Grid<AppRole> roleGrid = new Grid<>(AppRole.class, false);
@@ -84,7 +85,8 @@ public class UserAuthorityAdminView extends VerticalLayout {
             AppUserFavoriteMenuRepository favoriteMenuRepository,
             FormMetaRepository formMetaRepository,
             ReportMetaRepository reportMetaRepository,
-            SessionSecurityService securityService) {
+            SessionSecurityService securityService,
+            com.vaadinerp.security.sso.SsoService ssoService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.menuRepository = menuRepository;
@@ -93,6 +95,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
         this.formMetaRepository = formMetaRepository;
         this.reportMetaRepository = reportMetaRepository;
         this.securityService = securityService;
+        this.ssoService = ssoService;
 
         setSizeFull();
         setPadding(true);
@@ -225,6 +228,13 @@ public class UserAuthorityAdminView extends VerticalLayout {
         if (isNew)
             passwordField.setRequired(true);
 
+        // User hasil "Search Authentik" login lewat SSO saja: username & nama dikunci dari Authentik,
+        // password lokal tidak diminta (dikosongkan selamanya -- bukan sekadar "boleh kosong saat ini").
+        java.util.concurrent.atomic.AtomicBoolean fromAuthentik = new java.util.concurrent.atomic.AtomicBoolean(false);
+        com.vaadin.flow.component.Component authentikSearch = isNew && ssoService.isApiSearchEnabled()
+                ? buildAuthentikSearch(usernameField, fullNameField, passwordField, fromAuthentik)
+                : null;
+
         com.vaadin.flow.component.combobox.MultiSelectComboBox<String> roleSelect = new com.vaadin.flow.component.combobox.MultiSelectComboBox<>(
                 "Role(s)");
         roleSelect.setWidthFull();
@@ -248,6 +258,9 @@ public class UserAuthorityAdminView extends VerticalLayout {
             activeCheckbox.setValue(Boolean.TRUE.equals(existing.getIsActive()));
         }
 
+        if (authentikSearch != null) {
+            form.add(authentikSearch);
+        }
         form.add(usernameField, fullNameField, passwordField, roleSelect, activeCheckbox);
 
         Button saveBtn = new com.vaadinerp.components.SafeButton("Save", VaadinIcon.CHECK.create(), e -> {
@@ -264,7 +277,8 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
-            if (isNew && (passwordField.getValue() == null || passwordField.getValue().isBlank())) {
+            if (isNew && !fromAuthentik.get()
+                    && (passwordField.getValue() == null || passwordField.getValue().isBlank())) {
                 Notification n = Notification.show("Password is required for new users!", 3000,
                         Notification.Position.TOP_CENTER);
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -306,6 +320,61 @@ public class UserAuthorityAdminView extends VerticalLayout {
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.add(form);
         dialog.open();
+    }
+
+    /**
+     * Kotak pencarian "Search Authentik" di dialog Add New User: cari by noinduk/nama, pilih satu
+     * hasil mengisi & mengunci Username + Full Name dan menyembunyikan Password (user ini login
+     * lewat SSO saja, tidak pernah punya password lokal).
+     */
+    private com.vaadin.flow.component.Component buildAuthentikSearch(TextField usernameField, TextField fullNameField,
+            PasswordField passwordField, java.util.concurrent.atomic.AtomicBoolean fromAuthentik) {
+        TextField keyword = new TextField();
+        keyword.setPlaceholder("Search by noinduk or name...");
+        keyword.setWidthFull();
+        keyword.setClearButtonVisible(true);
+
+        com.vaadin.flow.component.combobox.ComboBox<com.vaadinerp.security.sso.SsoService.AuthentikUser> results = new com.vaadin.flow.component.combobox.ComboBox<>();
+        results.setWidthFull();
+        results.setPlaceholder("Results...");
+        results.setItemLabelGenerator(u -> u.username() + " — " + u.name());
+        results.setVisible(false);
+
+        Button searchBtn = new com.vaadinerp.components.SafeButton("Search Authentik", e -> {
+            try {
+                var found = ssoService.searchAuthentikUsers(keyword.getValue());
+                results.setItems(found);
+                results.setVisible(true);
+                if (found.isEmpty()) {
+                    Notification.show("No Authentik user matched", 2500, Notification.Position.BOTTOM_END);
+                }
+            } catch (IllegalStateException ex) {
+                Notification n = Notification.show("Search Authentik failed: " + ex.getMessage(), 4000,
+                        Notification.Position.TOP_CENTER);
+                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            }
+        });
+
+        results.addValueChangeListener(e -> {
+            var u = e.getValue();
+            fromAuthentik.set(u != null);
+            usernameField.setValue(u != null ? u.username() : "");
+            usernameField.setReadOnly(u != null);
+            fullNameField.setValue(u != null && u.name() != null ? u.name() : "");
+            passwordField.setValue("");
+            passwordField.setVisible(u == null);
+            passwordField.setRequired(false);
+        });
+
+        HorizontalLayout row = new HorizontalLayout(keyword, searchBtn);
+        row.setWidthFull();
+        row.setFlexGrow(1, keyword);
+        row.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.END);
+
+        VerticalLayout box = new VerticalLayout(row, results);
+        box.setPadding(false);
+        box.setSpacing(true);
+        return box;
     }
 
     // ============================
