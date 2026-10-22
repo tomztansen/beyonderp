@@ -4,4 +4,4 @@ set PATH=%JAVA_HOME%\bin;%PATH%
 set JAVA_TOOL_OPTIONS=-Duser.timezone=Asia/Jakarta
 echo Using Java isolated runtime: %JAVA_HOME%
 java -version
-mvn -U spring-boot:run -Dspring-boot.run.profiles=dev -Dspring-boot.run.jvmArguments="-Duser.timezone=Asia/Jakarta"
+mvn -U spring-boot:run -Dspring-boot.run.jvmArguments="-Duser.timezone=Asia/Jakarta"
