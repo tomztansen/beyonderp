@@ -104,6 +104,12 @@ public class ReportRunnerView extends VerticalLayout {
         rebuildCatalog("");
     }
 
+    /** Judul yang tampil di katalog: judul report, atau kodenya bila judul kosong. */
+    private static String displayTitle(ReportMeta r) {
+        String t = r.getReportTitle() != null ? r.getReportTitle() : r.getReportCode();
+        return t == null ? "" : t;
+    }
+
     private void rebuildCatalog(String search) {
         catalog.removeAll();
         List<ReportMeta> reports = reportAccessService.accessibleReports(reportMetaRepository.findAll());
@@ -132,8 +138,12 @@ public class ReportRunnerView extends VerticalLayout {
             VerticalLayout items = new VerticalLayout();
             items.setPadding(false);
             items.setSpacing(false);
-            for (ReportMeta r : e.getValue()) {
-                String label = r.getReportTitle() != null ? r.getReportTitle() : r.getReportCode();
+            // Isi kategori diurutkan berdasarkan judul tampil (tanpa membedakan huruf besar/kecil); dulu mengikuti urutan baca DB.
+            List<ReportMeta> inCategory = new ArrayList<>(e.getValue());
+            inCategory.sort(Comparator.comparing(ReportRunnerView::displayTitle, String.CASE_INSENSITIVE_ORDER)
+                    .thenComparing(r -> r.getReportCode() == null ? "" : r.getReportCode()));
+            for (ReportMeta r : inCategory) {
+                String label = displayTitle(r);
                 SafeButton b = new SafeButton(label, VaadinIcon.FILE_TEXT.create(), ev -> selectReport(r));
                 b.setWidthFull();
                 b.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
@@ -146,7 +156,7 @@ public class ReportRunnerView extends VerticalLayout {
         catalog.add(acc);
     }
 
-    private void selectReport(ReportMeta report) {
+    void selectReport(ReportMeta report) {
         selectionPanel.removeAll();
         selectionPanel.add(new H4(report.getReportTitle() != null ? report.getReportTitle() : report.getReportCode()));
         if (report.getDescription() != null && !report.getDescription().isBlank()) {
@@ -166,13 +176,14 @@ public class ReportRunnerView extends VerticalLayout {
         }
         selectionPanel.add(formatCombo);
 
-        SafeButton run = new SafeButton("Run", e -> runReport(report, formatCombo.getValue()));
+        SafeButton run = new SafeButton("Run");
+        run.addClickListener(e -> runReport(report, formatCombo.getValue(), run));
         run.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
         SafeButton reset = new SafeButton("Reset", e -> selectReport(report));
         selectionPanel.add(new HorizontalLayout(run, reset));
     }
 
-    private void runReport(ReportMeta report, String format) {
+    private void runReport(ReportMeta report, String format, com.vaadin.flow.component.button.Button runBtn) {
         String user = (securityService.getCurrentUser() != null) ? securityService.getCurrentUser().getUsername() : null;
         Map<String, Object> values = new HashMap<>(
                 ReportParamResolver.resolveAuto(report.getParams(), Map.of(), user));
@@ -199,13 +210,48 @@ public class ReportRunnerView extends VerticalLayout {
             }
         }
 
-        // Show loading state while report runs off the UI thread
-        selectionPanel.removeAll();
+        // Tampilan loading sama seperti dulu (judul + bar progres menggantikan isi panel), tetapi isi panel
+        // hanya disembunyikan lalu dipulihkan setelah selesai, berhasil maupun gagal, sehingga isian form utuh.
+        // Reset tetap mengosongkan form.
+        RunState state = beginRun(runBtn);
+        try {
+            ReportLauncher.runAndOpenTab(this, reportRunService, report, values, format, () -> endRun(state, runBtn));
+        } catch (RuntimeException ex) {
+            endRun(state, runBtn);
+            throw ex;
+        }
+    }
+
+    /** Komponen yang disembunyikan dan ditambahkan selama Run, supaya bisa dipulihkan persis. */
+    static final class RunState {
+        final java.util.List<com.vaadin.flow.component.Component> hidden = new ArrayList<>();
+        final java.util.List<com.vaadin.flow.component.Component> added = new ArrayList<>();
+    }
+
+    /**
+     * Selama report berjalan: isi panel yang sedang tampil disembunyikan (bukan dihapus) dan diganti judul + bar
+     * progres seperti sebelumnya. Komponen yang memang sudah tersembunyi (mis. pilihan format Stimulsoft) tidak
+     * dicatat, jadi tidak ikut ditampilkan saat dipulihkan.
+     */
+    RunState beginRun(com.vaadin.flow.component.button.Button runBtn) {
+        RunState s = new RunState();
+        runBtn.setEnabled(false);
+        selectionPanel.getChildren().filter(com.vaadin.flow.component.Component::isVisible).forEach(s.hidden::add);
+        s.hidden.forEach(c -> c.setVisible(false));
         com.vaadin.flow.component.progressbar.ProgressBar pb = new com.vaadin.flow.component.progressbar.ProgressBar();
         pb.setIndeterminate(true);
-        selectionPanel.add(new H4("Running report…"), pb);
+        H4 title = new H4("Running report…");
+        selectionPanel.add(title, pb);
+        s.added.add(title);
+        s.added.add(pb);
+        return s;
+    }
 
-        ReportLauncher.runAndOpenTab(this, reportRunService, report, values, format, () -> selectReport(report));
+    /** Lepas judul dan progres, tampilkan lagi isi panel, dan aktifkan tombol Run (sukses maupun gagal). */
+    void endRun(RunState s, com.vaadin.flow.component.button.Button runBtn) {
+        s.added.forEach(com.vaadin.flow.component.Component::removeFromParent);
+        s.hidden.forEach(c -> c.setVisible(true));
+        runBtn.setEnabled(true);
     }
 
     private Div buildEmptyState() {

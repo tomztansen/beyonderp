@@ -1,0 +1,81 @@
+<!-- Created with Jaspersoft Studio version 7.0.6.final using JasperReports Library version 7.0.6-5d2a603fdc6b3db8f842a83383e594f41891534d  -->
+<jasperReport name="RPT_LP071_SERIAL_LABEL" language="java" pageWidth="198" pageHeight="102" orientation="Landscape" columnWidth="194" leftMargin="2" rightMargin="2" topMargin="2" bottomMargin="2" uuid="ad3e7243-fcfa-4208-9b76-0426fc923160">
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="local postgre"/>
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<parameter name="pserial" class="java.lang.String">
+		<defaultValueExpression><![CDATA["b60409,b60410,c00001"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="plocation_label" class="java.lang.String">
+		<defaultValueExpression><![CDATA["finis"]]></defaultValueExpression>
+	</parameter>
+	<query language="sql"><![CDATA[SELECT 
+    A.idno AS a1,
+    COALESCE(q2.hthardno, '-') AS a2,
+    COALESCE(A.itemname, '-') AS a3,
+    COALESCE(A.itemcode, A.itemid::text) AS a4,
+    -- a5: Nilai print count ditambah 1 otomatis untuk cetakan saat ini
+    (COALESCE(ps.printcount, 0) + 1)::text AS a5
+FROM dynamic.v_production_serial A 
+-- Join ke tabel fisik tsproductionserial via Primary Key untuk ambil printcount
+LEFT JOIN dynamic.tsproductionserial ps 
+    ON ps.id = A.id
+LEFT JOIN LATERAL (
+    SELECT
+        th.hthardno,
+        th.bookdate 
+    FROM dynamic.tdbook d
+    JOIN dynamic.thbook th ON d.thbookid = th.id
+    JOIN dynamic.mhresource b ON th.resourceid = b.id
+    JOIN dynamic.mdlookup c ON b.msresourceid = c.id 
+        AND c.code ILIKE '%Foundry - Heat%'
+    WHERE d.serialid = A.id 
+    ORDER BY d.id DESC 
+    LIMIT 1 
+) q2 ON TRUE 
+WHERE lower(A.idno) = ANY(string_to_array(lower(replace($P{pserial}, ' ', '')), ','))
+  AND A.isreject = FALSE 
+  AND A.isunique = TRUE 
+ AND ($P{plocation_label}::text IS NULL OR $P{plocation_label}::text = '' OR A.current_resourcename ILIKE '%' || $P{plocation_label} || '%')
+ORDER BY A.idno;]]></query>
+	<field name="a1" class="java.lang.String"/>
+	<field name="a2" class="java.lang.String"/>
+	<field name="a3" class="java.lang.String"/>
+	<field name="a4" class="java.lang.String"/>
+	<field name="a5" class="java.lang.String"/>
+	<detail>
+		<band height="98">
+			<element kind="component" uuid="07842c1d-48e1-446c-8e4d-dde14379ad2a" x="0" y="0" width="70" height="69">
+				<component kind="barcode4j:QRCode">
+					<codeExpression><![CDATA[$F{a1}]]></codeExpression>
+				</component>
+			</element>
+			<element kind="staticText" uuid="2d17996f-3067-4b21-9d4d-b8ff442bc0ac" x="70" y="0" width="23" height="14" vTextAlign="Middle">
+				<text><![CDATA[HT :]]></text>
+			</element>
+			<element kind="textField" uuid="a1dd35ce-8c76-4a6c-b34c-da728a9b4285" x="93" y="0" width="78" height="14" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{a2}]]></expression>
+			</element>
+			<element kind="textField" uuid="854a41f0-93a3-47ce-9066-a7f40c899b1d" x="171" y="0" width="23" height="13" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA["P" + ($F{a5} == null ? "1" : $F{a5})]]></expression>
+				<box leftPadding="2" rightPadding="2">
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+			</element>
+			<element kind="textField" uuid="b66a027b-bcf5-4f5f-800f-d2b02ed2ed5f" x="70" y="14" width="160" height="47" fontSize="36.0" blankWhenNull="true" bold="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{a1}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+			<element kind="textField" uuid="c60177cb-3940-4715-93d5-a098b2ab8213" x="70" y="61" width="160" height="19" fontSize="14.0" textAdjust="StretchHeight" blankWhenNull="true" bold="true" vTextAlign="Top">
+				<expression><![CDATA[$F{a4}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+			<element kind="textField" uuid="e6a93fa5-192a-4a20-b918-8d3802f4da2f" x="0" y="80" width="230" height="18" fontSize="9.0" blankWhenNull="true" vTextAlign="Top">
+				<expression><![CDATA[$F{a3}]]></expression>
+				<box topPadding="1" leftPadding="2"/>
+			</element>
+		</band>
+	</detail>
+</jasperReport>
