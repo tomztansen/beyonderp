@@ -59,6 +59,50 @@ public class SsoService {
     public record SsoIdentity(String username, String sub) {
     }
 
+    /** Hasil pencarian user Authentik (fitur "Search Authentik" di Add New User). */
+    public record AuthentikUser(String username, String name) {
+    }
+
+    /** Fitur "Search Authentik" siap dipakai hanya bila SSO aktif dan token API terisi. */
+    public boolean isApiSearchEnabled() {
+        return isEnabled() && props.getApiToken() != null && !props.getApiToken().isBlank();
+    }
+
+    /**
+     * Cari user Authentik by username/nama (dipakai "Search Authentik" di Add New User, agar
+     * admin tidak salah ketik noinduk/nama -- user hasil pull login lewat SSO, tanpa password lokal).
+     * Maksimal 20 hasil. Melempar IllegalStateException bila API gagal/token salah.
+     */
+    public java.util.List<AuthentikUser> searchAuthentikUsers(String keyword) {
+        if (!isApiSearchEnabled() || keyword == null || keyword.isBlank()) {
+            return java.util.List.of();
+        }
+        try {
+            String issuer = props.getIssuer();
+            URI u = URI.create(issuer);
+            String api = u.getScheme() + "://" + u.getAuthority() + "/api/v3/core/users/?page_size=20&search="
+                    + URLEncoder.encode(keyword.trim(), StandardCharsets.UTF_8);
+            HttpResponse<String> r = http.send(
+                    HttpRequest.newBuilder(URI.create(api))
+                            .header("Authorization", "Bearer " + props.getApiToken())
+                            .GET().timeout(Duration.ofSeconds(10)).build(),
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (r.statusCode() != 200) {
+                throw new IllegalStateException("Authentik API HTTP " + r.statusCode());
+            }
+            JsonNode results = mapper.readTree(r.body()).path("results");
+            java.util.List<AuthentikUser> out = new java.util.ArrayList<>();
+            for (JsonNode n : results) {
+                out.add(new AuthentikUser(n.path("username").asText(""), n.path("name").asText("")));
+            }
+            return out;
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Gagal mencari user Authentik: " + e.getMessage(), e);
+        }
+    }
+
     public SsoService(SsoProperties props) {
         this.props = props;
     }

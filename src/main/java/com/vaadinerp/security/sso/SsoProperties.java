@@ -31,6 +31,12 @@ public class SsoProperties {
     private java.util.List<String> logoutAcceptedIssuers = new java.util.ArrayList<>();
     /** Teks tombol pada halaman login. */
     private String buttonLabel = "Login with SSO";
+    /**
+     * Token API Authentik (hak baca user saja) untuk fitur "Search Authentik" di Add New User
+     * (UserAuthorityAdminView) -- cari user by noinduk/nama, tarik username & nama lengkap tanpa
+     * password (user hasil pull login lewat SSO saja). Kosong = fitur pencarian tersembunyi.
+     */
+    private String apiToken;
 
     /** SSO siap dipakai hanya bila diaktifkan dan semua kredensial terisi. */
     public boolean isConfigured() {
@@ -96,5 +102,13 @@ public class SsoProperties {
 
     public void setButtonLabel(String buttonLabel) {
         this.buttonLabel = buttonLabel;
+    }
+
+    public String getApiToken() {
+        return apiToken;
+    }
+
+    public void setApiToken(String apiToken) {
+        this.apiToken = apiToken;
     }
 }

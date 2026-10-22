@@ -769,7 +769,8 @@ public class PortalView extends AppLayout {
             case "PRODUCTION_SCHEDULER" -> new ProductionSchedulerView(dynamicDataService);
             case "SECURITY_ADMIN" -> new UserAuthorityAdminView(appUserRepository, appRoleRepository, appMenuRepository,
                     roleMenuPermissionRepository, appUserFavoriteMenuRepository, formMetaRepository,
-                    reportMetaRepository, securityService);
+                    reportMetaRepository, securityService,
+                    com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.security.sso.SsoService.class));
             default -> {
                 Optional<FormMeta> optForm = formMetaRepository.findById(code);
                 if (optForm.isPresent()) {
