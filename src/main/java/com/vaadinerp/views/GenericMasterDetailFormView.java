@@ -1145,9 +1145,22 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
 
                     // Guard sisi server: detail terkunci -> hanya header yang ditulis, dalam transaksi yang sama
                     boolean detailLocked = isDetailLocked();
-                    dynamicDataService.saveMasterDetailData(formDef, formBinder.getBean(),
-                            detailLocked ? java.util.Collections.emptyList() : detailsList,
-                            detailLocked ? java.util.Collections.emptyList() : deletedDetailsList);
+                    java.util.List<Map<String, Object>> saveDetails = detailLocked ? java.util.Collections.emptyList() : detailsList;
+                    java.util.List<Map<String, Object>> saveDeleted = detailLocked ? java.util.Collections.emptyList() : deletedDetailsList;
+                    // ON_SAVE: script di dalam transaksi simpan (atomik). Form tanpa ON_SAVE memakai jalur lama.
+                    java.util.List<com.vaadinerp.meta.FormActionMeta> onSaveActs = com.vaadinerp.service.DynamicDataService
+                            .onSaveActions(saveActions);
+                    if (onSaveActs.isEmpty() || dynamicDataService.getScriptExecutorService() == null) {
+                        dynamicDataService.saveMasterDetailData(formDef, formBinder.getBean(), saveDetails, saveDeleted);
+                    } else {
+                        java.util.List<Runnable> deferredUi = new java.util.ArrayList<>();
+                        Map<String, Object> masterBean = formBinder.getBean();
+                        dynamicDataService.saveMasterDetailDataAtomic(formDef, masterBean, saveDetails, saveDeleted,
+                                () -> dynamicDataService.getScriptExecutorService().executeOnSaveScripts(onSaveActs,
+                                        masterBean, detailsList, GenericMasterDetailFormView.this, saveIsNew, deferredUi));
+                        // Baru setelah commit: dialog/notifikasi/tab dari script ON_SAVE.
+                        deferredUi.forEach(Runnable::run);
+                    }
 
                     // === AFTER_SAVE scripts ===
                     if (saveActions != null) {
@@ -1194,7 +1207,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
                     rootCause = rootCause.getCause();
                 }
-                ex.printStackTrace();
+                // Ke log server (stderr saja tidak masuk server.log), selain ditampilkan ke user di bawah.
+                org.slf4j.LoggerFactory.getLogger(GenericMasterDetailFormView.class)
+                        .error("Simpan form gagal: {}", rootCause.getMessage(), ex);
                 String cleanMsg = rootCause.getMessage();
                 if (cleanMsg != null) {
                     if (cleanMsg.contains("ERROR:"))

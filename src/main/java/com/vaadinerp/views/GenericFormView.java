@@ -616,7 +616,19 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
                     stripSubformDataIfDetailLocked(formDef, parentData);
                     FixedParams.force(parentData, fixedValues);
-                    dynamicDataService.saveData(formDef, parentData);
+                    // ON_SAVE: script di dalam transaksi simpan (atomik). Form tanpa ON_SAVE memakai jalur lama.
+                    java.util.List<com.vaadinerp.meta.FormActionMeta> onSaveActs = com.vaadinerp.service.DynamicDataService
+                            .onSaveActions(saveActions);
+                    if (onSaveActs.isEmpty() || dynamicDataService.getScriptExecutorService() == null) {
+                        dynamicDataService.saveData(formDef, parentData);
+                    } else {
+                        java.util.List<Runnable> deferredUi = new java.util.ArrayList<>();
+                        dynamicDataService.saveDataAtomic(formDef, parentData,
+                                () -> dynamicDataService.getScriptExecutorService().executeOnSaveScripts(onSaveActs,
+                                        parentData, null, GenericFormView.this, saveIsNew, deferredUi));
+                        // Baru setelah commit: dialog/notifikasi/tab dari script ON_SAVE.
+                        deferredUi.forEach(Runnable::run);
+                    }
 
                     // Baru sekarang record-nya benar-benar tersimpan -- file yang tadi
                     // ditandai Delete/diganti boleh dihapus fisik (lihat FileUploadField).
@@ -670,7 +682,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
                     rootCause = rootCause.getCause();
                 }
-                ex.printStackTrace();
+                // Ke log server (stderr saja tidak masuk server.log), selain ditampilkan ke user di bawah.
+                org.slf4j.LoggerFactory.getLogger(GenericFormView.class)
+                        .error("Simpan form gagal: {}", rootCause.getMessage(), ex);
                 String cleanMsg = rootCause.getMessage();
                 if (cleanMsg != null) {
                     if (cleanMsg.contains("ERROR:"))

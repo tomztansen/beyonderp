@@ -47,6 +47,10 @@ public final class ScriptEditorDialog {
             case "BEFORE_SAVE":
                 return "Dijalankan sebelum data disimpan. Script yang mengembalikan false akan MEMBATALKAN "
                         + "penyimpanan — dipakai untuk validasi.";
+            case "ON_SAVE":
+                return "Dijalankan DI DALAM transaksi simpan, setelah header dan detail tertulis. Error, fail(\"pesan\") "
+                        + "atau return false membatalkan SELURUH simpan. msgBox/notifikasi baru tampil setelah berhasil. "
+                        + "renderReport tidak bisa dipakai di sini (pakai AFTER_SAVE).";
             case "AFTER_SAVE":
                 return "Dijalankan setelah data tersimpan. Form langsung dikosongkan sesudahnya, jadi jangan "
                         + "dipakai untuk mengatur tampilan field.";
@@ -106,7 +110,7 @@ public final class ScriptEditorDialog {
         final String formCodeFinal = formCode;
 
         List<String> scopes = new ArrayList<>(
-                Arrays.asList("ON_LOAD_NEW", "ON_LOAD_EDIT", "ON_LOAD_VIEW", "BEFORE_SAVE", "AFTER_SAVE"));
+                Arrays.asList("ON_LOAD_NEW", "ON_LOAD_EDIT", "ON_LOAD_VIEW", "BEFORE_SAVE", "ON_SAVE", "AFTER_SAVE"));
         if ("MASTER_DETAIL".equals(formType)) {
             scopes.add("ON_DETAIL_ADD");
         }
