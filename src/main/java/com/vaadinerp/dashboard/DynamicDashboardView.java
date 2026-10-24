@@ -117,15 +117,18 @@ public class DynamicDashboardView extends VerticalLayout {
         add(chips);
         // Gaya DnD (kelas v-dragged / v-drag-over-target diberikan Vaadin otomatis)
         add(new com.vaadin.flow.component.Html(
-                "<style>.v-dragged{opacity:.5;outline:2px dashed #6366f1}.v-drag-over-target{outline:2px solid #6366f1;outline-offset:2px}</style>"));
+                "<style>.v-dragged{opacity:.5;outline:2px dashed #6366f1}.v-drag-over-target{outline:2px solid #6366f1;outline-offset:2px}"
+                        // Layar sempit: satu kolom. !important karena kolom desktop diset inline pada grid.
+                        + "@media (max-width:800px){.dash-grid{grid-template-columns:minmax(0,1fr)!important}}</style>"));
         customizePanel.setVisible(false);
         customizePanel.getStyle().set("display", "flex").set("flex-wrap", "wrap").set("gap", "8px")
                 .set("align-items", "center").set("padding", "6px 0");
         add(customizePanel);
         grid.getStyle().set("display", "grid").set("grid-template-columns", "repeat(12, minmax(0, 1fr))")
-                .set("gap", "12px").set("grid-auto-flow", "dense").set("width", "100%");
-        grid.getElement().executeJs(
-                "const mq=window.matchMedia('(max-width: 800px)');const f=()=>this.style.gridTemplateColumns=mq.matches?'minmax(0,1fr)':'repeat(12,minmax(0,1fr))';mq.addEventListener('change',f);f();");
+                .set("gap", "12px").set("grid-auto-flow", "dense").set("width", "100%")
+                // Kartu setinggi isinya, bukan diregangkan setinggi kartu tertinggi di baris (mis. KPI jangan melar mengikuti chart).
+                .set("align-items", "start");
+        grid.addClassName("dash-grid");
         add(grid);
         buildCards();
     }
@@ -465,8 +468,9 @@ public class DynamicDashboardView extends VerticalLayout {
                 }
             },
             () -> {
+                // Siklus lebar: 3 -> 4 -> 6 -> 8 -> 12 -> 3 (monotonik, aman untuk nilai di luar daftar).
                 int s = ce.card().getSpan();
-                int next = s == 3 ? 6 : s == 6 ? 12 : 3;
+                int next = s < 4 ? 4 : s < 6 ? 6 : s < 8 ? 8 : s < 12 ? 12 : 3;
                 ce.card().setSpan(next);
                 updateLayoutSpan(code, next);
             },

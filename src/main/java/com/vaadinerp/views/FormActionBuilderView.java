@@ -157,7 +157,7 @@ public class FormActionBuilderView extends VerticalLayout {
         formCodeCombo.setItems(formCodes);
         formCodeCombo.setClearButtonVisible(true);
 
-        targetScopeCombo.setItems("MASTER_TOOLBAR", "DETAIL_TOOLBAR", "ON_LOAD_NEW", "ON_DETAIL_ADD", "ON_LOAD_EDIT", "ON_LOAD_VIEW", "BEFORE_SAVE", "AFTER_SAVE", "ON_CHANGE");
+        targetScopeCombo.setItems("MASTER_TOOLBAR", "DETAIL_TOOLBAR", "ON_LOAD_NEW", "ON_DETAIL_ADD", "ON_LOAD_EDIT", "ON_LOAD_VIEW", "BEFORE_SAVE", "ON_SAVE", "AFTER_SAVE", "ON_CHANGE");
         targetScopeCombo.setValue("MASTER_TOOLBAR");
 
         triggerFieldField.setPlaceholder("mis. is_harga_manual");

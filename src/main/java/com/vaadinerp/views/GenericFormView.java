@@ -538,6 +538,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnSave.setDisableOnClick(true);
         btnSave.addClickListener(e -> {
             toolbar.setEnabled(false);
+            // true setelah commit: error sesudahnya BUKAN gagal simpan (lihat catch di bawah).
+            final boolean[] committed = { false };
             try {
                 boolean binderOk = formBinder.validate().isOk();
                 boolean requiredOk = true;
@@ -616,7 +618,21 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
                     stripSubformDataIfDetailLocked(formDef, parentData);
                     FixedParams.force(parentData, fixedValues);
-                    dynamicDataService.saveData(formDef, parentData);
+                    // ON_SAVE: script di dalam transaksi simpan (atomik). Form tanpa ON_SAVE memakai jalur lama.
+                    java.util.List<com.vaadinerp.meta.FormActionMeta> onSaveActs = com.vaadinerp.service.DynamicDataService
+                            .onSaveActions(saveActions);
+                    if (onSaveActs.isEmpty() || dynamicDataService.getScriptExecutorService() == null) {
+                        dynamicDataService.saveData(formDef, parentData);
+                        committed[0] = true;
+                    } else {
+                        java.util.List<Runnable> deferredUi = new java.util.ArrayList<>();
+                        dynamicDataService.saveDataAtomic(formDef, parentData,
+                                () -> dynamicDataService.getScriptExecutorService().executeOnSaveScripts(onSaveActs,
+                                        parentData, null, GenericFormView.this, saveIsNew, deferredUi));
+                        committed[0] = true;
+                        // Baru setelah commit: dialog/notifikasi/tab dari script ON_SAVE.
+                        com.vaadinerp.service.ActionContext.runDeferred(deferredUi);
+                    }
 
                     // Baru sekarang record-nya benar-benar tersimpan -- file yang tadi
                     // ditandai Delete/diganti boleh dihapus fisik (lihat FileUploadField).
@@ -670,7 +686,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
                     rootCause = rootCause.getCause();
                 }
-                ex.printStackTrace();
+                // Ke log server (stderr saja tidak masuk server.log), selain ditampilkan ke user di bawah.
+                org.slf4j.LoggerFactory.getLogger(GenericFormView.class).error(committed[0]
+                        ? "Langkah sesudah simpan gagal (data sudah tersimpan): {}"
+                        : "Simpan form gagal: {}", rootCause.getMessage(), ex);
                 String cleanMsg = rootCause.getMessage();
                 if (cleanMsg != null) {
                     if (cleanMsg.contains("ERROR:"))
@@ -680,6 +699,24 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     cleanMsg = cleanMsg.trim();
                 } else {
                     cleanMsg = "An error occurred in the internal system.";
+                }
+                if (committed[0]) {
+                    // Data SUDAH tersimpan; yang gagal langkah sesudahnya. Dulu dilaporkan sebagai gagal simpan dan
+                    // form tidak dikosongkan, sehingga form memegang version lama dan simpan ulang berakhir
+                    // "Data conflict". Sekarang diberi tahu apa adanya lalu form dimuat ulang seperti simpan sukses.
+                    Notification n = Notification.show("Data saved, but a follow-up step failed: " + cleanMsg, 8000,
+                            Notification.Position.MIDDLE);
+                    n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_CONTRAST);
+                    try {
+                        formBinder.setBean(new HashMap<>());
+                        clearAllComponents();
+                        refreshGridData(formDef);
+                        tabSheet.setSelectedTab(historisTab);
+                    } catch (Exception reloadEx) {
+                        org.slf4j.LoggerFactory.getLogger(GenericFormView.class)
+                                .warn("Muat ulang form sesudah simpan gagal: {}", reloadEx.getMessage());
+                    }
+                    return;
                 }
                 Notification n = Notification.show("⚠️ " + cleanMsg, 8000, Notification.Position.MIDDLE);
                 n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);

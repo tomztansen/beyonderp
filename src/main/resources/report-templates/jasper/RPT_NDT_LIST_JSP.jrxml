@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Daftar NDT per serial dengan customer, deskripsi, dan total NETW. Sumber lama: axis lp081.jrxml. Report Runner: param itemcode (opsional, contains), dt_from dan dt_to (wajib). Query ada di template (data_query kosong). JUDUL punya nilai bawaan. -->
+<jasperReport name="RPT_NDT_LIST_JSP" language="java" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="814" whenNoDataType="AllSectionsNoDetail" leftMargin="14" rightMargin="14" topMargin="14" bottomMargin="14" uuid="8d3f6b12-4a7e-4c59-b021-9e8f7a6d5c01">
+	<parameter name="itemcode" class="java.lang.String"/>
+	<parameter name="dt_from" class="java.time.LocalDateTime"/>
+	<parameter name="dt_to" class="java.time.LocalDateTime"/>
+	<parameter name="JUDUL" class="java.lang.String">
+		<defaultValueExpression><![CDATA["NDT Serial List"]]></defaultValueExpression>
+	</parameter>
+	<query language="sql"><![CDATA[SELECT b.itemcode, b.itemname, c.idno, a.estnetweight, d."name" AS status,
+       e.idno AS productionorder, e.qty, f.salesid, g."name" AS enduser, i.note,
+       a.inputdt, a.inputby
+FROM dynamic.tsndtserial a
+LEFT JOIN dynamic.msitem b ON a.msitemid = b."id"
+LEFT JOIN dynamic.tsproductionserial c ON c."id" = a.tsproductionserialid
+LEFT JOIN dynamic.mdlookup d ON a.statusid = d.id
+LEFT JOIN dynamic.tsproductionorder e ON e."id" = a.tsproductionorderid
+LEFT JOIN dynamic.tssalesline f ON e.tssaleslineid = f."id"
+LEFT JOIN dynamic.mscustomer g ON g.id = f.abmenduser AND g.enduser = true
+LEFT JOIN dynamic.tdproductiontag h ON a.tsproductionserialid = h.tsproductionserialid
+LEFT JOIN dynamic.thproductiontag i ON h.thproductiontagid = i."id"
+WHERE a.inputdt >= $P{dt_from} AND a.inputdt <= $P{dt_to}
+  AND (COALESCE(CAST($P{itemcode} AS text), '') = '' OR b.itemcode ILIKE '%' || CAST($P{itemcode} AS text) || '%')
+ORDER BY a.inputdt, c.idno]]></query>
+	<field name="itemcode" class="java.lang.String"/>
+	<field name="itemname" class="java.lang.String"/>
+	<field name="idno" class="java.lang.String"/>
+	<field name="estnetweight" class="java.lang.Integer"/>
+	<field name="status" class="java.lang.String"/>
+	<field name="productionorder" class="java.lang.String"/>
+	<field name="qty" class="java.math.BigDecimal"/>
+	<field name="salesid" class="java.lang.String"/>
+	<field name="enduser" class="java.lang.String"/>
+	<field name="note" class="java.lang.String"/>
+	<field name="inputdt" class="java.sql.Timestamp"/>
+	<field name="inputby" class="java.lang.String"/>
+	<variable name="No" class="java.lang.Integer" calculation="Count">
+		<expression><![CDATA[$F{idno}]]></expression>
+	</variable>
+	<variable name="TotalNetw" class="java.lang.Long" calculation="Sum">
+		<expression><![CDATA[$F{estnetweight} == null ? 0L : Long.valueOf($F{estnetweight})]]></expression>
+	</variable>
+	<pageHeader height="78">
+			<element kind="staticText" uuid="5e1c9a30-0001-4000-8000-000000000001" x="0" y="0" width="200" height="20" fontName="Arial" fontSize="10" bold="true" vTextAlign="Middle">
+				<text><![CDATA[PT. GROWTH ASIA]]></text>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000002" x="0" y="26" width="814" height="16" fontName="Arial" fontSize="9" vTextAlign="Middle">
+				<expression><![CDATA["Periode: " + $P{dt_from}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) + " - " + $P{dt_to}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) + (($P{itemcode} != null && !$P{itemcode}.isBlank()) ? "    Kode produk: " + $P{itemcode} : "")]]></expression>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000003" x="0" y="50" width="814" height="22" fontName="Arial" fontSize="14" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$P{JUDUL}]]></expression>
+			</element>
+	</pageHeader>
+	<columnHeader height="26">
+			<element kind="staticText" uuid="5e1c9a30-0001-4000-8000-000000000004" x="1" y="1" width="20" height="24" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NO]]></text>
+			</element>
+			<element kind="staticText" uuid="5e1c9a30-0001-4000-8000-000000000005" x="22" y="1" width="55" height="24" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[TGL JAM]]></text>
+			</element>
+			<element kind="staticText" uuid="5e1c9a30-0001-4000-8000-000000000006" x="78" y="1" width="61" height="24" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[No. OC]]></text>
+			</element>
+			<element kind="staticText" uuid="5e1c9a30-0001-4000-8000-000000000007" x="140" y="1" width="88" height="24" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[No. JC]]></text>
+			</element>
+			<element kind="staticText" uuid="5e1c9a30-0001-4000-8000-000000000008" x="229" y="1" width="127" height="24" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[CUSTOMER]]></text>
+			</element>
+			<element kind="staticText" uuid="5e1c9a30-0001-4000-8000-000000000009" x="357" y="1" width="94" height="24" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[KODE PRODUCT]]></text>
+			</element>
+			<element kind="staticText" uuid="5e1c9a30-0001-4000-8000-000000000010" x="452" y="1" width="127" height="24" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[DESCRIPTION]]></text>
+			</element>
+			<element kind="staticText" uuid="5e1c9a30-0001-4000-8000-000000000011" x="580" y="1" width="58" height="24" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NO SERI]]></text>
+			</element>
+			<element kind="staticText" uuid="5e1c9a30-0001-4000-8000-000000000012" x="639" y="1" width="38" height="24" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NETW]]></text>
+			</element>
+			<element kind="staticText" uuid="5e1c9a30-0001-4000-8000-000000000013" x="678" y="1" width="68" height="24" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[OLEH]]></text>
+			</element>
+			<element kind="staticText" uuid="5e1c9a30-0001-4000-8000-000000000014" x="747" y="1" width="67" height="24" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[HASIL]]></text>
+			</element>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000015" x="0" y="0" width="815" height="1"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000016" x="0" y="25" width="815" height="1"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000017" x="0" y="0" width="1" height="26"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000018" x="21" y="0" width="1" height="26"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000019" x="77" y="0" width="1" height="26"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000020" x="139" y="0" width="1" height="26"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000021" x="228" y="0" width="1" height="26"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000022" x="356" y="0" width="1" height="26"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000023" x="451" y="0" width="1" height="26"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000024" x="579" y="0" width="1" height="26"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000025" x="638" y="0" width="1" height="26"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000026" x="677" y="0" width="1" height="26"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000027" x="746" y="0" width="1" height="26"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000028" x="814" y="0" width="1" height="26"/>
+	</columnHeader>
+	<detail>
+		<band height="25" splitType="Prevent">
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000029" x="1" y="0" width="20" height="24" fontName="Arial" fontSize="8" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{No}]]></expression>
+				<box leftPadding="2"/>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000030" x="22" y="0" width="55" height="24" fontName="Arial" fontSize="8" bold="true" pattern="dd/MM/yyyy HH.mm.ss" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{inputdt}]]></expression>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000031" textAdjust="StretchHeight" x="78" y="0" width="61" height="24" fontName="Arial" fontSize="8" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{salesid}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000032" textAdjust="StretchHeight" x="140" y="0" width="88" height="24" fontName="Arial" fontSize="8" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{productionorder}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000033" textAdjust="StretchHeight" x="229" y="0" width="127" height="24" fontName="Arial" fontSize="8" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{enduser}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000034" textAdjust="StretchHeight" x="357" y="0" width="94" height="24" fontName="Arial" fontSize="8" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{itemcode}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000035" textAdjust="StretchHeight" x="452" y="0" width="127" height="24" fontName="Arial" fontSize="8" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{itemname}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000036" textAdjust="StretchHeight" x="580" y="0" width="58" height="24" fontName="Arial" fontSize="8" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{idno}]]></expression>
+				<box leftPadding="1"/>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000037" x="639" y="0" width="38" height="24" fontName="Arial" fontSize="8" pattern="#,##0;-#,##0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+				<expression><![CDATA[$F{estnetweight}]]></expression>
+				<box rightPadding="2"/>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000038" textAdjust="StretchHeight" x="678" y="0" width="68" height="24" fontName="Arial" fontSize="8" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{inputby}]]></expression>
+				<box leftPadding="1"/>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000039" textAdjust="StretchHeight" x="747" y="0" width="67" height="24" fontName="Arial" fontSize="8" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{status}]]></expression>
+				<box leftPadding="1"/>
+			</element>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000040" x="0" y="24" width="815" height="1" positionType="Float"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000041" x="0" y="0" width="1" height="24" stretchType="ContainerHeight"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000042" x="21" y="0" width="1" height="24" stretchType="ContainerHeight"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000043" x="77" y="0" width="1" height="24" stretchType="ContainerHeight"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000044" x="139" y="0" width="1" height="24" stretchType="ContainerHeight"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000045" x="228" y="0" width="1" height="24" stretchType="ContainerHeight"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000046" x="356" y="0" width="1" height="24" stretchType="ContainerHeight"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000047" x="451" y="0" width="1" height="24" stretchType="ContainerHeight"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000048" x="579" y="0" width="1" height="24" stretchType="ContainerHeight"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000049" x="638" y="0" width="1" height="24" stretchType="ContainerHeight"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000050" x="677" y="0" width="1" height="24" stretchType="ContainerHeight"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000051" x="746" y="0" width="1" height="24" stretchType="ContainerHeight"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000052" x="814" y="0" width="1" height="24" stretchType="ContainerHeight"/>
+		</band>
+	</detail>
+	<pageFooter height="15">
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000053" x="317" y="0" width="80" height="15" fontName="Arial" fontSize="8" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+				<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000054" evaluationTime="Report" x="397" y="0" width="40" height="15" fontName="Arial" fontSize="8" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000055" x="644" y="0" width="170" height="15" fontName="Arial" fontSize="8" pattern="dd-MMM-yy HH:mm:ss" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+				<expression><![CDATA[new java.util.Date()]]></expression>
+			</element>
+	</pageFooter>
+	<summary height="24">
+			<element kind="staticText" uuid="5e1c9a30-0001-4000-8000-000000000056" x="0" y="0" width="638" height="24" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[TOTAL]]></text>
+			</element>
+			<element kind="textField" uuid="5e1c9a30-0001-4000-8000-000000000057" x="639" y="0" width="38" height="24" fontName="Arial" fontSize="8" pattern="#,##0;-#,##0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+				<expression><![CDATA[$V{TotalNetw}]]></expression>
+				<box rightPadding="2"/>
+			</element>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000058" x="0" y="0" width="1" height="24"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000059" x="638" y="0" width="1" height="24"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000060" x="677" y="0" width="1" height="24"/>
+			<element kind="line" uuid="5e1c9a30-0001-4000-8000-000000000061" x="0" y="23" width="678" height="1"/>
+	</summary>
+</jasperReport>

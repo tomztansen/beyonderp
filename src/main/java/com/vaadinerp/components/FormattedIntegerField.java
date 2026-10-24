@@ -12,6 +12,7 @@ public class FormattedIntegerField extends CustomField<Integer> {
     private String displayFormat;
     private boolean isReadOnly = false;
     private boolean isRequired = false;
+    private SignToggle signToggle;
 
     public FormattedIntegerField(String label) {
         setLabel(label);
@@ -59,10 +60,21 @@ public class FormattedIntegerField extends CustomField<Integer> {
         }
     }
 
+    /** Pasang tombol +/-. Dipanggil sesudah setDisplayFormat supaya prefix Rp/$ ikut dipertahankan. */
+    public void enableSignToggle() {
+        if (signToggle != null)
+            return;
+        signToggle = new SignToggle(textField, this::updateValue);
+        textField.setAllowedCharPattern("[0-9.,]");
+        signToggle.setEnabled(!isReadOnly);
+    }
+
     @Override
     public void setReadOnly(boolean readOnly) {
         this.isReadOnly = readOnly;
         textField.setReadOnly(readOnly);
+        if (signToggle != null)
+            signToggle.setEnabled(!readOnly);
     }
 
     @Override
@@ -96,7 +108,10 @@ public class FormattedIntegerField extends CustomField<Integer> {
                 .trim();
             if (clean.contains(",")) clean = clean.substring(0, clean.indexOf(","));
             clean = clean.replace(".", "");
-            return Integer.parseInt(clean);
+            int parsed = Integer.parseInt(clean);
+            if (signToggle == null)
+                return parsed;
+            return signToggle.isNegative() ? -Math.abs(parsed) : Math.abs(parsed);
         } catch (Exception e) {
             return null;
         }
@@ -105,9 +120,13 @@ public class FormattedIntegerField extends CustomField<Integer> {
     @Override
     protected void setPresentationValue(Integer newPresentationValue) {
         if (newPresentationValue == null) {
+            if (signToggle != null)
+                signToggle.setNegative(false);
             textField.setValue("");
             return;
         }
+        if (signToggle != null)
+            signToggle.setNegative(newPresentationValue < 0);
         formatValue(newPresentationValue);
     }
 
@@ -119,6 +138,8 @@ public class FormattedIntegerField extends CustomField<Integer> {
     }
 
     private void formatValue(Integer val) {
+        if (signToggle != null)
+            val = Math.abs(val); // tanda ditampilkan oleh tombol, bukan di kotak
         try {
             String pattern = displayFormat != null && !displayFormat.trim().isEmpty() && !"NONE".equalsIgnoreCase(displayFormat) 
                 ? displayFormat.trim() : "#,##0";

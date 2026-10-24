@@ -29,6 +29,8 @@ public class ScriptExecutorService {
     private CompilerConfiguration compilerConfiguration;
     private CompilerConfiguration jobCompilerConfiguration;
 
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(ScriptExecutorService.class);
+
     public ScriptExecutorService(
             org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider,
             org.springframework.beans.factory.ObjectProvider<com.vaadinerp.security.service.LoginHistoryService> loginHistoryProvider,
@@ -67,6 +69,11 @@ public class ScriptExecutorService {
             }
 
             public String doCall(Object reportCode, Map<?, ?> params, Object format, Object fileName) {
+                if (ctx != null && ctx.isAtomic()) {
+                    // Mesin report membuka koneksi database sendiri, jadi tidak melihat data yang belum di-commit.
+                    throw new ScriptAbortException("renderReport tidak bisa dipakai di ON_SAVE (data belum di-commit); "
+                            + "pindahkan ke AFTER_SAVE");
+                }
                 String code = reportCode != null ? reportCode.toString().trim() : "";
                 com.vaadinerp.meta.ReportMeta report = com.vaadinerp.config.SpringContextHolder
                         .getBean(com.vaadinerp.meta.ReportMetaRepository.class).findById(code)
@@ -704,7 +711,6 @@ public class ScriptExecutorService {
             binding.setVariable("header", smartHeader);
             binding.setVariable("form", smartHeader);
             binding.setVariable("items", items != null ? items : new ArrayList<>());
-            binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
             binding.setVariable("uploadDir", resolveUploadDir());
 
             com.vaadin.flow.component.Component parentView = currentView;
@@ -714,6 +720,9 @@ public class ScriptExecutorService {
             ActionContext ctx = new ActionContext(dataServiceProvider.getIfAvailable(), headerData, items,
                     parentView);
             binding.setVariable("ctx", ctx); // ctx.getUserId() dst., sama seperti di scope action
+            // Error SQL dari db.* ditampilkan ke user (dulu hanya stderr server); nilai kembalian tetap sama.
+            binding.setVariable("db", new DatabaseHelper(dataServiceProvider,
+                    msg -> ctx.showError("Script error", msg), false));
 
             if (currentView != null) {
                 binding.setVariable("setElementEnabled", new groovy.lang.Closure<Void>(null) {
@@ -781,7 +790,7 @@ public class ScriptExecutorService {
             // Batas 60 detik tetap berlaku lewat @TimedInterrupt di compilerConfiguration.
             scriptInstance.run();
         } catch (Exception e) {
-            System.err.println("Error executing script [" + scriptId + "]: " + e.getMessage());
+            LOG.error("Script baris [{}] gagal: {}", scriptId, e.getMessage(), e);
             if (e instanceof RuntimeException) {
                 throw (RuntimeException) e;
             }
@@ -821,12 +830,41 @@ public class ScriptExecutorService {
      *              diturunkan dari primary key header. Tersedia di script sebagai {@code isNew} dan
      *              {@code saveMode} ("INSERT" / "UPDATE").
      */
-    @SuppressWarnings("unused")
     public boolean executeActionScript(com.vaadinerp.meta.FormActionMeta act,
             Map<String, Object> headerBean,
             List<Map<String, Object>> selectedGridRows,
             com.vaadin.flow.component.Component currentView,
             Boolean isNew) {
+        return runActionScript(act, headerBean, selectedGridRows, currentView, isNew, null);
+    }
+
+    /**
+     * Script scope ON_SAVE: dijalankan DI DALAM transaksi simpan milik pemanggil (lihat
+     * DynamicDataService.saveDataAtomic). Error, {@code fail(...)}, atau script yang mengembalikan false
+     * melempar {@link ScriptAbortException} supaya seluruh simpan di-rollback. Efek ke layar dikumpulkan ke
+     * {@code deferredUi}; pemanggil menjalankannya setelah commit berhasil.
+     */
+    public void executeOnSaveScripts(List<com.vaadinerp.meta.FormActionMeta> acts,
+            Map<String, Object> headerBean,
+            List<Map<String, Object>> selectedGridRows,
+            com.vaadin.flow.component.Component currentView,
+            Boolean isNew,
+            List<Runnable> deferredUi) {
+        for (com.vaadinerp.meta.FormActionMeta act : acts) {
+            if (!runActionScript(act, headerBean, selectedGridRows, currentView, isNew, deferredUi)) {
+                throw new ScriptAbortException("ON_SAVE " + act.getActionCode() + " membatalkan penyimpanan");
+            }
+        }
+    }
+
+    /** @param deferredUi bukan null = mode atomik ON_SAVE; null = perilaku lama. */
+    @SuppressWarnings("unused")
+    private boolean runActionScript(com.vaadinerp.meta.FormActionMeta act,
+            Map<String, Object> headerBean,
+            List<Map<String, Object>> selectedGridRows,
+            com.vaadin.flow.component.Component currentView,
+            Boolean isNew,
+            List<Runnable> deferredUi) {
         if (act == null || act.getScriptContent() == null || act.getScriptContent().isBlank()) {
             return true;
         }
@@ -834,6 +872,9 @@ public class ScriptExecutorService {
 
         ActionContext ctx = new ActionContext(dataServiceProvider.getIfAvailable(), headerBean, selectedGridRows,
                 currentView);
+        if (deferredUi != null) {
+            ctx.runAtomic(deferredUi);
+        }
 
         // Ganti macro @gridtable{...} dengan ctx.getElementValue('...', true)
         scriptText = scriptText.replaceAll("@gridtable\\{([^}]+)\\}", "ctx.getElementValue('$1', true)");
@@ -905,7 +946,17 @@ public class ScriptExecutorService {
             binding.setVariable("selectedRows", selectedGridRows != null ? selectedGridRows : new ArrayList<>());
             // sessions.kick(header.id, ctx.getUserId()) dari action toolbar form Login History
             binding.setVariable("sessions", loginHistoryProvider.getIfAvailable());
-            binding.setVariable("db", new DatabaseHelper(dataServiceProvider));
+            // Error SQL dari db.* dulu hanya tercetak di stderr server; sekarang tercatat di log dan
+            // ditampilkan ke user. Di ON_SAVE error itu membatalkan simpan.
+            binding.setVariable("db", new DatabaseHelper(dataServiceProvider,
+                    msg -> ctx.showError("Script error (" + act.getActionCode() + ")", msg), ctx.isAtomic()));
+            binding.setVariable("fail", new groovy.lang.Closure<Void>(null) {
+                @SuppressWarnings("unused")
+                public void doCall(Object message) {
+                    throw new ScriptAbortException(message != null ? String.valueOf(plain(message))
+                            : "Dibatalkan oleh script " + act.getActionCode());
+                }
+            });
             binding.setVariable("uploadDir", resolveUploadDir());
             binding.setVariable("JsonOutput", groovy.json.JsonOutput.class);
             binding.setVariable("JsonSlurper", groovy.json.JsonSlurper.class);
@@ -1133,11 +1184,28 @@ public class ScriptExecutorService {
             Object result = scriptInstance.run();
             return (result instanceof Boolean) ? (Boolean) result : true;
         } catch (Exception e) {
-            String cleanMsg = ctx.extractCleanErrorMessage(e);
-            System.err.println("Error executing action script [" + act.getActionCode() + "]: " + cleanMsg);
+            ScriptAbortException abort = findAbort(e);
+            String cleanMsg = abort != null ? abort.getMessage() : ctx.extractCleanErrorMessage(e);
+            LOG.error("Script {} [{}] gagal: {}", act.getActionCode(), act.getTargetScope(), cleanMsg, e);
+            if (ctx.isAtomic()) {
+                throw abort != null ? abort : new ScriptAbortException(act.getActionCode() + ": " + cleanMsg, e);
+            }
             ctx.showError("Script execution failed (" + act.getActionCode() + ")", "<b>Pesan Error:</b><br/>" + cleanMsg);
             return false;
         }
+    }
+
+    /** Groovy kadang membungkus exception; cari ScriptAbortException di rantai penyebabnya. */
+    private static ScriptAbortException findAbort(Throwable t) {
+        for (Throwable c = t; c != null; c = c.getCause()) {
+            if (c instanceof ScriptAbortException sae) {
+                return sae;
+            }
+            if (c.getCause() == c) {
+                break;
+            }
+        }
+        return null;
     }
 
     public void clearCache(String scriptId) {
@@ -1693,7 +1761,7 @@ public class ScriptExecutorService {
      * ON_CHANGE, dan Extra Toolbar.
      */
     public static final java.util.Set<String> ACTION_SCRIPT_NAMES = java.util.Set.of(
-            "JsonOutput", "JsonSlurper", "clearForm", "ctx", "db", "downloadCsv", "downloadFile", "executeProcedure",
+            "JsonOutput", "JsonSlurper", "clearForm", "ctx", "db", "downloadCsv", "downloadFile", "executeProcedure", "fail",
             "getElementValue", "header", "isNew", "lov", "msgBox", "plain", "prompt", "readUpload", "refreshForm", "renderReport",
             "runScheduledJob", "saveMode",
             "selectedRows", "self",
@@ -1704,10 +1772,46 @@ public class ScriptExecutorService {
 
     public static class DatabaseHelper {
         private final org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider;
+        /** Menampilkan error ke user; null = hanya dicatat di log. */
+        private final java.util.function.Consumer<String> errorSink;
+        /** true (ON_SAVE): error SQL dilempar -- transaksi PostgreSQL yang error tidak bisa dilanjutkan. */
+        private final boolean strict;
+        /** Satu pesan per eksekusi script cukup; query di dalam loop tidak memunculkan puluhan dialog. */
+        private boolean errorShown;
 
         public DatabaseHelper(
                 org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider) {
+            this(dataServiceProvider, null, false);
+        }
+
+        public DatabaseHelper(
+                org.springframework.beans.factory.ObjectProvider<DynamicDataService> dataServiceProvider,
+                java.util.function.Consumer<String> errorSink, boolean strict) {
             this.dataServiceProvider = dataServiceProvider;
+            this.errorSink = errorSink;
+            this.strict = strict;
+        }
+
+        /**
+         * Error SQL dulu hanya ke stderr lalu nilai kosong dikembalikan, sehingga user mengira aman. Sekarang
+         * selalu tercatat di log server dan ditampilkan ke user; nilai kembalian lama (null / list kosong)
+         * dipertahankan supaya script yang sudah ada tetap berjalan seperti sebelumnya.
+         */
+        private void sqlError(String fn, String sql, Exception e) {
+            Throwable root = e;
+            while (root.getCause() != null && root.getCause() != root) {
+                root = root.getCause();
+            }
+            String detail = root.getMessage() != null ? root.getMessage() : e.toString();
+            String msg = "db." + fn + " gagal: " + detail;
+            LOG.warn("{} | SQL: {}", msg, sql);
+            if (strict) {
+                throw new ScriptAbortException(msg, e);
+            }
+            if (errorSink != null && !errorShown) {
+                errorShown = true;
+                errorSink.accept(msg);
+            }
         }
 
         // Blokir akses refleksi atau properti internal dari script Groovy
@@ -1727,6 +1831,7 @@ public class ScriptExecutorService {
                     return null;
                 return dataService.fetchLovRecord(tableName, keyColumn, keyValue);
             } catch (Exception e) {
+                sqlError("find", tableName + "." + keyColumn, e);
                 return null;
             }
         }
@@ -1789,7 +1894,7 @@ public class ScriptExecutorService {
                 if (e instanceof IllegalArgumentException) {
                     throw e;
                 }
-                System.err.println("SQL Error di db.getValue: " + sql + " | Error: " + e.getMessage());
+                sqlError("getValue", sql, e);
                 return null;
             }
         }
@@ -1813,7 +1918,7 @@ public class ScriptExecutorService {
                 if (e instanceof IllegalArgumentException) {
                     throw e;
                 }
-                System.err.println("SQL Error di db.queryForMap: " + sql + " | Error: " + e.getMessage());
+                sqlError("queryForMap", sql, e);
                 return null;
             }
         }
@@ -1835,7 +1940,7 @@ public class ScriptExecutorService {
                 if (e instanceof IllegalArgumentException) {
                     throw e;
                 }
-                System.err.println("SQL Error di db.queryForList: " + sql + " | Error: " + e.getMessage());
+                sqlError("queryForList", sql, e);
                 return java.util.Collections.emptyList();
             }
         }

@@ -1,109 +1,94 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- JasperReports 7 JRXML: tanpa namespace, elemen band memakai <element kind="..."/>.
-     Format JR6 (<reportElement>/<staticText>/<textFieldExpression>) TIDAK bisa dimuat
-     oleh runtime 7.0.7 di pom.xml - JRXmlLoader menolaknya dengan "Unable to load report". -->
-<jasperReport name="RPT_BOM_DOC_JSP" pageWidth="595" pageHeight="842" columnWidth="555"
-              leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
-    <field name="bom_id" class="java.lang.Object"/>
-    <field name="idno" class="java.lang.String"/>
-    <field name="product" class="java.lang.String"/>
-    <field name="drawing" class="java.lang.String"/>
-    <field name="netweight" class="java.lang.Object"/>
-    <field name="material" class="java.lang.String"/>
-    <field name="itemgroup" class="java.lang.String"/>
-    <field name="qty" class="java.math.BigDecimal"/>
-    <field name="perseries" class="java.math.BigDecimal"/>
-
-    <variable name="groupItemCount" class="java.lang.Integer" resetType="Group" resetGroup="BomGroup"
-              calculation="Count">
-        <expression><![CDATA[$F{material}]]></expression>
-    </variable>
-
-    <group name="BomGroup" startNewPage="true">
-        <expression><![CDATA[$F{bom_id}]]></expression>
-        <groupHeader>
-            <band height="86">
-                <element kind="staticText" x="0" y="0" width="330" height="22" fontSize="14.0" bold="true">
-                    <text><![CDATA[BILL OF MATERIAL]]></text>
-                </element>
-                <element kind="staticText" x="380" y="4" width="40" height="16" bold="true">
-                    <text><![CDATA[No :]]></text>
-                </element>
-                <element kind="textField" x="420" y="4" width="135" height="16" blankWhenNull="true">
-                    <expression><![CDATA[$F{idno}]]></expression>
-                </element>
-
-                <element kind="staticText" x="0" y="28" width="60" height="16">
-                    <text><![CDATA[Product]]></text>
-                </element>
-                <element kind="textField" x="60" y="28" width="495" height="16" blankWhenNull="true">
-                    <expression><![CDATA[": " + ($F{product} == null ? "" : $F{product})]]></expression>
-                </element>
-
-                <element kind="staticText" x="0" y="46" width="60" height="16">
-                    <text><![CDATA[Drawing]]></text>
-                </element>
-                <element kind="textField" x="60" y="46" width="220" height="16" blankWhenNull="true">
-                    <expression><![CDATA[": " + ($F{drawing} == null ? "-" : $F{drawing})]]></expression>
-                </element>
-
-                <element kind="staticText" x="300" y="46" width="80" height="16">
-                    <text><![CDATA[Net Weight]]></text>
-                </element>
-                <element kind="textField" x="380" y="46" width="175" height="16" blankWhenNull="true">
-                    <expression><![CDATA[": " + ($F{netweight} == null ? "-" : "" + $F{netweight})]]></expression>
-                </element>
-
-                <element kind="line" x="0" y="68" width="555" height="1"/>
-                <element kind="staticText" x="0" y="70" width="255" height="16" bold="true">
-                    <text><![CDATA[Material]]></text>
-                </element>
-                <element kind="staticText" x="255" y="70" width="160" height="16" bold="true">
-                    <text><![CDATA[Group]]></text>
-                </element>
-                <element kind="staticText" x="415" y="70" width="80" height="16" bold="true" hTextAlign="Right">
-                    <text><![CDATA[Qty]]></text>
-                </element>
-                <element kind="staticText" x="495" y="70" width="60" height="16" bold="true" hTextAlign="Right">
-                    <text><![CDATA[/Series]]></text>
-                </element>
-            </band>
-        </groupHeader>
-        <groupFooter>
-            <band height="30">
-                <element kind="line" x="0" y="2" width="555" height="1"/>
-                <element kind="staticText" x="300" y="6" width="115" height="16" bold="true" hTextAlign="Right">
-                    <text><![CDATA[Total item :]]></text>
-                </element>
-                <element kind="textField" x="415" y="6" width="80" height="16" bold="true" hTextAlign="Right">
-                    <expression><![CDATA[$V{groupItemCount}]]></expression>
-                </element>
-            </band>
-        </groupFooter>
-    </group>
-
-    <detail>
-        <band height="18">
-            <element kind="textField" x="0" y="0" width="255" height="16" blankWhenNull="true">
-                <expression><![CDATA[$F{material}]]></expression>
-            </element>
-            <element kind="textField" x="255" y="0" width="160" height="16" blankWhenNull="true">
-                <expression><![CDATA[$F{itemgroup}]]></expression>
-            </element>
-            <element kind="textField" x="415" y="0" width="80" height="16" pattern="#,##0.00"
-                     blankWhenNull="true" hTextAlign="Right">
-                <expression><![CDATA[$F{qty}]]></expression>
-            </element>
-            <element kind="textField" x="495" y="0" width="60" height="16" pattern="#,##0.##"
-                     blankWhenNull="true" hTextAlign="Right">
-                <expression><![CDATA[$F{perseries}]]></expression>
-            </element>
-        </band>
-    </detail>
-
-    <pageFooter height="20">
-        <element kind="textField" x="455" y="4" width="100" height="14" fontSize="8.0" hTextAlign="Right">
-            <expression><![CDATA["Page " + $V{PAGE_NUMBER}]]></expression>
-        </element>
-    </pageFooter>
+<!-- Created with Jaspersoft Studio version 7.0.6.final using JasperReports Library version 7.0.6-5d2a603fdc6b3db8f842a83383e594f41891534d  -->
+<jasperReport name="RPT_BOM_DOC_JSP" language="java" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="059574cd-9046-4fc2-87c5-0081901e8037">
+	<field name="bom_id" class="java.lang.Object"/>
+	<field name="idno" class="java.lang.String"/>
+	<field name="product" class="java.lang.String"/>
+	<field name="drawing" class="java.lang.String"/>
+	<field name="netweight" class="java.lang.Object"/>
+	<field name="material" class="java.lang.String"/>
+	<field name="itemgroup" class="java.lang.String"/>
+	<field name="qty" class="java.math.BigDecimal"/>
+	<field name="perseries" class="java.math.BigDecimal"/>
+	<variable name="groupItemCount" resetType="Group" calculation="Count" resetGroup="BomGroup" class="java.lang.Integer">
+		<expression><![CDATA[$F{material}]]></expression>
+	</variable>
+	<group name="BomGroup" startNewPage="true">
+		<expression><![CDATA[$F{bom_id}]]></expression>
+		<groupHeader>
+			<band height="86">
+				<element kind="staticText" uuid="6a533e86-31d8-4f24-b918-d59f3caa2a15" x="0" y="0" width="330" height="22" fontSize="14.0" bold="true">
+					<text><![CDATA[BILL OF MATERIAL]]></text>
+				</element>
+				<element kind="staticText" uuid="a32cf9fe-17b8-42cd-be44-a2632893aab9" x="380" y="4" width="40" height="16" bold="true">
+					<text><![CDATA[No :]]></text>
+				</element>
+				<element kind="textField" uuid="3ce59e7b-d8ae-48d6-a29d-7c2a3ec9a71b" x="420" y="4" width="135" height="16" blankWhenNull="true">
+					<expression><![CDATA[$F{idno}]]></expression>
+				</element>
+				<element kind="staticText" uuid="eab1ad6e-15a0-4651-b3cc-9068a993d9fb" x="0" y="28" width="60" height="16">
+					<text><![CDATA[Product]]></text>
+				</element>
+				<element kind="textField" uuid="2d62f3f9-32a2-486c-a1e8-f523820fdeb8" x="60" y="28" width="495" height="16" blankWhenNull="true">
+					<expression><![CDATA[": " + ($F{product} == null ? "" : $F{product})]]></expression>
+				</element>
+				<element kind="staticText" uuid="2dfd3475-78a5-4741-919b-9d24e892eabe" x="0" y="46" width="60" height="16">
+					<text><![CDATA[Drawing]]></text>
+				</element>
+				<element kind="textField" uuid="99a9b3c2-62ef-4c39-a113-d710cd7e4102" x="60" y="46" width="220" height="16" blankWhenNull="true">
+					<expression><![CDATA[": " + ($F{drawing} == null ? "-" : $F{drawing})]]></expression>
+				</element>
+				<element kind="staticText" uuid="5dc5b80a-0801-47b7-b04c-898a6575d71e" x="300" y="46" width="80" height="16">
+					<text><![CDATA[Net Weight]]></text>
+				</element>
+				<element kind="textField" uuid="1d4076d3-c860-4ad1-b8a7-fad6179f2a2b" x="380" y="46" width="175" height="16" blankWhenNull="true">
+					<expression><![CDATA[": " + ($F{netweight} == null ? "-" : String.format("%,.2f", $F{netweight}))]]></expression>
+				</element>
+				<element kind="line" uuid="3b711c23-a168-4e9f-a01e-cee416397d8e" x="0" y="68" width="555" height="1"/>
+				<element kind="staticText" uuid="806c5eb6-e15a-4ac8-882e-3bf4b9aa34a4" x="0" y="70" width="255" height="16" bold="true">
+					<text><![CDATA[Material]]></text>
+				</element>
+				<element kind="staticText" uuid="34b5b504-f386-46b7-847e-15a0e1853e4e" x="255" y="70" width="160" height="16" bold="true">
+					<text><![CDATA[Group]]></text>
+				</element>
+				<element kind="staticText" uuid="4295819f-7aa0-4b59-8535-9752eec392c5" x="415" y="70" width="80" height="16" bold="true" hTextAlign="Right">
+					<text><![CDATA[Qty]]></text>
+				</element>
+				<element kind="staticText" uuid="8dd54487-d826-42f6-ac50-9c94835052fc" x="495" y="70" width="60" height="16" bold="true" hTextAlign="Right">
+					<text><![CDATA[/Series]]></text>
+				</element>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="30">
+				<element kind="line" uuid="151a4956-82af-45b7-8085-1c6aa0cddc3e" x="0" y="2" width="555" height="1"/>
+				<element kind="staticText" uuid="0396bc80-6777-486c-a14e-f439de7acb2b" x="300" y="6" width="115" height="16" bold="true" hTextAlign="Right">
+					<text><![CDATA[Total item :]]></text>
+				</element>
+				<element kind="textField" uuid="4176c64f-4180-4f54-9c40-808f3f559342" x="415" y="6" width="80" height="16" bold="true" hTextAlign="Right">
+					<expression><![CDATA[$V{groupItemCount}]]></expression>
+				</element>
+			</band>
+		</groupFooter>
+	</group>
+	<detail>
+		<band height="18">
+			<element kind="textField" uuid="cb833694-4be0-46a4-9624-c448f5d6bb8b" x="0" y="0" width="255" height="16" blankWhenNull="true">
+				<expression><![CDATA[$F{material}]]></expression>
+			</element>
+			<element kind="textField" uuid="66b4c657-8d49-49d2-bcbd-7c8753d76efe" x="255" y="0" width="160" height="16" blankWhenNull="true">
+				<expression><![CDATA[$F{itemgroup}]]></expression>
+			</element>
+			<element kind="textField" uuid="f72a2978-75ee-4808-a51a-56c5a27991e2" x="415" y="0" width="80" height="16" pattern="#,##0.00" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{qty}]]></expression>
+			</element>
+			<element kind="textField" uuid="6042d23a-6c5c-4a44-a493-337f072b0752" x="495" y="0" width="60" height="16" pattern="#,##0.##" blankWhenNull="true" hTextAlign="Right">
+				<expression><![CDATA[$F{perseries}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="20">
+		<element kind="textField" uuid="db10eaa4-d7fb-4b52-b033-77c4053297be" x="455" y="4" width="100" height="14" fontSize="8.0" hTextAlign="Right">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
 </jasperReport>

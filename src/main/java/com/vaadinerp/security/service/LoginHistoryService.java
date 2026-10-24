@@ -274,6 +274,8 @@ public class LoginHistoryService implements VaadinServiceInitListener {
                 s.getLockInstance().unlock();
             }
         }
+        // Penanda SSO yang sesinya sudah tidak terdaftar (jalur pembuangan lain tidak memanggil close()).
+        liveSso.keySet().retainAll(live.keySet());
     }
 
     /** Baris yang masih terbuka saat app start = session yang hilang bersama JVM sebelumnya. */

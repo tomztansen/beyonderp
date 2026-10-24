@@ -1493,6 +1493,40 @@ public class DynamicDataService {
     }
 
     /**
+     * Simpan + hook ON_SAVE dalam SATU transaksi: header, semua baris detail, lalu {@code onSave} (script
+     * ON_SAVE). Exception apa pun dari onSave me-rollback seluruh simpan. Dipanggil form hanya bila form punya
+     * action ON_SAVE -- form lain tetap memakai saveData biasa, jadi perilakunya tidak berubah.
+     */
+    @Transactional
+    public void saveDataAtomic(FormMeta formMeta, Map<String, Object> data, Runnable onSave) {
+        saveData(formMeta, data, null, null);
+        onSave.run();
+    }
+
+    /** Sama seperti {@link #saveDataAtomic} untuk form MASTER_DETAIL. */
+    @Transactional
+    public void saveMasterDetailDataAtomic(FormMeta formMeta, Map<String, Object> rawMasterData,
+            List<Map<String, Object>> detailsData, List<Map<String, Object>> deletedDetailsData, Runnable onSave) {
+        saveMasterDetailData(formMeta, rawMasterData, detailsData, deletedDetailsData);
+        onSave.run();
+    }
+
+    /** Action scope ON_SAVE milik form, untuk dijalankan di dalam transaksi simpan. */
+    public static List<com.vaadinerp.meta.FormActionMeta> onSaveActions(
+            List<com.vaadinerp.meta.FormActionMeta> formActions) {
+        List<com.vaadinerp.meta.FormActionMeta> out = new ArrayList<>();
+        if (formActions != null) {
+            for (com.vaadinerp.meta.FormActionMeta act : formActions) {
+                if ("ON_SAVE".equalsIgnoreCase(act.getTargetScope()) && act.getScriptContent() != null
+                        && !act.getScriptContent().isBlank()) {
+                    out.add(act);
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
      * Nilai yang ditulis balik ke map milik pemanggil — PK hasil INSERT, version
      * hasil UPDATE — tidak ikut ter-rollback saat transaksi gagal. Akibatnya form
      * di layar menyimpan PK atau version yang tidak ada di database, lalu simpan
