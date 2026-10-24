@@ -2058,6 +2058,18 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
 
     @Override
     protected void setPresentationValue(List<Map<String, Object>> newPresentationValue) {
+        // Saat read-only, Flow menolak perubahan dari client (event change checkbox seleksi grid ikut
+        // menjalar ke CustomField) dan memulihkan nilai lama. Isinya baris yang sama, jadi jangan bangun
+        // ulang grid: data provider baru menghapus centang yang baru saja dibuat user.
+        if (newPresentationValue != null && !items.isEmpty() && newPresentationValue.size() == items.size()) {
+            boolean sameRows = true;
+            for (int i = 0; i < items.size() && sameRows; i++) {
+                sameRows = newPresentationValue.get(i) == items.get(i);
+            }
+            if (sameRows) {
+                return;
+            }
+        }
         items.clear();
         deletedItems.clear();
         // Record lain dimuat: status pilihan script dari record sebelumnya tidak
