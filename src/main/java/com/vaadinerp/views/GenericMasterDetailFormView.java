@@ -1069,6 +1069,8 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         btnSave.setDisableOnClick(true);
         btnSave.addClickListener(e -> {
             toolbar.setEnabled(false);
+            // true setelah commit: error sesudahnya BUKAN gagal simpan (lihat catch di bawah).
+            final boolean[] committed = { false };
             try {
                 boolean binderOk = formBinder.validate().isOk();
                 boolean masterRequiredOk = true;
@@ -1152,14 +1154,16 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                             .onSaveActions(saveActions);
                     if (onSaveActs.isEmpty() || dynamicDataService.getScriptExecutorService() == null) {
                         dynamicDataService.saveMasterDetailData(formDef, formBinder.getBean(), saveDetails, saveDeleted);
+                        committed[0] = true;
                     } else {
                         java.util.List<Runnable> deferredUi = new java.util.ArrayList<>();
                         Map<String, Object> masterBean = formBinder.getBean();
                         dynamicDataService.saveMasterDetailDataAtomic(formDef, masterBean, saveDetails, saveDeleted,
                                 () -> dynamicDataService.getScriptExecutorService().executeOnSaveScripts(onSaveActs,
                                         masterBean, detailsList, GenericMasterDetailFormView.this, saveIsNew, deferredUi));
+                        committed[0] = true;
                         // Baru setelah commit: dialog/notifikasi/tab dari script ON_SAVE.
-                        deferredUi.forEach(Runnable::run);
+                        com.vaadinerp.service.ActionContext.runDeferred(deferredUi);
                     }
 
                     // === AFTER_SAVE scripts ===
@@ -1208,8 +1212,9 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     rootCause = rootCause.getCause();
                 }
                 // Ke log server (stderr saja tidak masuk server.log), selain ditampilkan ke user di bawah.
-                org.slf4j.LoggerFactory.getLogger(GenericMasterDetailFormView.class)
-                        .error("Simpan form gagal: {}", rootCause.getMessage(), ex);
+                org.slf4j.LoggerFactory.getLogger(GenericMasterDetailFormView.class).error(committed[0]
+                        ? "Langkah sesudah simpan gagal (data sudah tersimpan): {}"
+                        : "Simpan form gagal: {}", rootCause.getMessage(), ex);
                 String cleanMsg = rootCause.getMessage();
                 if (cleanMsg != null) {
                     if (cleanMsg.contains("ERROR:"))
@@ -1219,6 +1224,27 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                     cleanMsg = cleanMsg.trim();
                 } else {
                     cleanMsg = "An internal system error occurred.";
+                }
+                if (committed[0]) {
+                    // Data SUDAH tersimpan; yang gagal langkah sesudahnya. Dulu dilaporkan sebagai gagal simpan dan
+                    // form tidak dikosongkan, sehingga form memegang version lama dan simpan ulang berakhir
+                    // "Data conflict". Sekarang diberi tahu apa adanya lalu form dimuat ulang seperti simpan sukses.
+                    Notification n = Notification.show("Data saved, but a follow-up step failed: " + cleanMsg, 8000,
+                            Notification.Position.MIDDLE);
+                    n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_CONTRAST);
+                    try {
+                        formBinder.setBean(new HashMap<>());
+                        clearAllComponents();
+                        detailsList.clear();
+                        deletedDetailsList.clear();
+                        applyDetailsFilters();
+                        refreshMasterGridData();
+                        tabSheet.setSelectedTab(historisTab);
+                    } catch (Exception reloadEx) {
+                        org.slf4j.LoggerFactory.getLogger(GenericMasterDetailFormView.class)
+                                .warn("Muat ulang form sesudah simpan gagal: {}", reloadEx.getMessage());
+                    }
+                    return;
                 }
                 Notification n = Notification.show("⚠️ " + cleanMsg, 8000, Notification.Position.MIDDLE);
                 n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);

@@ -52,6 +52,20 @@ public class ActionContext {
     }
 
     /**
+     * Jalankan aksi layar yang ditunda ON_SAVE, setelah commit. Data sudah tersimpan, jadi aksi yang gagal
+     * hanya dicatat -- tidak boleh sampai ke handler Save dan dilaporkan sebagai "gagal simpan".
+     */
+    public static void runDeferred(List<Runnable> actions) {
+        for (Runnable action : actions) {
+            try {
+                action.run();
+            } catch (Exception ex) {
+                LOG.error("Aksi layar sesudah simpan (ON_SAVE) gagal: {}", ex.getMessage(), ex);
+            }
+        }
+    }
+
+    /**
      * true = aksi sudah ditunda (mode atomik), pemanggil berhenti; false = jalankan sekarang.
      * Aksi tunda memanggil method yang sama lagi, jadi mode atomik dimatikan dulu saat dijalankan --
      * tanpa itu aksinya ditunda ulang terus-menerus.
