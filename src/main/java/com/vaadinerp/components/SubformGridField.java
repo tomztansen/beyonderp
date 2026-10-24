@@ -201,6 +201,12 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private com.vaadin.flow.shared.Registration gridDropReg;
     private com.vaadin.flow.shared.Registration gridDragEndReg;
     private com.vaadin.flow.shared.Registration gridColReorderReg;
+    private com.vaadin.flow.shared.Registration gridColResizeReg;
+
+    // Lebar kolom per user disimpan di app_user_grid_preferences dengan grid_id ini, isi "field=px,field=px".
+    private static final String WIDTH_GRID_ID = "subformGridWidths";
+    private final Map<String, Integer> savedWidths = new HashMap<>();
+    private final java.util.Set<String> bandboxColumns = new java.util.HashSet<>();
     private java.util.function.Supplier<Map<String, Object>> headerRecordSupplier;
     private java.util.function.BiConsumer<String, Object> updateParentFieldValueCallback;
 
@@ -460,6 +466,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         btnResetSubformGrid.addClickListener(e -> {
             if (childFormDef != null) {
                 dataService.resetUserGridOrder(childFormDef.getFormCode(), "subformGrid");
+                dataService.resetUserGridOrder(childFormDef.getFormCode(), WIDTH_GRID_ID);
                 grid.setSelectionMode(Grid.SelectionMode.MULTI);
                 com.vaadinerp.components.StandardGridUtils.enableRowClickSelection(grid);
                 columnToFieldNameMap.clear();
@@ -1010,6 +1017,10 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             gridDragEndReg.remove();
         if (gridColReorderReg != null)
             gridColReorderReg.remove();
+        if (gridColResizeReg != null)
+            gridColResizeReg.remove();
+        bandboxColumns.clear();
+        loadSavedWidths();
 
         com.vaadinerp.components.StandardGridUtils.cleanGridBeforeRebuild(grid);
         grid.setSelectionMode(Grid.SelectionMode.MULTI);
@@ -1092,6 +1103,9 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             String fType = field.getComponentType() != null ? field.getComponentType().toUpperCase() : "";
             if ("INTBOX".equals(fType) || "DECIMALBOX".equals(fType)) {
                 col.setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END);
+            }
+            if ("BANDBOX".equals(fType)) {
+                bandboxColumns.add(fieldName);
             }
 
             if (field.isHideInForm() || "HIDDEN".equalsIgnoreCase(field.getComponentType())) {
@@ -1498,6 +1512,64 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                         Notification.Position.MIDDLE);
             }
         });
+
+        gridColResizeReg = grid.addColumnResizeListener(event -> {
+            Grid.Column<Map<String, Object>> col = event.getResizedColumn();
+            String fieldName = col != null ? columnToFieldNameMap.get(col) : null;
+            String width = col != null ? col.getWidth() : null;
+            if (fieldName == null || width == null || !width.matches("\\d+(\\.\\d+)?px")) {
+                return;
+            }
+            savedWidths.put(fieldName, clampWidth((int) Math.round(Double.parseDouble(width.replace("px", "")))));
+            List<String> tokens = new ArrayList<>();
+            savedWidths.forEach((f, px) -> tokens.add(f + "=" + px));
+            dataService.saveUserGridOrder(childFormDef.getFormCode(), WIDTH_GRID_ID, tokens);
+        });
+
+        applyColumnWidths();
+    }
+
+    private static int clampWidth(int px) {
+        return Math.max(60, Math.min(1200, px));
+    }
+
+    private void loadSavedWidths() {
+        savedWidths.clear();
+        for (String token : dataService.getUserGridOrder(childFormDef.getFormCode(), WIDTH_GRID_ID)) {
+            int eq = token.indexOf('=');
+            if (eq < 1) {
+                continue;
+            }
+            try {
+                savedWidths.put(token.substring(0, eq), clampWidth(Integer.parseInt(token.substring(eq + 1).trim())));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+    }
+
+    /**
+     * Prioritas: lebar tersimpan user (tetap, tidak ikut melebar) > kolom BANDBOX dihitung dari label
+     * terpanjang (label x ~7px + ~100px untuk tombol X dan panah, 160-480px) > autoWidth bawaan.
+     * ponytail: 7px per karakter hanya perkiraan; label di atas 480px tetap terpotong sampai user melebarkan.
+     */
+    private void applyColumnWidths() {
+        for (Map.Entry<Grid.Column<Map<String, Object>>, String> e : columnToFieldNameMap.entrySet()) {
+            Grid.Column<Map<String, Object>> col = e.getKey();
+            String fieldName = e.getValue();
+            Integer saved = savedWidths.get(fieldName);
+            if (saved != null) {
+                col.setAutoWidth(false).setWidth(saved + "px").setFlexGrow(0);
+            } else if (bandboxColumns.contains(fieldName)) {
+                java.util.function.Function<Map<String, Object>, String> getter = fieldNameToGetterMap.get(fieldName);
+                int longest = 0;
+                if (getter != null) {
+                    for (Map<String, Object> row : items) {
+                        longest = Math.max(longest, getter.apply(row).length());
+                    }
+                }
+                col.setAutoWidth(false).setWidth(Math.max(160, Math.min(480, longest * 7 + 100)) + "px");
+            }
+        }
     }
 
     private Object convertToFieldValue(Object rawVal, Component comp) {
@@ -2000,6 +2072,7 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
             }
         }
         primeLovLabels();
+        applyColumnWidths();
         // allRowsVisible mematikan virtualisasi; ratusan baris butuh beberapa detik di browser
         grid.setAllRowsVisible(items.size() <= 50);
         grid.getElement().executeJs("requestAnimationFrame(() => this.__sfFit && this.__sfFit())");
