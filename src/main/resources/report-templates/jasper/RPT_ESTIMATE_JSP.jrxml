@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- RPT_ESTIMATE: laporan Estimation (ex GA/FM/ES-004) untuk Print dari form ALL_EST. Satu halaman per estimate (grup est_id).
+     Tanpa blok Metal; Cost Summary mulai di kolom kanan sejajar tabel BOM; "BOM Cost" -> "Material Cost".
+     Tanpa subreport: satu query dengan penanda seksi (sec 1 = proses, sec 2 = BOM berdampingan dengan baris Cost Summary).
+     Parameter STANDARD_LOCALE (nilai tidak dipakai) = penanda opt-in: JasperRenderer mengisi REPORT_LOCALE dari
+     Standard Format (NUMBER_LOCALE) bila template mendeklarasikannya.
+     Rumus Cost Summary: Production = Material + Process + Factory OH; Del & Gam = Office OH + Transport; Total = Production + Del & Gam;
+     Technical/Commercial Risk = Total x persen; Sugt Selling Prc = (Total + risiko) / (1 - Margin% - Commission%); Commission = Sugt x persen.
+     Process Cost / Factory OH / Office OH memakai jam per pcs (routinghour / perseries), sama dengan form ALL_EST. -->
+<jasperReport name="RPT_ESTIMATE_JSP" language="java" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="e5714a10-0c11-4b6e-9d21-5a3c7e000001">
+	<style name="SumRow" mode="Transparent" fontName="Arial" fontSize="7.0">
+		<conditionalStyle mode="Opaque" backcolor="#DCE6F2" bold="true">
+			<conditionExpression><![CDATA["H".equals($F{s_style})]]></conditionExpression>
+		</conditionalStyle>
+		<conditionalStyle mode="Opaque" backcolor="#A9C0DD" bold="true">
+			<conditionExpression><![CDATA["T".equals($F{s_style})]]></conditionExpression>
+		</conditionalStyle>
+	</style>
+	<parameter name="est_id" class="java.util.List"/>
+	<parameter name="STANDARD_LOCALE" class="java.lang.Boolean"/>
+	<query language="sql"><![CDATA[WITH e1 AS (
+  SELECT h.id, h.estimatenumber, h.estimatedate, COALESCE(h.updatedt, h.inputdt)::date AS lastupdate,
+         h.quatationno, h.qty, h.qtybox, h.annualusage, h.estgrossweight, h.estnetweight, h.grossweight, h.netweight,
+         h.drawingnumber, h.drawingnumberrev, h.ispatterntrial, h.ismodmethod, h.ismoddrawing,
+         COALESCE(h.technicalriskcost, 0) AS techpct, COALESCE(h.commercialriskcost, 0) AS commpct,
+         COALESCE(h.commission, 0) AS comsnpct, COALESCE(h.margin, 0) AS marginpct,
+         COALESCE(h.transportcost, 0) AS transport,
+         c."name" AS customer, m.itemcode, m.itemname,
+         dt.code AS deliveryterm, dp.code AS deliveryplace,
+         COALESCE(u.full_name, h.inputby) AS preparedby,
+         COALESCE((SELECT sum(b.qtybom * b.priceunit / nullif(b.perseries, 0))
+                     FROM dynamic.tsestimatebom b WHERE b.tsestimateid = h.id), 0) AS matc,
+         COALESCE((SELECT sum(r.routinghour * r.labourrate   / nullif(r.perseries, 0)
+                            + r.routinghour * r.fixedrate    / nullif(r.perseries, 0)
+                            + h.estnetweight * r.utilityrate
+                            + r.routinghour * r.variablerate / nullif(r.perseries, 0))
+                     FROM dynamic.tsestimateroute r WHERE r.tsestimateid = h.id), 0) AS procc,
+         COALESCE((SELECT sum(r.routinghour / nullif(r.perseries, 0))
+                     FROM dynamic.tsestimateroute r WHERE r.tsestimateid = h.id), 0) AS hrs,
+         COALESCE(h.factoryoverheadcost, 0) AS fohrate, COALESCE(h.generaloverheadcost, 0) AS gohrate
+    FROM dynamic.tsestimate h
+    LEFT JOIN dynamic.mscustomer c ON c.id = h.mscustomerid
+    LEFT JOIN dynamic.msitem m ON m.id = h.msitemid
+    LEFT JOIN dynamic.mdlookup dt ON dt.id = h.deliverytermid
+    LEFT JOIN dynamic.mdlookup dp ON dp.id = h.destinationid
+    LEFT JOIN dynamic.v_users u ON u.username = h.inputby
+   WHERE $X{IN, h.id, est_id}
+), e2 AS (
+  SELECT e1.*, e1.hrs * e1.fohrate AS foh, e1.hrs * e1.gohrate AS goh,
+         e1.matc + e1.procc + e1.hrs * e1.fohrate AS prodcost
+    FROM e1
+), e3 AS (
+  SELECT e2.*, e2.goh + e2.transport AS delgam, e2.prodcost + e2.goh + e2.transport AS totalcost
+    FROM e2
+), e4 AS (
+  SELECT e3.*, e3.totalcost * e3.techpct / 100 AS techrisk, e3.totalcost * e3.commpct / 100 AS commrisk
+    FROM e3
+), e5 AS (
+  SELECT e4.*, (e4.totalcost + e4.techrisk + e4.commrisk) / nullif(1 - e4.marginpct / 100 - e4.comsnpct / 100, 0) AS sell
+    FROM e4
+), e AS (
+  SELECT e5.*, e5.sell * e5.comsnpct / 100 AS commissionamt FROM e5
+)
+SELECT * FROM (
+  SELECT e.id AS est_id, e.estimatenumber, e.estimatedate, e.lastupdate, e.quatationno, e.qty, e.qtybox, e.annualusage,
+         e.estgrossweight, e.estnetweight, e.grossweight, e.netweight, e.drawingnumber, e.drawingnumberrev,
+         e.ispatterntrial, e.ismodmethod, e.ismoddrawing, e.customer, e.itemcode, e.itemname,
+         e.deliveryterm, e.deliveryplace, e.preparedby,
+         1 AS sec, r.id AS ord,
+         d.description AS p_name, r.routinghour AS p_hrs, r.perseries AS p_per,
+         r.labourrate AS p_labrate, r.routinghour * r.labourrate / nullif(r.perseries, 0) AS p_labcost,
+         r.variablerate AS p_varrate, r.routinghour * r.variablerate / nullif(r.perseries, 0) AS p_varcost,
+         r.fixedrate AS p_fixrate, r.routinghour * r.fixedrate / nullif(r.perseries, 0) AS p_fixcost,
+         e.estnetweight * r.utilityrate AS p_utilcost,
+         COALESCE(r.routinghour * r.labourrate / nullif(r.perseries, 0), 0)
+           + COALESCE(r.routinghour * r.fixedrate / nullif(r.perseries, 0), 0)
+           + COALESCE(e.estnetweight * r.utilityrate, 0)
+           + COALESCE(r.routinghour * r.variablerate / nullif(r.perseries, 0), 0) AS p_total,
+         NULL::text AS b_code, NULL::text AS b_desc, NULL::numeric AS b_qty, NULL::numeric AS b_price, NULL::numeric AS b_cost,
+         NULL::text AS s_label, NULL::numeric AS s_val, NULL::text AS s_fmt, NULL::text AS s_style
+    FROM e
+    JOIN dynamic.tsestimateroute r ON r.tsestimateid = e.id
+    LEFT JOIN dynamic.mhresource mh ON mh.id = r.msresourceid
+    LEFT JOIN dynamic.mdlookup d ON d.id = mh.msresourceid
+  UNION ALL
+  SELECT e.id, e.estimatenumber, e.estimatedate, e.lastupdate, e.quatationno, e.qty, e.qtybox, e.annualusage,
+         e.estgrossweight, e.estnetweight, e.grossweight, e.netweight, e.drawingnumber, e.drawingnumberrev,
+         e.ispatterntrial, e.ismodmethod, e.ismoddrawing, e.customer, e.itemcode, e.itemname,
+         e.deliveryterm, e.deliveryplace, e.preparedby,
+         2, g.rn::bigint,
+         NULL::text, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric,
+         NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric,
+         bi.itemcode, bi.itemname, bb.qtybom, bb.priceunit, bb.qtybom * bb.priceunit / nullif(bb.perseries, 0),
+         sm.label, sm.val, sm.fmt, sm.style
+    FROM e
+   CROSS JOIN LATERAL generate_series(1, GREATEST(18, (SELECT count(*) FROM dynamic.tsestimatebom x WHERE x.tsestimateid = e.id))::int) AS g(rn)
+    LEFT JOIN LATERAL (SELECT b2.*, row_number() OVER (ORDER BY b2.id) AS rn
+                         FROM dynamic.tsestimatebom b2 WHERE b2.tsestimateid = e.id) bb ON bb.rn = g.rn
+    LEFT JOIN dynamic.msitem bi ON bi.id = bb.msitemid
+    LEFT JOIN LATERAL (SELECT v.n, v.label, v.val, v.fmt, v.style FROM (VALUES
+         (1,  'Material Cost',      e.matc,                                  'M', 'N'),
+         (2,  'Process Cost',       e.procc,                                 'M', 'N'),
+         (3,  'Factory OH',         e.foh,                                   'M', 'N'),
+         (4,  'Production Cost',    e.prodcost,                              'M', 'H'),
+         (5,  'Office Overhead',    e.goh,                                   'M', 'N'),
+         (6,  'Transport Cost',     e.transport,                             'M', 'N'),
+         (7,  'Del & Gam Cost',     e.delgam,                                'M', 'H'),
+         (8,  'Total Cost',         e.totalcost,                             'M', 'T'),
+         (9,  'Technical Risk',     e.techrisk,                              'M', 'N'),
+         (10, 'Commercial Risk',    e.commrisk,                              'M', 'N'),
+         (11, 'Commission',         e.commissionamt,                         'M', 'N'),
+         (12, 'Margin',             e.marginpct,                             'P', 'N'),
+         (13, 'Sugt Selling Prc',   e.sell,                                  'M', 'T'),
+         (14, 'Act Selling Price',  NULL::numeric,                           'M', 'N'),
+         (15, 'Selling Price/kg',   e.sell      / nullif(e.estnetweight, 0), 'M', 'N'),
+         (16, 'Prod. Cost/kg',      e.prodcost  / nullif(e.estnetweight, 0), 'M', 'N'),
+         (17, 'Del &GAM Cost/kg',   e.delgam    / nullif(e.estnetweight, 0), 'M', 'N'),
+         (18, 'Total Cost/kg',      e.totalcost / nullif(e.estnetweight, 0), 'M', 'N')
+       ) AS v(n, label, val, fmt, style)) sm ON sm.n = g.rn
+) x
+ORDER BY est_id, sec, ord]]></query>
+	<field name="est_id" class="java.lang.Long"/>
+	<field name="estimatenumber" class="java.lang.String"/>
+	<field name="estimatedate" class="java.util.Date"/>
+	<field name="lastupdate" class="java.util.Date"/>
+	<field name="quatationno" class="java.lang.String"/>
+	<field name="qty" class="java.lang.Number"/>
+	<field name="qtybox" class="java.lang.Number"/>
+	<field name="annualusage" class="java.lang.Number"/>
+	<field name="estgrossweight" class="java.lang.Number"/>
+	<field name="estnetweight" class="java.lang.Number"/>
+	<field name="grossweight" class="java.lang.Number"/>
+	<field name="netweight" class="java.lang.Number"/>
+	<field name="drawingnumber" class="java.lang.String"/>
+	<field name="drawingnumberrev" class="java.lang.Number"/>
+	<field name="ispatterntrial" class="java.lang.Boolean"/>
+	<field name="ismodmethod" class="java.lang.Boolean"/>
+	<field name="ismoddrawing" class="java.lang.Boolean"/>
+	<field name="customer" class="java.lang.String"/>
+	<field name="itemcode" class="java.lang.String"/>
+	<field name="itemname" class="java.lang.String"/>
+	<field name="deliveryterm" class="java.lang.String"/>
+	<field name="deliveryplace" class="java.lang.String"/>
+	<field name="preparedby" class="java.lang.String"/>
+	<field name="sec" class="java.lang.Integer"/>
+	<field name="p_name" class="java.lang.String"/>
+	<field name="p_hrs" class="java.lang.Number"/>
+	<field name="p_per" class="java.lang.Number"/>
+	<field name="p_labrate" class="java.lang.Number"/>
+	<field name="p_labcost" class="java.lang.Number"/>
+	<field name="p_varrate" class="java.lang.Number"/>
+	<field name="p_varcost" class="java.lang.Number"/>
+	<field name="p_fixrate" class="java.lang.Number"/>
+	<field name="p_fixcost" class="java.lang.Number"/>
+	<field name="p_utilcost" class="java.lang.Number"/>
+	<field name="p_total" class="java.lang.Number"/>
+	<field name="b_code" class="java.lang.String"/>
+	<field name="b_desc" class="java.lang.String"/>
+	<field name="b_qty" class="java.lang.Number"/>
+	<field name="b_price" class="java.lang.Number"/>
+	<field name="b_cost" class="java.lang.Number"/>
+	<field name="s_label" class="java.lang.String"/>
+	<field name="s_val" class="java.lang.Number"/>
+	<field name="s_fmt" class="java.lang.String"/>
+	<field name="s_style" class="java.lang.String"/>
+	<variable name="sumHrs" resetType="Group" resetGroup="SecGroup" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{p_hrs} == null ? null : new java.math.BigDecimal($F{p_hrs}.toString())]]></expression>
+	</variable>
+	<variable name="sumLab" resetType="Group" resetGroup="SecGroup" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{p_labcost} == null ? null : new java.math.BigDecimal($F{p_labcost}.toString())]]></expression>
+	</variable>
+	<variable name="sumVar" resetType="Group" resetGroup="SecGroup" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{p_varcost} == null ? null : new java.math.BigDecimal($F{p_varcost}.toString())]]></expression>
+	</variable>
+	<variable name="sumFix" resetType="Group" resetGroup="SecGroup" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{p_fixcost} == null ? null : new java.math.BigDecimal($F{p_fixcost}.toString())]]></expression>
+	</variable>
+	<variable name="sumUtil" resetType="Group" resetGroup="SecGroup" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{p_utilcost} == null ? null : new java.math.BigDecimal($F{p_utilcost}.toString())]]></expression>
+	</variable>
+	<variable name="sumTotal" resetType="Group" resetGroup="SecGroup" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{p_total} == null ? null : new java.math.BigDecimal($F{p_total}.toString())]]></expression>
+	</variable>
+	<variable name="sumBom" resetType="Group" resetGroup="SecGroup" calculation="Sum" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{b_cost} == null ? null : new java.math.BigDecimal($F{b_cost}.toString())]]></expression>
+	</variable>
+	<group name="EstGroup" startNewPage="true">
+		<expression><![CDATA[$F{est_id}]]></expression>
+		<groupHeader>
+			<band height="144">
+				<element kind="staticText" x="0" y="0" width="300" height="20" fontName="Arial" fontSize="14.0" bold="true">
+					<text><![CDATA[ESTIMATION]]></text>
+				</element>
+				<element kind="staticText" x="0" y="22" width="300" height="16" fontName="Arial" fontSize="10.0" bold="true">
+					<text><![CDATA[PT. GROWTH ASIA]]></text>
+				</element>
+				<element kind="staticText" x="400" y="0" width="155" height="10" fontName="Arial" fontSize="6.0" hTextAlign="Right">
+					<text><![CDATA[Doc No : GA/FM/ES-004]]></text>
+				</element>
+				<element kind="staticText" x="400" y="10" width="155" height="10" fontName="Arial" fontSize="6.0" hTextAlign="Right">
+					<text><![CDATA[Rev : 21-01]]></text>
+				</element>
+				<element kind="staticText" x="400" y="20" width="155" height="10" fontName="Arial" fontSize="6.0" hTextAlign="Right">
+					<text><![CDATA[Eff.Date : 6 Sept 2021]]></text>
+				</element>
+				<element kind="staticText" x="0" y="48" width="62" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Customer]]></text></element>
+				<element kind="staticText" x="62" y="48" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="68" y="48" width="132" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" textAdjust="ScaleFont"><expression><![CDATA[$F{customer}]]></expression></element>
+				<element kind="staticText" x="0" y="59" width="62" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Description]]></text></element>
+				<element kind="staticText" x="62" y="59" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="68" y="59" width="132" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" textAdjust="ScaleFont"><expression><![CDATA[$F{itemname}]]></expression></element>
+				<element kind="staticText" x="0" y="70" width="62" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Stock Code.]]></text></element>
+				<element kind="staticText" x="62" y="70" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="68" y="70" width="132" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true"><expression><![CDATA[$F{itemcode}]]></expression></element>
+				<element kind="staticText" x="0" y="81" width="62" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Drawing No.]]></text></element>
+				<element kind="staticText" x="62" y="81" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="68" y="81" width="132" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" textAdjust="ScaleFont"><expression><![CDATA[($F{drawingnumber} == null ? "" : $F{drawingnumber}) + ($F{drawingnumberrev} == null ? "" : " Rev " + $F{drawingnumberrev})]]></expression></element>
+				<element kind="staticText" x="0" y="92" width="62" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Est.Cast Wt [Kg]]]></text></element>
+				<element kind="staticText" x="62" y="92" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="68" y="92" width="132" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" pattern="#,##0.00"><expression><![CDATA[$F{estgrossweight}]]></expression></element>
+				<element kind="staticText" x="0" y="103" width="62" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Est.Nett Wt [Kg]]]></text></element>
+				<element kind="staticText" x="62" y="103" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="68" y="103" width="132" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" pattern="#,##0.00"><expression><![CDATA[$F{estnetweight}]]></expression></element>
+				<element kind="staticText" x="0" y="114" width="62" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Act.Cast Wt [Kg]]]></text></element>
+				<element kind="staticText" x="62" y="114" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="68" y="114" width="132" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" pattern="#,##0.00"><expression><![CDATA[$F{grossweight}]]></expression></element>
+				<element kind="staticText" x="0" y="125" width="62" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Act.Nett Wt [Kg]]]></text></element>
+				<element kind="staticText" x="62" y="125" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="68" y="125" width="132" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" pattern="#,##0.00"><expression><![CDATA[$F{netweight}]]></expression></element>
+				<element kind="staticText" x="210" y="48" width="75" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Annual Usage]]></text></element>
+				<element kind="staticText" x="285" y="48" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="291" y="48" width="74" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" pattern="#,##0"><expression><![CDATA[$F{annualusage}]]></expression></element>
+				<element kind="staticText" x="210" y="59" width="75" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Qty Required]]></text></element>
+				<element kind="staticText" x="285" y="59" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="291" y="59" width="74" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" pattern="#,##0"><expression><![CDATA[$F{qty}]]></expression></element>
+				<element kind="staticText" x="210" y="70" width="75" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Qty per Mould]]></text></element>
+				<element kind="staticText" x="285" y="70" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="291" y="70" width="74" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" pattern="#,##0"><expression><![CDATA[$F{qtybox}]]></expression></element>
+				<element kind="staticText" x="210" y="81" width="75" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Pattern Trial]]></text></element>
+				<element kind="staticText" x="285" y="81" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="291" y="81" width="74" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true"><expression><![CDATA[($F{ispatterntrial} != null && $F{ispatterntrial}.booleanValue()) ? "Yes" : "No"]]></expression></element>
+				<element kind="staticText" x="210" y="92" width="75" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Mod Method]]></text></element>
+				<element kind="staticText" x="285" y="92" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="291" y="92" width="74" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true"><expression><![CDATA[($F{ismodmethod} != null && $F{ismodmethod}.booleanValue()) ? "Yes" : "No"]]></expression></element>
+				<element kind="staticText" x="210" y="103" width="75" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Mod Drawing]]></text></element>
+				<element kind="staticText" x="285" y="103" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="291" y="103" width="74" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true"><expression><![CDATA[($F{ismoddrawing} != null && $F{ismoddrawing}.booleanValue()) ? "Yes" : "No"]]></expression></element>
+				<element kind="staticText" x="380" y="48" width="65" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Estimation No]]></text></element>
+				<element kind="staticText" x="445" y="48" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="451" y="48" width="104" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true"><expression><![CDATA[$F{estimatenumber}]]></expression></element>
+				<element kind="staticText" x="380" y="59" width="65" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Estimation Date]]></text></element>
+				<element kind="staticText" x="445" y="59" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="451" y="59" width="104" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" pattern="dd/MM/yyyy"><expression><![CDATA[$F{estimatedate}]]></expression></element>
+				<element kind="staticText" x="380" y="70" width="65" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Last Update]]></text></element>
+				<element kind="staticText" x="445" y="70" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="451" y="70" width="104" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" pattern="dd/MM/yyyy"><expression><![CDATA[$F{lastupdate}]]></expression></element>
+				<element kind="staticText" x="380" y="81" width="65" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Quotation No.]]></text></element>
+				<element kind="staticText" x="445" y="81" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="451" y="81" width="104" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true"><expression><![CDATA[$F{quatationno}]]></expression></element>
+				<element kind="staticText" x="380" y="92" width="65" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Delivery Terms]]></text></element>
+				<element kind="staticText" x="445" y="92" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="451" y="92" width="104" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true"><expression><![CDATA[$F{deliveryterm}]]></expression></element>
+				<element kind="staticText" x="380" y="103" width="65" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Delivery Place]]></text></element>
+				<element kind="staticText" x="445" y="103" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="textField" x="451" y="103" width="104" height="11" fontName="Arial" fontSize="7.0" blankWhenNull="true" textAdjust="ScaleFont"><expression><![CDATA[$F{deliveryplace}]]></expression></element>
+				<element kind="staticText" x="380" y="114" width="65" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[Currency]]></text></element>
+				<element kind="staticText" x="445" y="114" width="6" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[:]]></text></element>
+				<element kind="staticText" x="451" y="114" width="104" height="11" fontName="Arial" fontSize="7.0"><text><![CDATA[USD]]></text></element>
+				<element kind="line" x="0" y="140" width="555" height="1"/>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="105">
+				<element kind="staticText" x="0" y="2" width="40" height="11" fontName="Arial" fontSize="7.0" bold="true"><text><![CDATA[Note :]]></text></element>
+				<element kind="staticText" x="380" y="2" width="175" height="48" fontName="Arial" fontSize="7.0" vTextAlign="Top">
+					<text><![CDATA[Prepared by:]]></text>
+					<box padding="2"><pen lineWidth="0.5"/></box>
+				</element>
+				<element kind="textField" x="380" y="24" width="175" height="12" fontName="Arial" fontSize="7.0" hTextAlign="Center" blankWhenNull="true"><expression><![CDATA[$F{preparedby}]]></expression></element>
+				<element kind="textField" x="380" y="36" width="175" height="12" fontName="Arial" fontSize="7.0" hTextAlign="Center" blankWhenNull="true" pattern="'Date : 'dd/MM/yyyy"><expression><![CDATA[$F{estimatedate}]]></expression></element>
+				<element kind="staticText" x="380" y="52" width="175" height="48" fontName="Arial" fontSize="7.0" vTextAlign="Top">
+					<text><![CDATA[Approved by:]]></text>
+					<box padding="2"><pen lineWidth="0.5"/></box>
+				</element>
+				<element kind="staticText" x="380" y="88" width="175" height="12" fontName="Arial" fontSize="7.0" hTextAlign="Center"><text><![CDATA[Date :]]></text></element>
+			</band>
+		</groupFooter>
+	</group>
+	<group name="SecGroup">
+		<expression><![CDATA[$F{est_id} + "-" + $F{sec}]]></expression>
+		<groupHeader>
+			<band height="28">
+				<printWhenExpression><![CDATA[$F{sec}.intValue() == 1]]></printWhenExpression>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="0" y="0" width="160" height="28" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Manufacturing Processes]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="160" y="0" width="30" height="28" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Hr(s)]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="190" y="0" width="25" height="28" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Per]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="215" y="0" width="70" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Labour]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="215" y="14" width="30" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Rate]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="245" y="14" width="40" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Cost]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="285" y="0" width="65" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Variable Cost]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="285" y="14" width="30" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Rate]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="315" y="14" width="35" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Cost]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="350" y="0" width="65" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Fixed Cost]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="350" y="14" width="30" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Rate]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="380" y="14" width="35" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Cost]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="415" y="0" width="55" height="28" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Utility Cost]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="470" y="0" width="85" height="28" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Total Cost
+Per Pcs]]></text><box><pen lineWidth="0.5"/></box></element>
+			</band>
+			<band height="16">
+				<printWhenExpression><![CDATA[$F{sec}.intValue() == 2]]></printWhenExpression>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="0" y="0" width="65" height="16" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[BOM - Material]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="65" y="0" width="145" height="16" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Description]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="210" y="0" width="45" height="16" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Qty]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="255" y="0" width="55" height="16" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[@price]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="310" y="0" width="60" height="16" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Cost]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="380" y="0" width="175" height="16" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[Cost Summary]]></text><box><pen lineWidth="0.5"/></box></element>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="22">
+				<printWhenExpression><![CDATA[$F{sec}.intValue() == 1]]></printWhenExpression>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="0" y="0" width="160" height="14" fontName="Arial" fontSize="7.0" bold="true" vTextAlign="Middle"><text><![CDATA[Total]]></text><box leftPadding="2"><pen lineWidth="0.5"/></box></element>
+				<element kind="textField" mode="Opaque" backcolor="#DCE6F2" x="160" y="0" width="30" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Right" vTextAlign="Middle" blankWhenNull="true" pattern="#,##0.00"><expression><![CDATA[$V{sumHrs}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="190" y="0" width="55" height="14" fontName="Arial" fontSize="7.0"><text><![CDATA[]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="textField" mode="Opaque" backcolor="#DCE6F2" x="245" y="0" width="40" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Right" vTextAlign="Middle" blankWhenNull="true" pattern="#,##0.00"><expression><![CDATA[$V{sumLab}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="285" y="0" width="30" height="14" fontName="Arial" fontSize="7.0"><text><![CDATA[]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="textField" mode="Opaque" backcolor="#DCE6F2" x="315" y="0" width="35" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Right" vTextAlign="Middle" blankWhenNull="true" pattern="#,##0.00"><expression><![CDATA[$V{sumVar}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="350" y="0" width="30" height="14" fontName="Arial" fontSize="7.0"><text><![CDATA[]]></text><box><pen lineWidth="0.5"/></box></element>
+				<element kind="textField" mode="Opaque" backcolor="#DCE6F2" x="380" y="0" width="35" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Right" vTextAlign="Middle" blankWhenNull="true" pattern="#,##0.00"><expression><![CDATA[$V{sumFix}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+				<element kind="textField" mode="Opaque" backcolor="#DCE6F2" x="415" y="0" width="55" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Right" vTextAlign="Middle" blankWhenNull="true" pattern="#,##0.00"><expression><![CDATA[$V{sumUtil}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+				<element kind="textField" mode="Opaque" backcolor="#DCE6F2" x="470" y="0" width="85" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Right" vTextAlign="Middle" blankWhenNull="true" pattern="#,##0.00"><expression><![CDATA[$V{sumTotal}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			</band>
+			<band height="16">
+				<printWhenExpression><![CDATA[$F{sec}.intValue() == 2]]></printWhenExpression>
+				<element kind="staticText" mode="Opaque" backcolor="#DCE6F2" x="0" y="0" width="310" height="14" fontName="Arial" fontSize="7.0" bold="true" vTextAlign="Middle"><text><![CDATA[Total]]></text><box leftPadding="2"><pen lineWidth="0.5"/></box></element>
+				<element kind="textField" mode="Opaque" backcolor="#DCE6F2" x="310" y="0" width="60" height="14" fontName="Arial" fontSize="7.0" bold="true" hTextAlign="Right" vTextAlign="Middle" blankWhenNull="true" pattern="#,##0.00"><expression><![CDATA[$V{sumBom}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			</band>
+		</groupFooter>
+	</group>
+	<detail>
+		<band height="13">
+			<printWhenExpression><![CDATA[$F{sec}.intValue() == 1]]></printWhenExpression>
+			<element kind="textField" x="0" y="0" width="160" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" vTextAlign="Middle" textAdjust="ScaleFont"><expression><![CDATA[$F{p_name}]]></expression><box leftPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="160" y="0" width="30" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle" pattern="#,##0.00"><expression><![CDATA[$F{p_hrs}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="190" y="0" width="25" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle" pattern="#,##0.##"><expression><![CDATA[$F{p_per}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="215" y="0" width="30" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle" pattern="#,##0.00"><expression><![CDATA[$F{p_labrate}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="245" y="0" width="40" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle" pattern="#,##0.00"><expression><![CDATA[$F{p_labcost}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="285" y="0" width="30" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle" pattern="#,##0.00"><expression><![CDATA[$F{p_varrate}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="315" y="0" width="35" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle" pattern="#,##0.00"><expression><![CDATA[$F{p_varcost}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="350" y="0" width="30" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle" pattern="#,##0.00"><expression><![CDATA[$F{p_fixrate}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="380" y="0" width="35" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle" pattern="#,##0.00"><expression><![CDATA[$F{p_fixcost}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="415" y="0" width="55" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle" pattern="#,##0.00"><expression><![CDATA[$F{p_utilcost}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="470" y="0" width="85" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle" pattern="#,##0.00"><expression><![CDATA[$F{p_total}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+		</band>
+		<band height="13">
+			<printWhenExpression><![CDATA[$F{sec}.intValue() == 2]]></printWhenExpression>
+			<element kind="textField" x="0" y="0" width="65" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" vTextAlign="Middle"><expression><![CDATA[$F{b_code}]]></expression><box leftPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="65" y="0" width="145" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" vTextAlign="Middle" textAdjust="ScaleFont"><expression><![CDATA[$F{b_desc}]]></expression><box leftPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="210" y="0" width="45" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle" pattern="#,##0.00"><expression><![CDATA[$F{b_qty}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="255" y="0" width="55" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle" pattern="#,##0.00"><expression><![CDATA[$F{b_price}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" x="310" y="0" width="60" height="13" fontName="Arial" fontSize="7.0" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle" pattern="#,##0.00"><expression><![CDATA[$F{b_cost}]]></expression><box rightPadding="2"><pen lineWidth="0.5"/></box></element>
+			<element kind="textField" style="SumRow" x="380" y="0" width="92" height="13" blankWhenNull="true" vTextAlign="Middle"><expression><![CDATA[$F{s_label}]]></expression><box leftPadding="2"/></element>
+			<element kind="textField" style="SumRow" x="472" y="0" width="8" height="13" blankWhenNull="true" vTextAlign="Middle"><expression><![CDATA[$F{s_label} == null ? "" : ":"]]></expression></element>
+			<element kind="textField" style="SumRow" x="480" y="0" width="75" height="13" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle"><expression><![CDATA[($F{s_val} == null || $F{s_fmt} == null) ? "" : new java.text.DecimalFormat("P".equals($F{s_fmt}) ? "#,##0.##'%'" : "#,##0.00", java.text.DecimalFormatSymbols.getInstance($P{REPORT_LOCALE})).format($F{s_val})]]></expression><box rightPadding="2"/></element>
+		</band>
+	</detail>
+	<pageFooter height="14">
+		<element kind="textField" x="455" y="2" width="100" height="10" fontName="Arial" fontSize="6.0" hTextAlign="Right">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

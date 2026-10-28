@@ -30,6 +30,12 @@ import java.util.concurrent.Executors;
  */
 public final class ReportLauncher {
 
+    /**
+     * Panah di samping Print (menu "Export to Excel") di toolbar form. Dimatikan dulu: tab hasil laporan sudah punya tombol
+     * Excel yang menghasilkan isi sama dan dijaga untuk laporan ber-script. Ubah ke true untuk menampilkannya lagi.
+     */
+    public static final boolean TOOLBAR_EXCEL_MENU = false;
+
     private ReportLauncher() {}
 
     private static final ExecutorService RUN_EXEC = Executors.newFixedThreadPool(4, r -> {

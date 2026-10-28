@@ -169,6 +169,16 @@ public final class ReportParamResolver {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Parameter yang masih harus ditanyakan ke pengguna: USER_INPUT dan BOTH yang nilainya belum terisi dari
+     * record/baris. BOTH yang sudah terisi tidak ditanya lagi, jadi Print dari detail langsung jalan tanpa dialog.
+     */
+    public static List<ReportParamMeta> paramsToAsk(List<ReportParamMeta> params, Map<String, Object> values) {
+        List<ReportParamMeta> asked = new ArrayList<>(userInputParams(params));
+        asked.removeIf(p -> values.get(p.getParamName()) != null);
+        return asked;
+    }
+
     /** Nama parameter yang disediakan otomatis untuk setiap report (Jasper/STANDARD), tanpa baris di Designer. */
     public static final String P_CURRENT_USER = "CURRENT_USER";
     public static final String P_CURRENT_USER_NAME = "CURRENT_USER_NAME";

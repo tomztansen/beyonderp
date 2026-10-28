@@ -336,7 +336,7 @@ order by a.id]]></query>
 						<text><![CDATA[End User Part #	: ]]></text>
 					</element>
 					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000018" x="325" y="202" width="95" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
-						<text><![CDATA[Scope		: ]]></text>
+						<text><![CDATA[Type Pattern	: ]]></text>
 					</element>
 					<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000019" x="325" y="223" width="95" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
 						<text><![CDATA[Hardness		: ]]></text>
@@ -406,7 +406,7 @@ order by a.id]]></query>
 						<property name="com.jaspersoft.studio.unit.height" value="px"/>
 					</element>
 					<element kind="textField" uuid="d62fbc2b-7b39-4308-a4ac-1bf989d156ae" x="421" y="202" width="130" height="14" fontName="Arial" fontSize="9.0" blankWhenNull="true" vTextAlign="Middle">
-						<expression><![CDATA[$F{scope}]]></expression>
+						<expression><![CDATA[$F{toolingtype}]]></expression>
 						<property name="com.jaspersoft.studio.unit.height" value="px"/>
 					</element>
 					<element kind="textField" uuid="cad96866-7869-4fa6-bf83-49867f8cf29a" x="421" y="223" width="130" height="14" fontName="Arial" fontSize="9.0" blankWhenNull="true" vTextAlign="Middle">
@@ -417,35 +417,28 @@ order by a.id]]></query>
 						<expression><![CDATA[$F{abmengineermaterialid}]]></expression>
 						<property name="com.jaspersoft.studio.unit.height" value="px"/>
 					</element>
-					<element kind="textField" uuid="e738cdbd-4a79-489e-8db5-bf132f5563ce" x="101" y="244" width="131" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.00#;(#,##0.00#-)" hTextAlign="Right" vTextAlign="Middle">
+					<element kind="textField" uuid="e738cdbd-4a79-489e-8db5-bf132f5563ce" x="101" y="244" width="85" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.00#;(#,##0.00#-)" hTextAlign="Right" vTextAlign="Middle">
 						<expression><![CDATA[$F{qtyordered}]]></expression>
 						<property name="com.jaspersoft.studio.unit.height" value="px"/>
 					</element>
-					<element kind="textField" uuid="d041ed73-0cbc-48e0-a554-bb73a7a05646" x="421" y="244" width="118" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.00#;(#,##0.00#-)" hTextAlign="Right" vTextAlign="Middle">
+					<element kind="textField" uuid="d041ed73-0cbc-48e0-a554-bb73a7a05646" x="421" y="244" width="85" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.00#;(#,##0.00#-)" hTextAlign="Right" vTextAlign="Middle">
 						<expression><![CDATA[$F{qty}]]></expression>
 						<property name="com.jaspersoft.studio.unit.height" value="px"/>
 					</element>
-					<element kind="textField" uuid="9869c349-82a3-4f96-b53d-91aeacfaaba1" x="101" y="265" width="131" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.###;(#,##0.###-)" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+					<element kind="textField" uuid="9869c349-82a3-4f96-b53d-91aeacfaaba1" x="101" y="265" width="85" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.###;(#,##0.###-)" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
 						<expression><![CDATA[$F{estnetweight}]]></expression>
 						<property name="com.jaspersoft.studio.unit.height" value="px"/>
 					</element>
-					<element kind="textField" uuid="248535a9-39f8-4cd4-9d73-3df3610dc219" x="101" y="286" width="131" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.###;(#,##0.###-)" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+					<element kind="textField" uuid="248535a9-39f8-4cd4-9d73-3df3610dc219" x="101" y="286" width="85" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.###;(#,##0.###-)" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
 						<expression><![CDATA[$F{estgrossweight}]]></expression>
 						<property name="com.jaspersoft.studio.unit.height" value="px"/>
 					</element>
-					<element kind="textField" uuid="1bc198b0-d36b-47c1-aaf5-b9f471a3f4ea" x="421" y="265" width="118" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.###;(#,##0.###-)" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+					<element kind="textField" uuid="1bc198b0-d36b-47c1-aaf5-b9f471a3f4ea" x="421" y="265" width="85" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.###;(#,##0.###-)" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
 						<expression><![CDATA[$F{netweight}]]></expression>
 						<property name="com.jaspersoft.studio.unit.height" value="px"/>
 					</element>
-					<element kind="textField" uuid="6a608752-e137-4048-81c1-f55b79bd3b74" x="421" y="286" width="118" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.###;(#,##0.###-)" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+					<element kind="textField" uuid="6a608752-e137-4048-81c1-f55b79bd3b74" x="421" y="286" width="85" height="14" fontName="Arial" fontSize="9.0" pattern="#,##0.###;(#,##0.###-)" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
 						<expression><![CDATA[$F{grossweight}]]></expression>
-						<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					</element>
-					<element kind="staticText" uuid="a4b77b9e-fe09-4681-91da-6d899610bc75" x="326" y="117" width="94" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
-						<text><![CDATA[Type Pattern	: ]]></text>
-					</element>
-					<element kind="textField" uuid="7c44f26b-f452-4bdc-9074-7a3cdd93a2fb" x="421" y="117" width="130" height="14" fontName="Arial" fontSize="9.0" blankWhenNull="true" vTextAlign="Middle">
-						<expression><![CDATA[$F{toolingtype}]]></expression>
 						<property name="com.jaspersoft.studio.unit.height" value="px"/>
 					</element>
 					<box>

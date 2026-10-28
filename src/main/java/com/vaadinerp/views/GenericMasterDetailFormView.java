@@ -1298,7 +1298,10 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         printGroup.setSpacing(false);
         printGroup.setPadding(false);
         printGroup.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
-        printGroup.add(btnPrint, btnPrintMore);
+        printGroup.add(btnPrint);
+        if (com.vaadinerp.report.ReportLauncher.TOOLBAR_EXCEL_MENU) {
+            printGroup.add(btnPrintMore);
+        }
 
         // 6. REFRESH BUTTON
         btnRefresh = new com.vaadinerp.components.SafeButton("Refresh");
@@ -3875,7 +3878,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 com.vaadinerp.report.ReportParamResolver.resolveFromRows(report.getParams(), rows, user));
 
         java.util.List<com.vaadinerp.meta.ReportParamMeta> asked =
-                com.vaadinerp.report.ReportParamResolver.userInputParams(report.getParams());
+                com.vaadinerp.report.ReportParamResolver.paramsToAsk(report.getParams(), values);
         if (asked.isEmpty()) {
             launchPrint(report, values);
             return;
@@ -3886,7 +3889,11 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
         com.vaadinerp.components.ReportParameterForm form =
                 new com.vaadinerp.components.ReportParameterForm(report.getParams(), dynamicDataService);
         com.vaadinerp.components.SafeButton run = new com.vaadinerp.components.SafeButton("Print", ev -> {
-            values.putAll(form.collectValues());
+            // Hanya param yang ditanya yang ditulis balik; BOTH yang sudah terisi dari record tidak boleh tertimpa kosong.
+            Map<String, Object> collected = form.collectValues();
+            for (com.vaadinerp.meta.ReportParamMeta p : asked) {
+                values.put(p.getParamName(), collected.get(p.getParamName()));
+            }
             if (!validateRequired(report, values)) return;
             paramDialog.close();
             launchPrint(report, values);
