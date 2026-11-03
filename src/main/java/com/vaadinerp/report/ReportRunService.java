@@ -24,16 +24,31 @@ public class ReportRunService {
     private final ReportRendererRegistry registry;
     private final com.vaadinerp.service.ScriptExecutorService scriptExecutor;
     private final com.vaadinerp.security.service.SessionSecurityService securityService;
+    private final com.vaadinerp.service.FileStorageService fileStorage;
 
+    /** Nama parameter sistem berisi path folder upload; template Jasper memakainya untuk memuat gambar (mis. tanda tangan). */
+    public static final String P_UPLOAD_DIR = "UPLOAD_DIR";
+
+    /** Tanpa FileStorageService (mis. tes): parameter UPLOAD_DIR tidak disuplai. */
     public ReportRunService(ReportResolver resolver, ReportDataService dataService,
                             ReportRendererRegistry registry,
                             com.vaadinerp.service.ScriptExecutorService scriptExecutor,
                             com.vaadinerp.security.service.SessionSecurityService securityService) {
+        this(resolver, dataService, registry, scriptExecutor, securityService, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ReportRunService(ReportResolver resolver, ReportDataService dataService,
+                            ReportRendererRegistry registry,
+                            com.vaadinerp.service.ScriptExecutorService scriptExecutor,
+                            com.vaadinerp.security.service.SessionSecurityService securityService,
+                            com.vaadinerp.service.FileStorageService fileStorage) {
         this.resolver = resolver;
         this.dataService = dataService;
         this.registry = registry;
         this.scriptExecutor = scriptExecutor;
         this.securityService = securityService;
+        this.fileStorage = fileStorage;
     }
 
     public ReportRunResult run(ReportMeta report, Map<String, Object> params, String format, boolean sample) {
@@ -109,15 +124,24 @@ public class ReportRunService {
                 .output();
     }
 
-    /** Identitas pengguna dari sesi saat ini; kosong bila tidak ada sesi (mis. Scheduled Job) atau gagal dibaca. */
+    /**
+     * Parameter sistem tiap report: identitas pengguna dari sesi saat ini (kosong bila tidak ada sesi, mis.
+     * Scheduled Job, atau gagal dibaca) ditambah UPLOAD_DIR (kosong bila folder upload tidak tersedia).
+     */
     private Map<String, Object> currentUserParams() {
+        Map<String, Object> out = new java.util.HashMap<>();
         try {
             com.vaadinerp.security.entity.AppUser u = securityService != null ? securityService.getCurrentUser() : null;
-            return u == null ? Map.of()
-                    : ReportParamResolver.currentUserParams(u.getUsername(), u.getFullName(), u.getRoles());
+            if (u != null) {
+                out.putAll(ReportParamResolver.currentUserParams(u.getUsername(), u.getFullName(), u.getRoles()));
+            }
         } catch (Exception e) {
-            return Map.of();
+            // tanpa identitas pengguna
         }
+        if (fileStorage != null && fileStorage.getUploadDir() != null) {
+            out.put(P_UPLOAD_DIR, fileStorage.getUploadDir().toString());
+        }
+        return out;
     }
 
     private record Rendered(ReportOutput output, List<Map<String, Object>> data) {
