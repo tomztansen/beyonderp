@@ -1881,8 +1881,7 @@ public class DynamicDataService {
         // record-nya benar-benar tersimpan. Lihat FileStorageService.promoteToPermanent().
         if (fileStorageService != null && formMeta.getFields() != null && data != null) {
             for (FieldMeta field : formMeta.getFields()) {
-                if ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType())
-                        || "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType())) {
+                if (isStoredFileType(field.getComponentType())) {
                     Object val = data.get(field.getFieldName());
                     if (val != null && !val.toString().trim().isEmpty()) {
                         fileStorageService.promoteToPermanent(val.toString());
@@ -2389,9 +2388,8 @@ public class DynamicDataService {
                                                     "DELETE", fieldName, oldStr, null, currentUser, auditNowDt });
                                         }
                                     }
-                                    if (field.isDetail() && fileStorageService != null &&
-                                            ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType()) ||
-                                                    "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType()))) {
+                                    if (field.isDetail() && fileStorageService != null
+                                            && isStoredFileType(field.getComponentType())) {
                                         String fieldName = field.getFieldName();
                                         Object val = getCaseInsensitiveValue(dRow, fieldName);
                                         if (val != null && !val.toString().trim().isEmpty()) {
@@ -2456,10 +2454,8 @@ public class DynamicDataService {
                                                                 currentUser, auditNowDt });
                                                     }
                                                 }
-                                                if (fileStorageService != null && ("FILE_UPLOAD"
-                                                        .equalsIgnoreCase(childField.getComponentType())
-                                                        || "IMAGE_UPLOAD"
-                                                                .equalsIgnoreCase(childField.getComponentType()))) {
+                                                if (fileStorageService != null
+                                                        && isStoredFileType(childField.getComponentType())) {
                                                     Object val = sRow.get(childField.getFieldName());
                                                     if (val != null && !val.toString().trim().isEmpty()) {
                                                         fileStorageService.deleteFilesByDelimitedString(val.toString());
@@ -2502,8 +2498,7 @@ public class DynamicDataService {
 
             if (fileStorageService != null && formMeta.getFields() != null && data != null) {
                 for (FieldMeta field : formMeta.getFields()) {
-                    if ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType())
-                            || "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType())) {
+                    if (isStoredFileType(field.getComponentType())) {
                         Object val = data.get(field.getFieldName());
                         if (val == null && oldRow != null)
                             val = oldRow.get(field.getFieldName());
@@ -2893,6 +2888,12 @@ public class DynamicDataService {
         } catch (Exception ex) {
             log.warn("Gagal menambahkan kolom audit ke tabel '{}': {}", qTable, ex.getMessage());
         }
+    }
+
+    /** Tipe komponen yang nilainya nama file di FileStorageService (disimpan, dipromosikan, dan dihapus bersama record). */
+    private static boolean isStoredFileType(String componentType) {
+        return "FILE_UPLOAD".equalsIgnoreCase(componentType) || "IMAGE_UPLOAD".equalsIgnoreCase(componentType)
+                || "SIGNATURE_PAD".equalsIgnoreCase(componentType);
     }
 
     public String getCurrentLoggedUser() {

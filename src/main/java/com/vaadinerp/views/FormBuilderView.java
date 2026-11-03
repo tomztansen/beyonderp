@@ -700,6 +700,7 @@ public class FormBuilderView extends VerticalLayout {
                 createPaletteButton("Subform Grid", VaadinIcon.GRID, "SUBFORM_GRID"),
                 createPaletteButton("File Upload", VaadinIcon.UPLOAD, "FILE_UPLOAD"),
                 createPaletteButton("Image Upload", VaadinIcon.PICTURE, "IMAGE_UPLOAD"),
+                createPaletteButton("Signature Pad", VaadinIcon.PENCIL, "SIGNATURE_PAD"),
                 createPaletteButton("Label", VaadinIcon.TAG, "LABEL"),
                 createPaletteButton("QR Scan", VaadinIcon.CAMERA, "QR_SCAN"),
                 createPaletteButton("Groovy Editor", VaadinIcon.CODE, "GROOVY_EDITOR"),
@@ -1001,7 +1002,7 @@ public class FormBuilderView extends VerticalLayout {
 
         propComponentType.setItems("TEXTBOX", "INTBOX", "DECIMALBOX", "DATEBOX", "DATETIMEBOX", "TIMEBOX", "CHECKBOX",
                 "TEXTAREA", "COMBOBOX", "LISTBOX", "BANDBOX", "CHOSENBOX", "SUBFORM_GRID", "FILE_UPLOAD",
-                "IMAGE_UPLOAD", "LABEL", "QR_SCAN", "GROOVY_EDITOR", "CRON_SCHEDULE");
+                "IMAGE_UPLOAD", "SIGNATURE_PAD", "LABEL", "QR_SCAN", "GROOVY_EDITOR", "CRON_SCHEDULE");
 
         // Configure propLovCode BandboxField
         propLovCode.setGridConfigurator(grid -> {
@@ -1963,7 +1964,7 @@ public class FormBuilderView extends VerticalLayout {
 
         String[] components = {"TEXTBOX", "INTBOX", "DECIMALBOX", "DATEBOX", "DATETIMEBOX", "TIMEBOX", "CHECKBOX",
                 "TEXTAREA", "COMBOBOX", "LISTBOX", "BANDBOX", "CHOSENBOX", "SUBFORM_GRID", "FILE_UPLOAD",
-                "IMAGE_UPLOAD", "LABEL", "QR_SCAN", "GROOVY_EDITOR", "CRON_SCHEDULE"};
+                "IMAGE_UPLOAD", "SIGNATURE_PAD", "LABEL", "QR_SCAN", "GROOVY_EDITOR", "CRON_SCHEDULE"};
 
         for (String type : components) {
             Button btn = new Button(type, VaadinIcon.PLUS.create());
@@ -2667,6 +2668,35 @@ public class FormBuilderView extends VerticalLayout {
             case "IMAGE_UPLOAD":
                 return new FileUploadField(label,
                         dynamicDataService != null ? dynamicDataService.getFileStorageService() : null, true);
+            case "SIGNATURE_PAD":
+                // Pratinjau statis, tanpa kanvas: kartu di builder tingginya tetap (118 px), jadi pratinjau harus pendek
+                // dan ukurannya tidak boleh berubah setelah komponen JS selesai dimuat (itu yang tampak meluap/bergerak).
+                com.vaadin.flow.component.icon.Icon penIcon = VaadinIcon.PENCIL.create();
+                penIcon.setSize("14px");
+                com.vaadin.flow.component.html.Div signatureBox = new com.vaadin.flow.component.html.Div(penIcon,
+                        new com.vaadin.flow.component.html.Span("Signature"));
+                signatureBox.getStyle()
+                        .set("display", "flex").set("align-items", "center").set("justify-content", "center")
+                        .set("gap", "6px").set("width", "200px").set("height", "40px").set("box-sizing", "border-box")
+                        .set("border", "1px dashed var(--lumo-contrast-40pct)")
+                        .set("border-radius", "var(--lumo-border-radius-m)").set("background", "#fff")
+                        .set("color", "var(--lumo-secondary-text-color)").set("font-size", "var(--lumo-font-size-s)");
+                com.vaadin.flow.component.customfield.CustomField<String> signaturePreview = new com.vaadin.flow.component.customfield.CustomField<>() {
+                    {
+                        add(signatureBox);
+                    }
+
+                    @Override
+                    protected String generateModelValue() {
+                        return null;
+                    }
+
+                    @Override
+                    protected void setPresentationValue(String value) {
+                    }
+                };
+                signaturePreview.setLabel(label);
+                return signaturePreview;
             case "LABEL":
                 return new com.vaadinerp.components.LabelField(
                         temp.fieldLabel,
