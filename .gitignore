@@ -89,3 +89,6 @@ run-and-deploy.bat
 .agents/rules/graphify.md
 .agents/workflows/graphify.md
 .claude/settings.json
+
+# Data impor BOM dari Synchro (cadangan data produksi, jangan di-commit)
+scripts/synchro-bom/
