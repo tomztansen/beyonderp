@@ -954,62 +954,90 @@ public class StandardGridUtils {
             }
         });
 
-        // 2. JS Listener for Shift-Clicks (Range Selection Bypass)
-        grid.getElement().executeJs(
-                "var grid = this;" +
-                        "if (grid.$rowClickListenerAdded) return;" +
-                        "grid.$rowClickListenerAdded = true;" +
-                        "grid.addEventListener('click', function(e) {" +
-                        "  var path = e.composedPath();" +
-                        "  var isInteractive = false;" +
-                        "  var isCheckbox = false;" +
-                        "  var tr = null;" +
-                        "  for (var i = 0; i < path.length; i++) {" +
-                        "    var tag = path[i].tagName;" +
-                        "    if (tag === 'VAADIN-CHECKBOX') { isCheckbox = true; }" +
-                        "    else if (tag === 'VAADIN-BUTTON' || tag === 'BUTTON' || tag === 'A' || tag === 'INPUT') { isInteractive = true; }"
-                        +
-                        "    if (tag === 'TR') { tr = path[i]; }" +
-                        "    if (tag === 'VAADIN-GRID') break;" +
-                        "  }" +
-                        "  if ((isInteractive && !isCheckbox) || !tr) return;" +
+        // 2. JS Listener untuk Shift+klik (pilih rentang). Titik awal = baris yang terakhir diklik; sesudah
+        // Shift+klik, titik awal pindah ke baris yang diklik itu. Shift+klik tanpa titik awal memilih baris itu saja.
+        grid.getElement().executeJs("""
+                var grid = this;
+                if (grid.$rowClickListenerAdded) return;
+                grid.$rowClickListenerAdded = true;
 
-                        "  if (e.shiftKey && grid.$lastClickedTr && grid.$lastClickedTr !== tr && grid.$lastClickedTr.isConnected) {"
-                        +
-                        "    e.stopPropagation();" +
-                        "    e.preventDefault();" +
-                        "    var tbody = tr.parentElement;" +
-                        "    var rows = Array.prototype.slice.call(tbody.children);" +
-                        "    var idx1 = rows.indexOf(grid.$lastClickedTr);" +
-                        "    var idx2 = rows.indexOf(tr);" +
-                        "    if (idx1 >= 0 && idx2 >= 0) {" +
-                        "      var min = Math.min(idx1, idx2);" +
-                        "      var max = Math.max(idx1, idx2);" +
-                        "      setTimeout(function() {" +
-                        "        for (var i = min; i <= max; i++) {" +
-                        "          var row = rows[i];" +
-                        "          var cb = null;" +
-                        "          var slots = row.querySelectorAll('slot');" +
-                        "          for (var k = 0; k < slots.length; k++) {" +
-                        "            var nodes = slots[k].assignedNodes({flatten: true});" +
-                        "            for (var j = 0; j < nodes.length; j++) {" +
-                        "              if (nodes[j] && nodes[j].tagName === 'VAADIN-GRID-CELL-CONTENT') {" +
-                        "                var foundCb = nodes[j].querySelector('vaadin-checkbox');" +
-                        "                if (foundCb) { cb = foundCb; break; }" +
-                        "              }" +
-                        "            }" +
-                        "            if (cb) break;" +
-                        "          }" +
-                        "          if (cb && !cb.checked) {" +
-                        "            cb.click();" +
-                        "          }" +
-                        "        }" +
-                        "      }, 10);" +
-                        "    }" +
-                        "  } else {" +
-                        "    grid.$lastClickedTr = tr;" +
-                        "  }" +
-                        "}, true);");
+                // Target klik: baris (tr), elemen interaktif, kotak centang, baris di body (bukan header),
+                // dan apakah klik berasal dari grid ini sendiri (bukan grid bersarang di detail baris).
+                var info = function(e) {
+                  var path = e.composedPath();
+                  var r = {tr: null, interactive: false, checkbox: false, body: false, own: false};
+                  for (var i = 0; i < path.length; i++) {
+                    var tag = path[i].tagName;
+                    if (tag === 'VAADIN-CHECKBOX') { r.checkbox = true; }
+                    else if (tag === 'VAADIN-BUTTON' || tag === 'BUTTON' || tag === 'A' || tag === 'INPUT') { r.interactive = true; }
+                    if (tag === 'TR') { r.tr = path[i]; }
+                    if (tag === 'VAADIN-GRID') { r.own = (path[i] === grid); break; }
+                  }
+                  r.body = !!(r.tr && r.tr.parentElement && r.tr.parentElement.tagName === 'TBODY');
+                  return r;
+                };
+                // Urutan baris menurut index data (urutan DOM bergeser setelah scroll). Baris tanpa index
+                // (baris sisa/tersembunyi) bernilai -1 supaya tidak ikut terpilih.
+                var pos = function(row) { return typeof row.index === 'number' ? row.index : -1; };
+                var rowCheckbox = function(row) {
+                  var slots = row.querySelectorAll('slot');
+                  for (var k = 0; k < slots.length; k++) {
+                    var nodes = slots[k].assignedNodes({flatten: true});
+                    for (var j = 0; j < nodes.length; j++) {
+                      if (nodes[j] && nodes[j].tagName === 'VAADIN-GRID-CELL-CONTENT') {
+                        var cb = nodes[j].querySelector('vaadin-checkbox');
+                        if (cb) return cb;
+                      }
+                    }
+                  }
+                  return null;
+                };
+
+                // Cegah browser menyorot teks saat Shift+klik pada baris.
+                grid.addEventListener('mousedown', function(e) {
+                  if (!e.shiftKey) return;
+                  var i = info(e);
+                  if (i.own && i.body && !i.interactive) e.preventDefault();
+                }, true);
+
+                grid.addEventListener('click', function(e) {
+                  if (grid.$rangeBusy) return; // klik buatan dari loop rentang di bawah
+                  var i = info(e);
+                  if (!i.own || !i.tr || !i.body || (i.interactive && !i.checkbox)) return;
+                  var tr = i.tr;
+                  if (!e.shiftKey) {
+                    grid.$lastClickedTr = tr;
+                    grid.$lastClickedIdx = (typeof tr.index === 'number') ? tr.index : null;
+                    return;
+                  }
+                  e.stopPropagation();
+                  e.preventDefault();
+                  var rows = Array.prototype.slice.call(tr.parentElement.children);
+                  var a = grid.$lastClickedTr;
+                  var anchorOk = a && a.isConnected && a.parentElement === tr.parentElement
+                      && (grid.$lastClickedIdx === null || a.index === grid.$lastClickedIdx);
+                  var to = pos(tr);
+                  var from = anchorOk ? pos(a) : to;
+                  if (to < 0 || from < 0) { from = to; } // tanpa index: hanya baris yang diklik
+                  var min = Math.min(from, to);
+                  var max = Math.max(from, to);
+                  grid.$lastClickedTr = tr;
+                  grid.$lastClickedIdx = (typeof tr.index === 'number') ? tr.index : null;
+                  setTimeout(function() {
+                    grid.$rangeBusy = true;
+                    try {
+                      rows.forEach(function(row) {
+                        if (to < 0) { if (row !== tr) return; }
+                        else { var p = pos(row); if (p < min || p > max) return; }
+                        var cb = rowCheckbox(row);
+                        if (cb && !cb.checked) cb.click();
+                      });
+                    } finally {
+                      grid.$rangeBusy = false;
+                    }
+                  }, 10);
+                }, true);
+                """);
     }
 
     public static <T> Runnable attachTreeGridFilters(
