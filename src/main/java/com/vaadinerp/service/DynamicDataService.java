@@ -1584,6 +1584,47 @@ public class DynamicDataService {
                 });
     }
 
+    /**
+     * UPDATE dengan cek version tidak mengenai tepat 1 baris. Dulu selalu dilaporkan "diubah user lain", padahal
+     * penyebabnya bisa id ganda di tabel (tanpa primary key) atau baris sudah dihapus. Baris diperiksa ulang supaya
+     * pesannya sesuai penyebab sebenarnya. Dipanggil di dalam transaksi simpan; exception-nya membatalkan transaksi.
+     */
+    RuntimeException updateFailure(String qTable, String pk, Object id, int updatedRows, String what) {
+        String idText = id != null ? id.toString().trim() : "";
+        String duplicate = "Save cancelled: %d rows in " + qTable + " share id " + idText
+                + ". The table has duplicate ids. Ask the administrator to remove the duplicates and add a primary key.";
+        if (updatedRows > 1) {
+            return new IllegalStateException(String.format(duplicate, updatedRows));
+        }
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    "SELECT count(*) OVER () AS n, updateby, updatedt FROM " + qTable + " WHERE CAST(" + pk
+                            + " AS text) = ? ORDER BY updatedt DESC NULLS LAST LIMIT 1",
+                    idText);
+            if (rows.isEmpty()) {
+                return new org.springframework.dao.OptimisticLockingFailureException(
+                        "Save cancelled: " + what + " no longer exists (it may have been deleted). Please refresh.");
+            }
+            Map<String, Object> r = rows.get(0);
+            long n = ((Number) r.get("n")).longValue();
+            if (n > 1) {
+                return new IllegalStateException(String.format(duplicate, n));
+            }
+            Object by = r.get("updateby");
+            Object dt = r.get("updatedt");
+            String when = dt instanceof java.sql.Timestamp ts
+                    ? ts.toLocalDateTime().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))
+                    : String.valueOf(dt);
+            return new org.springframework.dao.OptimisticLockingFailureException("Data conflict: " + what
+                    + " was changed by " + (by != null ? by : "another user") + " at " + when
+                    + ". Please refresh to load the latest data before making changes.");
+        } catch (RuntimeException ex) {
+            log.warn("Gagal memeriksa ulang baris {} id={} sesudah UPDATE 0 baris: {}", qTable, idText, ex.getMessage());
+            return new org.springframework.dao.OptimisticLockingFailureException("Data conflict: " + what
+                    + " was changed by another user. Please refresh to load the latest data before making changes.");
+        }
+    }
+
     private int executeAndLogSql(String sql, List<Object> args) {
         System.out.println("=================================================");
         System.out.println("EXECUTING SQL: " + sql);
@@ -1707,9 +1748,9 @@ public class DynamicDataService {
                     String sql = "UPDATE " + getQualifiedTableName(formMeta.getTableName()) + " SET "
                             + setClause.toString() + whereClause.toString();
                     int updatedRows = executeAndLogSql(sql, args);
-                    if (updatedRows == 0) {
-                        throw new org.springframework.dao.OptimisticLockingFailureException(
-                                "Data conflict: this record was changed by another user a moment ago. Please refresh to load the latest data before making changes.");
+                    if (updatedRows != 1) {
+                        throw updateFailure(getQualifiedTableName(formMeta.getTableName()), pk, data.get(pk),
+                                updatedRows, "this record");
                     }
 
                     if (oldVersion != null) {
@@ -1915,8 +1956,7 @@ public class DynamicDataService {
         // record-nya benar-benar tersimpan. Lihat FileStorageService.promoteToPermanent().
         if (fileStorageService != null && formMeta.getFields() != null && data != null) {
             for (FieldMeta field : formMeta.getFields()) {
-                if ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType())
-                        || "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType())) {
+                if (isStoredFileType(field.getComponentType())) {
                     Object val = data.get(field.getFieldName());
                     if (val != null && !val.toString().trim().isEmpty()) {
                         fileStorageService.promoteToPermanent(val.toString());
@@ -2423,9 +2463,8 @@ public class DynamicDataService {
                                                     "DELETE", fieldName, oldStr, null, currentUser, auditNowDt });
                                         }
                                     }
-                                    if (field.isDetail() && fileStorageService != null &&
-                                            ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType()) ||
-                                                    "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType()))) {
+                                    if (field.isDetail() && fileStorageService != null
+                                            && isStoredFileType(field.getComponentType())) {
                                         String fieldName = field.getFieldName();
                                         Object val = getCaseInsensitiveValue(dRow, fieldName);
                                         if (val != null && !val.toString().trim().isEmpty()) {
@@ -2490,10 +2529,8 @@ public class DynamicDataService {
                                                                 currentUser, auditNowDt });
                                                     }
                                                 }
-                                                if (fileStorageService != null && ("FILE_UPLOAD"
-                                                        .equalsIgnoreCase(childField.getComponentType())
-                                                        || "IMAGE_UPLOAD"
-                                                                .equalsIgnoreCase(childField.getComponentType()))) {
+                                                if (fileStorageService != null
+                                                        && isStoredFileType(childField.getComponentType())) {
                                                     Object val = sRow.get(childField.getFieldName());
                                                     if (val != null && !val.toString().trim().isEmpty()) {
                                                         fileStorageService.deleteFilesByDelimitedString(val.toString());
@@ -2536,8 +2573,7 @@ public class DynamicDataService {
 
             if (fileStorageService != null && formMeta.getFields() != null && data != null) {
                 for (FieldMeta field : formMeta.getFields()) {
-                    if ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType())
-                            || "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType())) {
+                    if (isStoredFileType(field.getComponentType())) {
                         Object val = data.get(field.getFieldName());
                         if (val == null && oldRow != null)
                             val = oldRow.get(field.getFieldName());
@@ -2927,6 +2963,12 @@ public class DynamicDataService {
         } catch (Exception ex) {
             log.warn("Gagal menambahkan kolom audit ke tabel '{}': {}", qTable, ex.getMessage());
         }
+    }
+
+    /** Tipe komponen yang nilainya nama file di FileStorageService (disimpan, dipromosikan, dan dihapus bersama record). */
+    private static boolean isStoredFileType(String componentType) {
+        return "FILE_UPLOAD".equalsIgnoreCase(componentType) || "IMAGE_UPLOAD".equalsIgnoreCase(componentType)
+                || "SIGNATURE_PAD".equalsIgnoreCase(componentType);
     }
 
     public String getCurrentLoggedUser() {
@@ -4479,6 +4521,60 @@ public class DynamicDataService {
         }
     }
 
+    /**
+     * Potongan {@code LEFT JOIN} yang membawa label LOV untuk kolom {@code col}, dipakai supaya grid utama
+     * diurutkan menurut teks yang tampil, bukan menurut id yang tersimpan. Hasil JOIN hanya membawa dua kolom
+     * ({@code _lov_k}, {@code _lov_l}) dan satu label per nilai, jadi baris tidak terduplikat dan nama kolom
+     * di WHERE tidak ambigu. Mengembalikan null (urut mentah) bila kolom bukan field LOV sederhana
+     * (COMBOBOX/BANDBOX/LISTBOX tanpa LOV switch), LOV tidak ditemukan/rusak, atau nilai LOV sama dengan labelnya.
+     */
+    private String buildLovSortJoin(FormMeta formMeta, String col) {
+        if (formMeta == null || formMeta.getFields() == null || col == null) {
+            return null;
+        }
+        for (com.vaadinerp.meta.FieldMeta f : formMeta.getFields()) {
+            if (!col.equalsIgnoreCase(f.getFieldName())) {
+                continue;
+            }
+            String type = f.getComponentType();
+            boolean simpleLov = "COMBOBOX".equalsIgnoreCase(type) || "BANDBOX".equalsIgnoreCase(type)
+                    || "LISTBOX".equalsIgnoreCase(type);
+            if (!simpleLov || f.getLovCode() == null || f.getLovCode().trim().isEmpty()
+                    || (f.getLovSwitch() != null && !f.getLovSwitch().trim().isEmpty())) {
+                return null;
+            }
+            com.vaadinerp.meta.LovMeta lov = getLovMeta(f.getLovCode().trim()).orElse(null);
+            if (lov == null || lov.getTableName() == null || lov.getTableName().isBlank()) {
+                return null;
+            }
+            String valCol = lov.getValueColumn() != null && !lov.getValueColumn().isBlank()
+                    ? lov.getValueColumn().trim()
+                    : "id";
+            if (!valCol.matches("^[a-zA-Z0-9_]+$")) {
+                valCol = "id";
+            }
+            String lblCol = lov.getLabelColumn() != null && !lov.getLabelColumn().isBlank()
+                    ? lov.getLabelColumn().trim()
+                    : valCol;
+            if (!lblCol.matches("^[a-zA-Z0-9_]+$") || valCol.equalsIgnoreCase(lblCol)) {
+                return null;
+            }
+            String lovTable = lov.getTableName().trim();
+            String lovTableSql;
+            try {
+                lovTableSql = isCustomSelectQuery(lovTable)
+                        ? " (" + validateAndSanitizeSelectQuery(lovTable) + ") AS lov_sub "
+                        : getLovQualifiedTableName(lovTable);
+            } catch (Exception e) {
+                return null;
+            }
+            return "LEFT JOIN (SELECT CAST(" + valCol + " AS TEXT) AS _lov_k, MIN(CAST(" + lblCol
+                    + " AS TEXT)) AS _lov_l FROM " + lovTableSql + " GROUP BY 1) AS _lov_s ON _lov_s._lov_k = CAST(_gt."
+                    + col + " AS TEXT) ";
+        }
+        return null;
+    }
+
     public List<Map<String, Object>> fetchGridDataPaged(FormMeta formMeta, int offset, int limit,
             Map<String, ?> filterValues, String sortField, String sortDir) {
         if (formMeta == null)
@@ -4488,18 +4584,28 @@ public class DynamicDataService {
         List<Object> args = new ArrayList<>();
         buildWhereClause(where, args, filterValues, formMeta);
 
-        StringBuilder sql = new StringBuilder("SELECT * " + baseFrom + where.toString());
-
         // Sama seperti filter: <field>_label bukan kolom database, jadi urutkan lewat
         // field LOV aslinya supaya ORDER BY tidak menabrak kolom yang tidak ada.
         String sortCol = sortField;
         if (sortCol != null && sortCol.toLowerCase().trim().endsWith("_label")) {
             sortCol = resolveLabelBaseColumn(formMeta, sortCol.trim());
         }
+        boolean sortable = sortCol != null && !sortCol.trim().isEmpty() && sortCol.matches("^[a-zA-Z0-9_]+$");
 
-        if (sortCol != null && !sortCol.trim().isEmpty() && sortCol.matches("^[a-zA-Z0-9_]+$")) {
+        // Kolom LOV menyimpan id, sedangkan yang tampil adalah label: urutkan menurut label (JOIN ke LOV),
+        // bukan menurut id. Null = bukan kolom LOV / label sama dengan nilai -> urut mentah seperti biasa.
+        String lovSortJoin = sortable ? buildLovSortJoin(formMeta, sortCol) : null;
+        StringBuilder sql = lovSortJoin != null
+                ? new StringBuilder("SELECT _gt.* FROM (SELECT * " + baseFrom + ") AS _gt " + lovSortJoin + where)
+                : new StringBuilder("SELECT * " + baseFrom + where.toString());
+
+        if (sortable) {
             String dir = "DESC".equalsIgnoreCase(sortDir) ? "DESC" : "ASC";
-            sql.append(" ORDER BY ").append(sortCol).append(" ").append(dir);
+            if (lovSortJoin != null) {
+                sql.append(" ORDER BY _lov_s._lov_l ").append(dir);
+            } else {
+                sql.append(" ORDER BY ").append(sortCol).append(" ").append(dir);
+            }
         } else if (formMeta.getPrimaryKey() != null && !formMeta.getPrimaryKey().trim().isEmpty()
                 && formMeta.getPrimaryKey().matches("^[a-zA-Z0-9_]+$")) {
             sql.append(" ORDER BY ").append(formMeta.getPrimaryKey()).append(" DESC");
@@ -4961,9 +5067,9 @@ public class DynamicDataService {
                     String sql = "UPDATE " + getQualifiedTableName(formMeta.getTableName()) + " SET "
                             + setClause.toString() + whereClause.toString();
                     int updatedRows = executeAndLogSql(sql, args);
-                    if (updatedRows == 0) {
-                        throw new org.springframework.dao.OptimisticLockingFailureException(
-                                "Master data conflict: this record was changed by another user. Please refresh to load the latest data.");
+                    if (updatedRows != 1) {
+                        throw updateFailure(getQualifiedTableName(formMeta.getTableName()), masterPk, masterId,
+                                updatedRows, "this record");
                     }
 
                     if (oldVersion != null) {
@@ -5235,9 +5341,9 @@ public class DynamicDataService {
 
                         String sql = "UPDATE " + qDetailTable + " SET " + setClause.toString() + whereClause.toString();
                         int updatedRows = executeAndLogSql(sql, args);
-                        if (updatedRows == 0) {
-                            throw new org.springframework.dao.OptimisticLockingFailureException(
-                                    "Detail data conflict: this detail row was changed by another user. Please refresh to load the latest data.");
+                        if (updatedRows != 1) {
+                            throw updateFailure(qDetailTable, detailPk, row.get(detailPk), updatedRows,
+                                    "detail row " + row.get(detailPk));
                         }
 
                         if (oldVersion != null) {

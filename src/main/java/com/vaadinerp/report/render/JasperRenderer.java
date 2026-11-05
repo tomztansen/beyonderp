@@ -63,6 +63,12 @@ public class JasperRenderer implements ReportRenderer {
         Map<String, Object> params = ctx.params() != null ? new HashMap<>(ctx.params()) : new HashMap<>();
         coerceCollectionParams(jr, params);
 
+        // Opt-in: hanya template yang mendeklarasikan parameter STANDARD_LOCALE memakai locale angka Standard Format;
+        // template lain tetap memakai locale server seperti sebelumnya.
+        if (java.util.Arrays.stream(jr.getParameters()).anyMatch(p -> "STANDARD_LOCALE".equals(p.getName()))) {
+            params.put(JRParameter.REPORT_LOCALE, com.vaadinerp.service.StandardFormatService.numberLocale());
+        }
+
         if (ctx.subreports() != null) {
             for (Map.Entry<String, java.io.File> e : ctx.subreports().entrySet()) {
                 JasperReport subreport = templates.loadCompiled(e.getValue());

@@ -144,6 +144,10 @@ public class FieldMeta extends BaseAuditableEntity {
     @Column(name = "show_sign_toggle")
     private Boolean showSignToggle = false;
 
+    /** Kunci tanda untuk toggle +/-: null = bebas, "NEG" = input user selalu negatif (tombol terkunci). */
+    @Column(name = "sign_lock", length = 3)
+    private String signLock;
+
     @Column(name = "on_add_script", columnDefinition = "TEXT")
     private String onAddScript;
 
@@ -220,6 +224,18 @@ public class FieldMeta extends BaseAuditableEntity {
 
     public void setShowSignToggle(Boolean showSignToggle) {
         this.showSignToggle = showSignToggle;
+    }
+
+    public String getSignLock() {
+        return signLock;
+    }
+
+    public void setSignLock(String signLock) {
+        this.signLock = signLock;
+    }
+
+    public boolean isSignLockedNegative() {
+        return "NEG".equalsIgnoreCase(signLock);
     }
 
     public String getSchedulerRole() {

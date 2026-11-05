@@ -884,6 +884,12 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
                 String op = criteria.operator;
                 String query = criteria.value;
 
+                // Kotak filter kosong tidak menyaring apa pun: lewati sebelum teks tampilan (label LOV)
+                // disusun. Tanpa ini setiap pengambilan data menyusun label semua kolom untuk semua baris.
+                if (!"Blank".equals(op) && !"Not blank".equals(op) && (query == null || query.trim().isEmpty())) {
+                    continue;
+                }
+
                 Object val = getCaseInsensitiveVal(item, fieldName);
                 java.util.function.Function<Map<String, Object>, String> getter = fieldNameToGetterMap.get(fieldName);
                 String strVal = getter != null ? getter.apply(item).toLowerCase()
@@ -1877,8 +1883,14 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
     private void addLineNoColumn() {
         if (lineNoCol != null) return;
         lineNoCol = grid.addColumn(item -> {
-            int idx = items.indexOf(item);
-            return idx >= 0 ? String.valueOf(idx + 1) : "";
+            // Cocokkan berdasarkan identitas, bukan items.indexOf (equals membandingkan isi tiap Map baris:
+            // puluhan ribu baris jadi lambat, dan dua baris yang isinya sama mendapat nomor yang sama).
+            for (int i = 0; i < items.size(); i++) {
+                if (items.get(i) == item) {
+                    return String.valueOf(i + 1);
+                }
+            }
+            return "";
         }).setHeader("#")
           .setWidth("60px")
           .setFlexGrow(0)
@@ -2085,8 +2097,10 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         }
         primeLovLabels();
         applyColumnWidths();
-        // allRowsVisible mematikan virtualisasi; ratusan baris butuh beberapa detik di browser
-        grid.setAllRowsVisible(items.size() <= 50);
+        // allRowsVisible mematikan virtualisasi; ratusan baris butuh beberapa detik di browser.
+        // Sampai 15 baris tinggi (~500px) kira-kira sama dengan tinggi isi-layar, jadi grid kecil tetap
+        // ringkas dan lompatan tampilan di batasnya minimal; di atasnya scroll ada di dalam grid.
+        grid.setAllRowsVisible(items.size() <= 15);
         grid.getElement().executeJs("requestAnimationFrame(() => this.__sfFit && this.__sfFit())");
         java.util.List<com.vaadin.flow.component.grid.GridSortOrder<Map<String, Object>>> currentSort = grid
                 .getSortOrder();

@@ -335,7 +335,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         tabSheet = new TabSheet();
         tabSheet.setSizeFull();
-        historisTab = tabSheet.add("History", historisLayout);
+        historisTab = tabSheet.add("Header", historisLayout);
         transaksiTab = tabSheet.add("Detail", transaksiLayout);
 
         tabSheet.addSelectedChangeListener(event -> {
@@ -647,6 +647,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     for (Component comp : formComponents.values()) {
                         if (comp instanceof com.vaadinerp.components.FileUploadField fu) {
                             fu.commitPendingDeletes();
+                        } else if (comp instanceof com.vaadinerp.components.SignaturePadField sp) {
+                            sp.commitPendingDeletes();
                         }
                     }
 

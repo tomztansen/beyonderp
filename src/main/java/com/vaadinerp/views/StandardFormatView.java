@@ -2,6 +2,7 @@ package com.vaadinerp.views;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
@@ -158,6 +159,19 @@ public class StandardFormatView extends VerticalLayout {
         txtPattern.setWidthFull();
         txtPattern.setValueChangeMode(ValueChangeMode.EAGER);
 
+        // NUMBER_LOCALE dipilih dari daftar (tidak bisa kosong/salah ketik); baris lain tetap teks bebas.
+        boolean isLocale = StandardFormatService.NUMBER_LOCALE.equalsIgnoreCase(format.getComponentType());
+        ComboBox<String> cmbLocale = new ComboBox<>("Number Locale");
+        cmbLocale.setItems(StandardFormatService.SUPPORTED_NUMBER_LOCALES);
+        cmbLocale.setItemLabelGenerator(tag -> tag + "  —  " + generateSamplePreview(format.getComponentType(), tag));
+        cmbLocale.setAllowCustomValue(false);
+        cmbLocale.setClearButtonVisible(false);
+        cmbLocale.setRequired(true);
+        cmbLocale.setWidthFull();
+        cmbLocale.setHelperText("Applies to all users immediately. Ask users to reopen their forms after changing it.");
+        cmbLocale.setValue(StandardFormatService.SUPPORTED_NUMBER_LOCALES.contains(txtPattern.getValue())
+                ? txtPattern.getValue() : "id-ID");
+
         TextField txtDesc = new TextField("Description");
         txtDesc.setValue(format.getDescription() != null ? format.getDescription() : "");
         txtDesc.setWidthFull();
@@ -174,7 +188,8 @@ public class StandardFormatView extends VerticalLayout {
         Span previewTitle = new Span("Live Preview: ");
         previewTitle.getStyle().set("font-size", "0.8rem").set("color", "#166534").set("display", "block");
 
-        Span previewValue = new Span(generateSamplePreview(format.getComponentType(), txtPattern.getValue()));
+        Span previewValue = new Span(generateSamplePreview(format.getComponentType(),
+                isLocale ? cmbLocale.getValue() : txtPattern.getValue()));
         previewValue.getStyle().set("font-size", "1.1rem").set("font-weight", "700").set("color", "#15803d");
 
         previewBox.add(previewTitle, previewValue);
@@ -184,15 +199,19 @@ public class StandardFormatView extends VerticalLayout {
             previewValue.setText(newPreview);
         });
 
-        formLayout.add(txtType, txtPattern, txtDesc, previewBox);
+        cmbLocale.addValueChangeListener(e -> previewValue.setText(
+                generateSamplePreview(format.getComponentType(), e.getValue())));
+
+        formLayout.add(txtType, isLocale ? cmbLocale : txtPattern, txtDesc, previewBox);
         dialog.add(formLayout);
 
         Button btnSave = new com.vaadinerp.components.SafeButton("Save Format", VaadinIcon.CHECK.create(), e -> {
-            if (txtPattern.getValue() == null || txtPattern.getValue().trim().isEmpty()) {
+            String patternValue = isLocale ? cmbLocale.getValue() : txtPattern.getValue();
+            if (patternValue == null || patternValue.trim().isEmpty()) {
                 Notification.show("Format pattern cannot be empty!", 3000, Notification.Position.MIDDLE);
                 return;
             }
-            service.saveFormat(format.getComponentType(), txtPattern.getValue(), txtDesc.getValue());
+            service.saveFormat(format.getComponentType(), patternValue, txtDesc.getValue());
             refreshData();
             dialog.close();
             Notification.show("Format " + format.getComponentType() + " successfully updated!", 3000,
@@ -212,6 +231,12 @@ public class StandardFormatView extends VerticalLayout {
             return "-";
         String cleanPattern = pattern.trim();
         try {
+            if (StandardFormatService.NUMBER_LOCALE.equalsIgnoreCase(type)) {
+                // Contoh angka dengan locale yang DIPILIH (belum tentu yang sedang aktif).
+                DecimalFormat df = new DecimalFormat("#,##0.00",
+                        DecimalFormatSymbols.getInstance(Locale.forLanguageTag(cleanPattern)));
+                return df.format(new BigDecimal("1250000.75"));
+            }
             if ("DATEBOX".equalsIgnoreCase(type)) {
                 return LocalDateTime.now().format(DateTimeFormatter.ofPattern(cleanPattern));
             } else if ("DATETIMEBOX".equalsIgnoreCase(type)) {
@@ -226,8 +251,7 @@ public class StandardFormatView extends VerticalLayout {
                     numPattern = cleanPattern.replace("Rp ", "").replace("Rp", "").trim();
                 BigDecimal sampleNum = "INTBOX".equalsIgnoreCase(type) ? new BigDecimal("1250000")
                         : new BigDecimal("1250000.75");
-                DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.of("id", "ID"));
-                DecimalFormat df = new DecimalFormat(numPattern, symbols);
+                DecimalFormat df = StandardFormatService.decimalFormat(numPattern);
                 String formatted = df.format(sampleNum);
                 return hasRp ? "Rp " + formatted : formatted;
             }
