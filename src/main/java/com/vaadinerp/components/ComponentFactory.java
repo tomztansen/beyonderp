@@ -1119,6 +1119,13 @@ public class ComponentFactory {
                 imageUpload.setReadOnly(field.isReadonly());
                 imageUpload.setCompact(hideLabel);
                 return imageUpload;
+            case "SIGNATURE_PAD":
+                // Nilai = nama file PNG di FileStorageService (kolom DB hanya berisi nama file), diberi awalan user id.
+                SignaturePadField signaturePad = new SignaturePadField(label,
+                        dataService != null ? dataService.getFileStorageService() : null,
+                        dataService != null ? dataService::getCurrentLoggedUser : null);
+                signaturePad.setReadOnly(field.isReadonly());
+                return signaturePad;
             case "LABEL":
                 return new LabelField("", field.getFieldLabel(), field.getDisplayFormat());
             case "QR_SCAN":
@@ -1425,6 +1432,8 @@ public class ComponentFactory {
             fu.setReadOnly(ro);
         } else if (component instanceof QrScanField qsf) {
             qsf.setReadOnly(ro);
+        } else if (component instanceof SignaturePadField sp) {
+            sp.setReadOnly(ro);
         }
     }
 }

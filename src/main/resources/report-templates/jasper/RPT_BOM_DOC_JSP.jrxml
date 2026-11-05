@@ -1,5 +1,7 @@
 <!-- Created with Jaspersoft Studio version 7.0.6.final using JasperReports Library version 7.0.6-5d2a603fdc6b3db8f842a83383e594f41891534d  -->
 <jasperReport name="RPT_BOM_DOC_JSP" language="java" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="059574cd-9046-4fc2-87c5-0081901e8037">
+	<!-- Folder upload aplikasi (parameter sistem dari ReportRunService); dipakai memuat gambar tanda tangan. -->
+	<parameter name="UPLOAD_DIR" class="java.lang.String"/>
 	<field name="bom_id" class="java.lang.Object"/>
 	<field name="idno" class="java.lang.String"/>
 	<field name="product" class="java.lang.String"/>
@@ -9,6 +11,9 @@
 	<field name="itemgroup" class="java.lang.String"/>
 	<field name="qty" class="java.math.BigDecimal"/>
 	<field name="perseries" class="java.math.BigDecimal"/>
+	<field name="prepared_by" class="java.lang.String"/>
+	<field name="prepared_date" class="java.util.Date"/>
+	<field name="ttd_file" class="java.lang.String"/>
 	<variable name="groupItemCount" resetType="Group" calculation="Count" resetGroup="BomGroup" class="java.lang.Integer">
 		<expression><![CDATA[$F{material}]]></expression>
 	</variable>
@@ -59,13 +64,28 @@
 			</band>
 		</groupHeader>
 		<groupFooter>
-			<band height="30">
+			<band height="156">
 				<element kind="line" uuid="151a4956-82af-45b7-8085-1c6aa0cddc3e" x="0" y="2" width="555" height="1"/>
 				<element kind="staticText" uuid="0396bc80-6777-486c-a14e-f439de7acb2b" x="300" y="6" width="115" height="16" bold="true" hTextAlign="Right">
 					<text><![CDATA[Total item :]]></text>
 				</element>
 				<element kind="textField" uuid="4176c64f-4180-4f54-9c40-808f3f559342" x="415" y="6" width="80" height="16" bold="true" hTextAlign="Right">
 					<expression><![CDATA[$V{groupItemCount}]]></expression>
+				</element>
+				<!-- Kolom tanda tangan: pembuat BOM (inputby). Gambar dari file upload user_signature; kosong bila
+				     user belum punya tanda tangan atau file tidak ditemukan. -->
+				<element kind="staticText" uuid="0ad7b5e6-84ab-4d1a-9eb9-5e46947dbaa0" x="0" y="40" width="200" height="16" bold="true">
+					<text><![CDATA[Prepared by]]></text>
+				</element>
+				<element kind="image" uuid="bf01e998-1e59-447f-9214-84e3dc678f1b" x="0" y="58" width="160" height="56" scaleImage="RetainShape" hImageAlign="Left" vImageAlign="Bottom" onErrorType="Blank">
+					<expression><![CDATA[($P{UPLOAD_DIR} == null || $F{ttd_file} == null) ? null : $P{UPLOAD_DIR} + "/" + $F{ttd_file}]]></expression>
+				</element>
+				<element kind="line" uuid="321b2cdd-d63f-438b-ad77-902f03cceef4" x="0" y="116" width="200" height="1"/>
+				<element kind="textField" uuid="8c52979b-8730-403d-9185-8c61e2d7a845" x="0" y="119" width="200" height="16" bold="true" blankWhenNull="true">
+					<expression><![CDATA[$F{prepared_by}]]></expression>
+				</element>
+				<element kind="textField" uuid="7293bb2e-9ca7-4503-b8dc-13b844d62387" x="0" y="135" width="200" height="14" fontSize="8.0" pattern="dd MMM yyyy" blankWhenNull="true">
+					<expression><![CDATA[$F{prepared_date}]]></expression>
 				</element>
 			</band>
 		</groupFooter>

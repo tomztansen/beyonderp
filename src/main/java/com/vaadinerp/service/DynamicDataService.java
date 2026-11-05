@@ -1915,8 +1915,7 @@ public class DynamicDataService {
         // record-nya benar-benar tersimpan. Lihat FileStorageService.promoteToPermanent().
         if (fileStorageService != null && formMeta.getFields() != null && data != null) {
             for (FieldMeta field : formMeta.getFields()) {
-                if ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType())
-                        || "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType())) {
+                if (isStoredFileType(field.getComponentType())) {
                     Object val = data.get(field.getFieldName());
                     if (val != null && !val.toString().trim().isEmpty()) {
                         fileStorageService.promoteToPermanent(val.toString());
@@ -2423,9 +2422,8 @@ public class DynamicDataService {
                                                     "DELETE", fieldName, oldStr, null, currentUser, auditNowDt });
                                         }
                                     }
-                                    if (field.isDetail() && fileStorageService != null &&
-                                            ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType()) ||
-                                                    "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType()))) {
+                                    if (field.isDetail() && fileStorageService != null
+                                            && isStoredFileType(field.getComponentType())) {
                                         String fieldName = field.getFieldName();
                                         Object val = getCaseInsensitiveValue(dRow, fieldName);
                                         if (val != null && !val.toString().trim().isEmpty()) {
@@ -2490,10 +2488,8 @@ public class DynamicDataService {
                                                                 currentUser, auditNowDt });
                                                     }
                                                 }
-                                                if (fileStorageService != null && ("FILE_UPLOAD"
-                                                        .equalsIgnoreCase(childField.getComponentType())
-                                                        || "IMAGE_UPLOAD"
-                                                                .equalsIgnoreCase(childField.getComponentType()))) {
+                                                if (fileStorageService != null
+                                                        && isStoredFileType(childField.getComponentType())) {
                                                     Object val = sRow.get(childField.getFieldName());
                                                     if (val != null && !val.toString().trim().isEmpty()) {
                                                         fileStorageService.deleteFilesByDelimitedString(val.toString());
@@ -2536,8 +2532,7 @@ public class DynamicDataService {
 
             if (fileStorageService != null && formMeta.getFields() != null && data != null) {
                 for (FieldMeta field : formMeta.getFields()) {
-                    if ("FILE_UPLOAD".equalsIgnoreCase(field.getComponentType())
-                            || "IMAGE_UPLOAD".equalsIgnoreCase(field.getComponentType())) {
+                    if (isStoredFileType(field.getComponentType())) {
                         Object val = data.get(field.getFieldName());
                         if (val == null && oldRow != null)
                             val = oldRow.get(field.getFieldName());
@@ -2927,6 +2922,12 @@ public class DynamicDataService {
         } catch (Exception ex) {
             log.warn("Gagal menambahkan kolom audit ke tabel '{}': {}", qTable, ex.getMessage());
         }
+    }
+
+    /** Tipe komponen yang nilainya nama file di FileStorageService (disimpan, dipromosikan, dan dihapus bersama record). */
+    private static boolean isStoredFileType(String componentType) {
+        return "FILE_UPLOAD".equalsIgnoreCase(componentType) || "IMAGE_UPLOAD".equalsIgnoreCase(componentType)
+                || "SIGNATURE_PAD".equalsIgnoreCase(componentType);
     }
 
     public String getCurrentLoggedUser() {
@@ -4479,6 +4480,60 @@ public class DynamicDataService {
         }
     }
 
+    /**
+     * Potongan {@code LEFT JOIN} yang membawa label LOV untuk kolom {@code col}, dipakai supaya grid utama
+     * diurutkan menurut teks yang tampil, bukan menurut id yang tersimpan. Hasil JOIN hanya membawa dua kolom
+     * ({@code _lov_k}, {@code _lov_l}) dan satu label per nilai, jadi baris tidak terduplikat dan nama kolom
+     * di WHERE tidak ambigu. Mengembalikan null (urut mentah) bila kolom bukan field LOV sederhana
+     * (COMBOBOX/BANDBOX/LISTBOX tanpa LOV switch), LOV tidak ditemukan/rusak, atau nilai LOV sama dengan labelnya.
+     */
+    private String buildLovSortJoin(FormMeta formMeta, String col) {
+        if (formMeta == null || formMeta.getFields() == null || col == null) {
+            return null;
+        }
+        for (com.vaadinerp.meta.FieldMeta f : formMeta.getFields()) {
+            if (!col.equalsIgnoreCase(f.getFieldName())) {
+                continue;
+            }
+            String type = f.getComponentType();
+            boolean simpleLov = "COMBOBOX".equalsIgnoreCase(type) || "BANDBOX".equalsIgnoreCase(type)
+                    || "LISTBOX".equalsIgnoreCase(type);
+            if (!simpleLov || f.getLovCode() == null || f.getLovCode().trim().isEmpty()
+                    || (f.getLovSwitch() != null && !f.getLovSwitch().trim().isEmpty())) {
+                return null;
+            }
+            com.vaadinerp.meta.LovMeta lov = getLovMeta(f.getLovCode().trim()).orElse(null);
+            if (lov == null || lov.getTableName() == null || lov.getTableName().isBlank()) {
+                return null;
+            }
+            String valCol = lov.getValueColumn() != null && !lov.getValueColumn().isBlank()
+                    ? lov.getValueColumn().trim()
+                    : "id";
+            if (!valCol.matches("^[a-zA-Z0-9_]+$")) {
+                valCol = "id";
+            }
+            String lblCol = lov.getLabelColumn() != null && !lov.getLabelColumn().isBlank()
+                    ? lov.getLabelColumn().trim()
+                    : valCol;
+            if (!lblCol.matches("^[a-zA-Z0-9_]+$") || valCol.equalsIgnoreCase(lblCol)) {
+                return null;
+            }
+            String lovTable = lov.getTableName().trim();
+            String lovTableSql;
+            try {
+                lovTableSql = isCustomSelectQuery(lovTable)
+                        ? " (" + validateAndSanitizeSelectQuery(lovTable) + ") AS lov_sub "
+                        : getLovQualifiedTableName(lovTable);
+            } catch (Exception e) {
+                return null;
+            }
+            return "LEFT JOIN (SELECT CAST(" + valCol + " AS TEXT) AS _lov_k, MIN(CAST(" + lblCol
+                    + " AS TEXT)) AS _lov_l FROM " + lovTableSql + " GROUP BY 1) AS _lov_s ON _lov_s._lov_k = CAST(_gt."
+                    + col + " AS TEXT) ";
+        }
+        return null;
+    }
+
     public List<Map<String, Object>> fetchGridDataPaged(FormMeta formMeta, int offset, int limit,
             Map<String, ?> filterValues, String sortField, String sortDir) {
         if (formMeta == null)
@@ -4488,18 +4543,28 @@ public class DynamicDataService {
         List<Object> args = new ArrayList<>();
         buildWhereClause(where, args, filterValues, formMeta);
 
-        StringBuilder sql = new StringBuilder("SELECT * " + baseFrom + where.toString());
-
         // Sama seperti filter: <field>_label bukan kolom database, jadi urutkan lewat
         // field LOV aslinya supaya ORDER BY tidak menabrak kolom yang tidak ada.
         String sortCol = sortField;
         if (sortCol != null && sortCol.toLowerCase().trim().endsWith("_label")) {
             sortCol = resolveLabelBaseColumn(formMeta, sortCol.trim());
         }
+        boolean sortable = sortCol != null && !sortCol.trim().isEmpty() && sortCol.matches("^[a-zA-Z0-9_]+$");
 
-        if (sortCol != null && !sortCol.trim().isEmpty() && sortCol.matches("^[a-zA-Z0-9_]+$")) {
+        // Kolom LOV menyimpan id, sedangkan yang tampil adalah label: urutkan menurut label (JOIN ke LOV),
+        // bukan menurut id. Null = bukan kolom LOV / label sama dengan nilai -> urut mentah seperti biasa.
+        String lovSortJoin = sortable ? buildLovSortJoin(formMeta, sortCol) : null;
+        StringBuilder sql = lovSortJoin != null
+                ? new StringBuilder("SELECT _gt.* FROM (SELECT * " + baseFrom + ") AS _gt " + lovSortJoin + where)
+                : new StringBuilder("SELECT * " + baseFrom + where.toString());
+
+        if (sortable) {
             String dir = "DESC".equalsIgnoreCase(sortDir) ? "DESC" : "ASC";
-            sql.append(" ORDER BY ").append(sortCol).append(" ").append(dir);
+            if (lovSortJoin != null) {
+                sql.append(" ORDER BY _lov_s._lov_l ").append(dir);
+            } else {
+                sql.append(" ORDER BY ").append(sortCol).append(" ").append(dir);
+            }
         } else if (formMeta.getPrimaryKey() != null && !formMeta.getPrimaryKey().trim().isEmpty()
                 && formMeta.getPrimaryKey().matches("^[a-zA-Z0-9_]+$")) {
             sql.append(" ORDER BY ").append(formMeta.getPrimaryKey()).append(" DESC");
