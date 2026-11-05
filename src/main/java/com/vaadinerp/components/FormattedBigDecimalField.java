@@ -5,8 +5,6 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.html.Span;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
-import java.util.Locale;
 
 public class FormattedBigDecimalField extends CustomField<BigDecimal> {
     private final TextField textField = new TextField();
@@ -27,6 +25,8 @@ public class FormattedBigDecimalField extends CustomField<BigDecimal> {
         });
         
         textField.addValueChangeListener(e -> {
+            if (e.isFromClient() && signToggle != null)
+                signToggle.onUserInput();
             updateValue();
         });
     }
@@ -61,11 +61,18 @@ public class FormattedBigDecimalField extends CustomField<BigDecimal> {
         }
     }
 
-    /** Pasang tombol +/-. Dipanggil sesudah setDisplayFormat supaya prefix Rp/$ ikut dipertahankan. */
     public void enableSignToggle() {
+        enableSignToggle(false);
+    }
+
+    /**
+     * Pasang tombol +/-. Dipanggil sesudah setDisplayFormat supaya prefix Rp/$ ikut dipertahankan.
+     * @param lockedNegative true = tombol terkunci, angka yang diketik user selalu negatif.
+     */
+    public void enableSignToggle(boolean lockedNegative) {
         if (signToggle != null)
             return;
-        signToggle = new SignToggle(textField, this::updateValue);
+        signToggle = new SignToggle(textField, this::updateValue, lockedNegative);
         textField.setAllowedCharPattern("[0-9.,]");
         signToggle.setEnabled(!isReadOnly);
     }
@@ -107,7 +114,8 @@ public class FormattedBigDecimalField extends CustomField<BigDecimal> {
                 .replaceAll("(?i)kg", "")
                 .replaceAll("(?i)pcs", "")
                 .trim();
-            clean = clean.replace(".", "").replace(",", ".");
+            // Pemisah ribuan/desimal mengikuti NUMBER_LOCALE (Standard Format) (bawaan id-ID: hasil sama seperti dulu).
+            clean = com.vaadinerp.service.StandardFormatService.normalizeNumberText(clean);
             BigDecimal parsed = new BigDecimal(clean);
             if (signToggle == null)
                 return parsed;
@@ -121,7 +129,7 @@ public class FormattedBigDecimalField extends CustomField<BigDecimal> {
     protected void setPresentationValue(BigDecimal newPresentationValue) {
         if (newPresentationValue == null) {
             if (signToggle != null)
-                signToggle.setNegative(false);
+                signToggle.reset();
             textField.setValue("");
             return;
         }
@@ -152,8 +160,7 @@ public class FormattedBigDecimalField extends CustomField<BigDecimal> {
 
             if (!pattern.contains("#") && !pattern.contains("0")) pattern = "#,##0.00";
 
-            DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.of("id", "ID"));
-            DecimalFormat df = new DecimalFormat(pattern, symbols);
+            DecimalFormat df = com.vaadinerp.service.StandardFormatService.decimalFormat(pattern);
             textField.setValue(df.format(val));
         } catch (Exception e) {
             textField.setValue(val.toString());

@@ -133,7 +133,11 @@ public class FormBuilderView extends VerticalLayout {
     private final Checkbox propIsAuditLog = new Checkbox("Audit Log");
     private final Checkbox propShowLineNo = new Checkbox("Show Line No");
     private final Checkbox propSaveLineNoToDb = new Checkbox("Save Line No to DB");
-    private final Checkbox propShowSignToggle = new Checkbox("Show +/- Toggle");
+    // INTBOX/DECIMALBOX: disimpan ke show_sign_toggle + sign_lock (lihat SIGN_INPUT_* di bawah).
+    private final ComboBox<String> propSignInput = new ComboBox<>("Sign Input");
+    private static final String SIGN_INPUT_NORMAL = "Normal";
+    private static final String SIGN_INPUT_TOGGLE = "Toggle +/-";
+    private static final String SIGN_INPUT_NEGATIVE = "Negative only";
     private final TextField propHyperlinkTargetForm = new TextField("Hyperlink Target Form");
     private final TextArea propHyperlinkFilterMapping = new TextArea("Hyperlink Filter Mapping (JSON)");
     private final TextField propLovAddForm = new TextField("LOV Add Form");
@@ -178,6 +182,7 @@ public class FormBuilderView extends VerticalLayout {
         public boolean showLineNo = true;
         public boolean saveLineNoToDb = false;
         public boolean showSignToggle = false;
+        public String signLock;
         public String onAddScript;
         public String onAddAiPrompt;
         public String hyperlinkTargetForm;
@@ -1066,8 +1071,7 @@ public class FormBuilderView extends VerticalLayout {
         checkBoxLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 2));
         propIsSortable.setValue(true);
         checkBoxLayout.add(propIsRequired, propIsReadonly, propShowInGrid, propHideInForm, propIsDetail, propIsSortable,
-                propSaveOnInsert, propSaveOnUpdate, propIsAuditLog, propShowLineNo, propSaveLineNoToDb,
-                propShowSignToggle);
+                propSaveOnInsert, propSaveOnUpdate, propIsAuditLog, propShowLineNo, propSaveLineNoToDb);
 
         propBtnFilters.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_CONTRAST);
         propBtnFilters.setWidthFull();
@@ -1132,7 +1136,7 @@ public class FormBuilderView extends VerticalLayout {
         propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov,
                 propBtnFilters, propBtnLovTargets, propBtnLovSwitch, propRowGroup, propColSpan, propFieldWidth,
                 propReadonlyMode,
-                propFormula, propDisplayFormat, propLabelStyle, propQrInputMode, propValidationRule, propSequenceCode, propBtnCustomValidation,
+                propFormula, propDisplayFormat, propLabelStyle, propQrInputMode, propSignInput, propValidationRule, propSequenceCode, propBtnCustomValidation,
                 propHyperlinkTargetForm, propHyperlinkFilterMapping,
                 propLovAddForm, propLovAddParams,
                 checkBoxLayout,
@@ -1325,9 +1329,16 @@ public class FormBuilderView extends VerticalLayout {
                 selectedFields.iterator().next().saveLineNoToDb = e.getValue();
             }
         });
-        propShowSignToggle.addValueChangeListener(e -> {
+        propSignInput.setItems(SIGN_INPUT_NORMAL, SIGN_INPUT_TOGGLE, SIGN_INPUT_NEGATIVE);
+        propSignInput.setValue(SIGN_INPUT_NORMAL);
+        propSignInput.setHelperText("+/- button in the number box");
+        propSignInput.setVisible(false);
+        propSignInput.addValueChangeListener(e -> {
             if (!selectedFields.isEmpty() && e.isFromClient()) {
-                selectedFields.iterator().next().showSignToggle = e.getValue();
+                FieldMetaTemp t = selectedFields.iterator().next();
+                String v = e.getValue() != null ? e.getValue() : SIGN_INPUT_NORMAL;
+                t.showSignToggle = !SIGN_INPUT_NORMAL.equals(v);
+                t.signLock = SIGN_INPUT_NEGATIVE.equals(v) ? "NEG" : null;
             }
         });
     }
@@ -1350,7 +1361,7 @@ public class FormBuilderView extends VerticalLayout {
         // dan LABEL tidak pernah menghasilkan perubahan seperti itu, jadi tidak
         // ditawarkan sebagai pemicu — sama seperti pengecualian di evaluateFormulas().
         propBtnOnChangeScript.setVisible(!isLabel && !isSubform);
-        propShowSignToggle.setVisible("INTBOX".equalsIgnoreCase(componentType)
+        propSignInput.setVisible("INTBOX".equalsIgnoreCase(componentType)
                 || "DECIMALBOX".equalsIgnoreCase(componentType));
         boolean isSelection = "COMBOBOX".equalsIgnoreCase(componentType) ||
                 "LISTBOX".equalsIgnoreCase(componentType) ||
@@ -1547,7 +1558,8 @@ public class FormBuilderView extends VerticalLayout {
                     propIsAuditLog.setValue(first.isAuditLog);
                     propShowLineNo.setValue(first.showLineNo);
                     propSaveLineNoToDb.setValue(first.saveLineNoToDb);
-                    propShowSignToggle.setValue(first.showSignToggle);
+                    propSignInput.setValue(!first.showSignToggle ? SIGN_INPUT_NORMAL
+                            : "NEG".equalsIgnoreCase(first.signLock) ? SIGN_INPUT_NEGATIVE : SIGN_INPUT_TOGGLE);
                     // Panggil terakhir supaya visibilitas Format/Style/Formula final
                     // (mengalahkan setVisible(true) paksa di blok base di atas).
                     updatePropertyFieldsState(first.componentType);
@@ -3392,6 +3404,7 @@ public class FormBuilderView extends VerticalLayout {
             field.setShowLineNo(temp.showLineNo);
             field.setSaveLineNoToDb(temp.saveLineNoToDb);
             field.setShowSignToggle(temp.showSignToggle);
+            field.setSignLock(temp.signLock);
             field.setOnAddScript(temp.onAddScript);
             field.setHyperlinkTargetForm(temp.hyperlinkTargetForm);
             field.setHyperlinkFilterMapping(temp.hyperlinkFilterMapping);
@@ -4306,6 +4319,7 @@ public class FormBuilderView extends VerticalLayout {
                     temp.showLineNo = field.isShowLineNo();
                     temp.saveLineNoToDb = field.isSaveLineNoToDb();
                     temp.showSignToggle = field.isShowSignToggle();
+                    temp.signLock = field.getSignLock();
                     temp.onAddScript = field.getOnAddScript();
                     temp.hyperlinkTargetForm = field.getHyperlinkTargetForm();
                     temp.hyperlinkFilterMapping = field.getHyperlinkFilterMapping();

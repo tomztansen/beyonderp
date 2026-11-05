@@ -2097,8 +2097,10 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         }
         primeLovLabels();
         applyColumnWidths();
-        // allRowsVisible mematikan virtualisasi; ratusan baris butuh beberapa detik di browser
-        grid.setAllRowsVisible(items.size() <= 50);
+        // allRowsVisible mematikan virtualisasi; ratusan baris butuh beberapa detik di browser.
+        // Sampai 15 baris tinggi (~500px) kira-kira sama dengan tinggi isi-layar, jadi grid kecil tetap
+        // ringkas dan lompatan tampilan di batasnya minimal; di atasnya scroll ada di dalam grid.
+        grid.setAllRowsVisible(items.size() <= 15);
         grid.getElement().executeJs("requestAnimationFrame(() => this.__sfFit && this.__sfFit())");
         java.util.List<com.vaadin.flow.component.grid.GridSortOrder<Map<String, Object>>> currentSort = grid
                 .getSortOrder();

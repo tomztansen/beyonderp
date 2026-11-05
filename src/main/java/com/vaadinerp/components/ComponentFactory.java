@@ -355,7 +355,7 @@ public class ComponentFactory {
                     d = num.doubleValue();
                 } else {
                     try {
-                        d = Double.parseDouble(strVal.replace(".", "").replace(",", "."));
+                        d = Double.parseDouble(StandardFormatService.normalizeNumberText(strVal));
                     } catch (Exception ignored) {
                     }
                 }
@@ -806,7 +806,7 @@ public class ComponentFactory {
                 numVal = new java.math.BigDecimal(num.toString());
             else if (hasCustomFormat) {
                 try {
-                    numVal = new java.math.BigDecimal(val.toString().replace(".", "").replace(",", "."));
+                    numVal = new java.math.BigDecimal(StandardFormatService.normalizeNumberText(val.toString()));
                 } catch (Exception ignored) {
                 }
             }
@@ -816,9 +816,8 @@ public class ComponentFactory {
                     String cleanPattern = pattern;
                     if (hasRp)
                         cleanPattern = pattern.replace("Rp ", "").replace("Rp", "").trim();
-                    java.util.Locale locale = java.util.Locale.of("id", "ID");
-                    java.text.DecimalFormatSymbols symbols = new java.text.DecimalFormatSymbols(locale);
-                    java.text.DecimalFormat df = new java.text.DecimalFormat(cleanPattern, symbols);
+                    // Simbol mengikuti NUMBER_LOCALE (Standard Format), pembulatan HALF_UP (sama dengan kotak input).
+                    java.text.DecimalFormat df = StandardFormatService.decimalFormat(cleanPattern);
                     String formatted = df.format(numVal);
                     return hasRp ? "Rp " + formatted : formatted;
                 } catch (Exception ignored) {
@@ -934,7 +933,7 @@ public class ComponentFactory {
                 intField.setReadOnly(field.isReadonly());
                 intField.setDisplayFormat(hasFmt ? fmt : StandardFormatService.getStandardFormat("INTBOX", "#,##0"));
                 if (field.isShowSignToggle())
-                    intField.enableSignToggle();
+                    intField.enableSignToggle(field.isSignLockedNegative());
                 return intField;
             case "DECIMALBOX":
             case "BIGDECIMALFIELD":
@@ -949,7 +948,7 @@ public class ComponentFactory {
                 decimalField.setDisplayFormat(
                         hasFmt ? fmt : StandardFormatService.getStandardFormat("DECIMALBOX", "#,##0.00"));
                 if (field.isShowSignToggle())
-                    decimalField.enableSignToggle();
+                    decimalField.enableSignToggle(field.isSignLockedNegative());
                 return decimalField;
             case "DATEBOX":
             case "DATEPICKER":

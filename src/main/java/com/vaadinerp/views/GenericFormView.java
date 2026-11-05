@@ -335,7 +335,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
         tabSheet = new TabSheet();
         tabSheet.setSizeFull();
-        historisTab = tabSheet.add("History", historisLayout);
+        historisTab = tabSheet.add("Header", historisLayout);
         transaksiTab = tabSheet.add("Detail", transaksiLayout);
 
         tabSheet.addSelectedChangeListener(event -> {

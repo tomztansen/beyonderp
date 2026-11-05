@@ -4,8 +4,6 @@ import com.vaadin.flow.component.customfield.CustomField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.html.Span;
 import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
-import java.util.Locale;
 
 public class FormattedIntegerField extends CustomField<Integer> {
     private final TextField textField = new TextField();
@@ -26,6 +24,8 @@ public class FormattedIntegerField extends CustomField<Integer> {
         });
         
         textField.addValueChangeListener(e -> {
+            if (e.isFromClient() && signToggle != null)
+                signToggle.onUserInput();
             updateValue();
         });
     }
@@ -60,11 +60,18 @@ public class FormattedIntegerField extends CustomField<Integer> {
         }
     }
 
-    /** Pasang tombol +/-. Dipanggil sesudah setDisplayFormat supaya prefix Rp/$ ikut dipertahankan. */
     public void enableSignToggle() {
+        enableSignToggle(false);
+    }
+
+    /**
+     * Pasang tombol +/-. Dipanggil sesudah setDisplayFormat supaya prefix Rp/$ ikut dipertahankan.
+     * @param lockedNegative true = tombol terkunci, angka yang diketik user selalu negatif.
+     */
+    public void enableSignToggle(boolean lockedNegative) {
         if (signToggle != null)
             return;
-        signToggle = new SignToggle(textField, this::updateValue);
+        signToggle = new SignToggle(textField, this::updateValue, lockedNegative);
         textField.setAllowedCharPattern("[0-9.,]");
         signToggle.setEnabled(!isReadOnly);
     }
@@ -106,8 +113,9 @@ public class FormattedIntegerField extends CustomField<Integer> {
                 .replaceAll("(?i)kg", "")
                 .replaceAll("(?i)pcs", "")
                 .trim();
-            if (clean.contains(",")) clean = clean.substring(0, clean.indexOf(","));
-            clean = clean.replace(".", "");
+            // Pemisah ribuan/desimal mengikuti NUMBER_LOCALE (Standard Format); bagian desimal dibuang seperti dulu.
+            clean = com.vaadinerp.service.StandardFormatService.normalizeNumberText(clean);
+            if (clean.contains(".")) clean = clean.substring(0, clean.indexOf('.'));
             int parsed = Integer.parseInt(clean);
             if (signToggle == null)
                 return parsed;
@@ -121,7 +129,7 @@ public class FormattedIntegerField extends CustomField<Integer> {
     protected void setPresentationValue(Integer newPresentationValue) {
         if (newPresentationValue == null) {
             if (signToggle != null)
-                signToggle.setNegative(false);
+                signToggle.reset();
             textField.setValue("");
             return;
         }
@@ -152,8 +160,7 @@ public class FormattedIntegerField extends CustomField<Integer> {
 
             if (!pattern.contains("#") && !pattern.contains("0")) pattern = "#,##0";
 
-            DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.of("id", "ID"));
-            DecimalFormat df = new DecimalFormat(pattern, symbols);
+            DecimalFormat df = com.vaadinerp.service.StandardFormatService.decimalFormat(pattern);
             textField.setValue(df.format(val));
         } catch (Exception e) {
             textField.setValue(val.toString());
