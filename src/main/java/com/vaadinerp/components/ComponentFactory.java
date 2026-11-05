@@ -449,7 +449,9 @@ public class ComponentFactory {
     private static com.github.benmanes.caffeine.cache.Cache<String, String> labelCacheFor(String lovCode) {
         return lovLabelCache.get(lovCode,
                 code -> com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
-                        .maximumSize(10000)
+                        // Harus >= jumlah kode berbeda di satu subform (jurnal closing: 22 ribu+); kalau lebih
+                        // kecil, entri terusir dan tiap baris jatuh ke fetchSingleLovLabel (3 query per baris).
+                        .maximumSize(100000)
                         .expireAfterAccess(java.time.Duration.ofMinutes(60))
                         .build());
     }
@@ -931,6 +933,8 @@ public class ComponentFactory {
                 FormattedIntegerField intField = new FormattedIntegerField(label);
                 intField.setReadOnly(field.isReadonly());
                 intField.setDisplayFormat(hasFmt ? fmt : StandardFormatService.getStandardFormat("INTBOX", "#,##0"));
+                if (field.isShowSignToggle())
+                    intField.enableSignToggle();
                 return intField;
             case "DECIMALBOX":
             case "BIGDECIMALFIELD":
@@ -944,6 +948,8 @@ public class ComponentFactory {
                 decimalField.setReadOnly(field.isReadonly());
                 decimalField.setDisplayFormat(
                         hasFmt ? fmt : StandardFormatService.getStandardFormat("DECIMALBOX", "#,##0.00"));
+                if (field.isShowSignToggle())
+                    decimalField.enableSignToggle();
                 return decimalField;
             case "DATEBOX":
             case "DATEPICKER":

@@ -251,6 +251,8 @@ public class StandardGridUtils {
                 + "    box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: all 0.15s ease;\n"
                 + "  }\n"
                 + "  .grid-cell-copy-btn:hover { background-color: #e2e8f0; color: #1e293b; transform: translateY(-50%) scale(1.08); }\n"
+                + "  .grid-cell-copy-btn.at-start { right: auto; left: 4px; }\n"
+                + "  .grid-cell-copy-btn.in-header { width: 18px; height: 18px; font-size: 10px; }\n"
                 + "  #grid-cell-copy-toast {\n"
                 + "    position: fixed; bottom: 24px; right: 24px; background: #1e293b; color: #f8fafc;\n"
                 + "    padding: 10px 16px; border-radius: 8px; font-size: 13px; font-family: sans-serif;\n"
@@ -274,6 +276,14 @@ public class StandardGridUtils {
                 + "  const btns = clone.querySelectorAll('.grid-cell-copy-btn, vaadin-checkbox, button, input');\n"
                 + "  btns.forEach(b => b.remove());\n"
                 + "  return (clone.innerText || clone.textContent || '').trim();\n"
+                + "}\n"
+                + "// Isi sel Grid ada di light DOM (slotted), jadi thead/tfoot hanya terlihat dari elemen sel pembungkusnya.\n"
+                + "function cellKind(cellContent) {\n"
+                + "  const cell = cellContent.assignedSlot ? cellContent.assignedSlot.parentElement : null;\n"
+                + "  if (!cell) return 'body';\n"
+                + "  if (cell.closest('tfoot')) return 'footer';\n"
+                + "  if (cell.closest('thead')) return 'header';\n"
+                + "  return 'body';\n"
                 + "}\n"
                 + "function copyTextToClipboard(text) {\n"
                 + "  if (!text) return;\n"
@@ -309,11 +319,16 @@ public class StandardGridUtils {
                 + "  // supaya tidak pernah ada lebih dari satu tombol hidup di DOM sekaligus, walau\n"
                 + "  // elemen sel lama sempat di-recycle oleh virtualisasi Grid untuk baris lain.\n"
                 + "  removeActiveCopyBtn();\n"
-                + "  if (cellContent.closest('thead') || cellContent.closest('tfoot') || cellContent.getAttribute('slot')?.startsWith('header') || cellContent.getAttribute('slot')?.startsWith('footer')) return;\n"
+                + "  const kind = cellKind(cellContent);\n"
+                + "  if (kind === 'footer') return;\n"
                 + "  if (cellContent.querySelector('vaadin-checkbox, button, input')) return;\n"
                 + "  const text = extractCellText(cellContent);\n"
                 + "  if (!text) return;\n"
-                + "  const btn = document.createElement('div'); btn.className = 'grid-cell-copy-btn'; btn.innerHTML = '📋'; btn.title = 'Salin teks cell (atau Alt+Klik pada cell)';\n"
+                + "  // Tombol di ujung yang berlawanan dengan arah teks supaya tidak menutup label, ikon sort, atau angka.\n"
+                + "  const align = getComputedStyle(cellContent).textAlign;\n"
+                + "  const btn = document.createElement('div');\n"
+                + "  btn.className = 'grid-cell-copy-btn' + (kind === 'header' ? ' in-header' : '') + ((align === 'end' || align === 'right') ? ' at-start' : '');\n"
+                + "  btn.innerHTML = '📋'; btn.title = kind === 'header' ? 'Salin nama kolom' : 'Salin teks cell (atau Alt+Klik pada cell)';\n"
                 + "  btn.addEventListener('click', function(clickEvent) { clickEvent.stopPropagation(); clickEvent.preventDefault(); const textToCopy = extractCellText(cellContent); if (textToCopy) copyTextToClipboard(textToCopy); });\n"
                 + "  cellContent.appendChild(btn);\n"
                 + "  const leaveHandler = function() { removeActiveCopyBtn(); };\n"
@@ -325,7 +340,7 @@ public class StandardGridUtils {
                 + "    const path = e.composedPath ? e.composedPath() : [e.target];\n"
                 + "    const cellContent = path.find(el => el && el.tagName && el.tagName.toLowerCase() === 'vaadin-grid-cell-content');\n"
                 + "    if (!cellContent) return;\n"
-                + "    if (cellContent.closest('thead') || cellContent.closest('tfoot') || cellContent.getAttribute('slot')?.startsWith('header') || cellContent.getAttribute('slot')?.startsWith('footer')) return;\n"
+                + "    if (cellKind(cellContent) !== 'body') return;\n"
                 + "    const textToCopy = extractCellText(cellContent);\n"
                 + "    if (textToCopy) { e.stopPropagation(); e.preventDefault(); copyTextToClipboard(textToCopy); }\n"
                 + "  }\n"
@@ -334,7 +349,7 @@ public class StandardGridUtils {
                 + "  const path = e.composedPath ? e.composedPath() : [e.target];\n"
                 + "  const cellContent = path.find(el => el && el.tagName && el.tagName.toLowerCase() === 'vaadin-grid-cell-content');\n"
                 + "  if (!cellContent) return;\n"
-                + "  if (cellContent.closest('thead') || cellContent.closest('tfoot') || cellContent.getAttribute('slot')?.startsWith('header') || cellContent.getAttribute('slot')?.startsWith('footer')) return;\n"
+                + "  if (cellKind(cellContent) !== 'body') return;\n"
                 + "  const textToCopy = extractCellText(cellContent);\n"
                 + "  if (textToCopy) {\n"
                 + "    window._lastHoveredCellText = textToCopy;\n"
@@ -609,6 +624,57 @@ public class StandardGridUtils {
         Map<Grid.Column<Map<String, Object>>, Function<Map<String, Object>, String>> getterMap = new HashMap<>();
         colKeyMap.forEach((col, key) -> getterMap.put(col, map -> map.get(key) != null ? map.get(key).toString() : ""));
         return attachGridFilters(grid, getterMap, dataSupplier);
+    }
+
+    /**
+     * Lebar kolom tersimpan per user: daftar token "field=px" (disimpan lewat saveUserGridOrder dengan grid_id
+     * tersendiri). Token rusak diabaikan; lebar dibatasi 60-1200px.
+     */
+    public static Map<String, Integer> parseColumnWidths(List<String> tokens) {
+        Map<String, Integer> out = new HashMap<>();
+        if (tokens == null) {
+            return out;
+        }
+        for (String token : tokens) {
+            int eq = token == null ? -1 : token.indexOf('=');
+            if (eq < 1) {
+                continue;
+            }
+            try {
+                out.put(token.substring(0, eq), clampColumnWidth(Integer.parseInt(token.substring(eq + 1).trim())));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return out;
+    }
+
+    public static List<String> formatColumnWidths(Map<String, Integer> widths) {
+        List<String> tokens = new ArrayList<>();
+        widths.forEach((field, px) -> tokens.add(field + "=" + px));
+        return tokens;
+    }
+
+    /** "212px" atau "212.5px" (nilai Column.getWidth() setelah resize) menjadi px bulat; selain itu null. */
+    public static Integer columnWidthPx(String cssWidth) {
+        if (cssWidth == null || !cssWidth.matches("\\d+(\\.\\d+)?px")) {
+            return null;
+        }
+        return clampColumnWidth((int) Math.round(Double.parseDouble(cssWidth.replace("px", ""))));
+    }
+
+    private static int clampColumnWidth(int px) {
+        return Math.max(60, Math.min(1200, px));
+    }
+
+    /** Kolom yang punya lebar tersimpan diberi lebar itu dan tidak ikut melebar; kolom lain tidak disentuh. */
+    public static <T> void applyColumnWidths(Map<Grid.Column<T>, String> columnToFieldName,
+            Map<String, Integer> widths) {
+        for (Map.Entry<Grid.Column<T>, String> e : columnToFieldName.entrySet()) {
+            Integer px = widths.get(e.getValue());
+            if (px != null) {
+                e.getKey().setAutoWidth(false).setWidth(px + "px").setFlexGrow(0);
+            }
+        }
     }
 
     /**

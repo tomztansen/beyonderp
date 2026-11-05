@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Label serial No. (rubber) 269 x 99 pt. Sumber lama: axis lp072.jrxml; geometri dipertahankan. Dipakai bersama oleh RB_QC_BARCODE_LIMIT dan RB_QC_BARCODE_AUTH. Parameter: p_from_serial, p_to_serial (rentang idno, wajib). Query ada di template (data_query kosong). Logo ga.gif ditanam sebagai base64. -->
+<jasperReport name="RB_QC_BARCODE_JSP" language="java" pageWidth="269" pageHeight="99" orientation="Landscape" columnWidth="269" whenNoDataType="AllSectionsNoDetail" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="6c1f0a52-0000-4000-8000-000000000001">
+	<parameter name="p_from_serial" class="java.lang.String"/>
+	<parameter name="p_to_serial" class="java.lang.String"/>
+	<query language="sql"><![CDATA[SELECT A.idno AS a1,
+       c.salesid AS a2,
+       A.itemname AS a3,
+       COALESCE(A.itemcode, A.itemid::text) AS a4,
+       -- a5: print count ditambah 1 untuk cetakan saat ini (script AFTER yang menaikkannya di database)
+       (COALESCE(ps.printcount, 0) + 1)::text AS a5,
+       CASE WHEN NULLIF(btrim(b.drawingno), '') IS NULL THEN NULL
+            ELSE b.drawingno || ' Rev . ' || COALESCE(b.drawingnorev::text, '') END AS a6,
+       d."name" AS a7
+  FROM dynamic.v_production_serial A
+  LEFT JOIN dynamic.tsproductionserial ps ON ps.id = A.id
+  LEFT JOIN tsproductionorder b ON A.productionno = b.idno
+  LEFT JOIN tssalesline c ON b.tssaleslineid = c.id
+  LEFT JOIN mscustomer d ON c.abmenduser = d."id" AND d.enduser = true
+ WHERE A.isreject = FALSE
+   AND A.isunique = TRUE
+   AND A.msresourcegroupid = 1255
+   AND lower(A.idno) BETWEEN lower($P{p_from_serial}) AND lower($P{p_to_serial})
+ ORDER BY A.idno]]></query>
+	<field name="a1" class="java.lang.String"/>
+	<field name="a2" class="java.lang.String"/>
+	<field name="a3" class="java.lang.String"/>
+	<field name="a4" class="java.lang.String"/>
+	<field name="a5" class="java.lang.String"/>
+	<field name="a6" class="java.lang.String"/>
+	<field name="a7" class="java.lang.String"/>
+	<detail>
+		<band height="99">
+			<element kind="image" uuid="6c1f0a52-0001-4000-8000-000000000001" x="3" y="2" width="46" height="46" scaleImage="FillFrame" onErrorType="Blank" hImageAlign="Left" vImageAlign="Top">
+				<expression><![CDATA[new java.io.ByteArrayInputStream(java.util.Base64.getDecoder().decode("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"))]]></expression>
+			</element>
+			<element kind="textField" uuid="6c1f0a52-0001-4000-8000-000000000002" x="156" y="18" width="153" height="33" fontName="Arial" fontSize="22" bold="true" blankWhenNull="true" printWhenDetailOverflows="true" vTextAlign="Top">
+				<expression><![CDATA[$F{a1}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+			<element kind="textField" uuid="6c1f0a52-0001-4000-8000-000000000003" textAdjust="ScaleFont" x="50" y="2" width="194" height="16" fontName="Arial" fontSize="10" bold="true" blankWhenNull="true" printWhenDetailOverflows="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{a4}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+			<element kind="textField" uuid="6c1f0a52-0001-4000-8000-000000000004" x="50" y="35" width="105" height="16" fontName="Arial" fontSize="10" bold="true" blankWhenNull="true" printWhenDetailOverflows="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{a2}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+			<element kind="textField" uuid="6c1f0a52-0001-4000-8000-000000000005" x="244" y="2" width="23" height="16" fontName="Arial" fontSize="10" bold="true" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+				<expression><![CDATA["P" + $F{a5}]]></expression>
+				<box leftPadding="2" rightPadding="2"/>
+			</element>
+			<element kind="line" uuid="6c1f0a52-0001-4000-8000-000000000006" x="0" y="0" width="269" height="1"/>
+			<element kind="line" uuid="6c1f0a52-0001-4000-8000-000000000007" x="0" y="98" width="269" height="1"/>
+			<element kind="line" uuid="6c1f0a52-0001-4000-8000-000000000008" x="0" y="1" width="1" height="97"/>
+			<element kind="line" uuid="6c1f0a52-0001-4000-8000-000000000009" x="268" y="1" width="1" height="97"/>
+			<element kind="component" uuid="6c1f0a52-0001-4000-8000-000000000010" x="3" y="51" width="46" height="46">
+				<component kind="barcode4j:QRCode">
+					<codeExpression><![CDATA[$F{a1}]]></codeExpression>
+				</component>
+			</element>
+			<element kind="rectangle" uuid="6c1f0a52-0001-4000-8000-000000000011" mode="Transparent" x="3" y="51" width="46" height="46">
+				<pen lineWidth="0.25"/>
+			</element>
+			<element kind="textField" uuid="6c1f0a52-0001-4000-8000-000000000012" textAdjust="ScaleFont" x="50" y="67" width="217" height="30" fontName="Arial" fontSize="10" bold="true" blankWhenNull="true" printWhenDetailOverflows="true" vTextAlign="Top">
+				<expression><![CDATA[$F{a3}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+			<element kind="textField" uuid="6c1f0a52-0001-4000-8000-000000000013" x="50" y="18" width="127" height="16" fontName="Arial" fontSize="10" bold="true" blankWhenNull="true" printWhenDetailOverflows="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{a6}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+			<element kind="textField" uuid="6c1f0a52-0001-4000-8000-000000000014" x="50" y="51" width="217" height="16" fontName="Arial" fontSize="10" bold="true" blankWhenNull="true" printWhenDetailOverflows="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{a7}]]></expression>
+				<box leftPadding="3"/>
+			</element>
+		</band>
+	</detail>
+</jasperReport>

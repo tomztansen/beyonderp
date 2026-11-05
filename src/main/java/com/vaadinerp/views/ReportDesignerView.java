@@ -101,6 +101,9 @@ public class ReportDesignerView extends VerticalLayout {
     private final ComboBox<String> categoryCombo = new ComboBox<>("Category");
     private final Select<String> usageScopeSelect = new Select<>();
     private final TextField groupByField = new TextField("Group By (STANDARD engine)");
+    // Bagian definisi report bisa dilipat (pola yang sama dengan header di GenericFormView).
+    private final com.vaadin.flow.component.details.Details definitionDetails =
+            new com.vaadin.flow.component.details.Details();
     private final TextArea descriptionArea = new TextArea("Description");
     private final TextArea beforeScriptArea = new TextArea("Before Run Script (Groovy)");
     private final TextArea afterScriptArea = new TextArea("After Run Script (Groovy)");
@@ -228,6 +231,12 @@ public class ReportDesignerView extends VerticalLayout {
         Grid.Column<ReportMeta> colRoles = grid.addColumn(this::rolesText).setHeader("Roles").setAutoWidth(true);
         Grid.Column<ReportMeta> colDesc = grid.addColumn(ReportMeta::getDescription).setHeader("Description")
                 .setAutoWidth(true);
+        Grid.Column<ReportMeta> colCreatedBy = grid.addColumn(this::createdByText).setHeader("Created By")
+                .setAutoWidth(true);
+        Grid.Column<ReportMeta> colCreatedOn = grid.addColumn(ReportDesignerView::createdOnText).setHeader("Created On")
+                .setAutoWidth(true)
+                .setComparator(java.util.Comparator.comparing(ReportMeta::getInputdt,
+                        java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())));
         grid.setSelectionMode(Grid.SelectionMode.MULTI); // kolom centang seperti grid form
         grid.setSizeFull();
         grid.addItemDoubleClickListener(e -> openEditor(e.getItem())); // double-click = edit
@@ -243,6 +252,8 @@ public class ReportDesignerView extends VerticalLayout {
         colGetters.put(colOrient, r -> nz(r.getOrientation()));
         colGetters.put(colRoles, this::rolesText);
         colGetters.put(colDesc, r -> nz(r.getDescription()));
+        colGetters.put(colCreatedBy, this::createdByText);
+        colGetters.put(colCreatedOn, ReportDesignerView::createdOnText);
         this.reapplyFilters = StandardGridUtils.attachGridFilters(grid, colGetters, () -> {
             return reportMetaRepository.findAll().stream()
                     .sorted(java.util.Comparator.comparing((ReportMeta r) -> nz(r.getCategory()))
@@ -264,6 +275,39 @@ public class ReportDesignerView extends VerticalLayout {
 
     private String engineOf(ReportMeta r) {
         return r.getEngineType() != null ? r.getEngineType() : "STANDARD";
+    }
+
+    /** Nama lengkap pengguna dari app_users; bila tidak ada atau kosong, username apa adanya. */
+    private static String displayUser(String username) {
+        if (username == null || username.isBlank()) {
+            return "";
+        }
+        String u = username.trim();
+        try {
+            return com.vaadinerp.config.SpringContextHolder
+                    .getBean(com.vaadinerp.security.repository.AppUserRepository.class)
+                    .findByUsernameIgnoreCase(u)
+                    .map(com.vaadinerp.security.entity.AppUser::getFullName)
+                    .filter(n -> n != null && !n.isBlank())
+                    .map(String::trim)
+                    .orElse(u);
+        } catch (Exception e) {
+            return u;
+        }
+    }
+
+    private static final java.time.format.DateTimeFormatter CREATED_FMT =
+            java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm");
+    // Nama lengkap per username untuk kolom grid: satu lookup per username, bukan per sel.
+    private final Map<String, String> userNameCache = new java.util.HashMap<>();
+
+    private String createdByText(ReportMeta r) {
+        String u = r.getInputby();
+        return u == null || u.isBlank() ? "" : userNameCache.computeIfAbsent(u.trim(), ReportDesignerView::displayUser);
+    }
+
+    private static String createdOnText(ReportMeta r) {
+        return r.getInputdt() == null ? "" : r.getInputdt().format(CREATED_FMT);
     }
 
     private String nz(String s) {
@@ -549,7 +593,11 @@ public class ReportDesignerView extends VerticalLayout {
         paramToolbar.setPadding(false);
 
         editorForm.setPadding(false);
-        editorForm.add(new com.vaadin.flow.component.html.H4("Report Definition"), meta,
+        definitionDetails.setSummaryText("Report Definition");
+        definitionDetails.add(meta);
+        definitionDetails.setOpened(true);
+        definitionDetails.setWidthFull();
+        editorForm.add(definitionDetails,
                 new com.vaadin.flow.component.html.H4("Parameters"), paramToolbar, paramGrid);
     }
 
@@ -562,6 +610,7 @@ public class ReportDesignerView extends VerticalLayout {
 
     private void openEditor(ReportMeta report) {
         loadReportState(report);
+        definitionDetails.setOpened(true);
         showForm();
         tabs.setSelectedIndex(1);
     }

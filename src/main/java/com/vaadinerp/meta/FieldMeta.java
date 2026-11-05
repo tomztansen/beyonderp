@@ -140,6 +140,10 @@ public class FieldMeta extends BaseAuditableEntity {
     @Column(name = "save_line_no_to_db")
     private Boolean saveLineNoToDb = false;
 
+    /** INTBOX/DECIMALBOX: tombol +/- di kotak angka; tanda nilai mengikuti tombol, '-' tidak bisa diketik. */
+    @Column(name = "show_sign_toggle")
+    private Boolean showSignToggle = false;
+
     @Column(name = "on_add_script", columnDefinition = "TEXT")
     private String onAddScript;
 
@@ -208,6 +212,14 @@ public class FieldMeta extends BaseAuditableEntity {
 
     public void setSaveLineNoToDb(Boolean saveLineNoToDb) {
         this.saveLineNoToDb = saveLineNoToDb;
+    }
+
+    public boolean isShowSignToggle() {
+        return showSignToggle != null && showSignToggle;
+    }
+
+    public void setShowSignToggle(Boolean showSignToggle) {
+        this.showSignToggle = showSignToggle;
     }
 
     public String getSchedulerRole() {

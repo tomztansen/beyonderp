@@ -2,9 +2,20 @@ package com.vaadinerp.views;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.checkbox.Checkbox;
+import com.vaadin.flow.component.details.Details;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.data.provider.ListDataProvider;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Consumer;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -34,6 +45,25 @@ public class LovBuilderView extends VerticalLayout {
 
     private final TextField searchGridField = new TextField();
     // Lazy loaded via repository directly
+
+    // Tabel isian kolom popup; gridColumnsField (teks "kolom:Judul:lebar,...") tetap sumber yang disimpan.
+    private static final class ColDef {
+        final String name;
+        boolean show;
+        String header;
+        String width;
+
+        ColDef(String name, boolean show, String header, String width) {
+            this.name = name;
+            this.show = show;
+            this.header = header;
+            this.width = width;
+        }
+    }
+
+    private final List<ColDef> colDefs = new ArrayList<>();
+    private final ListDataProvider<ColDef> colDefProvider = new ListDataProvider<>(colDefs);
+    private final Grid<ColDef> colGrid = new Grid<>();
 
     private LovMeta currentLovMeta;
 
@@ -165,6 +195,9 @@ public class LovBuilderView extends VerticalLayout {
                     }
                 }
             }
+            if (e.isFromClient()) {
+                rebuildColDefs();
+            }
         });
         valueColumnField.setWidthFull();
         labelColumnField.setWidthFull();
@@ -172,11 +205,28 @@ public class LovBuilderView extends VerticalLayout {
         gridColumnsField.setWidthFull();
         gridColumnsField.setPlaceholder("e.g. code:Kode:100px,name:Nama:200px");
         gridColumnsField.setHeight("100px");
+        gridColumnsField.addValueChangeListener(e -> {
+            if (e.isFromClient()) {
+                rebuildColDefs();
+            }
+        });
 
         searchColumnField.setPlaceholder("e.g. name,description");
 
         HorizontalLayout valueLabelRow = new HorizontalLayout(valueColumnField, labelColumnField);
         valueLabelRow.setWidthFull();
+
+        setupColGrid();
+        Span colGridTitle = new Span("Grid Columns Configuration");
+        colGridTitle.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "500")
+                .set("color", "var(--lumo-secondary-text-color)");
+        Span colGridHelp = new Span("Tick the columns shown in the popup, set label and width, and use the arrows "
+                + "to reorder. Not used when a form has the same code as this LOV: then use Show in Grid and "
+                + "Col Order in Form Builder.");
+        colGridHelp.getStyle().set("font-size", "var(--lumo-font-size-xs)").set("color",
+                "var(--lumo-secondary-text-color)");
+        Details rawDetails = new Details("Advanced: raw text", gridColumnsField);
+        rawDetails.setOpened(false);
 
         editorLayout.add(
                 lovCodeField,
@@ -184,8 +234,112 @@ public class LovBuilderView extends VerticalLayout {
                 tableNameField,
                 valueLabelRow,
                 searchColumnField,
-                gridColumnsField);
+                colGridTitle,
+                colGrid,
+                colGridHelp,
+                rawDetails);
         return editorLayout;
+    }
+
+    private void setupColGrid() {
+        colGrid.setDataProvider(colDefProvider);
+        colGrid.setWidthFull();
+        colGrid.setHeight("260px");
+        colGrid.addThemeVariants(GridVariant.LUMO_COMPACT, GridVariant.LUMO_ROW_STRIPES);
+        colGrid.addComponentColumn(def -> {
+            Checkbox cb = new Checkbox(def.show);
+            cb.addValueChangeListener(e -> {
+                def.show = e.getValue();
+                syncRaw();
+            });
+            return cb;
+        }).setHeader("Show").setFlexGrow(0).setWidth("70px");
+        colGrid.addColumn(def -> def.name).setHeader("Column").setAutoWidth(true).setFlexGrow(1);
+        colGrid.addComponentColumn(def -> cellField(def.header, "Label", v -> def.header = v)).setHeader("Label")
+                .setFlexGrow(1);
+        colGrid.addComponentColumn(def -> cellField(def.width, "150px", v -> def.width = v)).setHeader("Width")
+                .setFlexGrow(0).setWidth("110px");
+        colGrid.addComponentColumn(def -> {
+            Button up = new com.vaadinerp.components.SafeButton(new Icon(VaadinIcon.ARROW_UP));
+            Button down = new com.vaadinerp.components.SafeButton(new Icon(VaadinIcon.ARROW_DOWN));
+            up.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+            down.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+            up.addClickListener(e -> moveColDef(def, -1));
+            down.addClickListener(e -> moveColDef(def, 1));
+            return new HorizontalLayout(up, down);
+        }).setHeader("Order").setFlexGrow(0).setWidth("110px");
+    }
+
+    private TextField cellField(String value, String placeholder, Consumer<String> setter) {
+        TextField tf = new TextField();
+        tf.setValue(value != null ? value : "");
+        tf.setPlaceholder(placeholder);
+        tf.setWidthFull();
+        tf.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_SMALL);
+        tf.addValueChangeListener(e -> {
+            // ',' dan ':' adalah pemisah format teks, jadi tidak boleh ikut tersimpan di judul/lebar.
+            setter.accept(e.getValue() == null ? "" : e.getValue().replace(",", " ").replace(":", " ").trim());
+            syncRaw();
+        });
+        return tf;
+    }
+
+    private void moveColDef(ColDef def, int delta) {
+        int from = colDefs.indexOf(def);
+        int to = from + delta;
+        if (from < 0 || to < 0 || to >= colDefs.size()) {
+            return;
+        }
+        java.util.Collections.swap(colDefs, from, to);
+        colDefProvider.refreshAll();
+        syncRaw();
+    }
+
+    /** Tabel -> teks "kolom:Judul:lebar,..." (hanya yang dicentang, urut sesuai tabel). */
+    private void syncRaw() {
+        StringBuilder sb = new StringBuilder();
+        for (ColDef d : colDefs) {
+            if (!d.show) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append(',');
+            }
+            boolean hasWidth = d.width != null && !d.width.isBlank();
+            boolean hasHeader = d.header != null && !d.header.isBlank();
+            sb.append(d.name);
+            if (hasWidth) {
+                sb.append(':').append(hasHeader ? d.header : d.name).append(':').append(d.width);
+            } else if (hasHeader) {
+                sb.append(':').append(d.header);
+            }
+        }
+        gridColumnsField.setValue(sb.toString());
+    }
+
+    /** Teks -> tabel, lalu kolom lain dari tabel/query LOV ditambahkan di bawah (tidak dicentang). */
+    private void rebuildColDefs() {
+        colDefs.clear();
+        Set<String> seen = new HashSet<>();
+        String raw = gridColumnsField.getValue() != null ? gridColumnsField.getValue() : "";
+        for (String part : raw.split(",")) {
+            String[] p = part.split(":");
+            String name = p[0].trim();
+            if (name.isEmpty() || !seen.add(name.toLowerCase())) {
+                continue;
+            }
+            colDefs.add(new ColDef(name, true, p.length > 1 ? p[1].trim() : "", p.length > 2 ? p[2].trim() : ""));
+        }
+        String table = tableNameField.getValue() != null ? tableNameField.getValue().trim() : "";
+        if (!table.isEmpty()) {
+            for (String c : dataService.getColumnsForQueryOrTable(table)) {
+                if (seen.add(c.toLowerCase())) {
+                    colDefs.add(new ColDef(c, false, c.substring(0, 1).toUpperCase() + c.substring(1).replace("_", " "),
+                            ""));
+                }
+            }
+        }
+        colDefProvider.refreshAll();
     }
 
     private void refreshGrid() {
@@ -242,6 +396,7 @@ public class LovBuilderView extends VerticalLayout {
         labelColumnField.clear();
         searchColumnField.clear();
         gridColumnsField.clear();
+        rebuildColDefs();
         grid.deselectAll();
     }
 
@@ -255,6 +410,7 @@ public class LovBuilderView extends VerticalLayout {
         labelColumnField.setValue(lovMeta.getLabelColumn() != null ? lovMeta.getLabelColumn() : "");
         searchColumnField.setValue(lovMeta.getSearchColumn() != null ? lovMeta.getSearchColumn() : "");
         gridColumnsField.setValue(lovMeta.getGridColumns() != null ? lovMeta.getGridColumns() : "");
+        rebuildColDefs();
     }
 
     private void saveLovMeta() {

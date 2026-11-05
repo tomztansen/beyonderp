@@ -1,17 +1,15 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- Kartu Tag produksi (RM): satu kartu A5 landscape per tag (Print dari form FO_PRD_TAG). Sumber lama: axis tagrm.jrxml.
-     Data: query di template ini (data_query kosong). Param name di Designer: tag_id (FORM_FIELD, key id -> List dari baris
-     form yang dicentang). Filter tetap: resource group 1253 (Foundry). Label baris ke-7 mengikuti a.isunique: true = SERIAL NUMBER /
-     NO SERI / HEAT, selain itu BATCH NUMBER / NO BATCH. Isi kotak itu (semua nomor tag, satu baris dipisah koma) berasal dari subreport RPT_PRD_TAG_SERIAL_SUB, param name di Designer sama.
-     PENDINGINAN (cooling days) sengaja dikosongkan. Hasil dibangkitkan; ubah koordinat langsung di sini atau di Jaspersoft Studio. -->
+<!-- Created with Jaspersoft Studio version 7.0.6.final using JasperReports Library version 7.0.6-5d2a603fdc6b3db8f842a83383e594f41891534d  -->
 <jasperReport name="RPT_PRD_TAG_RM_JSP" language="java" pageWidth="595" pageHeight="419" orientation="Landscape" columnWidth="554" leftMargin="28" rightMargin="13" topMargin="27" bottomMargin="17" uuid="7b2d4e61-5c3a-4f08-9d12-3e4a5b6c7d80">
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="live postgre"/>
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
 	<parameter name="tag_id" class="java.util.List"/>
 	<parameter name="RPT_PRD_TAG_SERIAL_SUB" class="net.sf.jasperreports.engine.JasperReport"/>
 	<query language="sql"><![CDATA[SELECT a.id, a.idno, a.isunique, c.itemcode, c.abmengineermaterialid, c.itemname,
        CASE WHEN b.internal = true THEN 'INTERNAL ORDER' ELSE e."name" END AS endusername,
        f.pouringtempmin, f.pouringtempmax, f.ladleweight, f.pcsperbox,
        g."name" AS pouringcuptype, a.note, f.counterweight, f.risersize, f.nozzlesize,
-       h."name" AS ballasttype
+       h."name" AS ballasttype,
+       f.coolingdays
 FROM dynamic.thproductiontag a
 LEFT JOIN dynamic.tsproductionorder b ON a.tsproductionorderid = b."id"
 LEFT JOIN dynamic.msitem c ON b.itemid = c."id"
@@ -22,159 +20,276 @@ LEFT JOIN dynamic.mdlookup g ON f.pouringtypeid = g."id"
 LEFT JOIN dynamic.mdlookup h ON f.ballasttypeid = h."id"
 WHERE a.msresourcegroupid = 1253 AND $X{IN, a.id, tag_id}
 ORDER BY a.idno]]></query>
-	<field name="id" class="java.lang.Long"/>
-	<field name="idno" class="java.lang.String"/>
-	<field name="isunique" class="java.lang.Boolean"/>
-	<field name="itemcode" class="java.lang.String"/>
-	<field name="abmengineermaterialid" class="java.lang.String"/>
-	<field name="itemname" class="java.lang.String"/>
-	<field name="endusername" class="java.lang.String"/>
-	<field name="pouringtempmin" class="java.math.BigDecimal"/>
-	<field name="pouringtempmax" class="java.math.BigDecimal"/>
-	<field name="ladleweight" class="java.math.BigDecimal"/>
-	<field name="pcsperbox" class="java.lang.Long"/>
-	<field name="pouringcuptype" class="java.lang.String"/>
-	<field name="note" class="java.lang.String"/>
-	<field name="counterweight" class="java.math.BigDecimal"/>
-	<field name="risersize" class="java.lang.String"/>
-	<field name="nozzlesize" class="java.lang.String"/>
-	<field name="ballasttype" class="java.lang.String"/>
+	<field name="id" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="id"/>
+		<property name="com.jaspersoft.studio.field.label" value="id"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="thproductiontag"/>
+	</field>
+	<field name="idno" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="idno"/>
+		<property name="com.jaspersoft.studio.field.label" value="idno"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="thproductiontag"/>
+	</field>
+	<field name="isunique" class="java.lang.Boolean">
+		<property name="com.jaspersoft.studio.field.name" value="isunique"/>
+		<property name="com.jaspersoft.studio.field.label" value="isunique"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="thproductiontag"/>
+	</field>
+	<field name="itemcode" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="itemcode"/>
+		<property name="com.jaspersoft.studio.field.label" value="itemcode"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msitem"/>
+	</field>
+	<field name="abmengineermaterialid" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="abmengineermaterialid"/>
+		<property name="com.jaspersoft.studio.field.label" value="abmengineermaterialid"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msitem"/>
+	</field>
+	<field name="itemname" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="itemname"/>
+		<property name="com.jaspersoft.studio.field.label" value="itemname"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msitem"/>
+	</field>
+	<field name="endusername" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="endusername"/>
+		<property name="com.jaspersoft.studio.field.label" value="endusername"/>
+	</field>
+	<field name="pouringtempmin" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="pouringtempmin"/>
+		<property name="com.jaspersoft.studio.field.label" value="pouringtempmin"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
+	</field>
+	<field name="pouringtempmax" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="pouringtempmax"/>
+		<property name="com.jaspersoft.studio.field.label" value="pouringtempmax"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
+	</field>
+	<field name="ladleweight" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="ladleweight"/>
+		<property name="com.jaspersoft.studio.field.label" value="ladleweight"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
+	</field>
+	<field name="pcsperbox" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="pcsperbox"/>
+		<property name="com.jaspersoft.studio.field.label" value="pcsperbox"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
+	</field>
+	<field name="pouringcuptype" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="pouringcuptype"/>
+		<property name="com.jaspersoft.studio.field.label" value="pouringcuptype"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="mdlookup"/>
+	</field>
+	<field name="note" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="note"/>
+		<property name="com.jaspersoft.studio.field.label" value="note"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="thproductiontag"/>
+	</field>
+	<field name="counterweight" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="counterweight"/>
+		<property name="com.jaspersoft.studio.field.label" value="counterweight"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
+	</field>
+	<field name="risersize" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="risersize"/>
+		<property name="com.jaspersoft.studio.field.label" value="risersize"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
+	</field>
+	<field name="nozzlesize" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="nozzlesize"/>
+		<property name="com.jaspersoft.studio.field.label" value="nozzlesize"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
+	</field>
+	<field name="ballasttype" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="ballasttype"/>
+		<property name="com.jaspersoft.studio.field.label" value="ballasttype"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="mdlookup"/>
+	</field>
+	<field name="coolingdays" class="java.lang.Integer">
+		<property name="com.jaspersoft.studio.field.name" value="coolingdays"/>
+		<property name="com.jaspersoft.studio.field.label" value="coolingdays"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="msmethod"/>
+	</field>
 	<detail>
 		<band height="360">
-			<element kind="rectangle" uuid="7b2d4e61-0001-4000-8000-000000000080" mode="Transparent" x="2" y="2" width="550" height="356"/>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000001" x="20" y="12" width="113" height="30" fontName="Arial" fontSize="18" bold="true" hTextAlign="Right" vTextAlign="Middle">
+			<element kind="rectangle" uuid="7b2d4e61-0001-4000-8000-000000000080" mode="Transparent" x="0" y="0" width="555" height="360"/>
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000001" x="20" y="12" width="113" height="30" fontName="Arial" fontSize="18.0" bold="true" hTextAlign="Right" vTextAlign="Middle">
 				<text><![CDATA[TAG NO]]></text>
 				<box rightPadding="5"/>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000002" textAdjust="ScaleFont" x="136" y="12" width="124" height="30" fontName="Arial" fontSize="18" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000002" x="136" y="12" width="124" height="30" fontName="Arial" fontSize="18.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><topPen lineWidth="1.0"/><leftPen lineWidth="1.0"/><bottomPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000003" x="20" y="42" width="82" height="14" fontName="Arial" fontSize="9" bold="true" vTextAlign="Bottom">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000003" x="20" y="42" width="82" height="14" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Bottom">
 				<text><![CDATA[PRODUCT CODE]]></text>
-				<box rightPadding="1"><bottomPen lineWidth="1.0"/></box>
+				<box rightPadding="1">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000004" x="20" y="56" width="82" height="16" fontName="Arial" fontSize="9" italic="true" vTextAlign="Top">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000004" x="20" y="56" width="82" height="16" fontName="Arial" fontSize="9.0" italic="true" vTextAlign="Top">
 				<text><![CDATA[KODE PRODUK]]></text>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000005" x="101" y="42" width="3" height="30" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000005" x="101" y="42" width="3" height="30" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Middle">
 				<text><![CDATA[:]]></text>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000006" textAdjust="ScaleFont" x="104" y="42" width="214" height="30" fontName="Arial" fontSize="16" bold="true" blankWhenNull="true" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000006" x="104" y="42" width="214" height="30" fontName="Arial" fontSize="16.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" vTextAlign="Middle">
 				<expression><![CDATA[$F{itemcode}]]></expression>
-				<box leftPadding="3"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000007" x="318" y="42" width="94" height="15" fontName="Arial" fontSize="9" bold="true" vTextAlign="Bottom">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000007" x="318" y="42" width="94" height="15" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Bottom">
 				<text><![CDATA[END USER]]></text>
-				<box leftPadding="3"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000008" x="318" y="57" width="95" height="15" fontName="Arial" fontSize="9" italic="true" vTextAlign="Top">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000008" x="318" y="57" width="95" height="15" fontName="Arial" fontSize="9.0" italic="true" vTextAlign="Top">
 				<text><![CDATA[END USER]]></text>
 				<box leftPadding="3"/>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000009" textAdjust="ScaleFont" x="413" y="42" width="127" height="30" fontName="Arial" fontSize="12" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000009" x="413" y="42" width="127" height="30" fontName="Arial" fontSize="12.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{endusername}]]></expression>
-				<box leftPadding="2"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000010" x="20" y="72" width="113" height="14" fontName="Arial" fontSize="9" bold="true" vTextAlign="Bottom">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000010" x="20" y="72" width="113" height="14" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Bottom">
 				<text><![CDATA[MATERIAL SPEC]]></text>
-				<box rightPadding="1"><bottomPen lineWidth="1.0"/></box>
+				<box rightPadding="1">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000011" x="20" y="86" width="113" height="16" fontName="Arial" fontSize="9" italic="true" vTextAlign="Top">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000011" x="20" y="86" width="113" height="16" fontName="Arial" fontSize="9.0" italic="true" vTextAlign="Top">
 				<text><![CDATA[JENIS MATERIAL]]></text>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000012" x="133" y="72" width="3" height="30" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000012" x="133" y="72" width="3" height="30" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Middle">
 				<text><![CDATA[:]]></text>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000013" textAdjust="ScaleFont" x="136" y="72" width="182" height="30" fontName="Arial" fontSize="18" bold="true" blankWhenNull="true" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000013" x="136" y="72" width="182" height="30" fontName="Arial" fontSize="18.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" vTextAlign="Middle">
 				<expression><![CDATA[$F{abmengineermaterialid}]]></expression>
-				<box leftPadding="3"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000014" x="318" y="72" width="94" height="15" fontName="Arial" fontSize="9" bold="true" vTextAlign="Bottom">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000014" x="318" y="72" width="94" height="15" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Bottom">
 				<text><![CDATA[POURING TEMP (°C)]]></text>
-				<box leftPadding="3"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000015" x="318" y="87" width="94" height="15" fontName="Arial" fontSize="9" italic="true" vTextAlign="Top">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000015" x="318" y="87" width="94" height="15" fontName="Arial" fontSize="9.0" italic="true" vTextAlign="Top">
 				<text><![CDATA[TEMPERATUR (°C)]]></text>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000016" textAdjust="ScaleFont" x="413" y="72" width="126" height="30" fontName="Arial" fontSize="18" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000016" x="413" y="72" width="126" height="30" fontName="Arial" fontSize="18.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[($F{pouringtempmin} == null && $F{pouringtempmax} == null) ? "" : (($F{pouringtempmin} != null ? String.valueOf($F{pouringtempmin}.intValue()) : "") + " - " + ($F{pouringtempmax} != null ? String.valueOf($F{pouringtempmax}.intValue()) : ""))]]></expression>
-				<box><bottomPen lineWidth="1.0"/></box>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000017" x="20" y="102" width="113" height="14" fontName="Arial" fontSize="9" bold="true" vTextAlign="Bottom">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000017" x="20" y="102" width="113" height="14" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Bottom">
 				<text><![CDATA[CAST WEIGHT]]></text>
-				<box rightPadding="1"><bottomPen lineWidth="1.0"/></box>
+				<box rightPadding="1">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000018" x="20" y="116" width="113" height="16" fontName="Arial" fontSize="9" italic="true" vTextAlign="Top">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000018" x="20" y="116" width="113" height="16" fontName="Arial" fontSize="9.0" italic="true" vTextAlign="Top">
 				<text><![CDATA[BERAT CASTING]]></text>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000019" x="133" y="102" width="3" height="30" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000019" x="133" y="102" width="3" height="30" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Middle">
 				<text><![CDATA[:]]></text>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000020" textAdjust="ScaleFont" x="136" y="102" width="107" height="30" fontName="Arial" fontSize="18" bold="true" pattern="#,##0.00;-#,##0.00" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000020" x="136" y="102" width="107" height="30" fontName="Arial" fontSize="18.0" textAdjust="ScaleFont" pattern="#,##0.00;-#,##0.00" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{ladleweight}]]></expression>
-				<box><bottomPen lineWidth="1.0"/></box>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000021" x="243" y="102" width="75" height="30" fontName="Arial" fontSize="10" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000021" x="243" y="102" width="75" height="30" fontName="Arial" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<text><![CDATA[KG/MOULD]]></text>
-				<box leftPadding="2"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000022" x="318" y="102" width="94" height="15" fontName="Arial" fontSize="9" bold="true" vTextAlign="Bottom">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000022" x="318" y="102" width="94" height="15" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Bottom">
 				<text><![CDATA[QTY / BOX]]></text>
-				<box leftPadding="3"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000023" x="318" y="117" width="94" height="15" fontName="Arial" fontSize="9" italic="true" vTextAlign="Top">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000023" x="318" y="117" width="94" height="15" fontName="Arial" fontSize="9.0" italic="true" vTextAlign="Top">
 				<text><![CDATA[KUANTITI / BOX]]></text>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000024" textAdjust="ScaleFont" x="413" y="102" width="52" height="30" fontName="Arial" fontSize="18" bold="true" pattern="#,##0;-#,##0" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000024" x="413" y="102" width="52" height="30" fontName="Arial" fontSize="18.0" textAdjust="ScaleFont" pattern="#,##0;-#,##0" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{pcsperbox}]]></expression>
-				<box><bottomPen lineWidth="1.0"/></box>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000025" x="465" y="102" width="75" height="30" fontName="Arial" fontSize="14" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000025" x="465" y="102" width="75" height="30" fontName="Arial" fontSize="14.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<text><![CDATA[PCS / BOX]]></text>
-				<box leftPadding="2"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000026" x="20" y="132" width="113" height="14" fontName="Arial" fontSize="9" bold="true" vTextAlign="Bottom">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000026" x="20" y="132" width="113" height="14" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Bottom">
 				<text><![CDATA[PRODUCT NAME]]></text>
-				<box rightPadding="1"><bottomPen lineWidth="1.0"/></box>
+				<box rightPadding="1">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000027" x="20" y="146" width="113" height="16" fontName="Arial" fontSize="9" italic="true" vTextAlign="Top">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000027" x="20" y="146" width="113" height="16" fontName="Arial" fontSize="9.0" italic="true" vTextAlign="Top">
 				<text><![CDATA[NAMA PRODUCT]]></text>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000028" x="133" y="132" width="3" height="30" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000028" x="133" y="132" width="3" height="30" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Middle">
 				<text><![CDATA[:]]></text>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000029" textAdjust="ScaleFont" x="136" y="132" width="403" height="30" fontName="Arial" fontSize="16" bold="true" blankWhenNull="true" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000029" x="136" y="132" width="403" height="30" fontName="Arial" fontSize="16.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" vTextAlign="Middle">
 				<expression><![CDATA[$F{itemname}]]></expression>
-				<box leftPadding="3"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000030" x="20" y="162" width="113" height="14" fontName="Arial" fontSize="8" bold="true" vTextAlign="Bottom">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000030" x="20" y="162" width="113" height="14" fontName="Arial" fontSize="8.0" bold="true" vTextAlign="Bottom">
 				<text><![CDATA[TYPE POURING CUP/ BASIN]]></text>
-				<box rightPadding="1"><bottomPen lineWidth="1.0"/></box>
+				<box rightPadding="1">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000031" x="20" y="176" width="113" height="16" fontName="Arial" fontSize="9" italic="true" vTextAlign="Top">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000031" x="20" y="176" width="113" height="16" fontName="Arial" fontSize="9.0" italic="true" vTextAlign="Top">
 				<text><![CDATA[JENIS KOTAK TUANG]]></text>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000032" x="133" y="162" width="3" height="30" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000032" x="133" y="162" width="3" height="30" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Middle">
 				<text><![CDATA[:]]></text>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000033" textAdjust="ScaleFont" x="136" y="162" width="403" height="30" fontName="Arial" fontSize="18" bold="true" blankWhenNull="true" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000033" x="136" y="162" width="403" height="30" fontName="Arial" fontSize="18.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" vTextAlign="Middle">
 				<expression><![CDATA[$F{pouringcuptype}]]></expression>
-				<box leftPadding="3"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000034" textAdjust="ScaleFont" x="20" y="192" width="113" height="14" fontName="Arial" fontSize="8" bold="true" blankWhenNull="true" vTextAlign="Bottom">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000034" x="20" y="192" width="113" height="14" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" vTextAlign="Bottom">
 				<expression><![CDATA[Boolean.TRUE.equals($F{isunique}) ? "SERIAL NUMBER" : "BATCH NUMBER"]]></expression>
-				<box rightPadding="1"><bottomPen lineWidth="1.0"/></box>
+				<box rightPadding="1">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000035" textAdjust="ScaleFont" x="20" y="206" width="113" height="16" fontName="Arial" fontSize="9" italic="true" blankWhenNull="true" vTextAlign="Top">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000035" x="20" y="206" width="113" height="16" fontName="Arial" fontSize="9.0" textAdjust="ScaleFont" blankWhenNull="true" italic="true" vTextAlign="Top">
 				<expression><![CDATA[Boolean.TRUE.equals($F{isunique}) ? "NO SERI / HEAT" : "NO BATCH"]]></expression>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000036" x="133" y="192" width="3" height="30" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000036" x="133" y="192" width="3" height="30" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Middle">
 				<text><![CDATA[:]]></text>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000037" x="136" y="192" width="180" height="30" fontName="Arial" fontSize="14" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000037" x="136" y="192" width="180" height="30" fontName="Arial" fontSize="14.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<text><![CDATA[]]></text>
-				<box leftPadding="2"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
 			<element kind="subreport" uuid="7b2d4e61-0001-4000-8000-000000000038" x="138" y="192" width="176" height="30">
 				<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
@@ -183,163 +298,263 @@ ORDER BY a.idno]]></query>
 					<expression><![CDATA[$F{id}]]></expression>
 				</parameter>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000039" x="316" y="192" width="94" height="15" fontName="Arial" fontSize="9" bold="true" vTextAlign="Bottom">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000039" x="316" y="192" width="94" height="15" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Bottom">
 				<text><![CDATA[PENDINGINAN]]></text>
-				<box leftPadding="3"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000040" x="316" y="207" width="95" height="15" fontName="Arial" fontSize="9" italic="true" vTextAlign="Top">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000040" x="316" y="207" width="95" height="15" fontName="Arial" fontSize="9.0" italic="true" vTextAlign="Top">
 				<text><![CDATA[COOLING DAYS]]></text>
 				<box leftPadding="3"/>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000041" x="411" y="192" width="52" height="30" fontName="Arial" fontSize="18" bold="true" hTextAlign="Center" vTextAlign="Middle">
-				<text><![CDATA[]]></text>
-				<box><bottomPen lineWidth="1.0"/></box>
-			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000042" x="463" y="192" width="75" height="30" fontName="Arial" fontSize="14" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000042" x="463" y="192" width="75" height="30" fontName="Arial" fontSize="14.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<text><![CDATA[DAYS]]></text>
-				<box leftPadding="2"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000043" x="20" y="222" width="113" height="14" fontName="Arial" fontSize="8" bold="true" vTextAlign="Bottom">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000043" x="20" y="222" width="113" height="14" fontName="Arial" fontSize="8.0" bold="true" vTextAlign="Bottom">
 				<text><![CDATA[COUNTER WEIGHT]]></text>
-				<box rightPadding="1"><bottomPen lineWidth="1.0"/></box>
+				<box rightPadding="1">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000044" x="20" y="236" width="113" height="16" fontName="Arial" fontSize="9" italic="true" vTextAlign="Top">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000044" x="20" y="236" width="113" height="16" fontName="Arial" fontSize="9.0" italic="true" vTextAlign="Top">
 				<text><![CDATA[PEMBERAT]]></text>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000045" x="133" y="222" width="3" height="30" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000045" x="133" y="222" width="3" height="30" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Middle">
 				<text><![CDATA[:]]></text>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000046" textAdjust="ScaleFont" x="136" y="222" width="134" height="30" fontName="Arial" fontSize="18" bold="true" pattern="#,##0.00;-#,##0.00" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000046" x="136" y="222" width="134" height="30" fontName="Arial" fontSize="18.0" textAdjust="ScaleFont" pattern="#,##0.00;-#,##0.00" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{counterweight}]]></expression>
-				<box><bottomPen lineWidth="1.0"/></box>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000047" x="270" y="222" width="46" height="30" fontName="Arial" fontSize="14" bold="true" hTextAlign="Right" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000047" x="270" y="222" width="46" height="30" fontName="Arial" fontSize="14.0" bold="true" hTextAlign="Right" vTextAlign="Middle">
 				<text><![CDATA[KG]]></text>
-				<box leftPadding="2" rightPadding="3"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="2" rightPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000048" x="316" y="222" width="94" height="15" fontName="Arial" fontSize="9" bold="true" vTextAlign="Bottom">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000048" x="316" y="222" width="94" height="15" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Bottom">
 				<text><![CDATA[BALLAST TYPE]]></text>
-				<box leftPadding="3"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000049" x="316" y="237" width="95" height="15" fontName="Arial" fontSize="9" italic="true" vTextAlign="Top">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000049" x="316" y="237" width="95" height="15" fontName="Arial" fontSize="9.0" italic="true" vTextAlign="Top">
 				<text><![CDATA[TIPE BALLAST]]></text>
 				<box leftPadding="3"/>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000050" textAdjust="ScaleFont" x="411" y="222" width="127" height="30" fontName="Arial" fontSize="18" bold="true" blankWhenNull="true" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000050" x="411" y="222" width="127" height="30" fontName="Arial" fontSize="18.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" vTextAlign="Middle">
 				<expression><![CDATA[$F{ballasttype}]]></expression>
-				<box leftPadding="3"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000051" x="20" y="252" width="113" height="14" fontName="Arial" fontSize="8" bold="true" vTextAlign="Bottom">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000051" x="20" y="252" width="113" height="14" fontName="Arial" fontSize="8.0" bold="true" vTextAlign="Bottom">
 				<text><![CDATA[RISER SIZE]]></text>
-				<box rightPadding="1"><bottomPen lineWidth="1.0"/></box>
+				<box rightPadding="1">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000052" x="20" y="266" width="113" height="16" fontName="Arial" fontSize="9" italic="true" vTextAlign="Top">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000052" x="20" y="266" width="113" height="16" fontName="Arial" fontSize="9.0" italic="true" vTextAlign="Top">
 				<text><![CDATA[UKURAN RISER]]></text>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000053" x="133" y="252" width="3" height="30" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000053" x="133" y="252" width="3" height="30" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Middle">
 				<text><![CDATA[:]]></text>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000054" textAdjust="ScaleFont" x="136" y="252" width="402" height="30" fontName="Arial" fontSize="18" bold="true" blankWhenNull="true" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000054" x="136" y="252" width="402" height="30" fontName="Arial" fontSize="18.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" vTextAlign="Middle">
 				<expression><![CDATA[$F{risersize}]]></expression>
-				<box leftPadding="3"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000055" x="20" y="282" width="113" height="14" fontName="Arial" fontSize="8" bold="true" vTextAlign="Bottom">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000055" x="20" y="282" width="113" height="14" fontName="Arial" fontSize="8.0" bold="true" vTextAlign="Bottom">
 				<text><![CDATA[NOTES]]></text>
-				<box rightPadding="1"><bottomPen lineWidth="1.0"/></box>
+				<box rightPadding="1">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000056" x="20" y="296" width="113" height="16" fontName="Arial" fontSize="9" italic="true" vTextAlign="Top">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000056" x="20" y="296" width="113" height="16" fontName="Arial" fontSize="9.0" italic="true" vTextAlign="Top">
 				<text><![CDATA[CATATAN]]></text>
 			</element>
-			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000057" x="133" y="282" width="3" height="30" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<element kind="staticText" uuid="7b2d4e61-0001-4000-8000-000000000057" x="133" y="282" width="3" height="30" fontName="Arial" fontSize="9.0" bold="true" vTextAlign="Middle">
 				<text><![CDATA[:]]></text>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000058" textAdjust="ScaleFont" x="136" y="282" width="402" height="30" fontName="Arial" fontSize="18" bold="true" blankWhenNull="true" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000058" x="136" y="282" width="402" height="30" fontName="Arial" fontSize="18.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" vTextAlign="Middle">
 				<expression><![CDATA[(($F{note} != null && !$F{note}.isBlank()) ? $F{note} : "") + (($F{nozzlesize} != null && !$F{nozzlesize}.isBlank()) ? ((($F{note} != null && !$F{note}.isBlank()) ? ", " : "") + "(Nozzle=" + $F{nozzlesize} + ")") : "")]]></expression>
-				<box leftPadding="3"><bottomPen lineWidth="1.0"/></box>
+				<box leftPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000059" textAdjust="ScaleFont" x="42" y="2" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000059" x="42" y="0" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
 				<box leftPadding="2"/>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000060" textAdjust="ScaleFont" x="136" y="2" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000060" x="136" y="0" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000061" textAdjust="ScaleFont" x="196" y="2" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000061" x="196" y="0" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000062" textAdjust="ScaleFont" x="256" y="2" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000062" x="256" y="0" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000063" textAdjust="ScaleFont" x="316" y="2" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000063" x="316" y="0" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000064" textAdjust="ScaleFont" x="376" y="3" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000064" x="376" y="0" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000065" textAdjust="ScaleFont" x="436" y="3" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000065" x="436" y="0" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000066" textAdjust="ScaleFont" x="496" y="3" width="56" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000066" x="496" y="0" width="56" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000067" textAdjust="ScaleFont" x="42" y="350" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000067" x="42" y="350" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
 				<box leftPadding="2"/>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000068" textAdjust="ScaleFont" x="136" y="350" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000068" x="136" y="350" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000069" textAdjust="ScaleFont" x="196" y="350" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000069" x="196" y="350" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000070" textAdjust="ScaleFont" x="256" y="350" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000070" x="256" y="350" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000071" textAdjust="ScaleFont" x="316" y="350" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000071" x="316" y="350" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000072" textAdjust="ScaleFont" x="376" y="350" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000072" x="376" y="350" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000073" textAdjust="ScaleFont" x="436" y="350" width="60" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000073" x="436" y="350" width="60" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000074" textAdjust="ScaleFont" x="496" y="350" width="56" height="8" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000074" x="496" y="350" width="56" height="8" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><leftPen lineWidth="1.0"/><rightPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<leftPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000075" textAdjust="ScaleFont" x="538" y="12" width="14" height="68" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle" rotation="Right">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000075" x="538" y="12" width="14" height="68" rotation="Right" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
 				<box leftPadding="2"/>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000076" textAdjust="ScaleFont" x="538" y="80" width="14" height="68" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle" rotation="Right">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000076" x="538" y="80" width="14" height="68" rotation="Right" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><topPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<topPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000077" textAdjust="ScaleFont" x="538" y="148" width="14" height="68" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle" rotation="Right">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000077" x="538" y="148" width="14" height="68" rotation="Right" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><topPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<topPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000078" textAdjust="ScaleFont" x="538" y="216" width="14" height="68" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle" rotation="Right">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000078" x="538" y="216" width="14" height="68" rotation="Right" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><topPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<topPen lineWidth="1.0"/>
+				</box>
 			</element>
-			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000079" textAdjust="ScaleFont" x="538" y="282" width="14" height="68" fontName="Arial" fontSize="6" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle" rotation="Right">
+			<element kind="textField" uuid="7b2d4e61-0001-4000-8000-000000000079" x="538" y="282" width="14" height="68" rotation="Right" fontName="Arial" fontSize="6.0" textAdjust="ScaleFont" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
 				<expression><![CDATA[$F{idno}]]></expression>
-				<box leftPadding="2"><topPen lineWidth="1.0"/></box>
+				<box leftPadding="2">
+					<topPen lineWidth="1.0"/>
+				</box>
+			</element>
+			<element kind="component" uuid="60442b8c-1517-4f19-8168-1fd4e316349c" x="465" y="12" width="35" height="32">
+				<component kind="barcode4j:QRCode">
+					<codeExpression><![CDATA[$F{idno}]]></codeExpression>
+				</component>
+			</element>
+			<element kind="component" uuid="1fed1716-bce2-4cd7-90f6-8cd8e088201c" x="24" y="12" width="35" height="32">
+				<component kind="barcode4j:QRCode">
+					<codeExpression><![CDATA[$F{idno}]]></codeExpression>
+				</component>
+				<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			</element>
+			<element kind="component" uuid="705d8dd6-1479-4154-b1b1-d749d4ba3080" x="25" y="314" width="35" height="32">
+				<component kind="barcode4j:QRCode">
+					<codeExpression><![CDATA[$F{idno}]]></codeExpression>
+				</component>
+				<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			</element>
+			<element kind="component" uuid="74682ed6-9268-459b-b0d5-ba6fbb8a28c3" x="470" y="313" width="35" height="32">
+				<component kind="barcode4j:QRCode">
+					<codeExpression><![CDATA[$F{idno}]]></codeExpression>
+				</component>
+				<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			</element>
+			<element kind="textField" uuid="f39f8003-c131-4cca-be27-66e2fb6c3ca4" x="410" y="192" width="52" height="30" fontName="Arial" fontSize="18.0" textAdjust="ScaleFont" pattern="#,##0;-#,##0" blankWhenNull="true" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{coolingdays}]]></expression>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
 			</element>
 		</band>
 	</detail>

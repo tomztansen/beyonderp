@@ -35,6 +35,52 @@ public class ActionContext {
         this.userIdOverride = userId;
     }
 
+    /**
+     * Mode ATOMIK (scope ON_SAVE): script berjalan di dalam transaksi simpan. Efek ke layar (dialog,
+     * notifikasi, buka tab, refresh form) ditampung di daftar milik pemanggil dan baru dijalankan setelah
+     * commit berhasil -- dibuang kalau simpan batal. Error procedure dilempar ulang supaya transaksi
+     * ikut di-rollback. Null = mode biasa (perilaku lama). Daftar ini milik satu kali Save saja.
+     */
+    private List<Runnable> deferredUi;
+
+    public void runAtomic(List<Runnable> deferredUiSink) {
+        this.deferredUi = deferredUiSink;
+    }
+
+    public boolean isAtomic() {
+        return deferredUi != null;
+    }
+
+    /**
+     * Jalankan aksi layar yang ditunda ON_SAVE, setelah commit. Data sudah tersimpan, jadi aksi yang gagal
+     * hanya dicatat -- tidak boleh sampai ke handler Save dan dilaporkan sebagai "gagal simpan".
+     */
+    public static void runDeferred(List<Runnable> actions) {
+        for (Runnable action : actions) {
+            try {
+                action.run();
+            } catch (Exception ex) {
+                LOG.error("Aksi layar sesudah simpan (ON_SAVE) gagal: {}", ex.getMessage(), ex);
+            }
+        }
+    }
+
+    /**
+     * true = aksi sudah ditunda (mode atomik), pemanggil berhenti; false = jalankan sekarang.
+     * Aksi tunda memanggil method yang sama lagi, jadi mode atomik dimatikan dulu saat dijalankan --
+     * tanpa itu aksinya ditunda ulang terus-menerus.
+     */
+    private boolean deferUi(Runnable action) {
+        if (deferredUi == null) {
+            return false;
+        }
+        deferredUi.add(() -> {
+            deferredUi = null;
+            action.run();
+        });
+        return true;
+    }
+
     public ActionContext(DynamicDataService dataService,
             Map<String, Object> headerBean,
             List<Map<String, Object>> selectedGridRows,
@@ -64,6 +110,8 @@ public class ActionContext {
     }
 
     public void showYesNoDialog(String title, String message, Object onYesCallback) {
+        if (deferUi(() -> showYesNoDialog(title, message, onYesCallback)))
+            return;
         UI ui = UI.getCurrent();
         if (ui == null && currentView != null && currentView.getUI().isPresent()) {
             ui = currentView.getUI().get();
@@ -114,6 +162,8 @@ public class ActionContext {
     }
 
     public void showOptionsDialog(String title, String message, List<String> options, Object callback) {
+        if (deferUi(() -> showOptionsDialog(title, message, options, callback)))
+            return;
         UI ui = UI.getCurrent();
         if (ui == null && currentView != null && currentView.getUI().isPresent()) {
             ui = currentView.getUI().get();
@@ -181,6 +231,8 @@ public class ActionContext {
     }
 
     public void showInputDialog(String title, String message, String defaultValue, Object callback) {
+        if (deferUi(() -> showInputDialog(title, message, defaultValue, callback)))
+            return;
         UI ui = UI.getCurrent();
         if (ui == null && currentView != null && currentView.getUI().isPresent()) {
             ui = currentView.getUI().get();
@@ -247,6 +299,8 @@ public class ActionContext {
     }
 
     public void msgBox(String title, Object content) {
+        if (deferUi(() -> msgBox(title, content)))
+            return;
         UI ui = UI.getCurrent();
         if (ui == null && currentView != null && currentView.getUI().isPresent()) {
             ui = currentView.getUI().get();
@@ -311,6 +365,8 @@ public class ActionContext {
     }
 
     public void refreshForm() {
+        if (deferUi(this::refreshForm))
+            return;
         UI ui = UI.getCurrent();
         if (ui == null && currentView != null && currentView.getUI().isPresent()) {
             ui = currentView.getUI().get();
@@ -329,6 +385,8 @@ public class ActionContext {
     }
 
     public void clearForm() {
+        if (deferUi(this::clearForm))
+            return;
         if (headerBean != null) {
             headerBean.clear();
         }
@@ -593,7 +651,12 @@ public class ActionContext {
         } catch (Exception ex) {
             status = false;
             String cleanMsg = extractCleanErrorMessage(ex);
-            System.err.println("Procedure execution failed: " + cleanMsg);
+            LOG.error("executeProcedure {} gagal (user {}): {}", procRef, userId, cleanMsg, ex);
+            if (isAtomic()) {
+                // Di dalam transaksi simpan (ON_SAVE): error PostgreSQL membuat transaksi tidak bisa
+                // dilanjutkan, jadi seluruh simpan harus dibatalkan -- bukan sekadar mengembalikan false.
+                throw new ScriptAbortException("Procedure " + procRef + " gagal: " + cleanMsg, ex);
+            }
             showError("Procedure execution failed", "<b>Error:</b><br/>" + cleanMsg);
         }
 
@@ -742,10 +805,14 @@ public class ActionContext {
     }
 
     public void showSuccess(String title, String message) {
+        if (deferUi(() -> showSuccess(title, message)))
+            return;
         showNotification(message != null ? message : title, NotificationVariant.LUMO_SUCCESS);
     }
 
     public void showError(String title, String message) {
+        if (deferUi(() -> showError(title, message)))
+            return;
         showNotification(message != null ? message : title, NotificationVariant.LUMO_ERROR);
     }
 
@@ -790,6 +857,8 @@ public class ActionContext {
     }
 
     public void showMainTab(String tabIdOrCode, String tabTitle, String url, Object extra) {
+        if (deferUi(() -> showMainTab(tabIdOrCode, tabTitle, url, extra)))
+            return;
         Object finalExtra = extra;
         if (url != null
                 && ("HIDE_HISTORIS".equalsIgnoreCase(url.trim()) || "HIDE_HISTORY".equalsIgnoreCase(url.trim()))) {

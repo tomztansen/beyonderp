@@ -256,9 +256,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private com.vaadin.flow.shared.Registration gridDropReg;
     private com.vaadin.flow.shared.Registration gridDragEndReg;
     private com.vaadin.flow.shared.Registration gridColReorderReg;
+    private com.vaadin.flow.shared.Registration gridColResizeReg;
     private com.vaadin.flow.shared.Registration gridSelectAllReg;
     private com.vaadin.flow.shared.Registration gridSortReg;
     private FormMeta detailsRendererFormDef;
+
+    // Lebar kolom grid utama per user (app_user_grid_preferences, grid_id ini): token "field=px".
+    private static final String GRID_WIDTHS_ID = "mainGridWidths";
+    private final Map<String, Integer> savedColWidths = new HashMap<>();
 
     private String getLovDisplayLabel(String lovCode, String val) {
         if (val == null || val.trim().isEmpty() || lovCode == null || lovCode.trim().isEmpty())
@@ -541,6 +546,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         btnSave.setDisableOnClick(true);
         btnSave.addClickListener(e -> {
             toolbar.setEnabled(false);
+            // true setelah commit: error sesudahnya BUKAN gagal simpan (lihat catch di bawah).
+            final boolean[] committed = { false };
             try {
                 boolean binderOk = formBinder.validate().isOk();
                 boolean requiredOk = true;
@@ -619,7 +626,21 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
 
                     stripSubformDataIfDetailLocked(formDef, parentData);
                     FixedParams.force(parentData, fixedValues);
-                    dynamicDataService.saveData(formDef, parentData);
+                    // ON_SAVE: script di dalam transaksi simpan (atomik). Form tanpa ON_SAVE memakai jalur lama.
+                    java.util.List<com.vaadinerp.meta.FormActionMeta> onSaveActs = com.vaadinerp.service.DynamicDataService
+                            .onSaveActions(saveActions);
+                    if (onSaveActs.isEmpty() || dynamicDataService.getScriptExecutorService() == null) {
+                        dynamicDataService.saveData(formDef, parentData);
+                        committed[0] = true;
+                    } else {
+                        java.util.List<Runnable> deferredUi = new java.util.ArrayList<>();
+                        dynamicDataService.saveDataAtomic(formDef, parentData,
+                                () -> dynamicDataService.getScriptExecutorService().executeOnSaveScripts(onSaveActs,
+                                        parentData, null, GenericFormView.this, saveIsNew, deferredUi));
+                        committed[0] = true;
+                        // Baru setelah commit: dialog/notifikasi/tab dari script ON_SAVE.
+                        com.vaadinerp.service.ActionContext.runDeferred(deferredUi);
+                    }
 
                     // Baru sekarang record-nya benar-benar tersimpan -- file yang tadi
                     // ditandai Delete/diganti boleh dihapus fisik (lihat FileUploadField).
@@ -675,7 +696,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
                     rootCause = rootCause.getCause();
                 }
-                ex.printStackTrace();
+                // Ke log server (stderr saja tidak masuk server.log), selain ditampilkan ke user di bawah.
+                org.slf4j.LoggerFactory.getLogger(GenericFormView.class).error(committed[0]
+                        ? "Langkah sesudah simpan gagal (data sudah tersimpan): {}"
+                        : "Simpan form gagal: {}", rootCause.getMessage(), ex);
                 String cleanMsg = rootCause.getMessage();
                 if (cleanMsg != null) {
                     if (cleanMsg.contains("ERROR:"))
@@ -685,6 +709,24 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                     cleanMsg = cleanMsg.trim();
                 } else {
                     cleanMsg = "An error occurred in the internal system.";
+                }
+                if (committed[0]) {
+                    // Data SUDAH tersimpan; yang gagal langkah sesudahnya. Dulu dilaporkan sebagai gagal simpan dan
+                    // form tidak dikosongkan, sehingga form memegang version lama dan simpan ulang berakhir
+                    // "Data conflict". Sekarang diberi tahu apa adanya lalu form dimuat ulang seperti simpan sukses.
+                    Notification n = Notification.show("Data saved, but a follow-up step failed: " + cleanMsg, 8000,
+                            Notification.Position.MIDDLE);
+                    n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_CONTRAST);
+                    try {
+                        formBinder.setBean(new HashMap<>());
+                        clearAllComponents();
+                        refreshGridData(formDef);
+                        tabSheet.setSelectedTab(historisTab);
+                    } catch (Exception reloadEx) {
+                        org.slf4j.LoggerFactory.getLogger(GenericFormView.class)
+                                .warn("Muat ulang form sesudah simpan gagal: {}", reloadEx.getMessage());
+                    }
+                    return;
                 }
                 Notification n = Notification.show("⚠️ " + cleanMsg, 8000, Notification.Position.MIDDLE);
                 n.addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
@@ -731,7 +773,10 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         printGroup.setSpacing(false);
         printGroup.setPadding(false);
         printGroup.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
-        printGroup.add(btnPrint, btnPrintMore);
+        printGroup.add(btnPrint);
+        if (com.vaadinerp.report.ReportLauncher.TOOLBAR_EXCEL_MENU) {
+            printGroup.add(btnPrintMore);
+        }
 
         // 6. REFRESH BUTTON
         btnRefresh = new com.vaadinerp.components.SafeButton("Refresh");
@@ -1094,12 +1139,29 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
      */
     private void preparePrint(com.vaadinerp.meta.ReportMeta report) {
         java.util.List<Map<String, Object>> rows = new ArrayList<>();
-        if (grid != null && grid.getSelectedItems() != null)
+        if (tabSheet != null && tabSheet.getSelectedTab() != historisTab) {
+            // Di tab detail yang dicetak adalah record yang sedang terbuka, bukan baris yang kebetulan tercentang di History.
+            Map<String, Object> bean = formBinder != null ? formBinder.getBean() : null;
+            String pk = currentFormDef != null && currentFormDef.getPrimaryKey() != null
+                    ? currentFormDef.getPrimaryKey()
+                    : "id";
+            Object pkVal = bean != null ? getValueCaseInsensitive(bean, pk) : null;
+            if (pkVal == null || pkVal.toString().isBlank() || "0".equals(pkVal.toString().trim())) {
+                Notification.show("Please save the record before printing.", 3000, Notification.Position.MIDDLE);
+                return;
+            }
+            rows.add(bean);
+        } else if (grid != null && grid.getSelectedItems() != null) {
             rows.addAll(grid.getSelectedItems());
+        }
 
-        boolean needsRows = report.getParams() != null && report.getParams().stream()
-                .anyMatch(p -> "FORM_FIELD".equalsIgnoreCase(p.getSource() == null ? "" : p.getSource().trim())
-                        && p.isRequired());
+        // BOTH yang punya source_key diisi dari baris; tanpa baris tidak ditanyakan lewat dialog (user tidak tahu ID-nya).
+        boolean needsRows = report.getParams() != null && report.getParams().stream().anyMatch(p -> {
+            String src = p.getSource() == null ? "" : p.getSource().trim();
+            boolean fromRow = "FORM_FIELD".equalsIgnoreCase(src)
+                    || ("BOTH".equalsIgnoreCase(src) && p.getSourceKey() != null && !p.getSourceKey().isBlank());
+            return fromRow && p.isRequired();
+        });
         if (needsRows && rows.isEmpty()) {
             Notification.show("Please select at least one row.", 3000, Notification.Position.MIDDLE);
             return;
@@ -1119,10 +1181,9 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
         Map<String, Object> values = new HashMap<>(
                 com.vaadinerp.report.ReportParamResolver.resolveFromRows(report.getParams(), rows, user));
 
-        java.util.List<com.vaadinerp.meta.ReportParamMeta> asked = new ArrayList<>(
-                com.vaadinerp.report.ReportParamResolver.userInputParams(report.getParams()));
-        // Param BOTH yang sudah otomatis terisi dari baris tercentang tidak perlu ditanya lagi.
-        asked.removeIf(p -> values.containsKey(p.getParamName()) && values.get(p.getParamName()) != null);
+        // Param BOTH yang sudah otomatis terisi dari record/baris tidak perlu ditanya lagi.
+        java.util.List<com.vaadinerp.meta.ReportParamMeta> asked = com.vaadinerp.report.ReportParamResolver
+                .paramsToAsk(report.getParams(), values);
         if (asked.isEmpty()) {
             launchPrint(report, values);
             return;
@@ -2012,6 +2073,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             gridDragEndReg.remove();
         if (gridColReorderReg != null)
             gridColReorderReg.remove();
+        if (gridColResizeReg != null)
+            gridColResizeReg.remove();
         if (gridSelectAllReg != null)
             gridSelectAllReg.remove();
         if (gridSortReg != null)
@@ -2038,6 +2101,7 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 com.vaadin.flow.component.button.ButtonVariant.LUMO_SMALL);
         btnResetGridToolbar.addClickListener(e -> {
             dynamicDataService.resetUserGridOrder(currentFormCode, "mainGrid");
+            dynamicDataService.resetUserGridOrder(currentFormCode, GRID_WIDTHS_ID);
             buildInlineEditingGrid(formDef);
             Notification.show("Grid layout reset to default!", 2000, Notification.Position.BOTTOM_END);
         });
@@ -2548,6 +2612,25 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
                 Notification.show("Failed to save column order: " + ex.getMessage(),
                         3000, Notification.Position.MIDDLE);
             }
+        });
+
+        // Lebar kolom tersimpan user (opsional: tanpa data tersimpan, kolom tetap autoWidth seperti sebelumnya).
+        savedColWidths.clear();
+        savedColWidths.putAll(com.vaadinerp.components.StandardGridUtils
+                .parseColumnWidths(dynamicDataService.getUserGridOrder(currentFormCode, GRID_WIDTHS_ID)));
+        com.vaadinerp.components.StandardGridUtils.applyColumnWidths(columnToFieldNameMap, savedColWidths);
+        gridColResizeReg = grid.addColumnResizeListener(event -> {
+            Grid.Column<Map<String, Object>> resized = event.getResizedColumn();
+            String fieldName = resized != null ? columnToFieldNameMap.get(resized) : null;
+            Integer px = resized != null
+                    ? com.vaadinerp.components.StandardGridUtils.columnWidthPx(resized.getWidth())
+                    : null;
+            if (fieldName == null || px == null) {
+                return;
+            }
+            savedColWidths.put(fieldName, px);
+            dynamicDataService.saveUserGridOrder(currentFormCode, GRID_WIDTHS_ID,
+                    com.vaadinerp.components.StandardGridUtils.formatColumnWidths(savedColWidths));
         });
 
         com.vaadinerp.components.StandardGridUtils.attachSelectAllHeader(grid, () -> {
