@@ -2652,80 +2652,80 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             // Vaadin tidak melepas data generator renderer lama di setItemDetailsRenderer,
             // jadi pasang sekali per formDef, bukan tiap rebuild.
             if (detailsRendererFormDef != formDef) {
-            detailsRendererFormDef = formDef;
-            grid.setItemDetailsRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(item -> {
-                com.vaadin.flow.component.orderedlayout.VerticalLayout layout = new com.vaadin.flow.component.orderedlayout.VerticalLayout();
-                layout.setPadding(true);
-                layout.setSpacing(true);
-                layout.getStyle().set("background-color", "#f8fafc").set("border-bottom", "1px solid #e2e8f0")
-                        .set("border-radius", "0 0 8px 8px");
+                detailsRendererFormDef = formDef;
+                grid.setItemDetailsRenderer(new com.vaadin.flow.data.renderer.ComponentRenderer<>(item -> {
+                    com.vaadin.flow.component.orderedlayout.VerticalLayout layout = new com.vaadin.flow.component.orderedlayout.VerticalLayout();
+                    layout.setPadding(true);
+                    layout.setSpacing(true);
+                    layout.getStyle().set("background-color", "#f8fafc").set("border-bottom", "1px solid #e2e8f0")
+                            .set("border-radius", "0 0 8px 8px");
 
-                for (FieldMeta subformField : subformFields) {
-                    String detailFormId = subformField.getLovCode();
-                    FormMeta detailFormMeta = formMetaRepository.findById(detailFormId).orElse(null);
+                    for (FieldMeta subformField : subformFields) {
+                        String detailFormId = subformField.getLovCode();
+                        FormMeta detailFormMeta = formMetaRepository.findById(detailFormId).orElse(null);
 
-                    if (detailFormMeta != null) {
-                        com.vaadin.flow.component.html.H5 title = new com.vaadin.flow.component.html.H5(
-                                subformField.getFieldLabel());
-                        title.getStyle().set("margin", "0").set("color", "#475569");
-                        layout.add(title);
+                        if (detailFormMeta != null) {
+                            com.vaadin.flow.component.html.H5 title = new com.vaadin.flow.component.html.H5(
+                                    subformField.getFieldLabel());
+                            title.getStyle().set("margin", "0").set("color", "#475569");
+                            layout.add(title);
 
-                        String pkColumn = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey()
-                                : "id";
-                        Object pkValue = item.get(pkColumn);
+                            String pkColumn = currentFormDef.getPrimaryKey() != null ? currentFormDef.getPrimaryKey()
+                                    : "id";
+                            Object pkValue = item.get(pkColumn);
 
-                        java.util.List<Map<String, Object>> childData = new java.util.ArrayList<>();
-                        if (pkValue != null && subformField.getFormula() != null) {
-                            String childTable = (detailFormMeta.getViewTable() != null
-                                    && !detailFormMeta.getViewTable().trim().isEmpty())
-                                            ? detailFormMeta.getViewTable().trim()
-                                            : detailFormMeta.getTableName();
-                            String childFkColumn = subformField.getFormula();
-                            childData = dynamicDataService.fetchDetailTableData(childTable, childFkColumn, pkValue);
-                        }
+                            java.util.List<Map<String, Object>> childData = new java.util.ArrayList<>();
+                            if (pkValue != null && subformField.getFormula() != null) {
+                                String childTable = (detailFormMeta.getViewTable() != null
+                                        && !detailFormMeta.getViewTable().trim().isEmpty())
+                                                ? detailFormMeta.getViewTable().trim()
+                                                : detailFormMeta.getTableName();
+                                String childFkColumn = subformField.getFormula();
+                                childData = dynamicDataService.fetchDetailTableData(childTable, childFkColumn, pkValue);
+                            }
 
-                        com.vaadin.flow.component.grid.Grid<Map<String, Object>> childGrid = new com.vaadin.flow.component.grid.Grid<>();
-                        childGrid.setHeight("250px");
-                        childGrid.addThemeVariants(com.vaadin.flow.component.grid.GridVariant.LUMO_COMPACT,
-                                com.vaadin.flow.component.grid.GridVariant.LUMO_ROW_STRIPES);
+                            com.vaadin.flow.component.grid.Grid<Map<String, Object>> childGrid = new com.vaadin.flow.component.grid.Grid<>();
+                            childGrid.setHeight("250px");
+                            childGrid.addThemeVariants(com.vaadin.flow.component.grid.GridVariant.LUMO_COMPACT,
+                                    com.vaadin.flow.component.grid.GridVariant.LUMO_ROW_STRIPES);
 
-                        java.util.List<FieldMeta> sortedChildFields = new java.util.ArrayList<>(
-                                detailFormMeta.getFields());
-                        sortedChildFields.sort((f1, f2) -> {
-                            Integer o1 = f1.getColOrder() != null ? f1.getColOrder() : Integer.MAX_VALUE;
-                            Integer o2 = f2.getColOrder() != null ? f2.getColOrder() : Integer.MAX_VALUE;
-                            return o1.compareTo(o2);
-                        });
+                            java.util.List<FieldMeta> sortedChildFields = new java.util.ArrayList<>(
+                                    detailFormMeta.getFields());
+                            sortedChildFields.sort((f1, f2) -> {
+                                Integer o1 = f1.getColOrder() != null ? f1.getColOrder() : Integer.MAX_VALUE;
+                                Integer o2 = f2.getColOrder() != null ? f2.getColOrder() : Integer.MAX_VALUE;
+                                return o1.compareTo(o2);
+                            });
 
-                        for (FieldMeta childF : sortedChildFields) {
-                            if (childF.isShowInGrid()) {
-                                com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col = childGrid
-                                        .addColumn(row -> {
-                                            Object valObj = getValueCaseInsensitive(row, childF.getFieldName());
-                                            // LOV Switch: header-nya baris History yang sedang dibuka (item).
-                                            String formatted = com.vaadinerp.components.ComponentFactory
-                                                    .formatFieldValueWithLov(childF,
-                                                            com.vaadinerp.components.ComponentFactory
-                                                                    .resolveLovCode(childF, item, row),
-                                                            valObj, dynamicDataService);
-                                            return formatted != null ? formatted : "";
-                                        }).setHeader(childF.getFieldLabel()).setAutoWidth(true).setResizable(true);
+                            for (FieldMeta childF : sortedChildFields) {
+                                if (childF.isShowInGrid()) {
+                                    com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> col = childGrid
+                                            .addColumn(row -> {
+                                                Object valObj = getValueCaseInsensitive(row, childF.getFieldName());
+                                                // LOV Switch: header-nya baris History yang sedang dibuka (item).
+                                                String formatted = com.vaadinerp.components.ComponentFactory
+                                                        .formatFieldValueWithLov(childF,
+                                                                com.vaadinerp.components.ComponentFactory
+                                                                        .resolveLovCode(childF, item, row),
+                                                                valObj, dynamicDataService);
+                                                return formatted != null ? formatted : "";
+                                            }).setHeader(childF.getFieldLabel()).setAutoWidth(true).setResizable(true);
 
-                                String fType = childF.getComponentType() != null
-                                        ? childF.getComponentType().toUpperCase()
-                                        : "";
-                                if ("INTBOX".equals(fType) || "DECIMALBOX".equals(fType)) {
-                                    col.setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END);
+                                    String fType = childF.getComponentType() != null
+                                            ? childF.getComponentType().toUpperCase()
+                                            : "";
+                                    if ("INTBOX".equals(fType) || "DECIMALBOX".equals(fType)) {
+                                        col.setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END);
+                                    }
                                 }
                             }
-                        }
 
-                        childGrid.setItems(childData);
-                        layout.add(childGrid);
+                            childGrid.setItems(childData);
+                            layout.add(childGrid);
+                        }
                     }
-                }
-                return layout;
-            }));
+                    return layout;
+                }));
             }
 
             com.vaadin.flow.component.grid.Grid.Column<Map<String, Object>> expandCol = grid
