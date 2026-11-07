@@ -2796,10 +2796,8 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
     private void applyFilters() {
         if (currentFormDef == null)
             return;
-        long totalRecords = dynamicDataService.countGridData(currentFormDef, effectiveFilters());
-        if (paginationBar != null) {
-            paginationBar.setTotalRecords(totalRecords);
-        }
+        // Jumlah baris TIDAK dihitung di sini: refreshAll()/setDataProvider() membuat grid memanggil callback ukuran
+        // data provider (updateGridDataProvider), yang menghitung sekali dan mengisi bilah halaman.
         com.vaadin.flow.data.provider.DataProvider<Map<String, Object>, ?> dp = grid.getDataProvider();
         if (dp instanceof com.vaadin.flow.data.provider.CallbackDataProvider) {
             dp.refreshAll();

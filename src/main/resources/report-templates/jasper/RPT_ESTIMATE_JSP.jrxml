@@ -7,6 +7,8 @@
      Rumus Cost Summary: Production = Material + Process + Factory OH; Del & Gam = Office OH + Transport; Total = Production + Del & Gam;
      Technical/Commercial Risk = Total x persen; Sugt Selling Prc = (Total + risiko) / (1 - Margin% - Commission%); Commission = Sugt x persen.
      Process Cost / Factory OH / Office OH memakai jam per pcs (routinghour / perseries), sama dengan form ALL_EST.
+     Utility Cost = routinghour x utilityrate / perseries (sama dengan ALL_EST_ROUTE_DET). Transport Cost = transportcost x netweight / 1000
+     (= kolom totaltransportcost di ALL_EST). Prepared by: nama + tanda tangan (user_signature) pembuat estimasi (inputby).
      Qty BOM = qtybom / perseries (per pcs), jadi Qty x @price = Cost.
      Sand to Nett Wt Ratio (di header, di bawah Currency; rumus Excel): IF(estnetweight>0; ROUND(SUM(Qty per pcs item PB112.01 & PB112.11) / estnetweight; 2); 0).
      Kode item pasir ditulis langsung di query e1 (sandratio); tambah kode di sana bila ada pasir lain. -->
@@ -21,21 +23,22 @@
 	</style>
 	<parameter name="est_id" class="java.util.List"/>
 	<parameter name="STANDARD_LOCALE" class="java.lang.Boolean"/>
+	<parameter name="UPLOAD_DIR" class="java.lang.String"/>
 	<query language="sql"><![CDATA[WITH e1 AS (
   SELECT h.id, h.estimatenumber, h.estimatedate, COALESCE(h.updatedt, h.inputdt)::date AS lastupdate,
          h.quatationno, h.qty, h.qtybox, h.annualusage, h.estgrossweight, h.estnetweight, h.grossweight, h.netweight,
          h.drawingnumber, h.drawingnumberrev, h.ispatterntrial, h.ismodmethod, h.ismoddrawing,
          COALESCE(h.technicalriskcost, 0) AS techpct, COALESCE(h.commercialriskcost, 0) AS commpct,
          COALESCE(h.commission, 0) AS comsnpct, COALESCE(h.margin, 0) AS marginpct,
-         COALESCE(h.transportcost, 0) AS transport,
+         COALESCE(h.transportcost * h.netweight / 1000, 0) AS transport,
          c."name" AS customer, m.itemcode, m.itemname,
          dt.code AS deliveryterm, dp.code AS deliveryplace,
-         COALESCE(u.full_name, h.inputby) AS preparedby, h.note,
+         COALESCE(u.full_name, h.inputby) AS preparedby, s.signature_file AS ttd_file, h.note,
          COALESCE((SELECT sum(b.qtybom * b.priceunit / nullif(b.perseries, 0))
                      FROM dynamic.tsestimatebom b WHERE b.tsestimateid = h.id), 0) AS matc,
          COALESCE((SELECT sum(r.routinghour * r.labourrate   / nullif(r.perseries, 0)
                             + r.routinghour * r.fixedrate    / nullif(r.perseries, 0)
-                            + h.estnetweight * r.utilityrate
+                            + r.routinghour * r.utilityrate  / nullif(r.perseries, 0)
                             + r.routinghour * r.variablerate / nullif(r.perseries, 0))
                      FROM dynamic.tsestimateroute r WHERE r.tsestimateid = h.id), 0) AS procc,
          COALESCE((SELECT sum(r.routinghour / nullif(r.perseries, 0))
@@ -50,6 +53,7 @@
     LEFT JOIN dynamic.mdlookup dt ON dt.id = h.deliverytermid
     LEFT JOIN dynamic.mdlookup dp ON dp.id = h.destinationid
     LEFT JOIN dynamic.v_users u ON u.username = h.inputby
+    LEFT JOIN dynamic.user_signature s ON s.userid = h.inputby
    WHERE $X{IN, h.id, est_id}
 ), e2 AS (
   SELECT e1.*, e1.hrs * e1.fohrate AS foh, e1.hrs * e1.gohrate AS goh,
@@ -71,17 +75,17 @@ SELECT * FROM (
   SELECT e.id AS est_id, e.estimatenumber, e.estimatedate, e.lastupdate, e.quatationno, e.qty, e.qtybox, e.annualusage,
          e.estgrossweight, e.estnetweight, e.grossweight, e.netweight, e.drawingnumber, e.drawingnumberrev,
          e.ispatterntrial, e.ismodmethod, e.ismoddrawing, e.customer, e.itemcode, e.itemname,
-         e.deliveryterm, e.deliveryplace, e.preparedby, e.note, e.sandratio,
+         e.deliveryterm, e.deliveryplace, e.preparedby, e.ttd_file, e.note, e.sandratio,
          1 AS sec, r.id AS ord,
          d.description AS p_name, r.routinghour AS p_hrs, r.perseries AS p_per,
          r.labourrate AS p_labrate, r.routinghour * r.labourrate / nullif(r.perseries, 0) AS p_labcost,
          r.variablerate AS p_varrate, r.routinghour * r.variablerate / nullif(r.perseries, 0) AS p_varcost,
          r.fixedrate AS p_fixrate, r.routinghour * r.fixedrate / nullif(r.perseries, 0) AS p_fixcost,
          r.utilityrate AS p_utilrate,
-         e.estnetweight * r.utilityrate AS p_utilcost,
+         r.routinghour * r.utilityrate / nullif(r.perseries, 0) AS p_utilcost,
          COALESCE(r.routinghour * r.labourrate / nullif(r.perseries, 0), 0)
            + COALESCE(r.routinghour * r.fixedrate / nullif(r.perseries, 0), 0)
-           + COALESCE(e.estnetweight * r.utilityrate, 0)
+           + COALESCE(r.routinghour * r.utilityrate / nullif(r.perseries, 0), 0)
            + COALESCE(r.routinghour * r.variablerate / nullif(r.perseries, 0), 0) AS p_total,
          NULL::text AS b_code, NULL::text AS b_desc, NULL::numeric AS b_qty, NULL::numeric AS b_price, NULL::numeric AS b_cost,
          NULL::text AS s_label, NULL::numeric AS s_val, NULL::text AS s_fmt, NULL::text AS s_style
@@ -93,7 +97,7 @@ SELECT * FROM (
   SELECT e.id, e.estimatenumber, e.estimatedate, e.lastupdate, e.quatationno, e.qty, e.qtybox, e.annualusage,
          e.estgrossweight, e.estnetweight, e.grossweight, e.netweight, e.drawingnumber, e.drawingnumberrev,
          e.ispatterntrial, e.ismodmethod, e.ismoddrawing, e.customer, e.itemcode, e.itemname,
-         e.deliveryterm, e.deliveryplace, e.preparedby, e.note, e.sandratio,
+         e.deliveryterm, e.deliveryplace, e.preparedby, e.ttd_file, e.note, e.sandratio,
          2, g.rn::bigint,
          NULL::text, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric,
          NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric,
@@ -149,6 +153,7 @@ ORDER BY est_id, sec, ord]]></query>
 	<field name="deliveryterm" class="java.lang.String"/>
 	<field name="deliveryplace" class="java.lang.String"/>
 	<field name="preparedby" class="java.lang.String"/>
+	<field name="ttd_file" class="java.lang.String"/>
 	<field name="note" class="java.lang.String"/>
 	<field name="sec" class="java.lang.Integer"/>
 	<field name="p_name" class="java.lang.String"/>
@@ -290,8 +295,13 @@ ORDER BY est_id, sec, ord]]></query>
 					<text><![CDATA[Prepared by:]]></text>
 					<box padding="2"><pen lineWidth="0.5"/></box>
 				</element>
-				<element kind="textField" x="380" y="24" width="175" height="12" fontName="Arial" fontSize="7.0" hTextAlign="Center" blankWhenNull="true"><expression><![CDATA[$F{preparedby}]]></expression></element>
-				<element kind="textField" x="380" y="36" width="175" height="12" fontName="Arial" fontSize="7.0" hTextAlign="Center" blankWhenNull="true" pattern="'Date : 'dd/MM/yyyy"><expression><![CDATA[$F{estimatedate}]]></expression></element>
+				<!-- Tanda tangan pembuat estimasi (inputby) dari dynamic.user_signature; kosong bila user belum punya
+				     tanda tangan atau file tidak ditemukan. Gambar dimuat dari parameter sistem UPLOAD_DIR. -->
+				<element kind="image" x="430" y="12" width="75" height="21" scaleImage="RetainShape" hImageAlign="Center" vImageAlign="Middle" onErrorType="Blank">
+					<expression><![CDATA[($P{UPLOAD_DIR} == null || $F{ttd_file} == null) ? null : $P{UPLOAD_DIR} + "/" + $F{ttd_file}]]></expression>
+				</element>
+				<element kind="textField" x="380" y="33" width="175" height="9" fontName="Arial" fontSize="7.0" hTextAlign="Center" blankWhenNull="true"><expression><![CDATA[$F{preparedby}]]></expression></element>
+				<element kind="textField" x="380" y="41" width="175" height="9" fontName="Arial" fontSize="7.0" hTextAlign="Center" blankWhenNull="true" pattern="'Date : 'dd/MM/yyyy"><expression><![CDATA[$F{estimatedate}]]></expression></element>
 				<element kind="staticText" x="380" y="52" width="175" height="48" fontName="Arial" fontSize="7.0" vTextAlign="Top">
 					<text><![CDATA[Approved by:]]></text>
 					<box padding="2"><pen lineWidth="0.5"/></box>

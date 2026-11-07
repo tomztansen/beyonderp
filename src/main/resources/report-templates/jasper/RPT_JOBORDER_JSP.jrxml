@@ -5,6 +5,7 @@
 	<parameter name="prod_id" class="java.util.List"/>
 	<parameter name="RPT_PO_ROUTE_SUB" class="net.sf.jasperreports.engine.JasperReport"/>
 	<parameter name="RPT_PO_NOTES_SUB" class="net.sf.jasperreports.engine.JasperReport"/>
+	<parameter name="UPLOAD_DIR" class="java.lang.String"/>
 	<query language="sql"><![CDATA[select a.*,
 b.salesid,b.abmexternallinenumber,b.externalitemid,
 c.itemcode,c.itemname,
@@ -15,7 +16,8 @@ e.hardness,c.abmengineermaterialid,
 f."name" enduser,g.code categoryname,
 h.code scope,b.abmisitemset isitemset,i."name" customer,
 e.estgrossweight,j.description toolingtype,
-c.note
+c.note,
+COALESCE(u.full_name, a.inputby) preparedby, s.signature_file ttd_file
  from dynamic.tsproductionorder a
 left join dynamic.tssalesline b on a.tssaleslineid = b.id
 left join dynamic.msitem c on a.itemid = c.id
@@ -26,6 +28,8 @@ left join dynamic.mdlookup g on c.salescategoryid = g."id"
 left join dynamic.mdlookup h on e.scopeid = h.id
 left join dynamic.mscustomer i on b.invoiceaccount = i."id" and i.enduser = false
 left join dynamic.mdlookup j on a.toolingtypeid = j."id"
+left join dynamic.v_users u on u.username = a.inputby
+left join dynamic.user_signature s on s.userid = a.inputby
 where $X{IN, a.id, prod_id}
 order by a.id]]></query>
 	<field name="id" class="java.lang.Long">
@@ -268,6 +272,8 @@ order by a.id]]></query>
 		<property name="com.jaspersoft.studio.field.label" value="toolingtype"/>
 		<property name="com.jaspersoft.studio.field.tree.path" value="mdlookup"/>
 	</field>
+	<field name="preparedby" class="java.lang.String"/>
+	<field name="ttd_file" class="java.lang.String"/>
 	<group name="Group1">
 		<expression><![CDATA[$F{id}]]></expression>
 		<groupHeader>
@@ -513,6 +519,14 @@ order by a.id]]></query>
 				</element>
 				<element kind="staticText" uuid="7a100001-0000-4000-8000-000000000044" x="521" y="30" width="10" height="14" fontName="Arial" fontSize="9.0" vTextAlign="Middle">
 					<text><![CDATA[:]]></text>
+				</element>
+				<!-- Tanda tangan pembuat SPK (inputby) dari dynamic.user_signature; kosong bila user belum punya
+				     tanda tangan atau file tidak ditemukan. Gambar dimuat dari parameter sistem UPLOAD_DIR. -->
+				<element kind="image" uuid="7a100001-0000-4000-8000-000000000070" x="420" y="46" width="135" height="36" scaleImage="RetainShape" hImageAlign="Center" vImageAlign="Middle" onErrorType="Blank">
+					<expression><![CDATA[($P{UPLOAD_DIR} == null || $F{ttd_file} == null) ? null : $P{UPLOAD_DIR} + "/" + $F{ttd_file}]]></expression>
+				</element>
+				<element kind="textField" uuid="7a100001-0000-4000-8000-000000000071" x="395" y="84" width="160" height="14" fontName="Arial" fontSize="9.0" blankWhenNull="true" textAdjust="ScaleFont" hTextAlign="Center" vTextAlign="Middle">
+					<expression><![CDATA[$F{preparedby}]]></expression>
 				</element>
 			</band>
 		</groupFooter>
