@@ -1595,6 +1595,32 @@ public class DynamicDataService {
         }
     }
 
+    /**
+     * Hapus file fisik SETELAH transaksi commit. Dihapus di tengah transaksi, file hilang walaupun
+     * delete record-nya kemudian gagal (trigger/FK RESTRICT) dan di-rollback. Tanpa transaksi aktif:
+     * langsung dihapus seperti dulu.
+     */
+    private void deleteFilesAfterCommit(String delimitedNames) {
+        if (fileStorageService == null || delimitedNames == null || delimitedNames.trim().isEmpty())
+            return;
+        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            fileStorageService.deleteFilesByDelimitedString(delimitedNames);
+            return;
+        }
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        try {
+                            fileStorageService.deleteFilesByDelimitedString(delimitedNames);
+                        } catch (Exception ex) {
+                            log.warn("Gagal menghapus file setelah commit ({}): {}", delimitedNames,
+                                    ex.getMessage());
+                        }
+                    }
+                });
+    }
+
     private void restoreOnRollback(Map<String, Object> target, String... keys) {
         if (target == null || keys == null || keys.length == 0)
             return;
@@ -2510,7 +2536,7 @@ public class DynamicDataService {
                                         String fieldName = field.getFieldName();
                                         Object val = getCaseInsensitiveValue(dRow, fieldName);
                                         if (val != null && !val.toString().trim().isEmpty()) {
-                                            fileStorageService.deleteFilesByDelimitedString(val.toString());
+                                            deleteFilesAfterCommit(val.toString());
                                         }
                                     }
                                 }
@@ -2575,7 +2601,7 @@ public class DynamicDataService {
                                                         && isStoredFileType(childField.getComponentType())) {
                                                     Object val = sRow.get(childField.getFieldName());
                                                     if (val != null && !val.toString().trim().isEmpty()) {
-                                                        fileStorageService.deleteFilesByDelimitedString(val.toString());
+                                                        deleteFilesAfterCommit(val.toString());
                                                     }
                                                 }
                                             }
@@ -2620,7 +2646,7 @@ public class DynamicDataService {
                         if (val == null && oldRow != null)
                             val = oldRow.get(field.getFieldName());
                         if (val != null && !val.toString().trim().isEmpty()) {
-                            fileStorageService.deleteFilesByDelimitedString(val.toString());
+                            deleteFilesAfterCommit(val.toString());
                         }
                     }
                 }

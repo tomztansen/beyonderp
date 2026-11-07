@@ -44,6 +44,17 @@ public final class ReportLauncher {
         return t;
     });
 
+    /** Pembersih cadangan anchor download -- lihat {@link #download}. */
+    private static final java.util.concurrent.ScheduledExecutorService DOWNLOAD_CLEANUP = Executors
+            .newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "report-download-cleanup");
+                t.setDaemon(true);
+                return t;
+            });
+
+    /** Batas tunggu permintaan download dari browser sebelum anchor dilepas paksa dari server. */
+    static final long DOWNLOAD_FALLBACK_SECONDS = 120;
+
     /** Nama berkas yang dilihat browser saat membuka output. */
     public static String outputFilename(String contentType) {
         if (contentType == null) return "report.bin";
@@ -102,12 +113,28 @@ public final class ReportLauncher {
         if (out == null || out.bytes() == null) return;
         byte[] bytes = out.bytes();
         String name = outputFilename(out.contentType());
-        Anchor a = new Anchor(DownloadHandler.fromInputStream(e -> new DownloadResponse(
-                new ByteArrayInputStream(bytes), name, out.contentType(), bytes.length)), "");
+        Anchor a = new Anchor();
+        // Lepas anchor di SERVER setelah file terkirim: this.remove() di bawah hanya membuang elemen di
+        // browser, sedangkan handler-nya (memegang byte[] laporan) tertahan di UI sampai tab ditutup.
+        // Jangan dilepas sebelum download selesai -- URL file ikut tidak berlaku dan download gagal.
+        a.setHref(DownloadHandler.fromInputStream(e -> new DownloadResponse(
+                new ByteArrayInputStream(bytes), name, out.contentType(), bytes.length))
+                .whenComplete(ok -> a.removeFromParent()));
         a.getElement().setAttribute("download", true);
         a.getStyle().set("display", "none");
         ui.add(a);
         a.getElement().executeJs("this.click(); setTimeout(() => this.remove(), 0);");
+        // Cadangan bila browser tidak pernah meminta file (JS tak sampai, download diblokir, tab ditutup):
+        // whenComplete tidak pernah jalan, jadi lepas paksa setelah batas waktu. Download normal sudah
+        // melepasnya lebih dulu -> removeFromParent() di sini no-op.
+        // ponytail: task ini memegang byte[] sampai batas waktu walau download sudah selesai; maks 2 menit.
+        DOWNLOAD_CLEANUP.schedule(() -> {
+            try {
+                ui.access(a::removeFromParent);
+            } catch (com.vaadin.flow.component.UIDetachedException ignored) {
+                // UI sudah ditutup: anchor ikut terlepas bersama UI.
+            }
+        }, DOWNLOAD_FALLBACK_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
     }
 
     /** Cari PortalView pembungkus: naik lewat parent, lalu telusuri anak UI. */
