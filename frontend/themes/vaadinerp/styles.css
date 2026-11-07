@@ -752,3 +752,69 @@ vaadin-tabsheet [slot="tabs"] {
         flex-shrink: 0 !important;
     }
 }
+
+/* ==========================================================================
+   TAB HEADER: tombol tutup, tombol titik tiga, dan isi menu tab
+   ========================================================================== */
+.tab-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin-left: 8px;
+    border-radius: 50%;
+    color: #6b7280;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tab-close:hover {
+    background: #e5e7eb;
+    color: #dc2626;
+}
+
+vaadin-tabsheet > vaadin-button[slot="suffix"] {
+    /* Terukur di DEV: tanpa ini tombol ikut melebar ~940px dan ikonnya terdorong ke tengah bar */
+    flex: 0 0 auto !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    margin: 0 8px 0 0;
+    padding: 0;
+    align-self: center;
+    color: #6b7280;
+    border-radius: 8px;
+}
+
+vaadin-tabsheet > vaadin-button[slot="suffix"]:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.tab-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.tab-menu-item vaadin-icon {
+    color: #6b7280;
+}
+
+.tab-menu-item.danger,
+.tab-menu-item.danger vaadin-icon {
+    color: #dc2626;
+}
+
+/* Menu tab: hover dan fokus keyboard memakai satu latar abu (tanpa cincin biru / latar biru bawaan Lumo) */
+vaadin-context-menu-overlay.tab-menu vaadin-context-menu-item {
+    border-radius: 6px;
+    box-shadow: none !important;
+}
+
+vaadin-context-menu-overlay.tab-menu vaadin-context-menu-item:hover,
+vaadin-context-menu-overlay.tab-menu vaadin-context-menu-item[focused] {
+    background: #f3f4f6 !important;
+}

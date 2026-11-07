@@ -1010,6 +1010,16 @@ public class PortalView extends AppLayout {
     private void setupTabSheet() {
         tabSheet.setSizeFull();
         tabSheet.getStyle().set("flex-grow", "1");
+        Icon moreDots = VaadinIcon.ELLIPSIS_DOTS_H.create();
+        moreDots.setSize("20px");
+        Button moreButton = new Button(moreDots);
+        moreButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+        moreButton.getElement().setAttribute("title", "Tab actions");
+        moreButton.getElement().setAttribute("aria-label", "Tab actions");
+        ContextMenu moreMenu = new ContextMenu(moreButton);
+        moreMenu.setOpenOnClick(true);
+        fillTabMenu(moreMenu, tabSheet::getSelectedTab);
+        tabSheet.setSuffixComponent(moreButton);
         openWelcomeTab();
     }
 
@@ -1184,18 +1194,9 @@ public class PortalView extends AppLayout {
                 .set("gap", "0");
 
         Span titleSpan = new Span(tabTitle);
-        titleSpan.getStyle().set("font-size", "0.9rem").set("margin-right", "6px");
+        titleSpan.getStyle().set("font-size", "0.9rem");
 
-        // Ikon duplikat: menggunakan Icon murni tanpa Button (zero Shadow DOM padding)
-        Icon duplicateIcon = VaadinIcon.COPY_O.create();
-        duplicateIcon.setSize("14px");
-        duplicateIcon.getStyle()
-                .set("cursor", "pointer")
-                .set("color", "#94a3b8")
-                .set("opacity", "0") // Default hidden (Hover-Reveal)
-                .set("transition", "opacity 0.2s ease-in-out");
-        duplicateIcon.getElement().setAttribute("title", "Duplicate Tab");
-        duplicateIcon.addClickListener(e -> {
+        Runnable duplicateAction = () -> {
             int copyNum = 2;
             while (openTabs.containsKey(originalCode + "_DUP_" + copyNum)) {
                 copyNum++;
@@ -1207,50 +1208,79 @@ public class PortalView extends AppLayout {
             mockMenu.setMenuTitle(baseTitle + " (" + copyNum + ")");
 
             openMenuTab(mockMenu, extra, newTabId);
-        });
+        };
 
-        // Ikon tutup: menggunakan Icon murni tanpa Button
-        Icon closeIcon = VaadinIcon.CLOSE_SMALL.create();
-        closeIcon.setSize("14px");
-        closeIcon.getStyle()
-                .set("cursor", "pointer")
-                .set("color", "#64748b")
-                .set("margin-left", "2px");
-
-        headerLayout.add(titleSpan, duplicateIcon, closeIcon);
+        headerLayout.add(titleSpan, createTabCloseButton(() -> closeTabById(tabId)));
 
         Tab tab = tabSheet.add(headerLayout, content);
         openTabs.put(tabId, tab);
-
-        // Hover-reveal logic: Ikon duplikat hanya muncul saat mouse di atas tab
-        tab.getElement().addEventListener("mouseenter", e -> duplicateIcon.getStyle().set("opacity", "1"));
-        tab.getElement().addEventListener("mouseleave", e -> duplicateIcon.getStyle().set("opacity", "0"));
-
-        closeIcon.addClickListener(e -> {
-            closeTabById(tabId);
-        });
+        com.vaadin.flow.component.ComponentUtil.setData(tab, TAB_DUP_ACTION, duplicateAction);
 
         // Context Menu untuk Tab (Klik Kanan)
         com.vaadin.flow.component.contextmenu.ContextMenu contextMenu = new com.vaadin.flow.component.contextmenu.ContextMenu(
                 tab);
-        // contextMenu.addItem("Close This Tab", e -> closeTabById(tabId));
-        contextMenu.addItem("Close Other Tabs", e -> {
-            java.util.List<String> allTabIds = new java.util.ArrayList<>(openTabs.keySet());
-            for (String id : allTabIds) {
-                if (!id.equals(tabId)) {
-                    closeTabById(id);
+        fillTabMenu(contextMenu, () -> tab);
+        com.vaadin.flow.component.ComponentUtil.setData(tab, TAB_CONTEXT_MENU, contextMenu);
+
+        tabSheet.setSelectedTab(tab);
+    }
+
+    private static final String TAB_DUP_ACTION = "tabDuplicateAction";
+    private static final String TAB_CONTEXT_MENU = "tabContextMenu";
+
+    /** Tombol tutup tab: area klik 22px (gaya di styles.css, kelas tab-close), selalu tampil. */
+    private Span createTabCloseButton(Runnable onClose) {
+        Icon icon = VaadinIcon.CLOSE_SMALL.create();
+        icon.setSize("14px");
+        Span button = new Span(icon);
+        button.addClassName("tab-close");
+        button.getElement().setAttribute("title", "Close tab");
+        button.getElement().setAttribute("aria-label", "Close tab");
+        button.addClickListener(e -> onClose.run());
+        return button;
+    }
+
+    private Component tabMenuItem(VaadinIcon icon, String text, boolean danger) {
+        Icon i = icon.create();
+        i.setSize("16px");
+        Span label = new Span(text);
+        Div row = new Div(i, label);
+        row.addClassName("tab-menu-item");
+        if (danger) {
+            row.addClassName("danger");
+        }
+        return row;
+    }
+
+    /** Isi menu tab (tombol titik tiga dan klik kanan). target = tab yang dikenai aksi. */
+    private void fillTabMenu(ContextMenu menu, java.util.function.Supplier<Tab> target) {
+        menu.setOverlayClassName("tab-menu");
+        menu.addItem(tabMenuItem(VaadinIcon.COPY_O, "Duplicate tab", false), e -> {
+            Tab t = target.get();
+            Object dup = t == null ? null : com.vaadin.flow.component.ComponentUtil.getData(t, TAB_DUP_ACTION);
+            if (dup instanceof Runnable r) {
+                r.run();
+            } else {
+                Notification.show("This tab can't be duplicated", 2500, Notification.Position.BOTTOM_START);
+            }
+        });
+        menu.addSeparator();
+        menu.addItem(tabMenuItem(VaadinIcon.CLOSE_CIRCLE_O, "Close other tabs", false), e -> {
+            Tab keep = target.get();
+            for (Map.Entry<String, Tab> en : new java.util.ArrayList<>(openTabs.entrySet())) {
+                if (en.getValue() != keep) {
+                    closeTabById(en.getKey());
                 }
             }
-            tabSheet.setSelectedTab(tab);
+            if (keep != null) {
+                tabSheet.setSelectedTab(keep);
+            }
         });
-        contextMenu.addItem("Close All Tabs", e -> {
-            java.util.List<String> allTabIds = new java.util.ArrayList<>(openTabs.keySet());
-            for (String id : allTabIds) {
+        menu.addItem(tabMenuItem(VaadinIcon.CLOSE, "Close all tabs", true), e -> {
+            for (String id : new java.util.ArrayList<>(openTabs.keySet())) {
                 closeTabById(id);
             }
         });
-
-        tabSheet.setSelectedTab(tab);
     }
 
     public int getNextDuplicateNumber(String originalCode) {
@@ -1274,14 +1304,10 @@ public class PortalView extends AppLayout {
         Div header = new Div();
         header.getStyle().set("display", "flex").set("align-items", "center").set("gap", "6px");
         Span titleSpan = new Span(title);
-        titleSpan.getStyle().set("font-size", "0.9rem").set("margin-right", "6px");
-        Icon closeIcon = VaadinIcon.CLOSE_SMALL.create();
-        closeIcon.setSize("14px");
-        closeIcon.getStyle().set("cursor", "pointer").set("color", "#64748b");
-        header.add(titleSpan, closeIcon);
+        titleSpan.getStyle().set("font-size", "0.9rem");
+        header.add(titleSpan, createTabCloseButton(() -> closeTabById(tabId)));
         Tab tab = tabSheet.add(header, content);
         openTabs.put(tabId, tab);
-        closeIcon.addClickListener(e -> closeTabById(tabId));
         tabSheet.setSelectedTab(tab);
     }
 
@@ -1290,6 +1316,15 @@ public class PortalView extends AppLayout {
         if (tab != null) {
             com.vaadin.flow.component.Component content = tabSheet.getComponent(tab);
             tabSheet.remove(tab);
+
+            // ContextMenu tab tidak ikut terhapus saat target dilepas (ia ditempel ke UI): lepas manual
+            // supaya tidak tertinggal menu yatim (server dan elemen DOM) untuk tiap tab yang pernah dibuka.
+            if (com.vaadin.flow.component.ComponentUtil.getData(tab, TAB_CONTEXT_MENU) instanceof ContextMenu menu) {
+                menu.setTarget(null);
+                menu.removeFromParent();
+            }
+            com.vaadin.flow.component.ComponentUtil.setData(tab, TAB_CONTEXT_MENU, null);
+            com.vaadin.flow.component.ComponentUtil.setData(tab, TAB_DUP_ACTION, null);
 
             if (content != null) {
                 // Explicit DOM shredding to aid GC
