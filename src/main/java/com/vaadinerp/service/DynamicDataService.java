@@ -1365,9 +1365,50 @@ public class DynamicDataService {
         addTableConstraint(tableName, newConstraintName, type, col, refTable, refCol, expr);
     }
 
+    /**
+     * Override label per field: meta_field.lov_code = "LOVA#kolom" artinya LOV "LOVA" (tetap satu baris
+     * di meta_lov) tetapi label_column-nya "kolom". Hanya bentuk kode tanpa spasi + nama kolom polos yang
+     * dikenali, jadi nama tabel / query SQL (yang bisa memuat operator #) tidak pernah ikut terpotong.
+     */
+    private static final java.util.regex.Pattern LOV_LABEL_OVERRIDE = java.util.regex.Pattern
+            .compile("^([^#\\s]+)#([A-Za-z_][A-Za-z0-9_]*)$");
+
+    /** Kode LOV dasar ("LOVA#kolom" -> "LOVA"); kode tanpa override dikembalikan apa adanya. */
+    public static String baseLovCode(String lovCode) {
+        if (lovCode == null)
+            return null;
+        java.util.regex.Matcher m = LOV_LABEL_OVERRIDE.matcher(lovCode.trim());
+        return m.matches() ? m.group(1) : lovCode;
+    }
+
+    /** Kolom label override ("LOVA#kolom" -> "kolom"), null bila tidak ada. */
+    public static String lovLabelOverride(String lovCode) {
+        if (lovCode == null)
+            return null;
+        java.util.regex.Matcher m = LOV_LABEL_OVERRIDE.matcher(lovCode.trim());
+        return m.matches() ? m.group(2) : null;
+    }
+
     public Optional<LovMeta> getLovMeta(String lovCode) {
         if (lovCode == null)
             return Optional.empty();
+        String labelOverride = lovLabelOverride(lovCode);
+        if (labelOverride != null) {
+            // Salinan baru, BUKAN entity dasar yang diubah: entity itu bisa ikut tersimpan
+            // (LovBuilderView/FormBuilderView menyimpan entity terkelola apa adanya).
+            // lovCode salinan = kode dasar supaya urutan default (getLovDefaultOrderByClause) tetap ketemu.
+            return getLovMeta(baseLovCode(lovCode)).map(base -> {
+                LovMeta copy = new LovMeta();
+                copy.setLovCode(base.getLovCode());
+                copy.setLovName(base.getLovName());
+                copy.setTableName(base.getTableName());
+                copy.setValueColumn(base.getValueColumn());
+                copy.setLabelColumn(labelOverride);
+                copy.setSearchColumn(base.getSearchColumn());
+                copy.setGridColumns(base.getGridColumns());
+                return copy;
+            });
+        }
         Optional<FormMeta> formOpt = formMetaRepository.findById(lovCode);
         Optional<LovMeta> existing = lovMetaRepository.findById(lovCode);
         if (formOpt.isPresent()) {
@@ -2168,6 +2209,7 @@ public class DynamicDataService {
         }
 
         FormMeta sourceForm = null;
+        lovCode = baseLovCode(lovCode);
         for (String candidate : new String[] { lovCode, lovCode != null ? lovCode.toLowerCase() : null,
                 lovCode != null ? lovCode.toUpperCase() : null, sourceTableOrQuery }) {
             if (candidate == null || candidate.isBlank())
@@ -3451,7 +3493,7 @@ public class DynamicDataService {
     private LovSearchClause buildMetaSearchSql(String lovCode, String tableName, String searchBy) {
         LovSearchClause none = new LovSearchClause(null, 0);
         try {
-            FormMeta form = formMetaRepository.findById(lovCode).orElse(null);
+            FormMeta form = formMetaRepository.findById(baseLovCode(lovCode)).orElse(null);
             if (form == null || form.getFields() == null || form.getFields().isEmpty())
                 return none;
 
@@ -4357,11 +4399,14 @@ public class DynamicDataService {
     private void appendConditionWithLov(StringBuilder where, List<Object> args, String colName, String op, String val,
             FormMeta formMeta) {
         com.vaadinerp.meta.LovMeta lovMeta = null;
+        boolean multiValue = false;
         if (formMeta != null && formMeta.getFields() != null) {
             for (com.vaadinerp.meta.FieldMeta f : formMeta.getFields()) {
                 if (colName.equalsIgnoreCase(f.getFieldName()) && f.getLovCode() != null
                         && !f.getLovCode().trim().isEmpty()) {
                     lovMeta = getLovMeta(f.getLovCode().trim()).orElse(null);
+                    // CHOSENBOX menyimpan banyak kunci dalam satu kolom teks ("1, 2").
+                    multiValue = "CHOSENBOX".equalsIgnoreCase(f.getComponentType());
                     break;
                 }
             }
@@ -4483,7 +4528,19 @@ public class DynamicDataService {
             lovWhere.append("CAST(").append(sc).append(" AS TEXT) ").append(subqueryOp).append(" ?");
         }
 
-        if (isNegative) {
+        if (multiValue) {
+            // Kolom berisi daftar kunci: cocok kalau SALAH SATU kuncinya ada di hasil pencarian LOV
+            // (negatif: kalau tidak satu pun). Membandingkan teks utuh "1, 2" dengan satu kunci
+            // tidak pernah cocok.
+            // "(... IN (...)) IS TRUE" sengaja: tanpa pembungkus itu PostgreSQL menjadikannya nested
+            // loop per baris (kata kunci yang cocok ke ribuan item: >2 menit untuk 50 ribu baris);
+            // dengan pembungkus jadi hashed SubPlan yang dihitung sekali (~0,3 detik).
+            where.append(isNegative ? " AND NOT EXISTS" : " AND EXISTS")
+                    .append(" (SELECT 1 FROM unnest(string_to_array(CAST(").append(colName)
+                    .append(" AS TEXT), ',')) AS _cv(v) WHERE (trim(_cv.v) IN (SELECT CAST(").append(valCol)
+                    .append(" AS TEXT) FROM ").append(lovTableSql)
+                    .append(" WHERE ").append(lovWhere).append(")) IS TRUE) ");
+        } else if (isNegative) {
             // Untuk "Not contains" / "Not equal": ambil data yang ID-nya TIDAK ADA di hasil pencarian LOV
             where.append(" AND CAST(").append(colName)
                     .append(" AS TEXT) NOT IN (SELECT CAST(").append(valCol).append(" AS TEXT) FROM ")

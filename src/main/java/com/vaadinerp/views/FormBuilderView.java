@@ -112,6 +112,8 @@ public class FormBuilderView extends VerticalLayout {
     private final BandboxField<Map<String, Object>, String> propLovCode = new BandboxField<>("LOV Code (Optional)");
     private final Button propBtnEditLov = new com.vaadinerp.components.SafeButton("Edit LOV Config",
             VaadinIcon.EDIT.create());
+    /** Override label_column LOV khusus field ini; disimpan di lov_code sebagai "LOVA#kolom". */
+    private final TextField propLovLabelColumn = new TextField("LOV Label Column (Optional)");
     private final IntegerField propRowGroup = new IntegerField("Row Group");
     private final ComboBox<Integer> propColSpan = new ComboBox<>("Colspan (Column Width)");
     private final TextField propFieldWidth = new TextField("Field Width (e.g. 50%, 100px)");
@@ -1047,7 +1049,7 @@ public class FormBuilderView extends VerticalLayout {
         propBtnEditLov.addClickListener(e -> {
             if (!selectedFields.isEmpty() && selectedFields.iterator().next().lovCode != null
                     && !selectedFields.iterator().next().lovCode.trim().isEmpty()) {
-                openLovConfigDialog(selectedFields.iterator().next().lovCode);
+                openLovConfigDialog(DynamicDataService.baseLovCode(selectedFields.iterator().next().lovCode));
             } else {
                 openLovConfigDialog(null);
             }
@@ -1133,7 +1135,12 @@ public class FormBuilderView extends VerticalLayout {
             }
         });
 
-        propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propBtnEditLov,
+        propLovLabelColumn.setPlaceholder("Default: the LOV's label column");
+        propLovLabelColumn.setHelperText("Shows another column of the same LOV as the label, for this field only.");
+        propLovLabelColumn.setClearButtonVisible(true);
+
+        propertiesForm.add(propFieldName, propFieldLabel, propComponentType, propLovCode, propLovLabelColumn,
+                propBtnEditLov,
                 propBtnFilters, propBtnLovTargets, propBtnLovSwitch, propRowGroup, propColSpan, propFieldWidth,
                 propReadonlyMode,
                 propFormula, propDisplayFormat, propLabelStyle, propQrInputMode, propSignInput, propValidationRule, propSequenceCode, propBtnCustomValidation,
@@ -1190,10 +1197,48 @@ public class FormBuilderView extends VerticalLayout {
         });
         propLovCode.addValueChangeListener(e -> {
             if (!selectedFields.isEmpty() && (!isSelectingField || e.isFromClient())) {
-                selectedFields.iterator().next().lovCode = e.getValue();
-                updatePropertyFieldsState(selectedFields.iterator().next().componentType);
+                FieldMetaTemp t = selectedFields.iterator().next();
+                // Kolom label override milik LOV lama tidak berlaku di LOV lain.
+                boolean lovChanged = !java.util.Objects.equals(DynamicDataService.baseLovCode(t.lovCode),
+                        e.getValue());
+                if (lovChanged) {
+                    propLovLabelColumn.setValue("");
+                    propLovLabelColumn.setInvalid(false);
+                }
+                t.lovCode = composeLovCode(e.getValue(), lovChanged ? null : propLovLabelColumn.getValue());
+                updatePropertyFieldsState(t.componentType);
                 rebuildCanvas();
             }
+        });
+        propLovLabelColumn.addValueChangeListener(e -> {
+            if (selectedFields.isEmpty() || (isSelectingField && !e.isFromClient())) {
+                return;
+            }
+            FieldMetaTemp t = selectedFields.iterator().next();
+            String col = e.getValue() != null ? e.getValue().trim() : "";
+            String base = propLovCode.getValue();
+            if (!col.isEmpty()) {
+                String error = null;
+                String real = null;
+                if (base == null || base.isBlank()) {
+                    error = "Select a LOV first.";
+                } else if (!col.matches("^[A-Za-z_][A-Za-z0-9_]*$")) {
+                    error = "Use letters, digits and underscore only.";
+                } else if ((real = findLovColumn(base, col)) == null) {
+                    error = "Column '" + col + "' is not in the LOV's data source.";
+                }
+                if (error != null) {
+                    // Nilai lama di field tetap dipakai; kolom salah tidak boleh tersimpan karena
+                    // langsung masuk SQL label/sort/filter grid.
+                    propLovLabelColumn.setErrorMessage(error);
+                    propLovLabelColumn.setInvalid(true);
+                    return;
+                }
+                col = real;
+            }
+            propLovLabelColumn.setInvalid(false);
+            t.lovCode = composeLovCode(base, col);
+            rebuildCanvas();
         });
         propRowGroup.addValueChangeListener(e -> {
             if (!selectedFields.isEmpty() && e.isFromClient()) {
@@ -1374,6 +1419,7 @@ public class FormBuilderView extends VerticalLayout {
             propLovCode.setEnabled(true);
             propBtnEditLov.setEnabled(false);
             propBtnEditLov.setVisible(false);
+            propLovLabelColumn.setVisible(false);
 
             propFormula.setLabel("Child FK Field");
             propFormula.setPlaceholder("e.g. order_id");
@@ -1402,6 +1448,7 @@ public class FormBuilderView extends VerticalLayout {
             propLovCode.setEnabled(isSelection);
             propBtnEditLov.setEnabled(isSelection);
             propBtnEditLov.setVisible(isSelection);
+            propLovLabelColumn.setVisible(isSelection);
 
             propFormula.setLabel("Formula (e.g. qty * price)");
             propFormula.setPlaceholder("");
@@ -1514,7 +1561,10 @@ public class FormBuilderView extends VerticalLayout {
                     propFieldName.setValue(first.fieldName != null ? first.fieldName : "");
                     propFieldLabel.setValue(first.fieldLabel != null ? first.fieldLabel : "");
                     propComponentType.setValue(first.componentType);
-                    propLovCode.setValue(first.lovCode);
+                    propLovCode.setValue(DynamicDataService.baseLovCode(first.lovCode));
+                    String labelOverride = DynamicDataService.lovLabelOverride(first.lovCode);
+                    propLovLabelColumn.setValue(labelOverride != null ? labelOverride : "");
+                    propLovLabelColumn.setInvalid(false);
                     propRowGroup.setValue(first.rowGroup);
                     propColSpan.setValue(first.colSpan != null && first.colSpan > 0 ? first.colSpan : null);
                     propFieldWidth.setValue(first.fieldWidth != null ? first.fieldWidth : "100%");
@@ -1573,6 +1623,7 @@ public class FormBuilderView extends VerticalLayout {
                     propValidationRule.setVisible(false);
                     propLovCode.setVisible(false);
                     propBtnEditLov.setVisible(false);
+                    propLovLabelColumn.setVisible(false);
                     propBtnFilters.setVisible(false);
                     propBtnLovTargets.setVisible(false);
                     propBtnLovSwitch.setVisible(false);
@@ -3517,6 +3568,26 @@ public class FormBuilderView extends VerticalLayout {
         }
     }
 
+    /** Nilai meta_field.lov_code: kode LOV, plus "#kolom" bila label field ini di-override. */
+    private static String composeLovCode(String lovCode, String labelColumn) {
+        if (lovCode == null || lovCode.isBlank())
+            return lovCode;
+        String base = DynamicDataService.baseLovCode(lovCode.trim());
+        return labelColumn == null || labelColumn.isBlank() ? base : base + "#" + labelColumn.trim();
+    }
+
+    /** Nama asli kolom {@code col} di sumber data LOV (abaikan besar-kecil huruf), null kalau tidak ada. */
+    private String findLovColumn(String lovCode, String col) {
+        LovMeta lov = dynamicDataService.getLovMeta(DynamicDataService.baseLovCode(lovCode.trim())).orElse(null);
+        if (lov == null || lov.getTableName() == null || lov.getTableName().isBlank())
+            return null;
+        for (String c : dynamicDataService.getColumnsForQueryOrTable(lov.getTableName().trim())) {
+            if (c != null && c.equalsIgnoreCase(col))
+                return c;
+        }
+        return null;
+    }
+
     /**
      * Kolom nyata sumber LOV. Dipakai untuk konteks yang langsung masuk SQL, mis.
      * Configure Filters -- kolom semu <field>_label tidak ada di database dan
@@ -3527,6 +3598,8 @@ public class FormBuilderView extends VerticalLayout {
         list.add("_label");
         if (lovCode == null || lovCode.trim().isEmpty())
             return list;
+        // Override label (LOVA#kolom) tidak mengubah kolom sumber -- pakai LOV dasar.
+        lovCode = com.vaadinerp.service.DynamicDataService.baseLovCode(lovCode);
 
         // 1. Try getLovMeta (searches both FormMeta and LovMeta with case-handling)
         LovMeta lov = dynamicDataService.getLovMeta(lovCode.trim()).orElse(null);
@@ -3623,6 +3696,7 @@ public class FormBuilderView extends VerticalLayout {
     private void enrichLovColumnsWithLabels(String lovCode, List<String> list) {
         if (lovCode == null || list == null)
             return;
+        lovCode = com.vaadinerp.service.DynamicDataService.baseLovCode(lovCode);
         List<String> extraLabels = new ArrayList<>();
         FormMeta sourceForm = formMetaRepository.findById(lovCode.trim()).orElse(null);
         if (sourceForm == null)
@@ -4471,7 +4545,7 @@ public class FormBuilderView extends VerticalLayout {
                 Notification.show("LOV " + newCode + " berhasil disimpan!", 3000, Notification.Position.TOP_CENTER);
                 propLovCode.setValue(newCode);
                 if (!selectedFields.isEmpty()) {
-                    selectedFields.iterator().next().lovCode = newCode;
+                    selectedFields.iterator().next().lovCode = composeLovCode(newCode, propLovLabelColumn.getValue());
                 }
                 dialog.close();
             } catch (Exception ex) {

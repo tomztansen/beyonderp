@@ -173,16 +173,18 @@ public class ComponentFactory {
                                             Object baseVal = getCaseInsensitiveVal(row, baseCol);
                                             if (baseVal != null && !baseVal.toString().trim().isEmpty()
                                                     && field.getLovCode() != null && dataService != null) {
+                                                String srcFormCode = com.vaadinerp.service.DynamicDataService
+                                                        .baseLovCode(field.getLovCode().trim());
                                                 com.vaadinerp.meta.FormMeta sourceForm = dataService
-                                                        .getFormMetaRepository().findById(field.getLovCode().trim())
+                                                        .getFormMetaRepository().findById(srcFormCode)
                                                         .orElse(null);
                                                 if (sourceForm == null)
                                                     sourceForm = dataService.getFormMetaRepository()
-                                                            .findById(field.getLovCode().trim().toLowerCase())
+                                                            .findById(srcFormCode.toLowerCase())
                                                             .orElse(null);
                                                 if (sourceForm == null)
                                                     sourceForm = dataService.getFormMetaRepository()
-                                                            .findById(field.getLovCode().trim().toUpperCase())
+                                                            .findById(srcFormCode.toUpperCase())
                                                             .orElse(null);
                                                 if (sourceForm == null) {
                                                     com.vaadinerp.meta.LovMeta lm = dataService
@@ -1169,7 +1171,8 @@ public class ComponentFactory {
         com.vaadinerp.meta.LovMeta lovMeta = dataService.getLovMeta(lovCode).orElse(null);
         if (lovMeta != null) {
             bandbox.setGridConfigurator(grid -> {
-                com.vaadinerp.meta.FormMeta targetForm = dataService.getFormMetaRepository().findById(lovCode)
+                com.vaadinerp.meta.FormMeta targetForm = dataService.getFormMetaRepository()
+                        .findById(com.vaadinerp.service.DynamicDataService.baseLovCode(lovCode))
                         .orElse(null);
                 // 1. Dinamis menambahkan kolom ke Grid berdasarkan gridColumns (misal:
                 // "dept_code:Kode:100px,dept_name:Nama:200px")
