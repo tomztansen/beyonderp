@@ -165,10 +165,12 @@ public class ReportRunService {
         File template = "STANDARD".equalsIgnoreCase(engine)
                 ? null
                 : resolver.resolveMasterTemplate(tpl.getReportCode(), engine, tpl.getTemplatePath());
+        long t0 = System.nanoTime();
         // null = Jasper menjalankan query di dalam .jrxml lewat JDBC (lihat useTemplateQuery).
         List<Map<String, Object>> data = useTemplateQuery(report, engine, template)
                 ? null
                 : dataService.fetchData(report, params, sample);
+        long queryMs = (System.nanoTime() - t0) / 1_000_000;
         Map<String, File> subreports = new java.util.HashMap<>();
         if ("JASPER".equalsIgnoreCase(engine)) {
             for (com.vaadinerp.report.SubreportConfig.Entry e
@@ -183,8 +185,27 @@ public class ReportRunService {
         // Normalisasi di satu titik ini -- UI (ReportRunnerView) pakai "EXCEL", sebagian
         // renderer (JasperRenderer) cuma cek "XLSX", jadi "EXCEL" dulu jatuh ke default PDF.
         String normalizedFormat = "EXCEL".equalsIgnoreCase(format) ? "XLSX" : format;
-        ReportOutput out = renderer.export(ctx, normalizedFormat != null ? normalizedFormat : "PDF");
+        long t1 = System.nanoTime();
+        ReportOutput out;
+        try {
+            out = renderer.export(ctx, normalizedFormat != null ? normalizedFormat : "PDF");
+        } catch (RuntimeException ex) {
+            log.warn("[REPORT] code={} engine={} format={} sample={} rows={} query={}ms render=gagal setelah {}ms: {}",
+                    report.getReportCode(), engine, normalizedFormat, sample, rowsLabel(data), queryMs,
+                    (System.nanoTime() - t1) / 1_000_000, ex.getMessage());
+            throw ex;
+        }
+        long renderMs = (System.nanoTime() - t1) / 1_000_000;
+        // Satu baris per report: bahan memilih batas baris/timeout dari data nyata (tanpa nilai parameter).
+        log.info("[REPORT] code={} engine={} format={} sample={} rows={} bytes={} query={}ms render={}ms total={}ms",
+                report.getReportCode(), engine, normalizedFormat, sample, rowsLabel(data),
+                out != null && out.bytes() != null ? out.bytes().length : 0, queryMs, renderMs, queryMs + renderMs);
         return new Rendered(out, data);
+    }
+
+    /** Jumlah baris data dari aplikasi; "-" bila Jasper menjalankan query di dalam .jrxml (jumlahnya tak terlihat). */
+    private static String rowsLabel(List<Map<String, Object>> data) {
+        return data != null ? String.valueOf(data.size()) : "-";
     }
 
     private static void appendParam(StringBuilder url, String key, Object value) {
