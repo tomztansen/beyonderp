@@ -18,12 +18,68 @@ import java.util.Map;
 @Component
 public class JasperRenderer implements ReportRenderer {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(JasperRenderer.class);
+
     private final JasperTemplateService templates;
     private final javax.sql.DataSource dataSource;
+    private final int statementTimeoutSeconds;
 
-    public JasperRenderer(JasperTemplateService templates, javax.sql.DataSource dataSource) {
+    public JasperRenderer(JasperTemplateService templates, javax.sql.DataSource dataSource,
+                          @org.springframework.beans.factory.annotation.Value("${app.report.jasper-timeout-seconds:120}")
+                          int statementTimeoutSeconds) {
         this.templates = templates;
         this.dataSource = dataSource;
+        this.statementTimeoutSeconds = statementTimeoutSeconds;
+    }
+
+    /**
+     * Batas waktu per query pada koneksi Jasper (subreport dengan query sendiri memakai koneksi ini,
+     * di luar timeout ReportDataService). Berlaku untuk sesi koneksi; harus di-RESET sebelum koneksi kembali
+     * ke pool. {@code seconds <= 0} = tidak dibatasi.
+     */
+    static void applyStatementTimeout(java.sql.Connection conn, int seconds) throws java.sql.SQLException {
+        if (seconds <= 0) return;
+        try (java.sql.Statement st = conn.createStatement()) {
+            st.execute("SET statement_timeout = " + (seconds * 1000L));
+        }
+    }
+
+    /** @return true bila batas sudah bersih (atau memang tidak dipasang); false bila RESET gagal. */
+    static boolean resetStatementTimeout(java.sql.Connection conn, int seconds) {
+        if (seconds <= 0) return true;
+        try (java.sql.Statement st = conn.createStatement()) {
+            st.execute("RESET statement_timeout");
+            return true;
+        } catch (java.sql.SQLException e) {
+            log.warn("Gagal mereset statement_timeout setelah render Jasper, koneksi dibuang dari pool: {}",
+                    e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Buang koneksi dari pool alih-alih mengembalikannya dengan batas waktu report yang masih menempel.
+     * Hikari hanya membuang koneksi otomatis untuk SQLSTATE tertentu (08xxx, 57P0x, dll.), jadi kegagalan
+     * RESET dengan kode lain akan lolos dan koneksi dipakai ulang oleh pemakai lain.
+     */
+    void discardConnection(java.sql.Connection conn) {
+        try {
+            if (dataSource.isWrapperFor(com.zaxxer.hikari.HikariDataSource.class)) {
+                dataSource.unwrap(com.zaxxer.hikari.HikariDataSource.class).evictConnection(conn);
+                return;
+            }
+            conn.abort(Runnable::run);
+        } catch (java.sql.SQLException | RuntimeException e) {
+            log.error("Koneksi dengan statement_timeout tertinggal gagal dibuang dari pool: {}", e.getMessage());
+        }
+    }
+
+    /** SQLSTATE 57014 (query_canceled) di mana pun dalam rantai penyebab. */
+    static boolean isStatementTimeout(Throwable t) {
+        for (int i = 0; t != null && i < 10; i++, t = t.getCause()) {
+            if (t instanceof java.sql.SQLException se && "57014".equals(se.getSQLState())) return true;
+        }
+        return false;
     }
 
     @Override
@@ -82,16 +138,22 @@ public class JasperRenderer implements ReportRenderer {
         // difilter pakai nilai kolom baris induk lewat subreportParameter di desainnya.
         try (java.sql.Connection conn = dataSource.getConnection()) {
             params.put(JRParameter.REPORT_CONNECTION, conn);
-
-            if (ctx.data() == null) {
-                // Data is null, meaning no external query was defined in the application.
-                // Let Jasper execute its own internal <query> via JDBC.
-                return JasperFillManager.fillReport(jr, params, conn);
-            } else {
-                List<Map<String, Object>> data = ctx.data();
-                @SuppressWarnings({"unchecked", "rawtypes"})
-                JRMapCollectionDataSource ds = new JRMapCollectionDataSource((java.util.Collection) data);
-                return JasperFillManager.fillReport(jr, params, ds);
+            applyStatementTimeout(conn, statementTimeoutSeconds);
+            try {
+                if (ctx.data() == null) {
+                    // Data is null, meaning no external query was defined in the application.
+                    // Let Jasper execute its own internal <query> via JDBC.
+                    return JasperFillManager.fillReport(jr, params, conn);
+                } else {
+                    List<Map<String, Object>> data = ctx.data();
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    JRMapCollectionDataSource ds = new JRMapCollectionDataSource((java.util.Collection) data);
+                    return JasperFillManager.fillReport(jr, params, ds);
+                }
+            } finally {
+                if (!resetStatementTimeout(conn, statementTimeoutSeconds)) {
+                    discardConnection(conn);
+                }
             }
         } catch (java.sql.SQLException e) {
             throw new JRException("Failed to obtain JDBC connection for Jasper report/subreport", e);
@@ -144,6 +206,10 @@ public class JasperRenderer implements ReportRenderer {
             byte[] pdf = JasperExportManager.exportReportToPdf(print);
             return new ReportOutput("application/pdf", pdf, hasNoPages(print));
         } catch (JRException e) {
+            if (isStatementTimeout(e)) {
+                throw new RuntimeException("The report query took longer than " + statementTimeoutSeconds
+                        + " seconds and was stopped. Narrow the filter and try again.", e);
+            }
             throw new RuntimeException("Failed to render Jasper report: " + e.getMessage(), e);
         }
     }
