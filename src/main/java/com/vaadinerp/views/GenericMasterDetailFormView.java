@@ -334,7 +334,7 @@ public class GenericMasterDetailFormView extends VerticalLayout implements HasUr
                 .set("background-color", "#f3f4f6")
                 .set("border", "1px solid #e5e7eb")
                 .set("border-radius", "6px")
-                .set("padding", "6px 12px")
+                .set("padding", "2px 12px")
                 .set("align-items", "center")
                 .set("gap", "15px");
 

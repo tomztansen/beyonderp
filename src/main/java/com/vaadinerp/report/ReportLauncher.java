@@ -22,6 +22,11 @@ import java.io.ByteArrayInputStream;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Jalur bersama untuk menjalankan report dan menampilkan hasilnya sebagai tab aplikasi.
@@ -45,12 +50,18 @@ public final class ReportLauncher {
     });
 
     /** Pembersih cadangan anchor download -- lihat {@link #download}. */
-    private static final java.util.concurrent.ScheduledExecutorService DOWNLOAD_CLEANUP = Executors
-            .newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "report-download-cleanup");
-                t.setDaemon(true);
-                return t;
-            });
+    private static final ScheduledThreadPoolExecutor DOWNLOAD_CLEANUP = createDownloadCleanupExecutor();
+
+    private static ScheduledThreadPoolExecutor createDownloadCleanupExecutor() {
+        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1, r -> {
+            Thread t = new Thread(r, "report-download-cleanup");
+            t.setDaemon(true);
+            return t;
+        });
+        // Task batal langsung keluar antrean, bukan menunggu tenggat dua menit.
+        executor.setRemoveOnCancelPolicy(true);
+        return executor;
+    }
 
     /** Batas tunggu permintaan download dari browser sebelum anchor dilepas paksa dari server. */
     static final long DOWNLOAD_FALLBACK_SECONDS = 120;
@@ -114,27 +125,41 @@ public final class ReportLauncher {
         byte[] bytes = out.bytes();
         String name = outputFilename(out.contentType());
         Anchor a = new Anchor();
+        AtomicBoolean started = new AtomicBoolean();
+        AtomicReference<ScheduledFuture<?>> fallback = new AtomicReference<>();
         // Lepas anchor di SERVER setelah file terkirim: this.remove() di bawah hanya membuang elemen di
         // browser, sedangkan handler-nya (memegang byte[] laporan) tertahan di UI sampai tab ditutup.
         // Jangan dilepas sebelum download selesai -- URL file ikut tidak berlaku dan download gagal.
-        a.setHref(DownloadHandler.fromInputStream(e -> new DownloadResponse(
-                new ByteArrayInputStream(bytes), name, out.contentType(), bytes.length))
-                .whenComplete(ok -> a.removeFromParent()));
+        a.setHref(DownloadHandler.fromInputStream(e -> {
+            // Tandai langsung saat request diterima; callback progress memakai antrean UI.access.
+            started.set(true);
+            cancelDownloadCleanup(fallback);
+            return new DownloadResponse(new ByteArrayInputStream(bytes), name, out.contentType(), bytes.length);
+        }).whenComplete(ok -> {
+            cancelDownloadCleanup(fallback);
+            a.removeFromParent();
+        }));
         a.getElement().setAttribute("download", true);
         a.getStyle().set("display", "none");
-        ui.add(a);
-        a.getElement().executeJs("this.click(); setTimeout(() => this.remove(), 0);");
         // Cadangan bila browser tidak pernah meminta file (JS tak sampai, download diblokir, tab ditutup):
-        // whenComplete tidak pernah jalan, jadi lepas paksa setelah batas waktu. Download normal sudah
-        // melepasnya lebih dulu -> removeFromParent() di sini no-op.
-        // ponytail: task ini memegang byte[] sampai batas waktu walau download sudah selesai; maks 2 menit.
-        DOWNLOAD_CLEANUP.schedule(() -> {
+        // timer hanya berlaku sebelum transfer dimulai, bukan batas durasi download.
+        fallback.set(DOWNLOAD_CLEANUP.schedule(() -> {
             try {
-                ui.access(a::removeFromParent);
+                ui.access(() -> {
+                    // Timer bisa sudah mengantre sebelum dibatalkan oleh request download.
+                    if (!started.get()) a.removeFromParent();
+                });
             } catch (com.vaadin.flow.component.UIDetachedException ignored) {
                 // UI sudah ditutup: anchor ikut terlepas bersama UI.
             }
-        }, DOWNLOAD_FALLBACK_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+        }, DOWNLOAD_FALLBACK_SECONDS, TimeUnit.SECONDS));
+        ui.add(a);
+        a.getElement().executeJs("this.click(); setTimeout(() => this.remove(), 0);");
+    }
+
+    private static void cancelDownloadCleanup(AtomicReference<ScheduledFuture<?>> fallback) {
+        ScheduledFuture<?> task = fallback.getAndSet(null);
+        if (task != null) task.cancel(false);
     }
 
     /** Cari PortalView pembungkus: naik lewat parent, lalu telusuri anak UI. */
