@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PPIC - Daily Production Output (Foundry): satu baris per tanggal, berat (kg) tiap tahap produksi.
+     Pengganti report Crystal Synchro "PPIC - Daily Production Output" (Dailyprodnew.rpt). Param: p_from_date, p_to_date (DATE, inklusif).
+     Tahap = booking di resource Foundry (thbook.resourceid, mhresource grup 1253), dikenali dari nama resource:
+       Moulding = Moulding (Est Gross), Casting Gross/Nett = Melting (berat AKTUAL bila >0, selain itu Est),  Knock Out / Fettling / Harden (=Heat Treatment) /
+       Finishing (=Final Finishing) / QC (=Final QC) = Est Nett. Berat = tdbook.qty x msmethod (metode terbaru yg estnetweight terisi).
+     Sama seperti Synchro (keputusan Tommy): Casting pakai rumus campuran aktual-jika-ada; Finishing = semua keluaran Final Finishing.
+     Beda dari Synchro: kolom Temper tidak ada (GMS tak punya resource Temper; Heat Treatment mencakup hardening+temper); baris Total mencakup semua kolom.
+     Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_PPIC_DAILY" language="java" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="814" whenNoDataType="AllSectionsNoDetail" leftMargin="14" rightMargin="14" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-00000000c100">
+	<parameter name="p_from_date" class="java.time.LocalDate"/>
+	<parameter name="p_to_date" class="java.time.LocalDate"/>
+	<query language="sql"><![CDATA[WITH days AS (
+  SELECT d::date AS dt FROM generate_series($P{p_from_date}::timestamp, $P{p_to_date}::timestamp, interval '1 day') d),
+bk AS (
+  SELECT (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date AS dt,
+         CASE WHEN c.name ILIKE '%Moulding%' THEN 'MOULD' WHEN c.name ILIKE '%Melting%' THEN 'MELT' WHEN c.name ILIKE '%Knock Out%' THEN 'KO'
+              WHEN c.name ILIKE '%Fettling%' THEN 'FET' WHEN c.name ILIKE '%Heat Treatment%' THEN 'HT' WHEN c.name ILIKE '%Final Finishing%' THEN 'FIN'
+              WHEN c.name ILIKE '%Final QC%' THEN 'QC' END AS stage,
+         d.qty, w.estgrossweight, w.estnetweight, w.grossweight, w.netweight
+    FROM thbook a
+    JOIN mhresource r ON r.id = a.resourceid AND r.msresourcegroupid = 1253
+    JOIN mdlookup c ON c.id = r.msresourceid
+    JOIN tdbook d ON d.thbookid = a.id
+    LEFT JOIN tsproductionorder o ON o.id = d.tsproductionorderid
+    LEFT JOIN LATERAL (SELECT m.estgrossweight, m.estnetweight, m.grossweight, m.netweight FROM msmethod m
+                        WHERE m.itemid = o.itemid AND m.estnetweight IS NOT NULL ORDER BY m.id DESC LIMIT 1) w ON true
+   WHERE (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date BETWEEN $P{p_from_date} AND $P{p_to_date})
+SELECT days.dt AS tgl,
+  COALESCE(SUM(CASE WHEN stage = 'MOULD' THEN qty * COALESCE(estgrossweight, 0) END), 0) AS moulding,
+  COALESCE(SUM(CASE WHEN stage = 'MELT' THEN qty * CASE WHEN grossweight > 0 THEN grossweight ELSE COALESCE(estgrossweight, 0) END END), 0) AS casting_gross,
+  COALESCE(SUM(CASE WHEN stage = 'MELT' THEN qty * CASE WHEN netweight > 0 THEN netweight ELSE COALESCE(estnetweight, 0) END END), 0) AS casting_nett,
+  COALESCE(SUM(CASE WHEN stage = 'KO' THEN qty * COALESCE(estnetweight, 0) END), 0) AS knock_out,
+  COALESCE(SUM(CASE WHEN stage = 'FET' THEN qty * COALESCE(estnetweight, 0) END), 0) AS fettling,
+  COALESCE(SUM(CASE WHEN stage = 'HT' THEN qty * COALESCE(estnetweight, 0) END), 0) AS harden,
+  COALESCE(SUM(CASE WHEN stage = 'FIN' THEN qty * COALESCE(estnetweight, 0) END), 0) AS finishing,
+  COALESCE(SUM(CASE WHEN stage = 'QC' THEN qty * COALESCE(estnetweight, 0) END), 0) AS qc
+  FROM days LEFT JOIN bk ON bk.dt = days.dt
+ GROUP BY days.dt ORDER BY days.dt]]></query>
+	<field name="tgl" class="java.sql.Date"/>
+	<field name="moulding" class="java.math.BigDecimal"/>
+	<field name="casting_gross" class="java.math.BigDecimal"/>
+	<field name="casting_nett" class="java.math.BigDecimal"/>
+	<field name="knock_out" class="java.math.BigDecimal"/>
+	<field name="fettling" class="java.math.BigDecimal"/>
+	<field name="harden" class="java.math.BigDecimal"/>
+	<field name="finishing" class="java.math.BigDecimal"/>
+	<field name="qc" class="java.math.BigDecimal"/>
+	<variable name="t_moulding" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{moulding}]]></expression></variable>
+	<variable name="t_cgross" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{casting_gross}]]></expression></variable>
+	<variable name="t_cnett" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{casting_nett}]]></expression></variable>
+	<variable name="t_ko" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{knock_out}]]></expression></variable>
+	<variable name="t_fet" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{fettling}]]></expression></variable>
+	<variable name="t_harden" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{harden}]]></expression></variable>
+	<variable name="t_fin" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{finishing}]]></expression></variable>
+	<variable name="t_qc" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{qc}]]></expression></variable>
+	<title height="66">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c101" x="0" y="4" width="300" height="14" fontName="Arial" fontSize="11" bold="true" vTextAlign="Middle">
+			<text><![CDATA[PT. GROWTH ASIA]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c102" x="614" y="4" width="200" height="12" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="dd/MM/yyyy HH:mm" vTextAlign="Middle">
+			<expression><![CDATA[new java.util.Date()]]></expression>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c103" x="0" y="24" width="814" height="20" fontName="Arial" fontSize="14" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[DAILY PRODUCTION OUTPUT (KG)]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c104" x="0" y="48" width="814" height="13" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA["Period : " + (($P{p_from_date} == null || $P{p_to_date} == null) ? "" : $P{p_from_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " s/d " + $P{p_to_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")))]]></expression>
+		</element>
+	</title>
+	<columnHeader height="26">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c110" x="0" y="0" width="70" height="26" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[DATE]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c111" x="70" y="0" width="93" height="26" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[MOULDING (KG)]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c112" x="163" y="0" width="93" height="26" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[CASTING GROSS (KG)]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c113" x="256" y="0" width="93" height="26" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[CASTING NETT (KG)]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c114" x="349" y="0" width="93" height="26" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[KNOCK OUT (KG)]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c115" x="442" y="0" width="93" height="26" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[FETTLING (KG)]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c116" x="535" y="0" width="93" height="26" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[HARDEN (KG)]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c117" x="628" y="0" width="93" height="26" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[FINISHING (KG)]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c118" x="721" y="0" width="93" height="26" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[QC (KG)]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="14">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c120" x="0" y="0" width="70" height="14" fontName="Arial" fontSize="9" hTextAlign="Center" pattern="dd/MM/yyyy" vTextAlign="Middle">
+				<expression><![CDATA[$F{tgl}]]></expression>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c121" x="70" y="0" width="93" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" vTextAlign="Middle">
+				<expression><![CDATA[$F{moulding}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c122" x="163" y="0" width="93" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" vTextAlign="Middle">
+				<expression><![CDATA[$F{casting_gross}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c123" x="256" y="0" width="93" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" vTextAlign="Middle">
+				<expression><![CDATA[$F{casting_nett}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c124" x="349" y="0" width="93" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" vTextAlign="Middle">
+				<expression><![CDATA[$F{knock_out}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c125" x="442" y="0" width="93" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" vTextAlign="Middle">
+				<expression><![CDATA[$F{fettling}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c126" x="535" y="0" width="93" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" vTextAlign="Middle">
+				<expression><![CDATA[$F{harden}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c127" x="628" y="0" width="93" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" vTextAlign="Middle">
+				<expression><![CDATA[$F{finishing}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c128" x="721" y="0" width="93" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" vTextAlign="Middle">
+				<expression><![CDATA[$F{qc}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+	</detail>
+	<summary height="16">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c130" x="0" y="0" width="70" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TOTAL]]></text>
+			<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c131" x="70" y="0" width="93" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{t_moulding} == null ? java.math.BigDecimal.ZERO : $V{t_moulding}]]></expression>
+			<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c132" x="163" y="0" width="93" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{t_cgross} == null ? java.math.BigDecimal.ZERO : $V{t_cgross}]]></expression>
+			<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c133" x="256" y="0" width="93" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{t_cnett} == null ? java.math.BigDecimal.ZERO : $V{t_cnett}]]></expression>
+			<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c134" x="349" y="0" width="93" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{t_ko} == null ? java.math.BigDecimal.ZERO : $V{t_ko}]]></expression>
+			<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c135" x="442" y="0" width="93" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{t_fet} == null ? java.math.BigDecimal.ZERO : $V{t_fet}]]></expression>
+			<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c136" x="535" y="0" width="93" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{t_harden} == null ? java.math.BigDecimal.ZERO : $V{t_harden}]]></expression>
+			<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c137" x="628" y="0" width="93" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{t_fin} == null ? java.math.BigDecimal.ZERO : $V{t_fin}]]></expression>
+			<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c138" x="721" y="0" width="93" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{t_qc} == null ? java.math.BigDecimal.ZERO : $V{t_qc}]]></expression>
+			<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+		</element>
+	</summary>
+	<pageFooter height="14">
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c140" x="544" y="0" width="230" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" vTextAlign="Middle">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c141" x="774" y="0" width="40" height="14" fontName="Arial" fontSize="8" evaluationTime="Report" vTextAlign="Middle">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

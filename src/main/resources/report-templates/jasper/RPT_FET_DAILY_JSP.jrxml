@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- FET - Daily Report (Foundry): daftar serial per produk untuk satu proses pada satu tanggal / rentang tanggal.
+     Pengganti 3 report Crystal Synchro: DailyKO (GA/FM/FT-002), DailyHT (GA/FM/FT-004, "Roughing to HT"), DailyFIN (GA/FM/FT-019, "Finishing to Q/C").
+     Report Runner: p_process (KO | HT | FIN), p_from_date, p_to_date (KO/HT: before script menyamakan dengan p_from_date). Judul dan Doc. No / Rev / Eff. Date
+     diisi before script (p_title, p_doc_no, p_doc_rev, p_doc_eff). Resource: KO = Knock Out, HT = Fettling, FIN = Final Finishing (mhresource, grup 1253).
+     Tanggal = tanggal booking (WIB), inklusif hari awal sampai hari akhir penuh. Berat satuan = msmethod.estnetweight (Spare19 Synchro).
+     Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_FET_DAILY" language="java" pageWidth="595" pageHeight="842" columnWidth="571" whenNoDataType="AllSectionsNoDetail" leftMargin="12" rightMargin="12" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-000000000b00">
+	<parameter name="p_process" class="java.lang.String"/>
+	<parameter name="p_from_date" class="java.time.LocalDate"/>
+	<parameter name="p_to_date" class="java.time.LocalDate"/>
+	<parameter name="p_title" class="java.lang.String"/>
+	<parameter name="p_doc_no" class="java.lang.String"/>
+	<parameter name="p_doc_rev" class="java.lang.String"/>
+	<parameter name="p_doc_eff" class="java.lang.String"/>
+	<query language="sql"><![CDATA[SELECT product_name, descr, string_agg(serial, ' - ' ORDER BY serial) AS serial, SUM(qty) AS qty, SUM(wt) AS wt
+  FROM (SELECT COALESCE(NULLIF(i.itemcode, ''), i.itemname) AS product_name,
+       i.itemname AS descr,
+       COALESCE(s.idno, t.idno) AS serial,
+       d.qty::numeric AS qty,
+       (d.qty * w.estnetweight)::numeric AS wt
+  FROM thbook a
+  JOIN mhresource b ON a.resourceid = b."id"
+  JOIN mdlookup c ON c."id" = b.msresourceid
+  JOIN tdbook d ON d.thbookid = a."id"
+  LEFT JOIN tsproductionorder e ON d.tsproductionorderid = e."id"
+  LEFT JOIN msitem i ON e.itemid = i."id"
+  LEFT JOIN tsproductionserial s ON d.serialid = s."id"
+  LEFT JOIN thproductiontag t ON d.tagid = t."id"
+  -- berat satuan: satu nilai per item (metode terbaru yang berat netonya terisi), sama seperti report Handover
+  LEFT JOIN LATERAL (SELECT m.estnetweight FROM msmethod m
+                      WHERE m.itemid = i."id" AND m.estnetweight IS NOT NULL
+                      ORDER BY m."id" DESC LIMIT 1) w ON true
+ WHERE b.msresourcegroupid = 1253
+   -- proses: KO = Knock Out, HT = Fettling (Roughing to HT), FIN = Final Finishing
+   AND c.name ILIKE CASE $P{p_process}::text WHEN 'KO' THEN '%Knock Out%' WHEN 'HT' THEN '%Fettling%' ELSE '%Final Finishing%' END
+   AND (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date BETWEEN $P{p_from_date} AND $P{p_to_date}
+) x
+ GROUP BY product_name, descr
+ ORDER BY product_name]]></query>
+	<field name="product_name" class="java.lang.String"/>
+	<field name="descr" class="java.lang.String"/>
+	<field name="serial" class="java.lang.String"/>
+	<field name="qty" class="java.math.BigDecimal"/>
+	<field name="wt" class="java.math.BigDecimal"/>
+	<variable name="sum_qty" class="java.math.BigDecimal" calculation="Sum">
+		<expression><![CDATA[$F{qty}]]></expression>
+	</variable>
+	<variable name="sum_wt" class="java.math.BigDecimal" calculation="Sum">
+		<expression><![CDATA[$F{wt}]]></expression>
+	</variable>
+	<title height="100">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b01" x="0" y="6" width="150" height="12" fontName="Arial" fontSize="10" vTextAlign="Middle">
+			<text><![CDATA[PT. GROWTH ASIA]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b02" x="421" y="6" width="150" height="30" fontName="Arial" fontSize="8" hTextAlign="Right" blankWhenNull="true">
+			<expression><![CDATA["Doc. No : " + ($P{p_doc_no} == null ? "" : $P{p_doc_no}) + "\nRev : " + ($P{p_doc_rev} == null ? "" : $P{p_doc_rev}) + "\nEff. Date : " + ($P{p_doc_eff} == null ? "" : $P{p_doc_eff})]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b03" x="0" y="36" width="571" height="24" fontName="Arial" fontSize="16" bold="true" hTextAlign="Center" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$P{p_title}]]></expression>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b04" x="0" y="66" width="138" height="13" fontName="Arial" fontSize="10" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[DAY / DATE]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b05" x="138" y="66" width="234" height="13" fontName="Arial" fontSize="10" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$P{p_from_date} == null ? "" : $P{p_from_date}.format(java.time.format.DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy", java.util.Locale.ENGLISH))]]></expression>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b06" x="42" y="84" width="72" height="13" printWhenExpression="&quot;FIN&quot;.equals($P{p_process})" fontName="Arial" fontSize="10" vTextAlign="Middle">
+			<text><![CDATA[From Date]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b07" x="138" y="84" width="102" height="13" printWhenExpression="&quot;FIN&quot;.equals($P{p_process})" fontName="Arial" fontSize="10" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$P{p_from_date} == null ? "" : $P{p_from_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))]]></expression>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b08" x="246" y="84" width="84" height="13" printWhenExpression="&quot;FIN&quot;.equals($P{p_process})" fontName="Arial" fontSize="10" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[To Date]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b09" x="336" y="84" width="108" height="13" printWhenExpression="&quot;FIN&quot;.equals($P{p_process})" fontName="Arial" fontSize="10" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$P{p_to_date} == null ? "" : $P{p_to_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))]]></expression>
+		</element>
+	</title>
+	<pageHeader height="16">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b10" x="2" y="0" width="220" height="16" fontName="Arial" fontSize="10" vTextAlign="Middle">
+			<text><![CDATA[PRODUCT CODE / NO. SERIAL]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b11" x="222" y="0" width="72" height="16" fontName="Arial" fontSize="10" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[QTY]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b12" x="294" y="0" width="126" height="16" fontName="Arial" fontSize="10" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[WT]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b13" x="420" y="0" width="84" height="16" fontName="Arial" fontSize="10" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TOTAL QTY]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b14" x="504" y="0" width="67" height="16" fontName="Arial" fontSize="10" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TOTAL WT]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+		</element>
+	</pageHeader>
+	<detail>
+		<band height="13">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b30" x="2" y="0" width="220" height="13" fontName="Arial" fontSize="8" markup="html" hTextAlign="Left" blankWhenNull="true" vTextAlign="Top" textAdjust="StretchHeight" printWhenDetailOverflows="true">
+				<expression><![CDATA["<b>" + ($F{product_name} + ($F{descr} == null || $F{descr}.isBlank() ? "" : "  -  " + $F{descr})).replace("&", "&amp;").replace("<", "&lt;") + "</b>" + ($F{serial} == null ? "" : "<br/>" + $F{serial}.replace("&", "&amp;").replace("<", "&lt;"))]]></expression>
+				<box leftPadding="4" rightPadding="4" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b31" x="222" y="0" width="72" height="13" stretchType="ContainerHeight" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Top">
+				<expression><![CDATA[$F{qty}]]></expression>
+				<box rightPadding="6" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b32" x="294" y="0" width="126" height="13" stretchType="ContainerHeight" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Top">
+				<expression><![CDATA[$F{wt}]]></expression>
+				<box rightPadding="6" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b33" x="420" y="0" width="84" height="13" stretchType="ContainerHeight" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Top">
+				<expression><![CDATA[$F{qty}]]></expression>
+				<box rightPadding="6" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b34" x="504" y="0" width="67" height="13" stretchType="ContainerHeight" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Top">
+				<expression><![CDATA[$F{wt}]]></expression>
+				<box rightPadding="6" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="12">
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b50" x="205" y="0" width="80" height="12" fontName="Arial" fontSize="9" hTextAlign="Right" vTextAlign="Middle">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b51" x="285" y="0" width="40" height="12" fontName="Arial" fontSize="9" evaluationTime="Report" vTextAlign="Middle">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b52" x="441" y="0" width="130" height="12" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="dd/MM/yyyy HH:mm" vTextAlign="Middle">
+			<expression><![CDATA[new java.util.Date()]]></expression>
+		</element>
+	</pageFooter>
+	<summary height="86">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b40" x="2" y="0" width="220" height="12" fontName="Arial" fontSize="10" bold="true" vTextAlign="Middle">
+			<text><![CDATA[ Grand Total]]></text>
+			<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b41" x="222" y="0" width="72" height="12" fontName="Arial" fontSize="10" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{sum_qty} == null ? java.math.BigDecimal.ZERO : $V{sum_qty}]]></expression>
+			<box rightPadding="6"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b42" x="294" y="0" width="126" height="12" fontName="Arial" fontSize="10" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{sum_wt} == null ? java.math.BigDecimal.ZERO : $V{sum_wt}]]></expression>
+			<box rightPadding="6"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b43" x="420" y="0" width="84" height="12" fontName="Arial" fontSize="10" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{sum_qty} == null ? java.math.BigDecimal.ZERO : $V{sum_qty}]]></expression>
+			<box rightPadding="6"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000b44" x="504" y="0" width="67" height="12" fontName="Arial" fontSize="10" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{sum_wt} == null ? java.math.BigDecimal.ZERO : $V{sum_wt}]]></expression>
+			<box rightPadding="6"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b45" x="60" y="24" width="78" height="12" fontName="Arial" fontSize="10" vTextAlign="Middle">
+			<text><![CDATA[Reported By,]]></text>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b46" x="426" y="24" width="78" height="12" fontName="Arial" fontSize="10" vTextAlign="Middle">
+			<text><![CDATA[Approved By,]]></text>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b47" x="60" y="72" width="100" height="12" fontName="Arial" fontSize="10" vTextAlign="Middle">
+			<text><![CDATA[(                         )]]></text>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000b48" x="426" y="72" width="100" height="12" fontName="Arial" fontSize="10" vTextAlign="Middle">
+			<text><![CDATA[( SUPERVISOR )]]></text>
+		</element>
+	</summary>
+</jasperReport>

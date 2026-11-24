@@ -570,72 +570,34 @@ public final class ScriptEditorDialog {
 
             java.util.concurrent.CompletableFuture.runAsync(() -> {
                 try {
-                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                    // Model dibaca dari properties (ai.ollama.model), bukan hardcode -- ganti model
-                    // tinggal edit application-prod.properties + restart, tanpa build ulang JAR.
-                    org.springframework.core.env.Environment env = com.vaadinerp.config.SpringContextHolder
-                            .getBean(org.springframework.core.env.Environment.class);
-                    String aiModel = env != null ? env.getProperty("ai.ollama.model", "qwen2.5-coder:14b")
-                            : "qwen2.5-coder:14b";
-                    Map<String, Object> payloadMap = new HashMap<>();
-                    payloadMap.put("model", aiModel);
-                    payloadMap.put("system", sysPrompt);
-                    payloadMap.put("prompt", prompt);
-                    payloadMap.put("stream", false);
+                    com.vaadinerp.ai.LlmClient llm = com.vaadinerp.config.SpringContextHolder
+                            .getBean(com.vaadinerp.ai.LlmClient.class);
+                    String aiResponse = llm.ask(sysPrompt, prompt);
 
-                    String jsonPayload = mapper.writeValueAsString(payloadMap);
+                    // Bersihkan markdown ```groovy jika AI membandel
+                    aiResponse = aiResponse.replaceAll("(?s)^```[a-zA-Z]*\\n?", "").replaceAll("(?s)\\n?```$", "")
+                            .trim();
 
-                    java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                            .uri(java.net.URI.create("http://172.16.0.63:11434/api/generate"))
-                            .header("Content-Type", "application/json")
-                            .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonPayload))
-                            .timeout(java.time.Duration.ofSeconds(60)) // Proses AI bisa butuh waktu agak lama
-                            .build();
+                    final String finalCode = "// ✨ Di-generate oleh AI (" + llm.getModel() + ") dari perintah: \""
+                            + prompt + "\"\n" + aiResponse;
 
-                    java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
-                            .connectTimeout(java.time.Duration.ofSeconds(10))
-                            .build();
-
-                    java.net.http.HttpResponse<String> response = client.send(request,
-                            java.net.http.HttpResponse.BodyHandlers.ofString());
-
-                    if (response.statusCode() == 200) {
-                        com.fasterxml.jackson.databind.JsonNode rootNode = mapper.readTree(response.body());
-                        String aiResponse = rootNode.path("response").asText();
-
-                        // Bersihkan markdown ```groovy jika AI membandel
-                        aiResponse = aiResponse.replaceAll("(?s)^```[a-zA-Z]*\\n?", "").replaceAll("(?s)\\n?```$", "")
-                                .trim();
-
-                        final String finalCode = "// ✨ Di-generate oleh Ollama (" + aiModel + ") dari perintah: \""
-                                + prompt + "\"\n" + aiResponse;
-
-                        ui.access(() -> {
-                            scriptArea.appendSnippet(finalCode);
-                            btnGenerateAi.setEnabled(true);
-                            btnGenerateAi.setText("✨ Buatkan Aturan (AI)");
-                            Notification.show("✅ Generated from Ollama!", 3000,
-                                    Notification.Position.BOTTOM_END);
-                            aiInput.clear();
-                        });
-                    } else {
-                        ui.access(() -> {
-                            scriptArea.setValue("// ❌ Failed to call Ollama.\n// HTTP Status: " + response.statusCode()
-                                    + "\n// Response:\n" + response.body());
-                            btnGenerateAi.setEnabled(true);
-                            btnGenerateAi.setText("✨ Buatkan Aturan (AI)");
-                            Notification.show("Failed to call the AI!", 4000, Notification.Position.MIDDLE);
-                        });
-                    }
-                } catch (Exception ex) {
-                    ex.printStackTrace();
                     ui.access(() -> {
-                        scriptArea.setValue(
-                                "// ❌ Terjadi kesalahan saat memanggil Ollama di IP 172.16.0.63:11434.\n// Pastikan server Ollama menyala dan bisa diping dari server ini.\n// Error: "
-                                        + ex.getMessage());
+                        scriptArea.appendSnippet(finalCode);
                         btnGenerateAi.setEnabled(true);
                         btnGenerateAi.setText("✨ Buatkan Aturan (AI)");
-                        Notification.show("Connection to Ollama failed: " + ex.getMessage(), 5000,
+                        Notification.show("✅ Generated by AI!", 3000, Notification.Position.BOTTOM_END);
+                        aiInput.clear();
+                    });
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    // Pesan error ditambahkan (bukan setValue) agar script yang sudah ditulis user tidak terhapus.
+                    ui.access(() -> {
+                        scriptArea.appendSnippet("// ❌ Failed to call the AI server.\n"
+                                + "// Check that the server is reachable and app.ai.* / AI_API_KEY are configured.\n"
+                                + "// Error: " + String.valueOf(ex.getMessage()).replace("\n", " "));
+                        btnGenerateAi.setEnabled(true);
+                        btnGenerateAi.setText("✨ Buatkan Aturan (AI)");
+                        Notification.show("AI request failed: " + ex.getMessage(), 5000,
                                 Notification.Position.MIDDLE);
                     });
                 }

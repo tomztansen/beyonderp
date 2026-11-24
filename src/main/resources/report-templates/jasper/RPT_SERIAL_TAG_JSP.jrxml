@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Serial/Tag Update (Foundry): daftar serial beserta Tag/Lot, produk, material, deskripsi.
+     Pengganti report Crystal Synchro "MD - Serial/Tag Update" (CurrentUid.rpt). TANPA parameter (daftar penuh).
+     Sumber GMS: tdproductiontag (serial<->tag) -> thproductiontag.idno (Tag ID = Lot Synchro) -> order -> msitem.
+     Material = abmengineermaterialid (metal grade = Category_Code Synchro), Description = itemname. Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_SERIAL_TAG" language="java" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="814" whenNoDataType="AllSectionsNoDetail" leftMargin="14" rightMargin="14" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-00000000a100">
+	<query language="sql"><![CDATA[SELECT t.idno AS tag_id,
+       COALESCE(NULLIF(i.itemcode, ''), i.itemname) AS product_code,
+       s.idno AS serial_no,
+       COALESCE(i.abmengineermaterialid, '-') AS material,
+       i.itemname AS description
+  FROM tdproductiontag dt
+  JOIN tsproductionserial s ON s.id = dt.tsproductionserialid
+  JOIN thproductiontag t ON t.id = dt.thproductiontagid
+  LEFT JOIN tsproductionorder o ON o.id = t.tsproductionorderid
+  LEFT JOIN msitem i ON i.id = o.itemid
+ ORDER BY t.idno, COALESCE(i.itemcode, i.itemname), s.idno]]></query>
+	<field name="tag_id" class="java.lang.String"/>
+	<field name="product_code" class="java.lang.String"/>
+	<field name="serial_no" class="java.lang.String"/>
+	<field name="material" class="java.lang.String"/>
+	<field name="description" class="java.lang.String"/>
+	<title height="48">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000a101" x="0" y="4" width="300" height="14" fontName="Arial" fontSize="11" bold="true" vTextAlign="Middle">
+			<text><![CDATA[PT. GROWTH ASIA]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000a102" x="614" y="4" width="200" height="12" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="dd/MM/yyyy HH:mm" vTextAlign="Middle">
+			<expression><![CDATA[new java.util.Date()]]></expression>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000a103" x="0" y="24" width="814" height="20" fontName="Arial" fontSize="14" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[SERIAL / TAG UPDATE]]></text>
+		</element>
+	</title>
+	<columnHeader height="16">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000a110" x="0" y="0" width="40" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[No.]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000a111" x="40" y="0" width="140" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[TAG ID]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000a112" x="180" y="0" width="160" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[PRODUCT CODE]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000a113" x="340" y="0" width="140" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[SERIAL NO]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000a114" x="480" y="0" width="120" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[MATERIAL]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000a115" x="600" y="0" width="214" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[DESCRIPTION]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="14">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000a120" x="0" y="0" width="40" height="14" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$V{REPORT_COUNT}]]></expression>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000a121" x="40" y="0" width="140" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{tag_id}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000a122" x="180" y="0" width="160" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{product_code}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000a123" x="340" y="0" width="140" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{serial_no}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000a124" x="480" y="0" width="120" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{material}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000a125" x="600" y="0" width="214" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{description}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="14">
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000a130" x="0" y="0" width="300" height="14" fontName="Arial" fontSize="8" vTextAlign="Middle">
+			<expression><![CDATA["Total Serial : " + $V{REPORT_COUNT}]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000a131" x="544" y="0" width="230" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" vTextAlign="Middle">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000a132" x="774" y="0" width="40" height="14" fontName="Arial" fontSize="8" evaluationTime="Report" vTextAlign="Middle">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

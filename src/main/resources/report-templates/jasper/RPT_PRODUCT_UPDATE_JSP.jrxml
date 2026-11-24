@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PPIC - Product Update (GENERATED oleh gen_product_update.py): daftar master produk dengan data teknis metode. Pengganti report Crystal Synchro "PPIC - Product Update" (Proddesc.rpt, "Laporan Update File").
+     Berbasis msmethod (satu baris per item, hanya produk yang punya metode) JOIN msitem. Pemetaan Synchro -> GMS: Name=msitem.itemcode, Description=itemname, Material(Category_Code)=abmengineermaterialid,
+     Est Net/Gross(Spare19/18)=msmethod.estnetweight/estgrossweight, Family=msitem.salescategoryid, Modulus(Spare2)/Hardness(Spare6)=msmethod, Drawing/Rev(PROD_Issues)=msitem.abmdrawingnumber/rev (msmethod.nodwgmould kosong),
+     Mould/Box(UID_Lot_Size)=msmethod.pcsperbox, Act Net(Nett_Weight)=msmethod.netweight, Min/Max Temp(Spare15/16)=msmethod.pouringtempmin/max, Business Unit(Spare5)=nama msmethod.msresourcegroupid.
+     End User (opsional, p_show_end_user=YES) = pelanggan akhir (tssalesline.abmenduser -> mscustomer) item ini. Kolom kosong Synchro (Marking, Hierarchy, Add Up) tidak dibawa.
+     Param: p_product (potongan kode item, kosong = semua), p_show_end_user (YES|NO). Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_PRODUCT_UPDATE" language="java" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="814" whenNoDataType="AllSectionsNoDetail" leftMargin="14" rightMargin="14" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-0000000000dd">
+	<parameter name="p_product" class="java.lang.String"/>
+	<parameter name="p_show_end_user" class="java.lang.String"/>
+	<query language="sql"><![CDATA[SELECT i.itemcode, i.itemname AS descr, i.abmengineermaterialid AS material,
+       m.estnetweight AS estnet, m.estgrossweight AS estgross, sc.name AS family,
+       m.modulus, m.hardness, i.abmdrawingnumber AS drawing, i.abmdrawingnumberrev AS rev,
+       m.pcsperbox, m.netweight AS actnet, m.pouringtempmin AS tmin, m.pouringtempmax AS tmax,
+       g.name AS bu, eu.end_user
+  FROM msmethod m
+  JOIN msitem i ON i.id = m.itemid
+  LEFT JOIN mdlookup sc ON sc.id = i.salescategoryid
+  LEFT JOIN mdlookup g ON g.id = m.msresourcegroupid
+  -- End User (hanya bila p_show_end_user = YES): pelanggan akhir dari baris sales item ini
+  LEFT JOIN LATERAL (SELECT string_agg(DISTINCT c.name, ', ' ORDER BY c.name) AS end_user
+                       FROM tssalesline s JOIN mscustomer c ON c.id = s.abmenduser AND c.enduser = true
+                      WHERE s.itemid = i.id AND $P{p_show_end_user}::text = 'YES') eu ON true
+ WHERE ($P{p_product}::text = '' OR i.itemcode ILIKE '%' || $P{p_product}::text || '%')
+ ORDER BY i.itemcode]]></query>
+	<field name="itemcode" class="java.lang.String"/>
+	<field name="descr" class="java.lang.String"/>
+	<field name="material" class="java.lang.String"/>
+	<field name="estnet" class="java.math.BigDecimal"/>
+	<field name="estgross" class="java.math.BigDecimal"/>
+	<field name="family" class="java.lang.String"/>
+	<field name="modulus" class="java.math.BigDecimal"/>
+	<field name="hardness" class="java.lang.String"/>
+	<field name="drawing" class="java.lang.String"/>
+	<field name="rev" class="java.lang.String"/>
+	<field name="pcsperbox" class="java.lang.Long"/>
+	<field name="actnet" class="java.math.BigDecimal"/>
+	<field name="tmin" class="java.math.BigDecimal"/>
+	<field name="tmax" class="java.math.BigDecimal"/>
+	<field name="bu" class="java.lang.String"/>
+	<field name="end_user" class="java.lang.String"/>
+	<title height="60">
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d10001" x="0" y="4" width="300" height="14" fontName="Arial" fontSize="11" bold="true" hTextAlign="Left" vTextAlign="Middle" >
+				<text><![CDATA[PT. GROWTH ASIA]]></text>
+				
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10002" x="614" y="4" width="200" height="12" fontName="Arial" fontSize="8" hTextAlign="Right" blankWhenNull="true" pattern="dd/MM/yyyy HH:mm" vTextAlign="Middle">
+				<expression><![CDATA[new java.util.Date()]]></expression>
+				
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d10003" x="0" y="22" width="814" height="18" fontName="Arial" fontSize="13" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[PPIC - PRODUCT UPDATE]]></text>
+				
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10004" x="0" y="43" width="814" height="13" fontName="Arial" fontSize="9" hTextAlign="Center" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA["Product : " + ($P{p_product} == null || $P{p_product}.isBlank() ? "All" : $P{p_product}) + "     End User : " + ("YES".equals($P{p_show_end_user}) ? "Shown" : "Hidden")]]></expression>
+				
+			</element>
+	</title>
+	<columnHeader height="24">
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d10005" x="0" y="0" width="90" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[ITEM ID]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d10006" x="90" y="0" width="120" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[DESCRIPTION]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d10007" x="210" y="0" width="52" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[MATERIAL]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d10008" x="262" y="0" width="42" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[EST NET WT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d10009" x="304" y="0" width="42" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[EST GROSS WT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d1000a" x="346" y="0" width="104" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[FAMILY]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d1000b" x="450" y="0" width="40" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[MODULUS]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d1000c" x="490" y="0" width="54" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[HARDNESS]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d1000d" x="544" y="0" width="70" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[DRAWING]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d1000e" x="614" y="0" width="24" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[REV]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d1000f" x="638" y="0" width="30" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[MOULD / BOX]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d10010" x="668" y="0" width="42" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[ACT NET WT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d10011" x="710" y="0" width="32" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[MIN TEMP]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d10012" x="742" y="0" width="32" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[MAX TEMP]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000d10013" x="774" y="0" width="40" height="24" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle" >
+				<text><![CDATA[BUSINESS UNIT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+	</columnHeader>
+	<detail>
+		<band height="14">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10014" x="0" y="0" width="90" height="14" fontName="Arial" fontSize="7" hTextAlign="Left" blankWhenNull="true" stretchType="ContainerHeight" vTextAlign="Top">
+				<expression><![CDATA[$F{itemcode}]]></expression>
+				<box leftPadding="2" rightPadding="1" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10015" x="90" y="0" width="120" height="14" fontName="Arial" fontSize="7" hTextAlign="Left" blankWhenNull="true" stretchType="ContainerHeight" vTextAlign="Top" textAdjust="StretchHeight" printWhenDetailOverflows="true">
+				<expression><![CDATA[$F{descr}]]></expression>
+				<box leftPadding="2" rightPadding="1" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10016" x="210" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Left" blankWhenNull="true" stretchType="ContainerHeight" vTextAlign="Top">
+				<expression><![CDATA[$F{material}]]></expression>
+				<box leftPadding="2" rightPadding="1" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10017" x="262" y="0" width="42" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" blankWhenNull="true" pattern="#,##0.##" stretchType="ContainerHeight" vTextAlign="Top">
+				<expression><![CDATA[$F{estnet}]]></expression>
+				<box rightPadding="2" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10018" x="304" y="0" width="42" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" blankWhenNull="true" pattern="#,##0.##" stretchType="ContainerHeight" vTextAlign="Top">
+				<expression><![CDATA[$F{estgross}]]></expression>
+				<box rightPadding="2" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10019" x="346" y="0" width="104" height="14" fontName="Arial" fontSize="7" hTextAlign="Left" blankWhenNull="true" stretchType="ContainerHeight" vTextAlign="Top" textAdjust="StretchHeight" printWhenDetailOverflows="true">
+				<expression><![CDATA[$F{family}]]></expression>
+				<box leftPadding="2" rightPadding="1" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d1001a" x="450" y="0" width="40" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" blankWhenNull="true" pattern="#,##0.###" stretchType="ContainerHeight" vTextAlign="Top">
+				<expression><![CDATA[$F{modulus}]]></expression>
+				<box rightPadding="2" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d1001b" x="490" y="0" width="54" height="14" fontName="Arial" fontSize="7" hTextAlign="Left" blankWhenNull="true" stretchType="ContainerHeight" vTextAlign="Top">
+				<expression><![CDATA[$F{hardness}]]></expression>
+				<box leftPadding="2" rightPadding="1" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d1001c" x="544" y="0" width="70" height="14" fontName="Arial" fontSize="7" hTextAlign="Left" blankWhenNull="true" stretchType="ContainerHeight" vTextAlign="Top" textAdjust="StretchHeight" printWhenDetailOverflows="true">
+				<expression><![CDATA[$F{drawing}]]></expression>
+				<box leftPadding="2" rightPadding="1" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d1001d" x="614" y="0" width="24" height="14" fontName="Arial" fontSize="7" hTextAlign="Center" blankWhenNull="true" stretchType="ContainerHeight" vTextAlign="Top">
+				<expression><![CDATA[$F{rev}]]></expression>
+				<box topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d1001e" x="638" y="0" width="30" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" blankWhenNull="true" pattern="#,##0" stretchType="ContainerHeight" vTextAlign="Top">
+				<expression><![CDATA[$F{pcsperbox}]]></expression>
+				<box rightPadding="2" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d1001f" x="668" y="0" width="42" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" blankWhenNull="true" pattern="#,##0.##" stretchType="ContainerHeight" vTextAlign="Top">
+				<expression><![CDATA[$F{actnet}]]></expression>
+				<box rightPadding="2" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10020" x="710" y="0" width="32" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" blankWhenNull="true" pattern="#,##0" stretchType="ContainerHeight" vTextAlign="Top">
+				<expression><![CDATA[$F{tmin}]]></expression>
+				<box rightPadding="2" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10021" x="742" y="0" width="32" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" blankWhenNull="true" pattern="#,##0" stretchType="ContainerHeight" vTextAlign="Top">
+				<expression><![CDATA[$F{tmax}]]></expression>
+				<box rightPadding="2" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10022" x="774" y="0" width="40" height="14" fontName="Arial" fontSize="7" hTextAlign="Left" blankWhenNull="true" stretchType="ContainerHeight" vTextAlign="Top">
+				<expression><![CDATA[$F{bu}]]></expression>
+				<box leftPadding="2" rightPadding="1" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+		<band height="12">
+			<printWhenExpression><![CDATA["YES".equals($P{p_show_end_user}) && $F{end_user} != null && !$F{end_user}.isBlank()]]></printWhenExpression>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10023" x="0" y="0" width="814" height="12" fontName="Arial" fontSize="7" hTextAlign="Left" blankWhenNull="true" vTextAlign="Top" textAdjust="StretchHeight" printWhenDetailOverflows="true" stretchType="ContainerHeight">
+				<expression><![CDATA["End User : " + $F{end_user}]]></expression>
+				<box leftPadding="14" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="14">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10024" x="0" y="0" width="300" height="14" fontName="Arial" fontSize="8" hTextAlign="Left" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA["Total Items : " + $V{REPORT_COUNT}]]></expression>
+				
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10025" x="544" y="0" width="230" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+				
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000d10026" x="774" y="0" width="40" height="14" fontName="Arial" fontSize="8" hTextAlign="Left" blankWhenNull="true" evaluationTime="Report" vTextAlign="Middle">
+				<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+				
+			</element>
+	</pageFooter>
+</jasperReport>

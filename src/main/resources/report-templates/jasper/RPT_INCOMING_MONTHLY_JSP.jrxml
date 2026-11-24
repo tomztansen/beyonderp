@@ -1,0 +1,294 @@
+<jasperReport name="RPT_INCOMING_MONTHLY" pageWidth="842" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="30e697e9-c8df-4991-9499-ef89f546cc14">
+	<parameter name="p_status" class="java.util.Collection"/>
+	<parameter name="p_category" class="java.util.Collection"/>
+	<parameter name="p_from_date" class="java.time.LocalDate"/>
+	<parameter name="p_to_date" class="java.time.LocalDate"/>
+	<parameter name="p_from_key" forPrompting="false" class="java.lang.String">
+		<defaultValueExpression><![CDATA[$P{p_from_date} == null ? "" : $P{p_from_date}.toString()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="p_to_key" forPrompting="false" class="java.lang.String">
+		<defaultValueExpression><![CDATA[$P{p_to_date} == null ? "" : $P{p_to_date}.toString()]]></defaultValueExpression>
+	</parameter>
+	<query language="sql"><![CDATA[WITH lk AS (
+  SELECT b.id, b.code FROM dynamic.mhlookup l JOIN dynamic.mdlookup b ON l.id = b.global_category_id
+   WHERE l.category_code = 'MAS0067'
+), src AS (
+  -- Shipped & Arrived: baris Incoming (bulan = Arrival Date isian user, Qty = Qty baris)
+  SELECT lk.code AS status, v.item_id, v.description, v.uom, v.procurement_category, v.arrival_date AS dt, v.qty_mt AS qty
+    FROM dynamic.v_tsincoming v JOIN lk ON lk.id = v.status_id
+   WHERE lk.code IN ('Shipped', 'Arrived')
+  UNION ALL
+  -- Outstanding: rencana (detail Arrival Plan); baris Outstanding tanpa rencana tidak tampil
+  SELECT lk.code, v.item_id, v.description, v.uom, v.procurement_category, p.arrival_plan_date, p.qty
+    FROM dynamic.v_tsincoming v JOIN lk ON lk.id = v.status_id
+    JOIN dynamic.tsincomingplan p ON p.tsincomingid = v.id
+   WHERE lk.code = 'Outstanding'
+)
+SELECT s.status,
+       coalesce(it.itemcode, '(no item)') AS itemcode,
+       coalesce(nullif(btrim(regexp_replace(s.description, '\s+', ' ', 'g')), ''), it.itemname, '(no description)') AS description,
+       CASE WHEN lower(s.uom) IN ('ton', 'mt') THEN 'MT' ELSE coalesce(nullif(btrim(s.uom), ''), '-') END AS uom,
+       s.procurement_category,
+       CASE WHEN s.dt IS NULL THEN '9999-99' ELSE to_char(s.dt, 'YYYY-MM') END AS month_key,
+       s.qty
+  FROM src s
+  LEFT JOIN dynamic.msitem it ON it.id = s.item_id
+ WHERE s.qty IS NOT NULL
+   AND $X{IN, s.status, p_status}
+   AND $X{IN, s.procurement_category, p_category}
+   AND (NULLIF($P{p_from_key}::text, '') IS NULL OR s.dt >= NULLIF($P{p_from_key}::text, '')::date)
+   AND (NULLIF($P{p_to_key}::text, '') IS NULL OR s.dt <= NULLIF($P{p_to_key}::text, '')::date)
+ ORDER BY 4, 2, 3, 6
+]]></query>
+	<field name="status" class="java.lang.String"/>
+	<field name="itemcode" class="java.lang.String"/>
+	<field name="description" class="java.lang.String"/>
+	<field name="uom" class="java.lang.String"/>
+	<field name="procurement_category" class="java.lang.String"/>
+	<field name="month_key" class="java.lang.String"/>
+	<field name="qty" class="java.math.BigDecimal"/>
+	<title height="66">
+		<element kind="textField" uuid="157bc6a0-db9b-451c-b679-a065bfd504e8" x="0" y="0" width="802" height="20" fontName="Arial" fontSize="13.0" textAdjust="ScaleFont" bold="true" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+			<box leftPadding="0" rightPadding="2">
+				<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+			</box>
+			<expression><![CDATA["INCOMING - QTY PER MONTH BY STATUS"]]></expression>
+		</element>
+		<element kind="textField" uuid="a48636ff-1102-4684-aa9b-de7740bd0725" x="0" y="22" width="802" height="14" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" bold="false" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+			<box leftPadding="0" rightPadding="2">
+				<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+			</box>
+			<expression><![CDATA["Status : " + ($P{p_status} == null || $P{p_status}.isEmpty() ? "All (Outstanding + Shipped + Arrived)" : String.join(", ", $P{p_status})) + "     Month : " + ($P{p_from_date} == null && $P{p_to_date} == null ? "All" : (($P{p_from_date} == null ? "..." : $P{p_from_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))) + " to " + ($P{p_to_date} == null ? "..." : $P{p_to_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")))))]]></expression>
+		</element>
+		<element kind="textField" uuid="d09818d1-242b-4304-8a1e-7c6fce87ec80" x="0" y="36" width="802" height="14" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" bold="false" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+			<box leftPadding="0" rightPadding="2">
+				<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+			</box>
+			<expression><![CDATA["Outstanding = Arrival Plan (detail); Shipped & Arrived = Arrival Date & Qty of the Incoming row. (blank) = no Arrival Date"]]></expression>
+		</element>
+		<element kind="textField" uuid="a234be8b-7248-456d-af0b-606df703a0c0" x="0" y="50" width="802" height="14" fontName="Arial" fontSize="8.0" textAdjust="StretchHeight" bold="false" blankWhenNull="true" hTextAlign="Left" vTextAlign="Top">
+			<box leftPadding="0" rightPadding="2">
+				<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+			</box>
+			<expression><![CDATA["Procurement Category : " + ($P{p_category} == null || $P{p_category}.isEmpty() ? "All" : String.join(", ", $P{p_category}))]]></expression>
+		</element>
+	</title>
+	<pageFooter height="16">
+		<element kind="textField" uuid="63c7a3de-fc7b-44e7-a409-aaad6ea0f11d" x="0" y="2" width="400" height="12" fontName="Arial" fontSize="7.0" textAdjust="ScaleFont" bold="false" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+			<box leftPadding="0" rightPadding="2">
+				<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+			</box>
+			<expression><![CDATA["Printed : " + new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(new java.util.Date())]]></expression>
+		</element>
+		<element kind="textField" uuid="06aac12a-b3a8-49f6-b2a5-8c73018a27a1" x="700" y="2" width="102" height="12" fontName="Arial" fontSize="7.0" textAdjust="ScaleFont" bold="false" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+			<box leftPadding="0" rightPadding="2">
+				<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+			</box>
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+	<summary height="70">
+		<element kind="crosstab" uuid="559cbb8f-13d5-417b-9ebc-130180f51874" x="0" y="0" width="802" height="70">
+			<dataset/>
+			<headerCell mode="Opaque" backcolor="#F4B084">
+				<element kind="textField" uuid="92d37283-dd1e-45a1-9066-27507627551a" x="0" y="0" width="34" height="18" backcolor="#F4B084" mode="Opaque" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+					<box leftPadding="2" rightPadding="2">
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<expression><![CDATA["UOM"]]></expression>
+				</element>
+				<element kind="textField" uuid="18b794e5-34b3-49da-96da-a9de15719e45" x="34" y="0" width="70" height="18" backcolor="#F4B084" mode="Opaque" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+					<box leftPadding="2" rightPadding="2">
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<expression><![CDATA["Item Code"]]></expression>
+				</element>
+				<element kind="textField" uuid="94951c78-3cf1-4948-9338-4dc7ad17a8a3" x="104" y="0" width="220" height="18" backcolor="#F4B084" mode="Opaque" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+					<box leftPadding="2" rightPadding="2">
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<expression><![CDATA["Description"]]></expression>
+				</element>
+			</headerCell>
+			<rowGroup name="uom" width="34">
+				<bucket class="java.lang.String">
+					<expression><![CDATA[$F{uom}]]></expression>
+				</bucket>
+				<header>
+					<box>
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<element kind="textField" uuid="3c6a8df9-c386-40f4-b73e-97201e2c369d" x="0" y="0" width="34" height="16" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" bold="true" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+						<box leftPadding="2" rightPadding="2">
+							<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+						</box>
+						<expression><![CDATA[$V{uom}]]></expression>
+					</element>
+				</header>
+				<totalHeader/>
+			</rowGroup>
+			<rowGroup name="itemcode" totalPosition="End" width="70">
+				<bucket class="java.lang.String">
+					<expression><![CDATA[$F{itemcode}]]></expression>
+				</bucket>
+				<header>
+					<box>
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<element kind="textField" uuid="2762dfe5-3732-4cf1-9c73-4dfc1590aab6" x="0" y="0" width="70" height="16" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" bold="true" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+						<box leftPadding="2" rightPadding="2">
+							<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+						</box>
+						<expression><![CDATA[$V{itemcode}]]></expression>
+					</element>
+				</header>
+				<totalHeader mode="Opaque" backcolor="#F8CBAD">
+					<box>
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<element kind="textField" uuid="95291f51-db3f-4411-8bab-992e4a2d6966" x="0" y="0" width="290" height="16" backcolor="#F8CBAD" mode="Opaque" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" bold="true" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+						<box leftPadding="2" rightPadding="2">
+							<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+						</box>
+						<expression><![CDATA["Total " + $V{uom}]]></expression>
+					</element>
+				</totalHeader>
+			</rowGroup>
+			<rowGroup name="description" totalPosition="End" width="220">
+				<bucket class="java.lang.String">
+					<expression><![CDATA[$F{description}]]></expression>
+				</bucket>
+				<header>
+					<box>
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<element kind="textField" uuid="4241a41e-bdbf-4d73-8fdb-13561a00dcc1" x="0" y="0" width="220" height="16" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" bold="false" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+						<box leftPadding="2" rightPadding="2">
+							<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+						</box>
+						<expression><![CDATA[$V{description}]]></expression>
+					</element>
+				</header>
+				<totalHeader mode="Opaque" backcolor="#FCE4D6">
+					<box>
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<element kind="textField" uuid="7af27c8a-6e76-401e-83cc-a6c5d90b4803" x="0" y="0" width="220" height="16" backcolor="#FCE4D6" mode="Opaque" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" bold="true" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+						<box leftPadding="2" rightPadding="2">
+							<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+						</box>
+						<expression><![CDATA["Total " + $V{itemcode}]]></expression>
+					</element>
+				</totalHeader>
+			</rowGroup>
+			<columnGroup name="month" totalPosition="End" height="18">
+				<bucket class="java.lang.String">
+					<expression><![CDATA[$F{month_key}]]></expression>
+				</bucket>
+				<header mode="Opaque" backcolor="#F4B084">
+					<box>
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<element kind="textField" uuid="a6d858fa-cc1c-413a-b919-3e7f3e7e0080" x="0" y="0" width="52" height="18" backcolor="#F4B084" mode="Opaque" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+						<box leftPadding="2" rightPadding="2">
+							<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+						</box>
+						<expression><![CDATA["9999-99".equals($V{month}) ? "(blank)" : $V{month}.substring(2)]]></expression>
+					</element>
+				</header>
+				<totalHeader mode="Opaque" backcolor="#F8CBAD">
+					<box>
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<element kind="textField" uuid="f24a87b0-f3c3-47a4-b9af-8ecc438058f2" x="0" y="0" width="60" height="18" backcolor="#F8CBAD" mode="Opaque" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" bold="true" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+						<box leftPadding="2" rightPadding="2">
+							<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+						</box>
+						<expression><![CDATA["Grand Total"]]></expression>
+					</element>
+				</totalHeader>
+			</columnGroup>
+			<measure name="qtySum" calculation="Sum" class="java.math.BigDecimal">
+				<expression><![CDATA[$F{qty}]]></expression>
+			</measure>
+			<cell width="52" height="16">
+				<contents>
+					<box>
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<element kind="textField" uuid="c0bf38bb-f3bb-474c-a190-44ed59db8071" x="0" y="0" width="52" height="16" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" pattern="#,##0.00" bold="false" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+						<box leftPadding="2" rightPadding="2">
+							<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+						</box>
+						<expression><![CDATA[$V{qtySum} == null || $V{qtySum}.signum() == 0 ? null : $V{qtySum}]]></expression>
+					</element>
+				</contents>
+			</cell>
+			<cell width="60" height="16" columnTotalGroup="month">
+				<contents mode="Opaque" backcolor="#F8CBAD">
+					<box>
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<element kind="textField" uuid="ca6ab781-7b15-49a9-8c06-c54e957c5eb2" x="0" y="0" width="60" height="16" backcolor="#F8CBAD" mode="Opaque" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" pattern="#,##0.00" bold="true" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+						<box leftPadding="2" rightPadding="2">
+							<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+						</box>
+						<expression><![CDATA[$V{qtySum} == null || $V{qtySum}.signum() == 0 ? null : $V{qtySum}]]></expression>
+					</element>
+				</contents>
+			</cell>
+			<cell width="52" height="16" rowTotalGroup="description">
+				<contents mode="Opaque" backcolor="#FCE4D6">
+					<box>
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<element kind="textField" uuid="a3ebcb39-b3f9-4c7b-9383-eddfaeceaf45" x="0" y="0" width="52" height="16" backcolor="#FCE4D6" mode="Opaque" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" pattern="#,##0.00" bold="true" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+						<box leftPadding="2" rightPadding="2">
+							<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+						</box>
+						<expression><![CDATA[$V{qtySum} == null || $V{qtySum}.signum() == 0 ? null : $V{qtySum}]]></expression>
+					</element>
+				</contents>
+			</cell>
+			<cell width="60" height="16" rowTotalGroup="description" columnTotalGroup="month">
+				<contents mode="Opaque" backcolor="#FCE4D6">
+					<box>
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<element kind="textField" uuid="601fbca5-ed9b-4d0a-be80-0672aa96cc34" x="0" y="0" width="60" height="16" backcolor="#FCE4D6" mode="Opaque" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" pattern="#,##0.00" bold="true" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+						<box leftPadding="2" rightPadding="2">
+							<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+						</box>
+						<expression><![CDATA[$V{qtySum} == null || $V{qtySum}.signum() == 0 ? null : $V{qtySum}]]></expression>
+					</element>
+				</contents>
+			</cell>
+			<cell width="52" height="16" rowTotalGroup="itemcode">
+				<contents mode="Opaque" backcolor="#F8CBAD">
+					<box>
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<element kind="textField" uuid="6f9b1e8b-2945-4e67-af7a-281ebbf8e8b5" x="0" y="0" width="52" height="16" backcolor="#F8CBAD" mode="Opaque" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" pattern="#,##0.00" bold="true" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+						<box leftPadding="2" rightPadding="2">
+							<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+						</box>
+						<expression><![CDATA[$V{qtySum} == null || $V{qtySum}.signum() == 0 ? null : $V{qtySum}]]></expression>
+					</element>
+				</contents>
+			</cell>
+			<cell width="60" height="16" rowTotalGroup="itemcode" columnTotalGroup="month">
+				<contents mode="Opaque" backcolor="#F8CBAD">
+					<box>
+						<pen lineWidth="0.5" lineColor="#BFBFBF"/>
+					</box>
+					<element kind="textField" uuid="259fe994-0b68-4952-8409-157b7d15e4b4" x="0" y="0" width="60" height="16" backcolor="#F8CBAD" mode="Opaque" fontName="Arial" fontSize="8.0" textAdjust="ScaleFont" pattern="#,##0.00" bold="true" blankWhenNull="true" hTextAlign="Right" vTextAlign="Middle">
+						<box leftPadding="2" rightPadding="2">
+							<pen lineWidth="0.0" lineColor="#BFBFBF"/>
+						</box>
+						<expression><![CDATA[$V{qtySum} == null || $V{qtySum}.signum() == 0 ? null : $V{qtySum}]]></expression>
+					</element>
+				</contents>
+			</cell>
+		</element>
+	</summary>
+</jasperReport>

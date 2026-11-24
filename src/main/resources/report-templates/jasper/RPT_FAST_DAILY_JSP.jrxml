@@ -1,0 +1,1127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fastener - Daily Production Output: satu baris per tanggal, qty dan berat nett estimasi (kg) per proses. GENERATED (gen_fast_daily.py).
+     Pengganti report Crystal Synchro fs-daily.rpt (Include Subcon), fs-daily3.rpt (Family Group By Month) dan fs-dailyByFamily.rpt (Cutting per Family).
+     p_view: PROCESS (fs-daily) | PROCESS_FAMILY (fs-daily3: Cutting/Machining Bolt-Others, QC Bolt-Washer-Others) | CUTTING_FAMILY (fs-dailyByFamily).
+     p_by_month: YES = kelompokkan per bulan dengan subtotal (fs-daily3). p_subcon: INCLUDE | EXCLUDE (booking subcon, thbook.issubcon).
+     Tahap = booking di resource Fastener (grup 1254) dikenali dari nama: Cutting, Forging, Heat Treatment (= Hardening+Tempering Synchro), Machining, MPI, Roll Thread, QC.
+     Berat = tdbook.qty x msmethod.estnetweight (Est Nett di semua kolom, keputusan Tommy; Synchro Cutting memakai berat aktual). Family = msitem.salescategoryid.
+     Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_FAST_DAILY" language="java" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="814" whenNoDataType="AllSectionsNoDetail" leftMargin="14" rightMargin="14" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-0000000000aa">
+	<parameter name="p_from_date" class="java.time.LocalDate"/>
+	<parameter name="p_to_date" class="java.time.LocalDate"/>
+	<parameter name="p_view" class="java.lang.String"/>
+	<parameter name="p_by_month" class="java.lang.String"/>
+	<parameter name="p_subcon" class="java.lang.String"/>
+	<query language="sql"><![CDATA[WITH days AS (
+  SELECT d::date AS dt FROM generate_series($P{p_from_date}::timestamp, $P{p_to_date}::timestamp, interval '1 day') d),
+bk AS (
+  SELECT (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date AS dt,
+         CASE WHEN c.name ILIKE '%Cutting%' THEN 'CUT' WHEN c.name ILIKE '%Forging%' THEN 'FOR' WHEN c.name ILIKE '%Heat Treatment%' THEN 'HT'
+              WHEN c.name ILIKE '%Machining%' THEN 'MCH' WHEN c.name ILIKE '%MPI%' THEN 'MPI' WHEN c.name ILIKE '%Roll T%' THEN 'ROL'
+              WHEN c.name ILIKE '%QC%' THEN 'QC' END AS stage,
+         CASE WHEN sc.name = '1.03.01.Bolt' THEN 'B' WHEN sc.name = '1.03.02.Washer' THEN 'W' WHEN sc.name = '1.03.03.Nut' THEN 'N'
+              WHEN sc.name = '1.03.99.Others' THEN 'O' ELSE 'X' END AS fam,
+         d.qty AS qty, COALESCE(w.estnetweight, 0) AS wt
+    FROM thbook a
+    JOIN mhresource r ON r.id = a.resourceid AND r.msresourcegroupid = 1254
+    JOIN mdlookup c ON c.id = r.msresourceid
+    JOIN tdbook d ON d.thbookid = a.id
+    LEFT JOIN tsproductionorder o ON o.id = d.tsproductionorderid
+    LEFT JOIN msitem i ON i.id = o.itemid
+    LEFT JOIN mdlookup sc ON sc.id = i.salescategoryid
+    LEFT JOIN LATERAL (SELECT m.estnetweight FROM msmethod m
+                        WHERE m.itemid = o.itemid AND m.estnetweight IS NOT NULL ORDER BY m.id DESC LIMIT 1) w ON true
+   WHERE (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date BETWEEN $P{p_from_date} AND $P{p_to_date}
+     AND ($P{p_subcon}::text = 'INCLUDE' OR COALESCE(a.issubcon, false) = false))
+SELECT days.dt AS tgl, to_char(days.dt, 'YYYY-MM') AS ym,
+  COALESCE(SUM(CASE WHEN stage='CUT' THEN qty END), 0) AS cut_q,
+  COALESCE(SUM(CASE WHEN stage='CUT' THEN qty * wt END), 0) AS cut_w,
+  COALESCE(SUM(CASE WHEN stage='FOR' THEN qty END), 0) AS for_q,
+  COALESCE(SUM(CASE WHEN stage='FOR' THEN qty * wt END), 0) AS for_w,
+  COALESCE(SUM(CASE WHEN stage='HT' THEN qty END), 0) AS ht_q,
+  COALESCE(SUM(CASE WHEN stage='HT' THEN qty * wt END), 0) AS ht_w,
+  COALESCE(SUM(CASE WHEN stage='MCH' THEN qty END), 0) AS mch_q,
+  COALESCE(SUM(CASE WHEN stage='MCH' THEN qty * wt END), 0) AS mch_w,
+  COALESCE(SUM(CASE WHEN stage='MPI' THEN qty END), 0) AS mpi_q,
+  COALESCE(SUM(CASE WHEN stage='MPI' THEN qty * wt END), 0) AS mpi_w,
+  COALESCE(SUM(CASE WHEN stage='ROL' THEN qty END), 0) AS rol_q,
+  COALESCE(SUM(CASE WHEN stage='ROL' THEN qty * wt END), 0) AS rol_w,
+  COALESCE(SUM(CASE WHEN stage='QC' THEN qty END), 0) AS qc_q,
+  COALESCE(SUM(CASE WHEN stage='QC' THEN qty * wt END), 0) AS qc_w,
+  COALESCE(SUM(CASE WHEN stage='CUT' AND fam='B' THEN qty END), 0) AS cutb_q,
+  COALESCE(SUM(CASE WHEN stage='CUT' AND fam='B' THEN qty * wt END), 0) AS cutb_w,
+  COALESCE(SUM(CASE WHEN stage='CUT' AND fam<>'B' THEN qty END), 0) AS cuto_q,
+  COALESCE(SUM(CASE WHEN stage='CUT' AND fam<>'B' THEN qty * wt END), 0) AS cuto_w,
+  COALESCE(SUM(CASE WHEN stage='MCH' AND fam='B' THEN qty END), 0) AS mchb_q,
+  COALESCE(SUM(CASE WHEN stage='MCH' AND fam='B' THEN qty * wt END), 0) AS mchb_w,
+  COALESCE(SUM(CASE WHEN stage='MCH' AND fam<>'B' THEN qty END), 0) AS mcho_q,
+  COALESCE(SUM(CASE WHEN stage='MCH' AND fam<>'B' THEN qty * wt END), 0) AS mcho_w,
+  COALESCE(SUM(CASE WHEN stage='QC' AND fam='B' THEN qty END), 0) AS qcb_q,
+  COALESCE(SUM(CASE WHEN stage='QC' AND fam='B' THEN qty * wt END), 0) AS qcb_w,
+  COALESCE(SUM(CASE WHEN stage='QC' AND fam='W' THEN qty END), 0) AS qcw_q,
+  COALESCE(SUM(CASE WHEN stage='QC' AND fam='W' THEN qty * wt END), 0) AS qcw_w,
+  COALESCE(SUM(CASE WHEN stage='QC' AND fam NOT IN ('B','W') THEN qty END), 0) AS qco_q,
+  COALESCE(SUM(CASE WHEN stage='QC' AND fam NOT IN ('B','W') THEN qty * wt END), 0) AS qco_w,
+  COALESCE(SUM(CASE WHEN stage='CUT' AND fam='W' THEN qty END), 0) AS cfw_q,
+  COALESCE(SUM(CASE WHEN stage='CUT' AND fam='W' THEN qty * wt END), 0) AS cfw_w,
+  COALESCE(SUM(CASE WHEN stage='CUT' AND fam='N' THEN qty END), 0) AS cfn_q,
+  COALESCE(SUM(CASE WHEN stage='CUT' AND fam='N' THEN qty * wt END), 0) AS cfn_w,
+  COALESCE(SUM(CASE WHEN stage='CUT' AND fam='O' THEN qty END), 0) AS cfo_q,
+  COALESCE(SUM(CASE WHEN stage='CUT' AND fam='O' THEN qty * wt END), 0) AS cfo_w,
+  COALESCE(SUM(CASE WHEN stage='CUT' AND fam='X' THEN qty END), 0) AS cfx_q,
+  COALESCE(SUM(CASE WHEN stage='CUT' AND fam='X' THEN qty * wt END), 0) AS cfx_w
+  FROM days LEFT JOIN bk ON bk.dt = days.dt
+ GROUP BY days.dt ORDER BY days.dt]]></query>
+	<field name="tgl" class="java.sql.Date"/>
+	<field name="ym" class="java.lang.String"/>
+	<field name="cut_q" class="java.math.BigDecimal"/>
+	<field name="cut_w" class="java.math.BigDecimal"/>
+	<field name="for_q" class="java.math.BigDecimal"/>
+	<field name="for_w" class="java.math.BigDecimal"/>
+	<field name="ht_q" class="java.math.BigDecimal"/>
+	<field name="ht_w" class="java.math.BigDecimal"/>
+	<field name="mch_q" class="java.math.BigDecimal"/>
+	<field name="mch_w" class="java.math.BigDecimal"/>
+	<field name="mpi_q" class="java.math.BigDecimal"/>
+	<field name="mpi_w" class="java.math.BigDecimal"/>
+	<field name="rol_q" class="java.math.BigDecimal"/>
+	<field name="rol_w" class="java.math.BigDecimal"/>
+	<field name="qc_q" class="java.math.BigDecimal"/>
+	<field name="qc_w" class="java.math.BigDecimal"/>
+	<field name="cutb_q" class="java.math.BigDecimal"/>
+	<field name="cutb_w" class="java.math.BigDecimal"/>
+	<field name="cuto_q" class="java.math.BigDecimal"/>
+	<field name="cuto_w" class="java.math.BigDecimal"/>
+	<field name="mchb_q" class="java.math.BigDecimal"/>
+	<field name="mchb_w" class="java.math.BigDecimal"/>
+	<field name="mcho_q" class="java.math.BigDecimal"/>
+	<field name="mcho_w" class="java.math.BigDecimal"/>
+	<field name="qcb_q" class="java.math.BigDecimal"/>
+	<field name="qcb_w" class="java.math.BigDecimal"/>
+	<field name="qcw_q" class="java.math.BigDecimal"/>
+	<field name="qcw_w" class="java.math.BigDecimal"/>
+	<field name="qco_q" class="java.math.BigDecimal"/>
+	<field name="qco_w" class="java.math.BigDecimal"/>
+	<field name="cfw_q" class="java.math.BigDecimal"/>
+	<field name="cfw_w" class="java.math.BigDecimal"/>
+	<field name="cfn_q" class="java.math.BigDecimal"/>
+	<field name="cfn_w" class="java.math.BigDecimal"/>
+	<field name="cfo_q" class="java.math.BigDecimal"/>
+	<field name="cfo_w" class="java.math.BigDecimal"/>
+	<field name="cfx_q" class="java.math.BigDecimal"/>
+	<field name="cfx_w" class="java.math.BigDecimal"/>
+	<variable name="t_cut_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cut_q}]]></expression></variable>
+	<variable name="m_cut_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cut_q}]]></expression></variable>
+	<variable name="t_cut_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cut_w}]]></expression></variable>
+	<variable name="m_cut_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cut_w}]]></expression></variable>
+	<variable name="t_for_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{for_q}]]></expression></variable>
+	<variable name="m_for_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{for_q}]]></expression></variable>
+	<variable name="t_for_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{for_w}]]></expression></variable>
+	<variable name="m_for_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{for_w}]]></expression></variable>
+	<variable name="t_ht_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{ht_q}]]></expression></variable>
+	<variable name="m_ht_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{ht_q}]]></expression></variable>
+	<variable name="t_ht_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{ht_w}]]></expression></variable>
+	<variable name="m_ht_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{ht_w}]]></expression></variable>
+	<variable name="t_mch_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{mch_q}]]></expression></variable>
+	<variable name="m_mch_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{mch_q}]]></expression></variable>
+	<variable name="t_mch_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{mch_w}]]></expression></variable>
+	<variable name="m_mch_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{mch_w}]]></expression></variable>
+	<variable name="t_mpi_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{mpi_q}]]></expression></variable>
+	<variable name="m_mpi_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{mpi_q}]]></expression></variable>
+	<variable name="t_mpi_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{mpi_w}]]></expression></variable>
+	<variable name="m_mpi_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{mpi_w}]]></expression></variable>
+	<variable name="t_rol_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{rol_q}]]></expression></variable>
+	<variable name="m_rol_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{rol_q}]]></expression></variable>
+	<variable name="t_rol_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{rol_w}]]></expression></variable>
+	<variable name="m_rol_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{rol_w}]]></expression></variable>
+	<variable name="t_qc_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{qc_q}]]></expression></variable>
+	<variable name="m_qc_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{qc_q}]]></expression></variable>
+	<variable name="t_qc_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{qc_w}]]></expression></variable>
+	<variable name="m_qc_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{qc_w}]]></expression></variable>
+	<variable name="t_cutb_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cutb_q}]]></expression></variable>
+	<variable name="m_cutb_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cutb_q}]]></expression></variable>
+	<variable name="t_cutb_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cutb_w}]]></expression></variable>
+	<variable name="m_cutb_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cutb_w}]]></expression></variable>
+	<variable name="t_cuto_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cuto_q}]]></expression></variable>
+	<variable name="m_cuto_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cuto_q}]]></expression></variable>
+	<variable name="t_cuto_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cuto_w}]]></expression></variable>
+	<variable name="m_cuto_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cuto_w}]]></expression></variable>
+	<variable name="t_mchb_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{mchb_q}]]></expression></variable>
+	<variable name="m_mchb_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{mchb_q}]]></expression></variable>
+	<variable name="t_mchb_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{mchb_w}]]></expression></variable>
+	<variable name="m_mchb_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{mchb_w}]]></expression></variable>
+	<variable name="t_mcho_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{mcho_q}]]></expression></variable>
+	<variable name="m_mcho_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{mcho_q}]]></expression></variable>
+	<variable name="t_mcho_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{mcho_w}]]></expression></variable>
+	<variable name="m_mcho_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{mcho_w}]]></expression></variable>
+	<variable name="t_qcb_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{qcb_q}]]></expression></variable>
+	<variable name="m_qcb_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{qcb_q}]]></expression></variable>
+	<variable name="t_qcb_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{qcb_w}]]></expression></variable>
+	<variable name="m_qcb_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{qcb_w}]]></expression></variable>
+	<variable name="t_qcw_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{qcw_q}]]></expression></variable>
+	<variable name="m_qcw_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{qcw_q}]]></expression></variable>
+	<variable name="t_qcw_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{qcw_w}]]></expression></variable>
+	<variable name="m_qcw_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{qcw_w}]]></expression></variable>
+	<variable name="t_qco_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{qco_q}]]></expression></variable>
+	<variable name="m_qco_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{qco_q}]]></expression></variable>
+	<variable name="t_qco_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{qco_w}]]></expression></variable>
+	<variable name="m_qco_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{qco_w}]]></expression></variable>
+	<variable name="t_cfw_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cfw_q}]]></expression></variable>
+	<variable name="m_cfw_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cfw_q}]]></expression></variable>
+	<variable name="t_cfw_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cfw_w}]]></expression></variable>
+	<variable name="m_cfw_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cfw_w}]]></expression></variable>
+	<variable name="t_cfn_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cfn_q}]]></expression></variable>
+	<variable name="m_cfn_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cfn_q}]]></expression></variable>
+	<variable name="t_cfn_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cfn_w}]]></expression></variable>
+	<variable name="m_cfn_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cfn_w}]]></expression></variable>
+	<variable name="t_cfo_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cfo_q}]]></expression></variable>
+	<variable name="m_cfo_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cfo_q}]]></expression></variable>
+	<variable name="t_cfo_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cfo_w}]]></expression></variable>
+	<variable name="m_cfo_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cfo_w}]]></expression></variable>
+	<variable name="t_cfx_q" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cfx_q}]]></expression></variable>
+	<variable name="m_cfx_q" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cfx_q}]]></expression></variable>
+	<variable name="t_cfx_w" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cfx_w}]]></expression></variable>
+	<variable name="m_cfx_w" class="java.math.BigDecimal" resetType="Group" resetGroup="g_month" calculation="Sum"><expression><![CDATA[$F{cfx_w}]]></expression></variable>
+	<group name="g_month">
+		<expression><![CDATA[$F{ym}]]></expression>
+		<groupHeader>
+			<band height="14">
+				<printWhenExpression><![CDATA["YES".equals($P{p_by_month})]]></printWhenExpression>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00001" x="0" y="0" width="814" height="14" mode="Opaque" backcolor="#E6E6E6" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+					<expression><![CDATA["Month : " + $F{ym}]]></expression>
+					<box leftPadding="4"><pen lineWidth="0.75"/></box>
+				</element>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="14">
+				<printWhenExpression><![CDATA["YES".equals($P{p_by_month}) && "PROCESS".equals($P{p_view})]]></printWhenExpression>
+				<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00002" x="0" y="0" width="86" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[Sub Total]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00003" x="86" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cut_q} == null ? java.math.BigDecimal.ZERO : $V{m_cut_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00004" x="138" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cut_w} == null ? java.math.BigDecimal.ZERO : $V{m_cut_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00005" x="190" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_for_q} == null ? java.math.BigDecimal.ZERO : $V{m_for_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00006" x="242" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_for_w} == null ? java.math.BigDecimal.ZERO : $V{m_for_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00007" x="294" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_ht_q} == null ? java.math.BigDecimal.ZERO : $V{m_ht_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00008" x="346" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_ht_w} == null ? java.math.BigDecimal.ZERO : $V{m_ht_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00009" x="398" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_mch_q} == null ? java.math.BigDecimal.ZERO : $V{m_mch_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0000a" x="450" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_mch_w} == null ? java.math.BigDecimal.ZERO : $V{m_mch_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0000b" x="502" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_mpi_q} == null ? java.math.BigDecimal.ZERO : $V{m_mpi_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0000c" x="554" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_mpi_w} == null ? java.math.BigDecimal.ZERO : $V{m_mpi_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0000d" x="606" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_rol_q} == null ? java.math.BigDecimal.ZERO : $V{m_rol_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0000e" x="658" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_rol_w} == null ? java.math.BigDecimal.ZERO : $V{m_rol_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0000f" x="710" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_qc_q} == null ? java.math.BigDecimal.ZERO : $V{m_qc_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00010" x="762" y="0" width="52" height="14" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_qc_w} == null ? java.math.BigDecimal.ZERO : $V{m_qc_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			</band>
+			<band height="14">
+				<printWhenExpression><![CDATA["YES".equals($P{p_by_month}) && "PROCESS_FAMILY".equals($P{p_view})]]></printWhenExpression>
+				<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00011" x="0" y="0" width="44" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[Sub Total]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00012" x="44" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cutb_q} == null ? java.math.BigDecimal.ZERO : $V{m_cutb_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00013" x="79" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cutb_w} == null ? java.math.BigDecimal.ZERO : $V{m_cutb_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00014" x="114" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cuto_q} == null ? java.math.BigDecimal.ZERO : $V{m_cuto_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00015" x="149" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cuto_w} == null ? java.math.BigDecimal.ZERO : $V{m_cuto_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00016" x="184" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_for_q} == null ? java.math.BigDecimal.ZERO : $V{m_for_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00017" x="219" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_for_w} == null ? java.math.BigDecimal.ZERO : $V{m_for_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00018" x="254" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_ht_q} == null ? java.math.BigDecimal.ZERO : $V{m_ht_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00019" x="289" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_ht_w} == null ? java.math.BigDecimal.ZERO : $V{m_ht_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0001a" x="324" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_mchb_q} == null ? java.math.BigDecimal.ZERO : $V{m_mchb_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0001b" x="359" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_mchb_w} == null ? java.math.BigDecimal.ZERO : $V{m_mchb_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0001c" x="394" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_mcho_q} == null ? java.math.BigDecimal.ZERO : $V{m_mcho_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0001d" x="429" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_mcho_w} == null ? java.math.BigDecimal.ZERO : $V{m_mcho_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0001e" x="464" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_mpi_q} == null ? java.math.BigDecimal.ZERO : $V{m_mpi_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0001f" x="499" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_mpi_w} == null ? java.math.BigDecimal.ZERO : $V{m_mpi_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00020" x="534" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_rol_q} == null ? java.math.BigDecimal.ZERO : $V{m_rol_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00021" x="569" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_rol_w} == null ? java.math.BigDecimal.ZERO : $V{m_rol_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00022" x="604" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_qcb_q} == null ? java.math.BigDecimal.ZERO : $V{m_qcb_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00023" x="639" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_qcb_w} == null ? java.math.BigDecimal.ZERO : $V{m_qcb_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00024" x="674" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_qcw_q} == null ? java.math.BigDecimal.ZERO : $V{m_qcw_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00025" x="709" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_qcw_w} == null ? java.math.BigDecimal.ZERO : $V{m_qcw_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00026" x="744" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_qco_q} == null ? java.math.BigDecimal.ZERO : $V{m_qco_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00027" x="779" y="0" width="35" height="14" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_qco_w} == null ? java.math.BigDecimal.ZERO : $V{m_qco_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			</band>
+			<band height="14">
+				<printWhenExpression><![CDATA["YES".equals($P{p_by_month}) && "CUTTING_FAMILY".equals($P{p_view})]]></printWhenExpression>
+				<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00028" x="0" y="0" width="74" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[Sub Total]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00029" x="74" y="0" width="74" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cutb_q} == null ? java.math.BigDecimal.ZERO : $V{m_cutb_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0002a" x="148" y="0" width="74" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cutb_w} == null ? java.math.BigDecimal.ZERO : $V{m_cutb_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0002b" x="222" y="0" width="74" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cfw_q} == null ? java.math.BigDecimal.ZERO : $V{m_cfw_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0002c" x="296" y="0" width="74" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cfw_w} == null ? java.math.BigDecimal.ZERO : $V{m_cfw_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0002d" x="370" y="0" width="74" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cfn_q} == null ? java.math.BigDecimal.ZERO : $V{m_cfn_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0002e" x="444" y="0" width="74" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cfn_w} == null ? java.math.BigDecimal.ZERO : $V{m_cfn_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0002f" x="518" y="0" width="74" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cfo_q} == null ? java.math.BigDecimal.ZERO : $V{m_cfo_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00030" x="592" y="0" width="74" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cfo_w} == null ? java.math.BigDecimal.ZERO : $V{m_cfo_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00031" x="666" y="0" width="74" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cfx_q} == null ? java.math.BigDecimal.ZERO : $V{m_cfx_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00032" x="740" y="0" width="74" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{m_cfx_w} == null ? java.math.BigDecimal.ZERO : $V{m_cfx_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			</band>
+		</groupFooter>
+	</group>
+	<title height="60">
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00033" x="0" y="4" width="300" height="14" fontName="Arial" fontSize="11" bold="true" hTextAlign="Left" vTextAlign="Middle">
+				<text><![CDATA[PT. GROWTH ASIA]]></text>
+				
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00034" x="614" y="4" width="200" height="12" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="dd/MM/yyyy HH:mm" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[new java.util.Date()]]></expression>
+				
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00035" x="0" y="22" width="814" height="18" fontName="Arial" fontSize="13" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[FASTENER - DAILY PRODUCTION OUTPUT]]></text>
+				
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00036" x="0" y="43" width="814" height="13" fontName="Arial" fontSize="9" hTextAlign="Center" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA["Period : " + $P{p_from_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " s/d " + $P{p_to_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + "     Subcon : " + ("INCLUDE".equals($P{p_subcon}) ? "Included" : "Excluded")]]></expression>
+				
+			</element>
+	</title>
+	<columnHeader height="26">
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00037" x="0" y="0" width="86" height="26" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[DATE]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00038" x="86" y="0" width="104" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[CUTTING]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00039" x="86" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0003a" x="138" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0003b" x="190" y="0" width="104" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[FORGING]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0003c" x="190" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0003d" x="242" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0003e" x="294" y="0" width="104" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[HEAT TREATMENT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0003f" x="294" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00040" x="346" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00041" x="398" y="0" width="104" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[MACHINING]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00042" x="398" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00043" x="450" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00044" x="502" y="0" width="104" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[MPI]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00045" x="502" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00046" x="554" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00047" x="606" y="0" width="104" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[ROLL THREAD]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00048" x="606" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00049" x="658" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0004a" x="710" y="0" width="104" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QC]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0004b" x="710" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0004c" x="762" y="13" width="52" height="13" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0004d" x="0" y="0" width="44" height="26" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[DATE]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0004e" x="44" y="0" width="70" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[CUTTING - BOLT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0004f" x="44" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00050" x="79" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00051" x="114" y="0" width="70" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[CUTTING - OTHERS]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00052" x="114" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00053" x="149" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00054" x="184" y="0" width="70" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[FORGING]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00055" x="184" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00056" x="219" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00057" x="254" y="0" width="70" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[HEAT TREATMENT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00058" x="254" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00059" x="289" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0005a" x="324" y="0" width="70" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[MACHINING - BOLT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0005b" x="324" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0005c" x="359" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0005d" x="394" y="0" width="70" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[MACHINING - OTHERS]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0005e" x="394" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0005f" x="429" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00060" x="464" y="0" width="70" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[MPI]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00061" x="464" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00062" x="499" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00063" x="534" y="0" width="70" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[ROLL THREAD]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00064" x="534" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00065" x="569" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00066" x="604" y="0" width="70" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QC - BOLT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00067" x="604" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00068" x="639" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00069" x="674" y="0" width="70" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QC - WASHER]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0006a" x="674" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0006b" x="709" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0006c" x="744" y="0" width="70" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QC - OTHERS]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0006d" x="744" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0006e" x="779" y="13" width="35" height="13" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0006f" x="0" y="0" width="74" height="26" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[DATE]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00070" x="74" y="0" width="148" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[BOLT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00071" x="74" y="13" width="74" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00072" x="148" y="13" width="74" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00073" x="222" y="0" width="148" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[WASHER]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00074" x="222" y="13" width="74" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00075" x="296" y="13" width="74" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00076" x="370" y="0" width="148" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NUT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00077" x="370" y="13" width="74" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00078" x="444" y="13" width="74" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e00079" x="518" y="0" width="148" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[OTHERS]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0007a" x="518" y="13" width="74" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0007b" x="592" y="13" width="74" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0007c" x="666" y="0" width="148" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[OTHER (OTHER FAMILY)]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0007d" x="666" y="13" width="74" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e0007e" x="740" y="13" width="74" height="13" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NET WT]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+	</columnHeader>
+	<detail>
+		<band height="14">
+			<printWhenExpression><![CDATA["PROCESS".equals($P{p_view})]]></printWhenExpression>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0007f" x="0" y="0" width="86" height="14" fontName="Arial" fontSize="7" hTextAlign="Center" pattern="dd/MM/yyyy" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{tgl}]]></expression>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00080" x="86" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cut_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00081" x="138" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cut_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00082" x="190" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{for_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00083" x="242" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{for_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00084" x="294" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{ht_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00085" x="346" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{ht_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00086" x="398" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{mch_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00087" x="450" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{mch_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00088" x="502" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{mpi_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00089" x="554" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{mpi_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0008a" x="606" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{rol_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0008b" x="658" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{rol_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0008c" x="710" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{qc_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0008d" x="762" y="0" width="52" height="14" fontName="Arial" fontSize="7" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{qc_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+		<band height="14">
+			<printWhenExpression><![CDATA["PROCESS_FAMILY".equals($P{p_view})]]></printWhenExpression>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0008e" x="0" y="0" width="44" height="14" fontName="Arial" fontSize="6" hTextAlign="Center" pattern="dd/MM/yyyy" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{tgl}]]></expression>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0008f" x="44" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cutb_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00090" x="79" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cutb_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00091" x="114" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cuto_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00092" x="149" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cuto_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00093" x="184" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{for_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00094" x="219" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{for_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00095" x="254" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{ht_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00096" x="289" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{ht_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00097" x="324" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{mchb_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00098" x="359" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{mchb_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e00099" x="394" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{mcho_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0009a" x="429" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{mcho_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0009b" x="464" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{mpi_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0009c" x="499" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{mpi_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0009d" x="534" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{rol_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0009e" x="569" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{rol_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e0009f" x="604" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{qcb_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000a0" x="639" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{qcb_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000a1" x="674" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{qcw_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000a2" x="709" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{qcw_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000a3" x="744" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{qco_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000a4" x="779" y="0" width="35" height="14" fontName="Arial" fontSize="6" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{qco_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+		<band height="14">
+			<printWhenExpression><![CDATA["CUTTING_FAMILY".equals($P{p_view})]]></printWhenExpression>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000a5" x="0" y="0" width="74" height="14" fontName="Arial" fontSize="8" hTextAlign="Center" pattern="dd/MM/yyyy" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{tgl}]]></expression>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000a6" x="74" y="0" width="74" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cutb_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000a7" x="148" y="0" width="74" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cutb_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000a8" x="222" y="0" width="74" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cfw_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000a9" x="296" y="0" width="74" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cfw_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000aa" x="370" y="0" width="74" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cfn_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000ab" x="444" y="0" width="74" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cfn_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000ac" x="518" y="0" width="74" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cfo_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000ad" x="592" y="0" width="74" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cfo_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000ae" x="666" y="0" width="74" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cfx_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000af" x="740" y="0" width="74" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cfx_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="14">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000b0" x="544" y="0" width="230" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+				
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000b1" x="774" y="0" width="40" height="14" fontName="Arial" fontSize="8" hTextAlign="Left" blankWhenNull="true" vTextAlign="Middle" evaluationTime="Report">
+				<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+				
+			</element>
+	</pageFooter>
+	<summary height="16">
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e000b2" x="0" y="0" width="86" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[TOTAL]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000b3" x="86" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cut_q} == null ? java.math.BigDecimal.ZERO : $V{t_cut_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000b4" x="138" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cut_w} == null ? java.math.BigDecimal.ZERO : $V{t_cut_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000b5" x="190" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_for_q} == null ? java.math.BigDecimal.ZERO : $V{t_for_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000b6" x="242" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_for_w} == null ? java.math.BigDecimal.ZERO : $V{t_for_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000b7" x="294" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_ht_q} == null ? java.math.BigDecimal.ZERO : $V{t_ht_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000b8" x="346" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_ht_w} == null ? java.math.BigDecimal.ZERO : $V{t_ht_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000b9" x="398" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_mch_q} == null ? java.math.BigDecimal.ZERO : $V{t_mch_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000ba" x="450" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_mch_w} == null ? java.math.BigDecimal.ZERO : $V{t_mch_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000bb" x="502" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_mpi_q} == null ? java.math.BigDecimal.ZERO : $V{t_mpi_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000bc" x="554" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_mpi_w} == null ? java.math.BigDecimal.ZERO : $V{t_mpi_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000bd" x="606" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_rol_q} == null ? java.math.BigDecimal.ZERO : $V{t_rol_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000be" x="658" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_rol_w} == null ? java.math.BigDecimal.ZERO : $V{t_rol_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000bf" x="710" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_qc_q} == null ? java.math.BigDecimal.ZERO : $V{t_qc_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000c0" x="762" y="0" width="52" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="7" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_qc_w} == null ? java.math.BigDecimal.ZERO : $V{t_qc_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e000c1" x="0" y="0" width="44" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[TOTAL]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000c2" x="44" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cutb_q} == null ? java.math.BigDecimal.ZERO : $V{t_cutb_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000c3" x="79" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cutb_w} == null ? java.math.BigDecimal.ZERO : $V{t_cutb_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000c4" x="114" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cuto_q} == null ? java.math.BigDecimal.ZERO : $V{t_cuto_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000c5" x="149" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cuto_w} == null ? java.math.BigDecimal.ZERO : $V{t_cuto_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000c6" x="184" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_for_q} == null ? java.math.BigDecimal.ZERO : $V{t_for_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000c7" x="219" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_for_w} == null ? java.math.BigDecimal.ZERO : $V{t_for_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000c8" x="254" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_ht_q} == null ? java.math.BigDecimal.ZERO : $V{t_ht_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000c9" x="289" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_ht_w} == null ? java.math.BigDecimal.ZERO : $V{t_ht_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000ca" x="324" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_mchb_q} == null ? java.math.BigDecimal.ZERO : $V{t_mchb_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000cb" x="359" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_mchb_w} == null ? java.math.BigDecimal.ZERO : $V{t_mchb_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000cc" x="394" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_mcho_q} == null ? java.math.BigDecimal.ZERO : $V{t_mcho_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000cd" x="429" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_mcho_w} == null ? java.math.BigDecimal.ZERO : $V{t_mcho_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000ce" x="464" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_mpi_q} == null ? java.math.BigDecimal.ZERO : $V{t_mpi_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000cf" x="499" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_mpi_w} == null ? java.math.BigDecimal.ZERO : $V{t_mpi_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000d0" x="534" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_rol_q} == null ? java.math.BigDecimal.ZERO : $V{t_rol_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000d1" x="569" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_rol_w} == null ? java.math.BigDecimal.ZERO : $V{t_rol_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000d2" x="604" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_qcb_q} == null ? java.math.BigDecimal.ZERO : $V{t_qcb_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000d3" x="639" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_qcb_w} == null ? java.math.BigDecimal.ZERO : $V{t_qcb_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000d4" x="674" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_qcw_q} == null ? java.math.BigDecimal.ZERO : $V{t_qcw_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000d5" x="709" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_qcw_w} == null ? java.math.BigDecimal.ZERO : $V{t_qcw_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000d6" x="744" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_qco_q} == null ? java.math.BigDecimal.ZERO : $V{t_qco_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000d7" x="779" y="0" width="35" height="16" printWhenExpression="&quot;PROCESS_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="6" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_qco_w} == null ? java.math.BigDecimal.ZERO : $V{t_qco_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000e000d8" x="0" y="0" width="74" height="16" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[TOTAL]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000d9" x="74" y="0" width="74" height="16" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cutb_q} == null ? java.math.BigDecimal.ZERO : $V{t_cutb_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000da" x="148" y="0" width="74" height="16" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cutb_w} == null ? java.math.BigDecimal.ZERO : $V{t_cutb_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000db" x="222" y="0" width="74" height="16" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cfw_q} == null ? java.math.BigDecimal.ZERO : $V{t_cfw_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000dc" x="296" y="0" width="74" height="16" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cfw_w} == null ? java.math.BigDecimal.ZERO : $V{t_cfw_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000dd" x="370" y="0" width="74" height="16" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cfn_q} == null ? java.math.BigDecimal.ZERO : $V{t_cfn_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000de" x="444" y="0" width="74" height="16" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cfn_w} == null ? java.math.BigDecimal.ZERO : $V{t_cfn_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000df" x="518" y="0" width="74" height="16" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cfo_q} == null ? java.math.BigDecimal.ZERO : $V{t_cfo_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000e0" x="592" y="0" width="74" height="16" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cfo_w} == null ? java.math.BigDecimal.ZERO : $V{t_cfo_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000e1" x="666" y="0" width="74" height="16" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cfx_q} == null ? java.math.BigDecimal.ZERO : $V{t_cfx_q}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000e000e2" x="740" y="0" width="74" height="16" printWhenExpression="&quot;CUTTING_FAMILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cfx_w} == null ? java.math.BigDecimal.ZERO : $V{t_cfx_w}]]></expression>
+				<box rightPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+	</summary>
+</jasperReport>

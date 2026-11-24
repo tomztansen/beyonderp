@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Melting Desc / Melting History (Foundry PPC): daftar serial dengan heat, material, catatan, dan tahap sekarang.
+     Pengganti report Crystal Synchro "PPC - Melting Desc" (MeltHistory2.rpt). Parameter OPSIONAL (kosong = semua): p_heat_no (Heat No, mengandung teks), p_stage (tahap sekarang = resource tujuan booking terakhir; 0 = semua; before script mengisi 0 bila kosong). Hanya material Foundry (G%).
+     Sumber GMS: booking terakhir per serial (tdbook) -> order -> msitem; Heat No = thbook.heatno (diisi saat booking melting); Notes = thproductiontag.note (tag); Stage = resourcename booking terakhir.
+     Material = abmengineermaterialid (metal grade); filter ILIKE 'G%' (= Category_Code like 'G%' Synchro). Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_MELTING_DESC" language="java" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="814" whenNoDataType="AllSectionsNoDetail" leftMargin="14" rightMargin="14" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-00000000b100">
+	<parameter name="p_heat_no" class="java.lang.String"/>
+	<parameter name="p_stage" class="java.lang.Object"/>
+	<query language="sql"><![CDATA[WITH last AS (
+  SELECT DISTINCT ON (d.serialid) d.serialid, d.resourcename, d.nextresourceid, d.tsproductionorderid
+    FROM tdbook d WHERE d.serialid IS NOT NULL
+   ORDER BY d.serialid, d.id DESC),
+heat AS (
+  SELECT d.serialid, MAX(NULLIF(hb.heatno, '')) AS heatno
+    FROM tdbook d JOIN thbook hb ON hb.id = d.thbookid
+   WHERE d.serialid IS NOT NULL GROUP BY d.serialid),
+tag AS (
+  SELECT DISTINCT ON (dt.tsproductionserialid) dt.tsproductionserialid AS serialid, t.note AS tagnote
+    FROM tdproductiontag dt JOIN thproductiontag t ON t.id = dt.thproductiontagid
+   ORDER BY dt.tsproductionserialid, dt.id DESC)
+SELECT COALESCE(NULLIF(i.itemcode, ''), i.itemname) AS product_code,
+       s.idno AS serial_no,
+       h.heatno AS heat_no,
+       i.abmengineermaterialid AS material,
+       tg.tagnote AS notes,
+       l.resourcename AS stage
+  FROM last l
+  JOIN tsproductionserial s ON s.id = l.serialid
+  LEFT JOIN heat h ON h.serialid = l.serialid
+  LEFT JOIN tag tg ON tg.serialid = l.serialid
+  LEFT JOIN tsproductionorder o ON o.id = l.tsproductionorderid
+  LEFT JOIN msitem i ON i.id = o.itemid
+ WHERE i.abmengineermaterialid ILIKE 'G%'
+   AND (COALESCE($P{p_heat_no}::text, '') = '' OR h.heatno ILIKE '%' || $P{p_heat_no}::text || '%')
+   AND ($P{p_stage}::bigint = 0 OR l.nextresourceid = $P{p_stage}::bigint)
+ ORDER BY h.heatno, COALESCE(i.itemcode, i.itemname), s.idno]]></query>
+	<field name="product_code" class="java.lang.String"/>
+	<field name="serial_no" class="java.lang.String"/>
+	<field name="heat_no" class="java.lang.String"/>
+	<field name="material" class="java.lang.String"/>
+	<field name="notes" class="java.lang.String"/>
+	<field name="stage" class="java.lang.String"/>
+	<title height="48">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000b101" x="0" y="4" width="300" height="14" fontName="Arial" fontSize="11" bold="true" vTextAlign="Middle">
+			<text><![CDATA[PT. GROWTH ASIA]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000b102" x="614" y="4" width="200" height="12" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="dd/MM/yyyy HH:mm" vTextAlign="Middle">
+			<expression><![CDATA[new java.util.Date()]]></expression>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000b103" x="0" y="24" width="814" height="20" fontName="Arial" fontSize="14" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[MELTING DESC]]></text>
+		</element>
+	</title>
+	<columnHeader height="16">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000b110" x="0" y="0" width="40" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[No.]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000b111" x="40" y="0" width="160" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[PRODUCT CODE]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000b112" x="200" y="0" width="120" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[SERIAL NO]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000b113" x="320" y="0" width="120" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[HEAT NO]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000b114" x="440" y="0" width="100" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[MATERIAL]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000b115" x="540" y="0" width="140" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[NOTES]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000b116" x="680" y="0" width="134" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[STAGE]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="14">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000b120" x="0" y="0" width="40" height="14" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$V{REPORT_COUNT}]]></expression>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000b121" x="40" y="0" width="160" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{product_code}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000b122" x="200" y="0" width="120" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{serial_no}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000b123" x="320" y="0" width="120" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{heat_no}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000b124" x="440" y="0" width="100" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{material}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000b125" x="540" y="0" width="140" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{notes}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000b126" x="680" y="0" width="134" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{stage}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="14">
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000b130" x="0" y="0" width="300" height="14" fontName="Arial" fontSize="8" vTextAlign="Middle">
+			<expression><![CDATA["Total Serial : " + $V{REPORT_COUNT}]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000b131" x="544" y="0" width="230" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" vTextAlign="Middle">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000b132" x="774" y="0" width="40" height="14" fontName="Arial" fontSize="8" evaluationTime="Report" vTextAlign="Middle">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

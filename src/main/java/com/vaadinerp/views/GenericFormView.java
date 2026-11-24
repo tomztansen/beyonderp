@@ -549,6 +549,14 @@ public class GenericFormView extends VerticalLayout implements HasUrlParameter<S
             // true setelah commit: error sesudahnya BUKAN gagal simpan (lihat catch di bawah).
             final boolean[] committed = { false };
             try {
+                // Save hanya bermakna di tab entri. Di tab daftar form masih kosong (belum Add/Edit): memprosesnya
+                // memunculkan error "field wajib" palsu, dan form tanpa field wajib bisa menyimpan baris kosong.
+                if (tabSheet.getSelectedTab() != transaksiTab) {
+                    Notification.show("⚠️ Press Add, or select a record and press Edit, before saving.", 4000,
+                            Notification.Position.MIDDLE)
+                            .addThemeVariants(com.vaadin.flow.component.notification.NotificationVariant.LUMO_ERROR);
+                    return;
+                }
                 boolean binderOk = formBinder.validate().isOk();
                 boolean requiredOk = true;
 

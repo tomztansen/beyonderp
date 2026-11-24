@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Laporan Casting (Foundry): hasil booking di resource Melting per periode, dikelompokkan menurut p_group_by (FAMILY | METAL_GRADE | ITEM | ALL).
+     Pengganti 5 report Crystal Synchro (Casting1-5). Sumber: thbook/tdbook di resource Melting (mhresource.msresourcegroupid 1253), item dari tsproductionorder,
+     Family = msitem.salescategoryid (form PROD_CAT), Metal Grade = msitem.abmengineermaterialid, berat satuan = msmethod.estnetweight (= Spare19 Synchro).
+     Beda dengan report lama (sengaja): tanpa join Job_Index, Qty = jumlah tdbook.qty (Rubber tanpa serial ikut), rata-rata berat = total / qty berbobot.
+     Report Runner: p_from_date, p_to_date (datetime, inklusif), p_group_by. Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_CASTING" language="java" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="814" whenNoDataType="AllSectionsNoDetail" leftMargin="14" rightMargin="14" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-000000000a00">
+	<parameter name="p_from_date" class="java.time.LocalDate"/>
+	<parameter name="p_to_date" class="java.time.LocalDate"/>
+	<parameter name="p_group_by" class="java.lang.String"/>
+	<query language="sql"><![CDATA[SELECT CASE WHEN $P{p_group_by}::text IN ('FAMILY', 'ALL') THEN COALESCE(sc.name, '-') END AS family,
+       CASE WHEN $P{p_group_by}::text IN ('METAL_GRADE', 'ALL') THEN COALESCE(NULLIF(i.abmengineermaterialid, ''), '-') END AS metal_grade,
+       CASE WHEN $P{p_group_by}::text IN ('ITEM', 'ALL') THEN COALESCE(i.itemcode, '-') END AS item_id,
+       SUM(d.qty)::numeric AS qty,
+       SUM(CASE WHEN w.estnetweight IS NOT NULL THEN d.qty END)::numeric AS qty_w,
+       SUM(d.qty * w.estnetweight)::numeric AS total
+  FROM thbook a
+  JOIN mhresource b ON a.resourceid = b."id"
+  JOIN mdlookup c ON c."id" = b.msresourceid
+  JOIN tdbook d ON d.thbookid = a."id"
+  LEFT JOIN tsproductionorder e ON d.tsproductionorderid = e."id"
+  LEFT JOIN msitem i ON e.itemid = i."id"
+  LEFT JOIN mdlookup sc ON sc."id" = i.salescategoryid
+  -- berat satuan: satu nilai per item (metode terbaru yang berat netonya terisi), sama seperti report Handover
+  LEFT JOIN LATERAL (SELECT m.estnetweight FROM msmethod m
+                      WHERE m.itemid = i."id" AND m.estnetweight IS NOT NULL
+                      ORDER BY m."id" DESC LIMIT 1) w ON true
+ WHERE b.msresourcegroupid = 1253
+   AND c.name ILIKE '%melt%'
+   AND (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date BETWEEN $P{p_from_date} AND $P{p_to_date}
+ GROUP BY 1, 2, 3
+ ORDER BY 1, 2, 3]]></query>
+	<field name="family" class="java.lang.String"/>
+	<field name="metal_grade" class="java.lang.String"/>
+	<field name="item_id" class="java.lang.String"/>
+	<field name="qty" class="java.math.BigDecimal"/>
+	<field name="qty_w" class="java.math.BigDecimal"/>
+	<field name="total" class="java.math.BigDecimal"/>
+	<variable name="sum_qty" class="java.math.BigDecimal" calculation="Sum">
+		<expression><![CDATA[$F{qty}]]></expression>
+	</variable>
+	<variable name="sum_qty_w" class="java.math.BigDecimal" calculation="Sum">
+		<expression><![CDATA[$F{qty_w}]]></expression>
+	</variable>
+	<variable name="sum_total" class="java.math.BigDecimal" calculation="Sum">
+		<expression><![CDATA[$F{total}]]></expression>
+	</variable>
+	<pageHeader height="78">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000a01" x="0" y="0" width="300" height="18" fontName="Arial" fontSize="11" bold="true" vTextAlign="Middle">
+			<text><![CDATA[PT. GROWTH ASIA]]></text>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000a02" x="0" y="26" width="814" height="18" fontName="Arial" fontSize="12" bold="true" underline="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[CASTING REPORT]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a03" x="0" y="48" width="814" height="13" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA["Period : " + (($P{p_from_date} == null || $P{p_to_date} == null) ? "" : $P{p_from_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " s/d " + $P{p_to_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")))]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a04" x="0" y="61" width="814" height="13" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA["Group By : " + ("FAMILY".equals($P{p_group_by}) ? "Family" : "METAL_GRADE".equals($P{p_group_by}) ? "Metal Grade" : "ITEM".equals($P{p_group_by}) ? "Item ID" : "Family, Metal Grade, Item ID")]]></expression>
+		</element>
+	</pageHeader>
+	<columnHeader height="22">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000a10" x="0" y="0" width="30" height="22" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[NO]]></text>
+			<box><pen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000a11" x="30" y="0" width="220" height="22" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[FAMILY]]></text>
+			<box><pen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000a12" x="250" y="0" width="110" height="22" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[METAL GRADE]]></text>
+			<box><pen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000a13" x="360" y="0" width="200" height="22" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[ITEM ID]]></text>
+			<box><pen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000a14" x="560" y="0" width="70" height="22" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[QTY]]></text>
+			<box><pen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000a15" x="630" y="0" width="90" height="22" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[AVERAGE @PCS]]></text>
+			<box><pen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000a16" x="720" y="0" width="94" height="22" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TOTAL]]></text>
+			<box><pen lineWidth="0.75"/></box>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="16">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a20" x="0" y="0" width="30" height="16" fontName="Arial" fontSize="8" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$V{REPORT_COUNT}]]></expression>
+				<box><pen lineWidth="0.5"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a21" x="30" y="0" width="220" height="16" fontName="Arial" fontSize="8" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{family}]]></expression>
+				<box leftPadding="3"><pen lineWidth="0.5"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a22" x="250" y="0" width="110" height="16" fontName="Arial" fontSize="8" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{metal_grade}]]></expression>
+				<box leftPadding="3"><pen lineWidth="0.5"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a23" x="360" y="0" width="200" height="16" fontName="Arial" fontSize="8" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{item_id}]]></expression>
+				<box leftPadding="3"><pen lineWidth="0.5"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a24" x="560" y="0" width="70" height="16" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{qty}]]></expression>
+				<box rightPadding="3"><pen lineWidth="0.5"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a25" x="630" y="0" width="90" height="16" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[($F{qty_w} == null || $F{qty_w}.signum() == 0) ? null : $F{total}.divide($F{qty_w}, 2, java.math.RoundingMode.HALF_UP)]]></expression>
+				<box rightPadding="3"><pen lineWidth="0.5"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a26" x="720" y="0" width="94" height="16" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{total}]]></expression>
+				<box rightPadding="3"><pen lineWidth="0.5"/></box>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="15">
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a30" x="320" y="0" width="80" height="15" fontName="Arial" fontSize="9" hTextAlign="Right" vTextAlign="Middle">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a31" x="400" y="0" width="40" height="15" fontName="Arial" fontSize="9" evaluationTime="Report" vTextAlign="Middle">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a32" x="656" y="0" width="158" height="15" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="EEE, d MMM yyyy HH:mm:ss" vTextAlign="Middle">
+			<expression><![CDATA[new java.util.Date()]]></expression>
+		</element>
+	</pageFooter>
+	<summary height="20">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000000a40" x="0" y="0" width="560" height="20" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" vTextAlign="Middle">
+			<text><![CDATA[Grand Total :  ]]></text>
+			<box><pen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a41" x="560" y="0" width="70" height="20" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{sum_qty}]]></expression>
+			<box rightPadding="3"><pen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a42" x="630" y="0" width="90" height="20" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[($V{sum_qty_w} == null || $V{sum_qty_w}.signum() == 0) ? null : $V{sum_total}.divide($V{sum_qty_w}, 2, java.math.RoundingMode.HALF_UP)]]></expression>
+			<box rightPadding="3"><pen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000000a43" x="720" y="0" width="94" height="20" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{sum_total}]]></expression>
+			<box rightPadding="3"><pen lineWidth="0.75"/></box>
+		</element>
+	</summary>
+</jasperReport>

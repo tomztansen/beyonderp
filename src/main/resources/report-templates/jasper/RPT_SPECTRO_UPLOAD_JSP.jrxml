@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Spectro Upload Report (Foundry QC): hasil uji kimia per heat. Satu report, parameter p_view (DETAIL | SUMMARY).
+     Pengganti 2 report Crystal Synchro: SpectroUpload.rpt (FUR - Detail Upload Spectro) & SpectroUploadSum.rpt (FUR - Summary Upload Spectro).
+     DETAIL = satu baris per elemen kimia + Material; SUMMARY = satu baris per heat + Pouring Temp. Dikelompokkan per Heat ID.
+     Sumber GMS: dynamic.msspectro (Synchro: BATC_Batch + MATE_Property + MATE_Prop_Chem; filter lama Imported=-1 tidak ada padanannya di msspectro).
+     Test By = inputby, Test Date = batchdate, Material = materialcode, Pouring Temp = temperature. Rentang tanggal batchdate (WIB), inklusif.
+     Report Runner: p_view, p_from_date, p_to_date. Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_SPECTRO_UPLOAD" language="java" pageWidth="595" pageHeight="842" columnWidth="571" whenNoDataType="AllSectionsNoDetail" leftMargin="12" rightMargin="12" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-0000000000c0">
+	<parameter name="p_view" class="java.lang.String"/>
+	<parameter name="p_from_date" class="java.time.LocalDate"/>
+	<parameter name="p_to_date" class="java.time.LocalDate"/>
+	<query language="sql"><![CDATA[SELECT batchid,
+       NULLIF(inputby, '') AS test_by,
+       batchdate,
+       materialcode,
+       temperature,
+       element,
+       result
+  FROM msspectro
+ WHERE (batchdate AT TIME ZONE 'Asia/Jakarta')::date
+       BETWEEN $P{p_from_date} AND $P{p_to_date}
+ ORDER BY batchid, sequence]]></query>
+	<field name="batchid" class="java.lang.String"/>
+	<field name="test_by" class="java.lang.String"/>
+	<field name="batchdate" class="java.sql.Timestamp"/>
+	<field name="materialcode" class="java.lang.String"/>
+	<field name="temperature" class="java.lang.Integer"/>
+	<field name="element" class="java.lang.String"/>
+	<field name="result" class="java.math.BigDecimal"/>
+	<variable name="heat_count" class="java.lang.Integer" incrementType="Group" incrementGroup="g_heat" calculation="Count">
+		<expression><![CDATA[$F{batchid}]]></expression>
+	</variable>
+	<group name="g_heat">
+		<expression><![CDATA[$F{batchid}]]></expression>
+		<groupHeader>
+			<band height="14">
+				<!-- DETAIL: baris sub-judul heat (Heat ID, Test By, Test Date, Material); kolom Element/Result diisi band detail -->
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000d1" x="0" y="0" width="118" height="14" printWhenExpression="&quot;DETAIL&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" blankWhenNull="true" vTextAlign="Middle">
+					<expression><![CDATA[$F{batchid}]]></expression>
+					<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+				</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000d2" x="118" y="0" width="92" height="14" printWhenExpression="&quot;DETAIL&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+					<expression><![CDATA[$F{test_by}]]></expression>
+					<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+				</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000d3" x="210" y="0" width="118" height="14" printWhenExpression="&quot;DETAIL&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" pattern="dd/MM/yyyy HH:mm" blankWhenNull="true" vTextAlign="Middle">
+					<expression><![CDATA[$F{batchdate}]]></expression>
+					<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+				</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000d4" x="328" y="0" width="92" height="14" printWhenExpression="&quot;DETAIL&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" blankWhenNull="true" vTextAlign="Middle">
+					<expression><![CDATA[$F{materialcode}]]></expression>
+					<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+				</element>
+				<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000d5" x="420" y="0" width="84" height="14" printWhenExpression="&quot;DETAIL&quot;.equals($P{p_view})" fontName="Arial" fontSize="9">
+					<text><![CDATA[]]></text>
+					<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+				</element>
+				<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000d6" x="504" y="0" width="67" height="14" printWhenExpression="&quot;DETAIL&quot;.equals($P{p_view})" fontName="Arial" fontSize="9">
+					<text><![CDATA[]]></text>
+					<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+				</element>
+				<!-- SUMMARY: satu baris data per heat (Heat ID, Test By, Test Date, Pouring Temp) -->
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000e1" x="0" y="0" width="150" height="14" printWhenExpression="&quot;SUMMARY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+					<expression><![CDATA[$F{batchid}]]></expression>
+					<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+				</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000e2" x="150" y="0" width="140" height="14" printWhenExpression="&quot;SUMMARY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+					<expression><![CDATA[$F{test_by}]]></expression>
+					<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+				</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000e3" x="290" y="0" width="150" height="14" printWhenExpression="&quot;SUMMARY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" pattern="dd/MM/yyyy HH:mm" blankWhenNull="true" vTextAlign="Middle">
+					<expression><![CDATA[$F{batchdate}]]></expression>
+					<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+				</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000e4" x="440" y="0" width="131" height="14" printWhenExpression="&quot;SUMMARY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+					<expression><![CDATA[$F{temperature}]]></expression>
+					<box rightPadding="6"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+				</element>
+			</band>
+		</groupHeader>
+	</group>
+	<title height="74">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000c1" x="0" y="4" width="200" height="14" fontName="Arial" fontSize="11" bold="true" vTextAlign="Middle">
+			<text><![CDATA[PT. GROWTH ASIA]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000c2" x="371" y="4" width="200" height="12" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="dd/MM/yyyy HH:mm" vTextAlign="Middle">
+			<expression><![CDATA[new java.util.Date()]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000c3" x="0" y="24" width="571" height="20" fontName="Arial" fontSize="14" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA["SPECTRO UPLOAD REPORT - " + ("SUMMARY".equals($P{p_view}) ? "SUMMARY" : "DETAIL")]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000c4" x="0" y="50" width="571" height="13" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA["Period : " + (($P{p_from_date} == null || $P{p_to_date} == null) ? "" : $P{p_from_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " s/d " + $P{p_to_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")))]]></expression>
+		</element>
+	</title>
+	<columnHeader height="16">
+		<!-- DETAIL header -->
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f1" x="0" y="0" width="118" height="16" printWhenExpression="&quot;DETAIL&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[HEAT ID]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f2" x="118" y="0" width="92" height="16" printWhenExpression="&quot;DETAIL&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[TEST BY]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f3" x="210" y="0" width="118" height="16" printWhenExpression="&quot;DETAIL&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[TEST DATE]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f4" x="328" y="0" width="92" height="16" printWhenExpression="&quot;DETAIL&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[MATERIAL]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f5" x="420" y="0" width="84" height="16" printWhenExpression="&quot;DETAIL&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[ELEMENT]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f6" x="504" y="0" width="67" height="16" printWhenExpression="&quot;DETAIL&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[RESULT]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+		</element>
+		<!-- SUMMARY header -->
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f7" x="0" y="0" width="150" height="16" printWhenExpression="&quot;SUMMARY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[HEAT ID]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f8" x="150" y="0" width="140" height="16" printWhenExpression="&quot;SUMMARY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[TEST BY]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f9" x="290" y="0" width="150" height="16" printWhenExpression="&quot;SUMMARY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[TEST DATE]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000fa" x="440" y="0" width="131" height="16" printWhenExpression="&quot;SUMMARY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" vTextAlign="Middle">
+			<text><![CDATA[POURING TEMP]]></text>
+			<box rightPadding="6"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="13">
+			<printWhenExpression><![CDATA["DETAIL".equals($P{p_view})]]></printWhenExpression>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000a1" x="0" y="0" width="118" height="13" fontName="Arial" fontSize="8">
+				<text><![CDATA[]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000a2" x="118" y="0" width="92" height="13" fontName="Arial" fontSize="8">
+				<text><![CDATA[]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000a3" x="210" y="0" width="118" height="13" fontName="Arial" fontSize="8">
+				<text><![CDATA[]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000a4" x="328" y="0" width="92" height="13" fontName="Arial" fontSize="8">
+				<text><![CDATA[]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000a5" x="420" y="0" width="84" height="13" fontName="Arial" fontSize="9" hTextAlign="Center" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{element}]]></expression>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000a6" x="504" y="0" width="67" height="13" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.####" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{result}]]></expression>
+				<box rightPadding="6"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="14">
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000c5" x="0" y="0" width="300" height="14" fontName="Arial" fontSize="8" vTextAlign="Middle">
+			<expression><![CDATA["Total Heat : " + ($V{heat_count} == null ? 0 : $V{heat_count})]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000c6" x="301" y="0" width="230" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" vTextAlign="Middle">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000c7" x="531" y="0" width="40" height="14" fontName="Arial" fontSize="8" evaluationTime="Report" vTextAlign="Middle">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

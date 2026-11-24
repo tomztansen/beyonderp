@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- QC - Mismatch Pouring Composition (Foundry): heat yang grade hasil spectro-nya tidak cocok dengan grade material produk (SPK) yang dituang.
+     Pengganti report Crystal Synchro "Laporan Melting Mismatch Composition" (MeltWrong.rpt).
+     Param: p_from_date, p_to_date (DATE, inklusif; tanggal uji spectro, WIB).
+     Sumber GMS: Spectro = msspectro (batchid = heat, materialcode = grade hasil uji, batchdate = tanggal uji; 1 grade & 1 tanggal per heat);
+     heat <-> produk = thbook.heatno (booking melting) -> tdbook.tsproductionorderid -> msitem.abmengineermaterialid (= Category_Code Synchro, "Material SPK");
+     serial = serial di tag booking itu (tdproductiontag). Baris tanpa serial tetap tampil (tag saja).
+     Kesetaraan grade (disamakan = TIDAK dianggap mismatch): nama dinormalkan (spasi dibuang, akhiran MOD dan /HS dibuang) sehingga GAS-06, GAS-06MOD, GAS-06/HS setara
+     dua arah (Synchro hardcode 4 dari 6 pasangan, tidak simetris). Item tanpa grade dilewati (= Specification_Index <= 0 Synchro).
+     Beda dari Synchro: hari terakhir ikut (Synchro: tanggal tanpa jam <= tengah malam). Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_MELT_MISMATCH" language="java" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="814" whenNoDataType="AllSectionsNoDetail" leftMargin="14" rightMargin="14" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-00000000e000">
+	<parameter name="p_from_date" class="java.time.LocalDate"/>
+	<parameter name="p_to_date" class="java.time.LocalDate"/>
+	<query language="sql"><![CDATA[WITH sp AS (
+  SELECT s.batchid, MIN(s.batchdate) AS test_date, MAX(s.materialcode) AS spectro_material
+    FROM msspectro s GROUP BY s.batchid),
+mb AS (
+  SELECT DISTINCT hb.heatno, d.tagid, d.tsproductionorderid
+    FROM thbook hb JOIN tdbook d ON d.thbookid = hb.id
+   WHERE NULLIF(hb.heatno, '') IS NOT NULL)
+SELECT (sp.test_date AT TIME ZONE 'Asia/Jakarta')::date AS test_date,
+       s.idno AS serial_no,
+       t.idno AS tag_no,
+       mb.heatno AS heat_no,
+       COALESCE(NULLIF(i.itemcode, ''), i.itemname) AS product_code,
+       sp.spectro_material AS spectro_material,
+       i.abmengineermaterialid AS spk_material
+  FROM mb
+  JOIN sp ON sp.batchid = mb.heatno
+  JOIN tsproductionorder o ON o.id = mb.tsproductionorderid
+  JOIN msitem i ON i.id = o.itemid
+  LEFT JOIN thproductiontag t ON t.id = mb.tagid
+  LEFT JOIN tdproductiontag dt ON dt.thproductiontagid = t.id
+  LEFT JOIN tsproductionserial s ON s.id = dt.tsproductionserialid
+ WHERE (sp.test_date AT TIME ZONE 'Asia/Jakarta')::date BETWEEN $P{p_from_date} AND $P{p_to_date}
+   AND NULLIF(i.abmengineermaterialid, '') IS NOT NULL
+   AND regexp_replace(upper(replace(sp.spectro_material, ' ', '')), '(MOD|/HS)$', '')
+    <> regexp_replace(upper(replace(i.abmengineermaterialid, ' ', '')), '(MOD|/HS)$', '')
+ ORDER BY mb.heatno DESC, s.idno]]></query>
+	<field name="test_date" class="java.sql.Date"/>
+	<field name="serial_no" class="java.lang.String"/>
+	<field name="tag_no" class="java.lang.String"/>
+	<field name="heat_no" class="java.lang.String"/>
+	<field name="product_code" class="java.lang.String"/>
+	<field name="spectro_material" class="java.lang.String"/>
+	<field name="spk_material" class="java.lang.String"/>
+	<title height="58">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000e017" x="0" y="4" width="300" height="14" fontName="Arial" fontSize="11" bold="true" vTextAlign="Middle">
+			<text><![CDATA[PT. GROWTH ASIA]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000e018" x="614" y="4" width="200" height="12" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="dd/MM/yyyy HH:mm" vTextAlign="Middle">
+			<expression><![CDATA[new java.util.Date()]]></expression>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000e019" x="0" y="22" width="814" height="18" fontName="Arial" fontSize="14" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[QC - MISMATCH POURING COMPOSITION]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000e020" x="0" y="42" width="814" height="12" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA["Period : " + (($P{p_from_date} == null || $P{p_to_date} == null) ? "" : $P{p_from_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " s/d " + $P{p_to_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")))]]></expression>
+		</element>
+	</title>
+	<columnHeader height="16">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000e001" x="0" y="0" width="30" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[NO.]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000e003" x="30" y="0" width="72" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[DATE]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000e005" x="102" y="0" width="90" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[SERIAL NO]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000e007" x="192" y="0" width="80" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[TAG ID]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000e009" x="272" y="0" width="100" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[HEAT NO]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000e011" x="372" y="0" width="140" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[PRODUCT CODE]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000e013" x="512" y="0" width="150" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[SPECTRO MATERIAL]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000e015" x="662" y="0" width="152" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[SPK MATERIAL]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="14">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000e002" x="0" y="0" width="30" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$V{REPORT_COUNT}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000e004" x="30" y="0" width="72" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle" pattern="dd/MM/yyyy">
+				<expression><![CDATA[$F{test_date}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000e006" x="102" y="0" width="90" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{serial_no}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000e008" x="192" y="0" width="80" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{tag_no}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000e010" x="272" y="0" width="100" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{heat_no}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000e012" x="372" y="0" width="140" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{product_code}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000e014" x="512" y="0" width="150" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{spectro_material}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000e016" x="662" y="0" width="152" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{spk_material}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="14">
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000e021" x="544" y="0" width="230" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" vTextAlign="Middle">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000e022" x="774" y="0" width="40" height="14" fontName="Arial" fontSize="8" evaluationTime="Report" vTextAlign="Middle">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+	<summary height="20">
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000e023" x="0" y="4" width="814" height="14" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<expression><![CDATA["Total Mismatch : " + $V{REPORT_COUNT}]]></expression>
+		</element>
+	</summary>
+</jasperReport>

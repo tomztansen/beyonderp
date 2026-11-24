@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- MD - Moulding Production with Detail Box Size (Foundry): per produk, jumlah cetakan (Qty Mould) pada rentang tanggal + daftar slip jack / ukuran box.
+     Pengganti report Crystal Synchro "MD - Moulding Production with Detail Box Size" (Frame1.rpt).
+     Sumber GMS: booking Moulding (thbook/tdbook di resource ILIKE '%Moulding%') -> jumlah pcs; Qty Mould = ceil(pcs / msmethod.pcsperbox).
+     Slip Jack / MB Size = rantai tooling: msitem -> mstooling (pola, msitemid) -> mstoolingbox -> mstooling (slip jack, toolingcode 'SJ-...'). Qty Used = 1 per slip jack.
+     Report Runner: p_from_date, p_to_date (DATE, rentang booking Moulding, inklusif). Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_MD_MOULDING" language="java" pageWidth="595" pageHeight="842" columnWidth="571" whenNoDataType="AllSectionsNoDetail" leftMargin="12" rightMargin="12" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-0000000000f0">
+	<parameter name="p_from_date" class="java.time.LocalDate"/>
+	<parameter name="p_to_date" class="java.time.LocalDate"/>
+	<query language="sql"><![CDATA[WITH moulding AS (
+  SELECT o.itemid, SUM(d.qty) AS pieces
+    FROM thbook a
+    JOIN mhresource b ON b.id = a.resourceid
+    JOIN mdlookup c ON c.id = b.msresourceid AND c.name ILIKE '%Moulding%'
+    JOIN tdbook d ON d.thbookid = a.id
+    JOIN tsproductionorder o ON o.id = d.tsproductionorderid
+   WHERE (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date BETWEEN $P{p_from_date} AND $P{p_to_date}
+   GROUP BY o.itemid)
+SELECT i.itemcode AS product_code,
+       sj.toolingcode AS mb_size,
+       CEIL(m.pieces::numeric / NULLIF(me.pcsperbox, 0)) AS qty_mould,
+       CASE WHEN sj.id IS NULL THEN NULL ELSE 1 END AS qty_used
+  FROM moulding m
+  JOIN msitem i ON i.id = m.itemid
+  LEFT JOIN LATERAL (SELECT mm.pcsperbox FROM msmethod mm
+                      WHERE mm.itemid = i.id AND mm.pcsperbox IS NOT NULL
+                      ORDER BY mm.id DESC LIMIT 1) me ON true
+  LEFT JOIN mstooling p ON p.msitemid = i.id
+  LEFT JOIN mstoolingbox tb ON tb.mstoolingid = p.id
+  LEFT JOIN mstooling sj ON sj.id = tb.boxid
+ ORDER BY i.itemcode, sj.toolingcode]]></query>
+	<field name="product_code" class="java.lang.String"/>
+	<field name="mb_size" class="java.lang.String"/>
+	<field name="qty_mould" class="java.math.BigDecimal"/>
+	<field name="qty_used" class="java.lang.Integer"/>
+	<title height="66">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f1" x="0" y="4" width="200" height="14" fontName="Arial" fontSize="11" bold="true" vTextAlign="Middle">
+			<text><![CDATA[PT. GROWTH ASIA]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000f2" x="371" y="4" width="200" height="12" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="dd/MM/yyyy HH:mm" vTextAlign="Middle">
+			<expression><![CDATA[new java.util.Date()]]></expression>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f3" x="0" y="24" width="571" height="18" fontName="Arial" fontSize="13" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[MOULDING PRODUCTION WITH DETAIL BOX SIZE]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000f4" x="0" y="46" width="571" height="13" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA["Period : " + (($P{p_from_date} == null || $P{p_to_date} == null) ? "" : $P{p_from_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " s/d " + $P{p_to_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")))]]></expression>
+		</element>
+	</title>
+	<columnHeader height="16">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f5" x="0" y="0" width="160" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[PRODUCT CODE]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f6" x="160" y="0" width="200" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[SLIP JACK / MB SIZE]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f7" x="360" y="0" width="110" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" vTextAlign="Middle">
+			<text><![CDATA[QTY MOULD]]></text>
+			<box rightPadding="6"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-0000000000f8" x="470" y="0" width="101" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" vTextAlign="Middle">
+			<text><![CDATA[QTY USED]]></text>
+			<box rightPadding="6"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="14">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000fa" x="0" y="0" width="160" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{product_code}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000fb" x="160" y="0" width="200" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{mb_size}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000fc" x="360" y="0" width="110" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{qty_mould}]]></expression>
+				<box rightPadding="6"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000fd" x="470" y="0" width="101" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{qty_used}]]></expression>
+				<box rightPadding="6"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="14">
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000fe" x="301" y="0" width="230" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" vTextAlign="Middle">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-0000000000ff" x="531" y="0" width="40" height="14" fontName="Arial" fontSize="8" evaluationTime="Report" vTextAlign="Middle">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

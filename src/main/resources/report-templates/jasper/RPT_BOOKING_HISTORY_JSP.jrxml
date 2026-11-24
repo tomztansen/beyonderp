@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PPIC - Booking History (Foundry): daftar booking per proses asal, urut tanggal > produk > serial.
+     Pengganti report Crystal Synchro "PPIC - Booking History" (SumBookingHistory.rpt; BookingHistory.rpt lama = versi tanpa Note/Material).
+     Param: p_from_date, p_to_date (DATE, inklusif), p_process (opsional; id resource asal, 0 = semua; before script mengisi 0 bila kosong).
+     Sumber GMS: thbook/tdbook di resource Foundry (mhresource grup 1253); Book By = thbook.inputby; Job Number = tsproductionorder.idno;
+     Mould ID = Tag ID (thproductiontag.idno, = Lot_Number Synchro) lewat tdbook.tagid atau tag terakhir serial (tdproductiontag);
+     Batch ID = heat/melt number (thbook.heatno booking melting serial); Notes = thproductiontag.note (keputusan Tommy); Material = msitem.abmengineermaterialid.
+     Synchro: judul per proses ("Laporan Booking History : proses asal"), filter proses asal Foundry '01.%'. Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_BOOKING_HISTORY" language="java" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="814" whenNoDataType="AllSectionsNoDetail" leftMargin="14" rightMargin="14" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-00000000f000">
+	<parameter name="p_from_date" class="java.time.LocalDate"/>
+	<parameter name="p_to_date" class="java.time.LocalDate"/>
+	<parameter name="p_process" class="java.lang.Object"/>
+	<query language="sql"><![CDATA[WITH heat AS (
+  SELECT d.serialid, MAX(NULLIF(hb.heatno, '')) AS heatno
+    FROM tdbook d JOIN thbook hb ON hb.id = d.thbookid
+   WHERE d.serialid IS NOT NULL GROUP BY d.serialid),
+tag AS (
+  SELECT DISTINCT ON (dt.tsproductionserialid) dt.tsproductionserialid AS serialid, dt.thproductiontagid
+    FROM tdproductiontag dt
+   ORDER BY dt.tsproductionserialid, dt.id DESC)
+SELECT (a.bookdate AT TIME ZONE 'Asia/Jakarta') AS book_time,
+       c.name AS from_process,
+       COALESCE(NULLIF(i.itemcode, ''), i.itemname) AS product_code,
+       s.idno AS serial_no,
+       a.inputby AS book_by,
+       o.idno AS job_number,
+       t.idno AS tag_id,
+       t.idno AS mould_id,
+       h.heatno AS batch_id,
+       t.note AS notes,
+       i.abmengineermaterialid AS material
+  FROM thbook a
+  JOIN mhresource r ON r.id = a.resourceid AND r.msresourcegroupid = 1253
+  JOIN mdlookup c ON c.id = r.msresourceid
+  JOIN tdbook d ON d.thbookid = a.id
+  LEFT JOIN tsproductionorder o ON o.id = d.tsproductionorderid
+  LEFT JOIN msitem i ON i.id = o.itemid
+  LEFT JOIN tsproductionserial s ON s.id = d.serialid
+  LEFT JOIN heat h ON h.serialid = d.serialid
+  LEFT JOIN tag tg ON tg.serialid = d.serialid
+  LEFT JOIN thproductiontag t ON t.id = COALESCE(d.tagid, tg.thproductiontagid)
+ WHERE (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date BETWEEN $P{p_from_date} AND $P{p_to_date}
+   AND ($P{p_process}::bigint = 0 OR r.msresourceid = $P{p_process}::bigint)
+ ORDER BY c.name, a.bookdate, COALESCE(i.itemcode, i.itemname), s.idno]]></query>
+	<field name="book_time" class="java.sql.Timestamp"/>
+	<field name="from_process" class="java.lang.String"/>
+	<field name="product_code" class="java.lang.String"/>
+	<field name="serial_no" class="java.lang.String"/>
+	<field name="book_by" class="java.lang.String"/>
+	<field name="job_number" class="java.lang.String"/>
+	<field name="tag_id" class="java.lang.String"/>
+	<field name="mould_id" class="java.lang.String"/>
+	<field name="batch_id" class="java.lang.String"/>
+	<field name="notes" class="java.lang.String"/>
+	<field name="material" class="java.lang.String"/>
+	<variable name="grp_count" class="java.lang.Integer" resetType="Group" resetGroup="g_stage" calculation="Count"><expression><![CDATA[$F{book_time}]]></expression></variable>
+	<group name="g_stage">
+		<expression><![CDATA[$F{from_process}]]></expression>
+		<groupHeader>
+			<band height="20">
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f023" x="0" y="2" width="814" height="16" mode="Opaque" backcolor="#E6E6E6" fontName="Arial" fontSize="10" bold="true" vTextAlign="Middle">
+					<expression><![CDATA["Booking History : " + $F{from_process}]]></expression>
+					<box leftPadding="4"><pen lineWidth="0.75"/></box>
+				</element>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="18">
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f024" x="0" y="2" width="814" height="14" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+					<expression><![CDATA["Total Records : " + $V{grp_count}]]></expression>
+				</element>
+			</band>
+		</groupFooter>
+	</group>
+	<title height="58">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f025" x="0" y="4" width="300" height="14" fontName="Arial" fontSize="11" bold="true" vTextAlign="Middle">
+			<text><![CDATA[PT. GROWTH ASIA]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f026" x="614" y="4" width="200" height="12" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="dd/MM/yyyy HH:mm" vTextAlign="Middle">
+			<expression><![CDATA[new java.util.Date()]]></expression>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f027" x="0" y="22" width="814" height="18" fontName="Arial" fontSize="14" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[PPIC - BOOKING HISTORY]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f028" x="0" y="42" width="814" height="12" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA["Period : " + (($P{p_from_date} == null || $P{p_to_date} == null) ? "" : $P{p_from_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " s/d " + $P{p_to_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")))]]></expression>
+		</element>
+	</title>
+	<columnHeader height="16">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f001" x="0" y="0" width="30" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[NO.]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f003" x="30" y="0" width="72" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[DATE]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f005" x="102" y="0" width="110" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[PRODUCT CODE]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f007" x="212" y="0" width="80" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[SERIAL NO]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f009" x="292" y="0" width="72" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[BOOK BY]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f011" x="364" y="0" width="88" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[JOB NUMBER]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f013" x="452" y="0" width="70" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[TAG ID]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f015" x="522" y="0" width="70" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[MOULD ID]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f017" x="592" y="0" width="70" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[BATCH ID]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f019" x="662" y="0" width="90" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[NOTES]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f021" x="752" y="0" width="62" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[MATERIAL]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="14">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f002" x="0" y="0" width="30" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$V{grp_count}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f004" x="30" y="0" width="72" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle" pattern="dd/MM/yyyy">
+				<expression><![CDATA[$F{book_time}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f006" x="102" y="0" width="110" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{product_code}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f008" x="212" y="0" width="80" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{serial_no}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f010" x="292" y="0" width="72" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{book_by}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f012" x="364" y="0" width="88" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{job_number}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f014" x="452" y="0" width="70" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{tag_id}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f016" x="522" y="0" width="70" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{mould_id}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f018" x="592" y="0" width="70" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{batch_id}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f020" x="662" y="0" width="90" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{notes}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f022" x="752" y="0" width="62" height="14" fontName="Arial" fontSize="9" blankWhenNull="true" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{material}]]></expression>
+				<box leftPadding="3"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="14">
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f029" x="544" y="0" width="230" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" vTextAlign="Middle">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f030" x="774" y="0" width="40" height="14" fontName="Arial" fontSize="8" evaluationTime="Report" vTextAlign="Middle">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Rubber - Production Summary Output (GENERATED oleh gen_rub_summary.py): pengganti 3 report Crystal Synchro Rubber:
+     rb-daily.rpt (Summary Production Output - Daily) = tampilan PROCESS, rb-daily2.rpt (... - Daily - Weight) = tampilan DAILY (pivot), sumRub.rpt (Summary Report) = tampilan MONTHLY.
+     Aturan berat (keputusan Tommy): Nett Weight = qty x msmethod.netweight (aktual); Product Weight = qty x tdbook.productweight; Blank Weight = qty x qty bahan RP-% pada BOM Rubber produk (mdbom.qty, mhbom resourcegroup 1255);
+     Gross (hanya MONTHLY) = qty x msmethod.grossweight. Metal Weight tidak ada aturannya -> tidak ditampilkan. Tahap: booking di resource Rubber (grup 1255), DAILY: Extrusion (=Extruder) & Compression Moulding (=Press);
+     MONTHLY: Compression Moulding + Autoclave (kecuali p_process diisi). Metal Making/Method/Metal Preparation tidak ada di GMS. p_subcon INCLUDE|EXCLUDE (thbook.issubcon).
+     Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_RUB_SUMMARY" language="java" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="814" whenNoDataType="AllSectionsNoDetail" leftMargin="14" rightMargin="14" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-0000000000bb">
+	<parameter name="p_from_date" class="java.time.LocalDate"/>
+	<parameter name="p_to_date" class="java.time.LocalDate"/>
+	<parameter name="p_view" class="java.lang.String"/>
+	<parameter name="p_process" class="java.lang.Object"/>
+	<parameter name="p_subcon" class="java.lang.String"/>
+	<query language="sql"><![CDATA[WITH bk AS (
+  SELECT (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date AS dt, r.msresourceid AS resid, c.name AS resname,
+         d.qty AS qty,
+         d.qty * COALESCE(m.netweight, 0) AS nett,
+         d.qty * COALESCE(m.grossweight, 0) AS gross,
+         d.qty * COALESCE(d.productweight, 0) AS prod,
+         d.qty * COALESCE(bl.rubberqty, 0) AS blank
+    FROM thbook a
+    JOIN mhresource r ON r.id = a.resourceid AND r.msresourcegroupid = 1255
+    JOIN mdlookup c ON c.id = r.msresourceid
+    JOIN tdbook d ON d.thbookid = a.id
+    LEFT JOIN tsproductionorder o ON o.id = d.tsproductionorderid
+    -- berat nett/gross AKTUAL (Nett_Weight/Gross_Weight Synchro) dari metode terbaru yg netweight terisi
+    LEFT JOIN LATERAL (SELECT x.netweight, x.grossweight FROM msmethod x
+                        WHERE x.itemid = o.itemid AND x.netweight IS NOT NULL ORDER BY x.id DESC LIMIT 1) m ON true
+    -- Blank Weight: qty bahan RP-% pada BOM Rubber produk (mdbom.qty, mhbom divisi Rubber)
+    LEFT JOIN LATERAL (SELECT SUM(bd.qty) AS rubberqty FROM mhbom bh
+                         JOIN mdbom bd ON bd.mhbomid = bh.id
+                         JOIN msitem bm ON bm.id = bd.materialid AND bm.itemcode LIKE 'RP-%'
+                        WHERE bh.itemid = o.itemid AND bh.resourcegroup = 1255) bl ON true
+   WHERE (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date BETWEEN $P{p_from_date} AND $P{p_to_date}
+     AND ($P{p_process}::bigint = 0 OR r.msresourceid = $P{p_process}::bigint)
+     AND ($P{p_subcon}::text = 'INCLUDE' OR COALESCE(a.issubcon, false) = false)),
+days AS (SELECT d::date AS dt FROM generate_series($P{p_from_date}::timestamp, $P{p_to_date}::timestamp, interval '1 day') d)
+SELECT 1 AS ord, dt AS d1, to_char(dt, 'YYYY-MM-DD') AS lbl, resname AS lbl2, SUM(qty) AS qty, SUM(nett) AS nett, SUM(prod) AS prod, SUM(blank) AS blank, SUM(gross) AS gross,
+       NULL::numeric AS ep, NULL::numeric AS en, NULL::numeric AS eb, NULL::numeric AS cp, NULL::numeric AS cn, NULL::numeric AS cb
+  FROM bk WHERE $P{p_view}::text = 'PROCESS' GROUP BY dt, resname
+UNION ALL
+SELECT 2, days.dt, to_char(days.dt, 'YYYY-MM-DD'), NULL, NULL, NULL, NULL, NULL, NULL,
+       COALESCE(SUM(bk.prod) FILTER (WHERE bk.resname ILIKE '%Extrusion%'), 0), COALESCE(SUM(bk.nett) FILTER (WHERE bk.resname ILIKE '%Extrusion%'), 0), COALESCE(SUM(bk.blank) FILTER (WHERE bk.resname ILIKE '%Extrusion%'), 0),
+       COALESCE(SUM(bk.prod) FILTER (WHERE bk.resname ILIKE '%Compression%'), 0), COALESCE(SUM(bk.nett) FILTER (WHERE bk.resname ILIKE '%Compression%'), 0), COALESCE(SUM(bk.blank) FILTER (WHERE bk.resname ILIKE '%Compression%'), 0)
+  FROM days LEFT JOIN bk ON bk.dt = days.dt WHERE $P{p_view}::text = 'DAILY' GROUP BY days.dt
+UNION ALL
+SELECT 3, NULL::date, to_char(dt, 'YYYY-MM'), NULL, SUM(qty), SUM(nett), SUM(prod), SUM(blank), SUM(gross),
+       NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric
+  FROM bk WHERE $P{p_view}::text = 'MONTHLY' AND ($P{p_process}::bigint <> 0 OR resname ILIKE '%Compression%' OR resname ILIKE '%Autoclave%')
+ GROUP BY to_char(dt, 'YYYY-MM')
+ ORDER BY 1, 2, 3, 4]]></query>
+	<field name="ord" class="java.lang.Integer"/>
+	<field name="d1" class="java.sql.Date"/>
+	<field name="lbl" class="java.lang.String"/>
+	<field name="lbl2" class="java.lang.String"/>
+	<field name="qty" class="java.math.BigDecimal"/>
+	<field name="nett" class="java.math.BigDecimal"/>
+	<field name="prod" class="java.math.BigDecimal"/>
+	<field name="blank" class="java.math.BigDecimal"/>
+	<field name="gross" class="java.math.BigDecimal"/>
+	<field name="ep" class="java.math.BigDecimal"/>
+	<field name="en" class="java.math.BigDecimal"/>
+	<field name="eb" class="java.math.BigDecimal"/>
+	<field name="cp" class="java.math.BigDecimal"/>
+	<field name="cn" class="java.math.BigDecimal"/>
+	<field name="cb" class="java.math.BigDecimal"/>
+	<variable name="t_qty" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{qty}]]></expression></variable>
+	<variable name="t_nett" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{nett}]]></expression></variable>
+	<variable name="t_prod" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{prod}]]></expression></variable>
+	<variable name="t_blank" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{blank}]]></expression></variable>
+	<variable name="t_gross" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{gross}]]></expression></variable>
+	<variable name="t_ep" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{ep}]]></expression></variable>
+	<variable name="t_en" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{en}]]></expression></variable>
+	<variable name="t_eb" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{eb}]]></expression></variable>
+	<variable name="t_cp" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cp}]]></expression></variable>
+	<variable name="t_cn" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cn}]]></expression></variable>
+	<variable name="t_cb" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{cb}]]></expression></variable>
+	<title height="60">
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10001" x="0" y="4" width="300" height="14" fontName="Arial" fontSize="11" bold="true" hTextAlign="Left" vTextAlign="Middle">
+				<text><![CDATA[PT. GROWTH ASIA]]></text>
+				
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10002" x="614" y="4" width="200" height="12" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="dd/MM/yyyy HH:mm" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[new java.util.Date()]]></expression>
+				
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10003" x="0" y="22" width="814" height="18" fontName="Arial" fontSize="13" bold="true" hTextAlign="Center" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA["RUBBER - PRODUCTION SUMMARY OUTPUT (" + ("DAILY".equals($P{p_view}) ? "DAILY PIVOT" : "MONTHLY".equals($P{p_view}) ? "MONTHLY" : "BY PROCESS") + ")"]]></expression>
+				
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10004" x="0" y="43" width="814" height="13" fontName="Arial" fontSize="9" hTextAlign="Center" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA["Period : " + $P{p_from_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " s/d " + $P{p_to_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + "     Subcon : " + ("INCLUDE".equals($P{p_subcon}) ? "Included" : "Excluded")]]></expression>
+				
+			</element>
+	</title>
+	<columnHeader height="26">
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10005" x="0" y="0" width="80" height="26" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[DATE]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10006" x="80" y="0" width="258" height="26" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[PROCESS]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10007" x="338" y="0" width="119" height="26" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10008" x="457" y="0" width="119" height="26" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NETT WEIGHT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10009" x="576" y="0" width="119" height="26" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[PRODUCT WEIGHT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c1000a" x="695" y="0" width="119" height="26" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[BLANK WEIGHT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c1000b" x="0" y="0" width="76" height="26" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[DATE]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c1000c" x="76" y="0" width="123" height="26" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[EXTRUSION - PRODUCT WT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c1000d" x="199" y="0" width="123" height="26" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[EXTRUSION - NETT WT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c1000e" x="322" y="0" width="123" height="26" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[EXTRUSION - BLANK WT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c1000f" x="445" y="0" width="123" height="26" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[COMPRESSION - PRODUCT WT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10010" x="568" y="0" width="123" height="26" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[COMPRESSION - NETT WT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10011" x="691" y="0" width="123" height="26" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="8" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[COMPRESSION - BLANK WT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10012" x="0" y="0" width="214" height="26" printWhenExpression="&quot;MONTHLY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[MONTH]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10013" x="214" y="0" width="200" height="26" printWhenExpression="&quot;MONTHLY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[QTY]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10014" x="414" y="0" width="200" height="26" printWhenExpression="&quot;MONTHLY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[NETT WEIGHT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10015" x="614" y="0" width="200" height="26" printWhenExpression="&quot;MONTHLY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[GROSS WEIGHT]]></text>
+				<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+	</columnHeader>
+	<detail>
+		<band height="14">
+			<printWhenExpression><![CDATA["PROCESS".equals($P{p_view})]]></printWhenExpression>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10016" x="0" y="0" width="80" height="14" fontName="Arial" fontSize="9" hTextAlign="Center" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{lbl}]]></expression>
+				<box leftPadding="4"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10017" x="80" y="0" width="258" height="14" fontName="Arial" fontSize="9" hTextAlign="Left" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{lbl2}]]></expression>
+				<box leftPadding="4"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10018" x="338" y="0" width="119" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{qty}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10019" x="457" y="0" width="119" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{nett}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c1001a" x="576" y="0" width="119" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{prod}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c1001b" x="695" y="0" width="119" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{blank}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+		<band height="14">
+			<printWhenExpression><![CDATA["DAILY".equals($P{p_view})]]></printWhenExpression>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c1001c" x="0" y="0" width="76" height="14" fontName="Arial" fontSize="9" hTextAlign="Center" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{lbl}]]></expression>
+				<box leftPadding="4"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c1001d" x="76" y="0" width="123" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{ep}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c1001e" x="199" y="0" width="123" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{en}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c1001f" x="322" y="0" width="123" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{eb}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10020" x="445" y="0" width="123" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cp}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10021" x="568" y="0" width="123" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cn}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10022" x="691" y="0" width="123" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{cb}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+		<band height="14">
+			<printWhenExpression><![CDATA["MONTHLY".equals($P{p_view})]]></printWhenExpression>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10023" x="0" y="0" width="214" height="14" fontName="Arial" fontSize="9" hTextAlign="Center" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{lbl}]]></expression>
+				<box leftPadding="4"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10024" x="214" y="0" width="200" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{qty}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10025" x="414" y="0" width="200" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{nett}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10026" x="614" y="0" width="200" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$F{gross}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="14">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10027" x="544" y="0" width="230" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+				
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10028" x="774" y="0" width="40" height="14" fontName="Arial" fontSize="8" hTextAlign="Left" blankWhenNull="true" vTextAlign="Middle" evaluationTime="Report">
+				<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+				
+			</element>
+	</pageFooter>
+	<summary height="16">
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10029" x="0" y="0" width="80" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[TOTAL]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c1002a" x="80" y="0" width="258" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c1002b" x="338" y="0" width="119" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_qty} == null ? java.math.BigDecimal.ZERO : $V{t_qty}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c1002c" x="457" y="0" width="119" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_nett} == null ? java.math.BigDecimal.ZERO : $V{t_nett}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c1002d" x="576" y="0" width="119" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_prod} == null ? java.math.BigDecimal.ZERO : $V{t_prod}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c1002e" x="695" y="0" width="119" height="16" printWhenExpression="&quot;PROCESS&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_blank} == null ? java.math.BigDecimal.ZERO : $V{t_blank}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c1002f" x="0" y="0" width="76" height="16" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[TOTAL]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10030" x="76" y="0" width="123" height="16" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_ep} == null ? java.math.BigDecimal.ZERO : $V{t_ep}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10031" x="199" y="0" width="123" height="16" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_en} == null ? java.math.BigDecimal.ZERO : $V{t_en}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10032" x="322" y="0" width="123" height="16" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_eb} == null ? java.math.BigDecimal.ZERO : $V{t_eb}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10033" x="445" y="0" width="123" height="16" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cp} == null ? java.math.BigDecimal.ZERO : $V{t_cp}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10034" x="568" y="0" width="123" height="16" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cn} == null ? java.math.BigDecimal.ZERO : $V{t_cn}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10035" x="691" y="0" width="123" height="16" printWhenExpression="&quot;DAILY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_cb} == null ? java.math.BigDecimal.ZERO : $V{t_cb}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-000000c10036" x="0" y="0" width="214" height="16" printWhenExpression="&quot;MONTHLY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+				<text><![CDATA[TOTAL]]></text>
+				<box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10037" x="214" y="0" width="200" height="16" printWhenExpression="&quot;MONTHLY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_qty} == null ? java.math.BigDecimal.ZERO : $V{t_qty}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10038" x="414" y="0" width="200" height="16" printWhenExpression="&quot;MONTHLY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_nett} == null ? java.math.BigDecimal.ZERO : $V{t_nett}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-000000c10039" x="614" y="0" width="200" height="16" printWhenExpression="&quot;MONTHLY&quot;.equals($P{p_view})" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+				<expression><![CDATA[$V{t_gross} == null ? java.math.BigDecimal.ZERO : $V{t_gross}]]></expression>
+				<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+	</summary>
+</jasperReport>

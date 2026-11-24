@@ -22,6 +22,8 @@ import com.vaadinerp.report.*;
 import com.vaadinerp.service.DynamicDataService;
 import com.vaadinerp.security.service.SessionSecurityService;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -40,6 +42,9 @@ public class ReportRunnerView extends VerticalLayout {
     private final VerticalLayout selectionPanel = new VerticalLayout();
 
     private ReportParameterForm paramForm;
+
+    /** Cache username (huruf kecil) -> nama lengkap untuk info audit katalog; dimuat sekali, disegarkan lewat tombol Refresh. */
+    private Map<String, String> userNames;
 
     public ReportRunnerView(ReportMetaRepository reportMetaRepository,
                             ReportAccessService reportAccessService,
@@ -66,7 +71,10 @@ public class ReportRunnerView extends VerticalLayout {
         H4 header = new H4("Reports");
         header.getStyle().set("margin", "0").set("flex-grow", "1");
 
-        SafeButton refreshBtn = new SafeButton(VaadinIcon.REFRESH.create(), e -> rebuildCatalog(searchField.getValue()));
+        SafeButton refreshBtn = new SafeButton(VaadinIcon.REFRESH.create(), e -> {
+            userNames = null; // nama pengguna dimuat ulang bersama katalog
+            rebuildCatalog(searchField.getValue());
+        });
         refreshBtn.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
         refreshBtn.getElement().setAttribute("title", "Refresh report list");
 
@@ -80,6 +88,9 @@ public class ReportRunnerView extends VerticalLayout {
 
         VerticalLayout left = new VerticalLayout(headerRow, searchField, catalog);
         left.setSizeFull();
+        // Judul + info "pengubah · tanggal" butuh ruang: pemisah tidak boleh menyempitkan katalog di bawah ini
+        // (pengguna tetap bisa menggesernya melebar).
+        left.setMinWidth("380px");
         left.getStyle()
                 .set("overflow", "auto")
                 .set("background", "var(--lumo-contrast-5pct)")
@@ -92,7 +103,7 @@ public class ReportRunnerView extends VerticalLayout {
 
         SplitLayout split = new SplitLayout(left, selectionPanel);
         split.setSizeFull();
-        split.setSplitterPosition(24);
+        split.setSplitterPosition(32);
         add(split);
         // CSS Shadow Parts injection — targets button internals inaccessible from Java getStyle()
         UI.getCurrent().getPage().executeJs(
@@ -108,6 +119,52 @@ public class ReportRunnerView extends VerticalLayout {
     private static String displayTitle(ReportMeta r) {
         String t = r.getReportTitle() != null ? r.getReportTitle() : r.getReportCode();
         return t == null ? "" : t;
+    }
+
+    /** Nama lengkap dari app_users; kode pengguna bila tidak ditemukan/kosong atau tabel tak terbaca (katalog tidak boleh gagal karena ini). */
+    private String displayName(String username) {
+        if (userNames == null) {
+            Map<String, String> m = new HashMap<>();
+            try {
+                com.vaadinerp.config.SpringContextHolder.getBean(com.vaadinerp.security.repository.AppUserRepository.class)
+                        .findAll().forEach(u -> {
+                            if (u.getUsername() != null && u.getFullName() != null && !u.getFullName().isBlank())
+                                m.put(u.getUsername().trim().toLowerCase(), u.getFullName().trim());
+                        });
+            } catch (Exception ignored) {
+                // biarkan kosong: tampil kode pengguna
+            }
+            userNames = m;
+        }
+        return userNames.getOrDefault(username.toLowerCase(), username);
+    }
+
+    private static final DateTimeFormatter AUDIT_DATE = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH);
+    private static final DateTimeFormatter AUDIT_FULL = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", Locale.ENGLISH);
+
+    /**
+     * Info "siapa · kapan" di sisi kanan item katalog: pengubah terakhir (updateby/updatedt), atau pembuatnya
+     * (inputby/inputdt) bila report belum pernah diubah. Null bila keduanya kosong, sehingga item tampil seperti semula.
+     */
+    private Span auditHint(ReportMeta r) {
+        boolean updated = r.getUpdateby() != null && !r.getUpdateby().isBlank();
+        String user = updated ? r.getUpdateby().trim()
+                : (r.getInputby() != null && !r.getInputby().isBlank() ? r.getInputby().trim() : null);
+        LocalDateTime when = r.getUpdatedt() != null ? r.getUpdatedt() : r.getInputdt();
+        if (user == null && when == null) return null;
+        String name = user == null ? null : displayName(user);
+        // Tooltip memuat nama + kode pengguna; teks tampil memakai nama saja.
+        String who = name == null ? null : (name.equalsIgnoreCase(user) ? name : name + " (" + user + ")");
+        String text = name == null ? AUDIT_DATE.format(when)
+                : when == null ? name : name + " · " + AUDIT_DATE.format(when);
+        Span s = new Span(text);
+        s.getStyle().set("font-size", "0.75rem").set("color", "#6b7280").set("white-space", "nowrap")
+                .set("max-width", "45%").set("overflow", "hidden").set("text-overflow", "ellipsis")
+                .set("margin-left", "8px");
+        // Tooltip bawaan browser: teks lengkap (nama bisa terpotong titik-titik) beserta jamnya.
+        s.getElement().setAttribute("title", (updated ? "Last updated by " : "Created by ")
+                + (who == null ? "-" : who) + (when == null ? "" : " on " + AUDIT_FULL.format(when)));
+        return s;
     }
 
     private void rebuildCatalog(String search) {
@@ -148,6 +205,9 @@ public class ReportRunnerView extends VerticalLayout {
                 b.setWidthFull();
                 b.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY);
                 b.addClassName("rr-item");
+                b.getElement().setAttribute("title", label); // judul lengkap bila terpotong titik-titik
+                Span audit = auditHint(r);
+                if (audit != null) b.setSuffixComponent(audit);
                 items.add(b);
             }
             acc.add(e.getKey() + " (" + e.getValue().size() + ")", items);

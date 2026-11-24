@@ -7,9 +7,9 @@
      Rumus Cost Summary: Production = Material + Process + Factory OH; Del & Gam = Office OH + Transport; Total = Production + Del & Gam;
      Technical/Commercial Risk = Total x persen; Sugt Selling Prc = (Total + risiko) / (1 - Margin% - Commission%); Commission = Sugt x persen.
      Process Cost / Factory OH / Office OH memakai jam per pcs (routinghour / perseries), sama dengan form ALL_EST.
-     Utility Cost = routinghour x utilityrate / perseries (sama dengan ALL_EST_ROUTE_DET). Transport Cost = transportcost x netweight / 1000
-     (= kolom totaltransportcost di ALL_EST). Prepared by: nama + tanda tangan (user_signature) pembuat estimasi (inputby).
-     Qty BOM = qtybom / perseries (per pcs), jadi Qty x @price = Cost.
+     Utility Cost = routinghour x utilityrate / perseries (sama dengan ALL_EST_ROUTE_DET). Transport Cost = transportcost x estnetweight / 1000
+     (Est. Net Weight, bukan Act Net Weight; sama dengan baris "per kg" di Cost Summary). Prepared by: nama + tanda tangan (user_signature) pembuat estimasi (inputby).
+     Qty BOM = qtybom / perseries (per pcs), jadi Qty x @price = Cost. Baris BOM diurutkan menurut kode item (BOM - Material).
      Sand to Nett Wt Ratio (di header, di bawah Currency; rumus Excel): IF(estnetweight>0; ROUND(SUM(Qty per pcs item PB112.01 & PB112.11) / estnetweight; 2); 0).
      Kode item pasir ditulis langsung di query e1 (sandratio); tambah kode di sana bila ada pasir lain. -->
 <jasperReport name="RPT_ESTIMATE_JSP" language="java" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="e5714a10-0c11-4b6e-9d21-5a3c7e000001">
@@ -30,7 +30,7 @@
          h.drawingnumber, h.drawingnumberrev, h.ispatterntrial, h.ismodmethod, h.ismoddrawing,
          COALESCE(h.technicalriskcost, 0) AS techpct, COALESCE(h.commercialriskcost, 0) AS commpct,
          COALESCE(h.commission, 0) AS comsnpct, COALESCE(h.margin, 0) AS marginpct,
-         COALESCE(h.transportcost * h.netweight / 1000, 0) AS transport,
+         COALESCE(h.transportcost * h.estnetweight / 1000, 0) AS transport,
          c."name" AS customer, m.itemcode, m.itemname,
          dt.code AS deliveryterm, dp.code AS deliveryplace,
          COALESCE(u.full_name, h.inputby) AS preparedby, s.signature_file AS ttd_file, h.note,
@@ -105,8 +105,9 @@ SELECT * FROM (
          sm.label, sm.val, sm.fmt, sm.style
     FROM e
    CROSS JOIN LATERAL generate_series(1, GREATEST(18, (SELECT count(*) FROM dynamic.tsestimatebom x WHERE x.tsestimateid = e.id))::int) AS g(rn)
-    LEFT JOIN LATERAL (SELECT b2.*, row_number() OVER (ORDER BY b2.id) AS rn
-                         FROM dynamic.tsestimatebom b2 WHERE b2.tsestimateid = e.id) bb ON bb.rn = g.rn
+    LEFT JOIN LATERAL (SELECT b2.*, row_number() OVER (ORDER BY i2.itemcode NULLS LAST, b2.id) AS rn
+                         FROM dynamic.tsestimatebom b2 LEFT JOIN dynamic.msitem i2 ON i2.id = b2.msitemid
+                        WHERE b2.tsestimateid = e.id) bb ON bb.rn = g.rn
     LEFT JOIN dynamic.msitem bi ON bi.id = bb.msitemid
     LEFT JOIN LATERAL (SELECT v.n, v.label, v.val, v.fmt, v.style FROM (VALUES
          (1,  'Material Cost',      e.matc,                                  'M', 'N'),

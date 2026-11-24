@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PPIC - Daily Production Output [Detail] (Fastener): rincian produksi per tanggal > langkah (dari proses ke proses) > produk, dengan daftar serial.
+     Pengganti report Crystal Synchro "PPIC - Daily Prodcution Output [Detail]" Fastener (detailProdFast.rpt). Resource Fastener (grup 1254); berat = Est Nett (keputusan Tommy); p_subcon INCLUDE|EXCLUDE (thbook.issubcon).
+     Param: p_from_date, p_to_date (DATE, inklusif), p_process (opsional; id resource asal, 0 = semua; before script mengisi 0 bila kosong).
+     Baris = booking di resource Foundry (dari proses = resource booking, sampai proses = tdbook.resourcename); langkah = tdbook.sequence.
+     Berat = qty x msmethod.estnetweight (metode terbaru yg estnetweight terisi).
+     No. Serial = daftar serial digabung ', ' (kosong bila booking per tag tanpa serial). Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_FAST_DETAIL" language="java" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="814" whenNoDataType="AllSectionsNoDetail" leftMargin="14" rightMargin="14" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-00000000f100">
+	<parameter name="p_from_date" class="java.time.LocalDate"/>
+	<parameter name="p_to_date" class="java.time.LocalDate"/>
+	<parameter name="p_process" class="java.lang.Object"/>
+	<parameter name="p_subcon" class="java.lang.String"/>
+	<query language="sql"><![CDATA[SELECT (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date AS tgl,
+       d.sequence AS seq,
+       c.name AS from_process,
+       d.resourcename AS to_process,
+       COALESCE(NULLIF(i.itemcode, ''), i.itemname) AS product_code,
+       i.itemname AS descr,
+       string_agg(DISTINCT s.idno, ', ' ORDER BY s.idno) AS serial,
+       SUM(d.qty)::numeric AS qty,
+       SUM(d.qty * COALESCE(w.estnetweight, 0))::numeric AS wt
+  FROM thbook a
+  JOIN mhresource r ON r.id = a.resourceid AND r.msresourcegroupid = 1254
+  JOIN mdlookup c ON c.id = r.msresourceid
+  JOIN tdbook d ON d.thbookid = a.id
+  LEFT JOIN tsproductionorder o ON o.id = d.tsproductionorderid
+  LEFT JOIN msitem i ON i.id = o.itemid
+  LEFT JOIN tsproductionserial s ON s.id = d.serialid
+  LEFT JOIN LATERAL (SELECT m.estnetweight FROM msmethod m
+                      WHERE m.itemid = o.itemid AND m.estnetweight IS NOT NULL
+                      ORDER BY m.id DESC LIMIT 1) w ON true
+ WHERE (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date BETWEEN $P{p_from_date} AND $P{p_to_date}
+   AND ($P{p_process}::bigint = 0 OR r.msresourceid = $P{p_process}::bigint)
+   AND ($P{p_subcon}::text = 'INCLUDE' OR COALESCE(a.issubcon, false) = false)
+ GROUP BY 1, 2, 3, 4, 5, 6
+ ORDER BY 1, 2, 3, 5]]></query>
+	<field name="tgl" class="java.sql.Date"/>
+	<field name="seq" class="java.lang.Long"/>
+	<field name="from_process" class="java.lang.String"/>
+	<field name="to_process" class="java.lang.String"/>
+	<field name="product_code" class="java.lang.String"/>
+	<field name="descr" class="java.lang.String"/>
+	<field name="serial" class="java.lang.String"/>
+	<field name="qty" class="java.math.BigDecimal"/>
+	<field name="wt" class="java.math.BigDecimal"/>
+	<variable name="step_qty" class="java.math.BigDecimal" resetType="Group" resetGroup="g_step" calculation="Sum"><expression><![CDATA[$F{qty}]]></expression></variable>
+	<variable name="step_wt" class="java.math.BigDecimal" resetType="Group" resetGroup="g_step" calculation="Sum"><expression><![CDATA[$F{wt}]]></expression></variable>
+	<variable name="sum_qty" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{qty}]]></expression></variable>
+	<variable name="sum_wt" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{wt}]]></expression></variable>
+	<group name="g_date">
+		<expression><![CDATA[$F{tgl}]]></expression>
+		<groupHeader>
+			<band height="16">
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f120" x="0" y="0" width="814" height="16" mode="Opaque" backcolor="#E6E6E6" fontName="Arial" fontSize="9" bold="true" pattern="dd/MM/yyyy" vTextAlign="Middle">
+					<expression><![CDATA["Date : " + new java.text.SimpleDateFormat("EEEE, dd/MM/yyyy", java.util.Locale.ENGLISH).format($F{tgl})]]></expression>
+					<box leftPadding="4"><pen lineWidth="0.75"/></box>
+				</element>
+			</band>
+		</groupHeader>
+	</group>
+	<group name="g_step">
+		<expression><![CDATA[$F{seq} + "|" + $F{from_process} + "|" + $F{to_process}]]></expression>
+		<groupHeader>
+			<band height="14">
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f121" x="0" y="0" width="814" height="14" fontName="Arial" fontSize="8" bold="true" blankWhenNull="true" vTextAlign="Middle">
+					<expression><![CDATA["From : " + $F{from_process} + "     To : " + ($F{to_process} == null ? "" : $F{to_process})]]></expression>
+					<box leftPadding="8"><leftPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+				</element>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="14">
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f122" x="0" y="0" width="620" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" blankWhenNull="true" vTextAlign="Middle">
+					<expression><![CDATA["Sub Total " + $F{from_process} + " to " + ($F{to_process} == null ? "" : $F{to_process})]]></expression>
+					<box rightPadding="6"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+				</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f123" x="620" y="0" width="70" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0" vTextAlign="Middle">
+					<expression><![CDATA[$V{step_qty}]]></expression>
+					<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+				</element>
+				<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f124" x="690" y="0" width="124" height="14" fontName="Arial" fontSize="8" bold="true" hTextAlign="Right" pattern="#,##0.00" vTextAlign="Middle">
+					<expression><![CDATA[$V{step_wt}]]></expression>
+					<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+				</element>
+			</band>
+		</groupFooter>
+	</group>
+	<title height="58">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f101" x="0" y="4" width="300" height="14" fontName="Arial" fontSize="11" bold="true" vTextAlign="Middle">
+			<text><![CDATA[PT. GROWTH ASIA]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f102" x="614" y="4" width="200" height="12" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="dd/MM/yyyy HH:mm" vTextAlign="Middle">
+			<expression><![CDATA[new java.util.Date()]]></expression>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f103" x="0" y="22" width="814" height="18" fontName="Arial" fontSize="13" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[PRODUCTION DETAIL REPORT - FASTENER]]></text>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f104" x="0" y="42" width="814" height="13" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA["Period : " + (($P{p_from_date} == null || $P{p_to_date} == null) ? "" : $P{p_from_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " s/d " + $P{p_to_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))) + "     Subcon : " + ("INCLUDE".equals($P{p_subcon}) ? "Included" : "Excluded")]]></expression>
+		</element>
+	</title>
+	<columnHeader height="16">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f110" x="0" y="0" width="110" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[PRODUCT CODE]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f111" x="110" y="0" width="250" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[DESCRIPTION]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f112" x="360" y="0" width="260" height="16" fontName="Arial" fontSize="9" bold="true" vTextAlign="Middle">
+			<text><![CDATA[SERIAL NO]]></text>
+			<box leftPadding="3"><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f113" x="620" y="0" width="70" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[QTY]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f114" x="690" y="0" width="124" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[WEIGHT (KG)]]></text>
+			<box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="13">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f130" x="0" y="0" width="110" height="13" stretchType="ContainerHeight" fontName="Arial" fontSize="8" blankWhenNull="true" vTextAlign="Top">
+				<expression><![CDATA[$F{product_code}]]></expression>
+				<box leftPadding="3" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f131" x="110" y="0" width="250" height="13" fontName="Arial" fontSize="8" blankWhenNull="true" vTextAlign="Top" textAdjust="StretchHeight" printWhenDetailOverflows="true">
+				<expression><![CDATA[$F{descr}]]></expression>
+				<box leftPadding="3" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f132" x="360" y="0" width="260" height="13" stretchType="ContainerHeight" fontName="Arial" fontSize="8" blankWhenNull="true" vTextAlign="Top" textAdjust="StretchHeight" printWhenDetailOverflows="true">
+				<expression><![CDATA[$F{serial}]]></expression>
+				<box leftPadding="3" rightPadding="3" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f133" x="620" y="0" width="70" height="13" stretchType="ContainerHeight" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Top">
+				<expression><![CDATA[$F{qty}]]></expression>
+				<box rightPadding="5" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+			</element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f134" x="690" y="0" width="124" height="13" stretchType="ContainerHeight" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Top">
+				<expression><![CDATA[$F{wt}]]></expression>
+				<box rightPadding="5" topPadding="1"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="14">
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f140" x="544" y="0" width="230" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" vTextAlign="Middle">
+			<expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f141" x="774" y="0" width="40" height="14" fontName="Arial" fontSize="8" evaluationTime="Report" vTextAlign="Middle">
+			<expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+	<summary height="18">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000f150" x="0" y="0" width="620" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" vTextAlign="Middle">
+			<text><![CDATA[Grand Total]]></text>
+			<box rightPadding="6"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f151" x="620" y="0" width="70" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{sum_qty} == null ? java.math.BigDecimal.ZERO : $V{sum_qty}]]></expression>
+			<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box>
+		</element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000f152" x="690" y="0" width="124" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" blankWhenNull="true" vTextAlign="Middle">
+			<expression><![CDATA[$V{sum_wt} == null ? java.math.BigDecimal.ZERO : $V{sum_wt}]]></expression>
+			<box rightPadding="5"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box>
+		</element>
+	</summary>
+</jasperReport>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Rubber - Compounding Summary: total booking Mixing per tanggal. Pengganti report Crystal Synchro "Rubber Production Summary - Compound" (Compounding.rpt).
+     Synchro memisahkan Mixing 1 (Masterbatch) dan Mixing 2 (Finalbatch); GMS hanya punya satu resource "Rubber - Mixing" -> satu kolom total (keputusan Tommy).
+     Param: p_from_date, p_to_date (DATE, inklusif), p_subcon (INCLUDE|EXCLUDE). Total = SUM(tdbook.qty) booking di resource Mixing (grup 1255). Query ada di template (data_query kosong). -->
+<jasperReport name="RPT_RUB_COMPOUND" language="java" pageWidth="595" pageHeight="842" columnWidth="571" whenNoDataType="AllSectionsNoDetail" leftMargin="12" rightMargin="12" topMargin="14" bottomMargin="14" uuid="7d2e5b90-0000-4000-8000-0000000000cc">
+	<parameter name="p_from_date" class="java.time.LocalDate"/>
+	<parameter name="p_to_date" class="java.time.LocalDate"/>
+	<parameter name="p_subcon" class="java.lang.String"/>
+	<query language="sql"><![CDATA[WITH days AS (
+  SELECT d::date AS dt FROM generate_series($P{p_from_date}::timestamp, $P{p_to_date}::timestamp, interval '1 day') d),
+bk AS (
+  SELECT (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date AS dt, d.qty
+    FROM thbook a
+    JOIN mhresource r ON r.id = a.resourceid AND r.msresourcegroupid = 1255
+    JOIN mdlookup c ON c.id = r.msresourceid AND c.name ILIKE '%Mixing%'
+    JOIN tdbook d ON d.thbookid = a.id
+   WHERE (a.bookdate AT TIME ZONE 'Asia/Jakarta')::date BETWEEN $P{p_from_date} AND $P{p_to_date}
+     AND ($P{p_subcon}::text = 'INCLUDE' OR COALESCE(a.issubcon, false) = false))
+SELECT days.dt AS tgl, COALESCE(SUM(bk.qty), 0) AS total_mixing
+  FROM days LEFT JOIN bk ON bk.dt = days.dt GROUP BY days.dt ORDER BY days.dt]]></query>
+	<field name="tgl" class="java.sql.Date"/>
+	<field name="total_mixing" class="java.math.BigDecimal"/>
+	<variable name="t_mix" class="java.math.BigDecimal" calculation="Sum"><expression><![CDATA[$F{total_mixing}]]></expression></variable>
+	<title height="62">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c901" x="0" y="4" width="300" height="14" fontName="Arial" fontSize="11" bold="true" vTextAlign="Middle"><text><![CDATA[PT. GROWTH ASIA]]></text></element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c902" x="371" y="4" width="200" height="12" fontName="Arial" fontSize="8" hTextAlign="Right" pattern="dd/MM/yyyy HH:mm" vTextAlign="Middle"><expression><![CDATA[new java.util.Date()]]></expression></element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c903" x="0" y="22" width="571" height="18" fontName="Arial" fontSize="13" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[RUBBER - COMPOUNDING SUMMARY]]></text></element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c904" x="0" y="44" width="571" height="13" fontName="Arial" fontSize="9" hTextAlign="Center" vTextAlign="Middle"><expression><![CDATA["Period : " + $P{p_from_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " s/d " + $P{p_to_date}.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + "     Subcon : " + ("INCLUDE".equals($P{p_subcon}) ? "Included" : "Excluded")]]></expression></element>
+	</title>
+	<columnHeader height="16">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c905" x="0" y="0" width="200" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[DATE]]></text><box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box></element>
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c906" x="200" y="0" width="371" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[TOTAL MIXING (QTY)]]></text><box><topPen lineWidth="0.75"/><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box></element>
+	</columnHeader>
+	<detail>
+		<band height="14">
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c907" x="0" y="0" width="200" height="14" fontName="Arial" fontSize="9" hTextAlign="Center" pattern="dd/MM/yyyy" vTextAlign="Middle"><expression><![CDATA[$F{tgl}]]></expression><box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box></element>
+			<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c908" x="200" y="0" width="371" height="14" fontName="Arial" fontSize="9" hTextAlign="Right" pattern="#,##0.00" vTextAlign="Middle"><expression><![CDATA[$F{total_mixing}]]></expression><box rightPadding="6"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box></element>
+		</band>
+	</detail>
+	<pageFooter height="14">
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c909" x="301" y="0" width="230" height="14" fontName="Arial" fontSize="8" hTextAlign="Right" vTextAlign="Middle"><expression><![CDATA["Page " + $V{PAGE_NUMBER} + " of"]]></expression></element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c90a" x="531" y="0" width="40" height="14" fontName="Arial" fontSize="8" evaluationTime="Report" vTextAlign="Middle"><expression><![CDATA[" " + $V{PAGE_NUMBER}]]></expression></element>
+	</pageFooter>
+	<summary height="16">
+		<element kind="staticText" uuid="7d2e5b90-0000-4000-8000-00000000c90b" x="0" y="0" width="200" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Center" vTextAlign="Middle"><text><![CDATA[TOTAL]]></text><box><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/></box></element>
+		<element kind="textField" uuid="7d2e5b90-0000-4000-8000-00000000c90c" x="200" y="0" width="371" height="16" fontName="Arial" fontSize="9" bold="true" hTextAlign="Right" pattern="#,##0.00" vTextAlign="Middle"><expression><![CDATA[$V{t_mix} == null ? java.math.BigDecimal.ZERO : $V{t_mix}]]></expression><box rightPadding="6"><leftPen lineWidth="0.75"/><bottomPen lineWidth="0.75"/><rightPen lineWidth="0.75"/></box></element>
+	</summary>
+</jasperReport>

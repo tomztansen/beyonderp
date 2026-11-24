@@ -48,7 +48,33 @@ public class ReportParameterForm extends VerticalLayout {
         for (int i = 0; i < userParams.size(); i++) {
             applyFilters(userParams.get(i), fields.get(i), dyn);
         }
+        // Default value langsung terlihat di layar (sebelumnya hanya dipakai diam-diam saat Run bila field kosong).
+        for (ReportParamMeta p : userParams) {
+            applyDefault(p, inputs.get(p.getParamName()));
+        }
         add(layout);
+    }
+
+    /** ChosenBox: default dipisah koma ("Shipped,Arrived"); ComboBox/TextField: teks apa adanya. */
+    private static void applyDefault(ReportParamMeta p, Component c) {
+        String d = p.getDefaultValue();
+        if (d == null || d.isBlank()) return;
+        try {
+            if (c instanceof LovChosenBox chosen) {
+                java.util.Set<String> vals = new java.util.LinkedHashSet<>();
+                for (String t : d.split(",")) {
+                    if (!t.isBlank()) vals.add(t.trim());
+                }
+                chosen.setValue(vals);
+            } else if (c instanceof LovComboBox combo) {
+                combo.setValue(d.trim());
+            } else if (c instanceof com.vaadin.flow.component.textfield.TextField tf) {
+                tf.setValue(d);
+            }
+        } catch (RuntimeException ex) {
+            // Default yang tidak cocok dengan komponen tidak boleh menggagalkan form; Run tetap memakai default lama.
+            LOG.warn("Gagal mengisi default parameter {}: {}", p.getParamName(), ex.toString());
+        }
     }
 
     /** Terapkan FieldFilterMeta ke komponen LOV parameter (meniru GenericFormView). */

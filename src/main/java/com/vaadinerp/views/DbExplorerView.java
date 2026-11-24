@@ -902,7 +902,7 @@ public class DbExplorerView extends VerticalLayout {
         ComboBox<String> typeField = new ComboBox<>("Tipe Data SQL");
         typeField.setItems("VARCHAR(255)", "VARCHAR(100)", "VARCHAR(50)", "VARCHAR", "TEXT", "INTEGER", "BIGINT",
                 "SERIAL", "BIGSERIAL",
-                "DECIMAL(19,2)", "DATE", "TIMESTAMP", "BOOLEAN");
+                "NUMERIC", "NUMERIC(15,2)", "NUMERIC(18,4)", "DECIMAL(19,2)", "DATE", "TIMESTAMP", "BOOLEAN");
         typeField.setAllowCustomValue(true);
         typeField.addCustomValueSetListener(e -> typeField.setValue(e.getDetail()));
         typeField.setValue("VARCHAR(255)");
