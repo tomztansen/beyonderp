@@ -27,6 +27,7 @@ public class DynamicDataService {
     private static final Logger log = LoggerFactory.getLogger(DynamicDataService.class);
 
     private final JdbcTemplate jdbcTemplate;
+    private final TableSchemaReader tableSchemaReader;
     private final LovMetaRepository lovMetaRepository;
     private final FormMetaRepository formMetaRepository;
 
@@ -413,6 +414,7 @@ public class DynamicDataService {
             org.springframework.beans.factory.ObjectProvider<ScriptExecutorService> scriptExecutorService,
             org.springframework.beans.factory.ObjectProvider<com.fasterxml.jackson.databind.ObjectMapper> objectMapper) {
         this.jdbcTemplate = jdbcTemplate;
+        this.tableSchemaReader = new TableSchemaReader(jdbcTemplate);
         this.lovMetaRepository = lovMetaRepository;
         this.formMetaRepository = formMetaRepository;
         this.userGridPreferenceRepository = userGridPreferenceRepository.getIfAvailable();
@@ -756,18 +758,7 @@ public class DynamicDataService {
     }
 
     public List<String> fetchTableColumns(String tableName) {
-        if (tableName == null || tableName.trim().isEmpty()) {
-            return new ArrayList<>();
-        }
-        try {
-            String rawName = tableName.contains(".") ? tableName.substring(tableName.indexOf(".") + 1) : tableName;
-            return jdbcTemplate.queryForList(
-                    "SELECT column_name FROM information_schema.columns WHERE table_schema IN ('dynamic', 'public') AND table_name = ? ORDER BY ordinal_position",
-                    String.class,
-                    rawName.toLowerCase());
-        } catch (Exception e) {
-            return new ArrayList<>();
-        }
+        return tableSchemaReader.fetchTableColumns(tableName);
     }
 
     public List<String> getColumnsForQueryOrTable(String tableNameOrQuery) {
@@ -798,92 +789,7 @@ public class DynamicDataService {
     }
 
     public List<Map<String, Object>> fetchTableSchemaDetails(String tableName) {
-        if (tableName == null || tableName.trim().isEmpty()) {
-            return new ArrayList<>();
-        }
-        String trimmed = tableName.trim();
-        if (isCustomSelectQuery(trimmed) || trimmed.contains(" ")) {
-            return fetchSchemaDetailsForQuery(trimmed);
-        }
-        try {
-            String rawName = trimmed.contains(".") ? trimmed.substring(trimmed.indexOf(".") + 1) : trimmed;
-            List<Map<String, Object>> res = jdbcTemplate.queryForList(
-                    "SELECT column_name, data_type, character_maximum_length, numeric_precision, numeric_scale, is_nullable, column_default "
-                            +
-                            "FROM information_schema.columns " +
-                            "WHERE table_schema IN ('dynamic', 'public') AND table_name = ? " +
-                            "ORDER BY ordinal_position",
-                    rawName.toLowerCase());
-            if (!res.isEmpty()) {
-                for (Map<String, Object> row : res) {
-                    String dt = row.get("data_type") != null ? row.get("data_type").toString().toUpperCase() : "";
-                    Object maxLen = row.get("character_maximum_length");
-                    Object prec = row.get("numeric_precision");
-                    Object scale = row.get("numeric_scale");
-                    if (("CHARACTER VARYING".equals(dt) || "VARCHAR".equals(dt) || "CHAR".equals(dt)
-                            || "CHARACTER".equals(dt)) && maxLen != null && !"null".equals(maxLen.toString())) {
-                        row.put("formatted_type", "VARCHAR(" + maxLen + ")");
-                    } else if ("NUMERIC".equals(dt) || "DECIMAL".equals(dt)) {
-                        if (prec != null && !"null".equals(prec.toString())) {
-                            row.put("formatted_type", "DECIMAL(" + prec + ","
-                                    + (scale != null && !"null".equals(scale.toString()) ? scale : "0") + ")");
-                        } else {
-                            row.put("formatted_type", dt);
-                        }
-                    } else {
-                        row.put("formatted_type", dt);
-                    }
-                }
-                return res;
-            }
-            return fetchSchemaDetailsForQuery(trimmed);
-        } catch (Exception e) {
-            return fetchSchemaDetailsForQuery(trimmed);
-        }
-    }
-
-    private List<Map<String, Object>> fetchSchemaDetailsForQuery(String queryOrTable) {
-        try {
-            String sql;
-            if (isCustomSelectQuery(queryOrTable)) {
-                String safeQuery = validateAndSanitizeSelectQuery(queryOrTable);
-                sql = "SELECT * FROM ( " + safeQuery + " ) AS subquery LIMIT 1";
-            } else {
-                sql = "SELECT * FROM " + queryOrTable + " LIMIT 1";
-            }
-            return jdbcTemplate.query(sql, rs -> {
-                List<Map<String, Object>> cols = new ArrayList<>();
-                if (rs != null) {
-                    java.sql.ResultSetMetaData rsmd = rs.getMetaData();
-                    for (int i = 1; i <= rsmd.getColumnCount(); i++) {
-                        Map<String, Object> col = new HashMap<>();
-                        col.put("column_name", rsmd.getColumnLabel(i));
-                        String typeName = rsmd.getColumnTypeName(i) != null ? rsmd.getColumnTypeName(i).toLowerCase()
-                                : "text";
-                        if (typeName.contains("int") || typeName.contains("serial") || typeName.contains("numeric")
-                                || typeName.contains("decimal") || typeName.contains("float")
-                                || typeName.contains("double")) {
-                            col.put("data_type", "numeric");
-                        } else if (typeName.contains("date") || typeName.contains("time")
-                                || typeName.contains("timestamp")) {
-                            col.put("data_type", "date");
-                        } else if (typeName.contains("bool")) {
-                            col.put("data_type", "boolean");
-                        } else {
-                            col.put("data_type", "text");
-                        }
-                        col.put("is_nullable",
-                                rsmd.isNullable(i) == java.sql.ResultSetMetaData.columnNoNulls ? "NO" : "YES");
-                        col.put("column_default", null);
-                        cols.add(col);
-                    }
-                }
-                return cols;
-            });
-        } catch (Exception e) {
-            log.error("Gagal mengambil schema details untuk query/table: {}", queryOrTable, e);
-            return new ArrayList<>();
-        }
+        return tableSchemaReader.fetchTableSchemaDetails(tableName);
     }
 
     public List<Map<String, Object>> fetchTableTriggers(String tableName) {
