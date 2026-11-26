@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 
 /**
  * Menentukan report yang boleh diakses user di Report Runner.
- * Super-admin lihat semua; report tanpa allowedRoles → hanya super-admin.
+ * Super-admin lihat semua; report tanpa allowedRoles → semua user; bila diisi → hanya role tersebut.
  */
 @Service
 public class ReportAccessService {
@@ -27,7 +27,7 @@ public class ReportAccessService {
     /** Logika pure. */
     public static boolean canAccess(Set<String> userRoles, boolean superAdmin, Set<String> allowedRoles) {
         if (superAdmin) return true;
-        if (allowedRoles == null || allowedRoles.isEmpty()) return false;
+        if (allowedRoles == null || allowedRoles.isEmpty()) return true;
         if (userRoles == null) return false;
         for (String r : allowedRoles) {
             if (userRoles.contains(r)) return true;

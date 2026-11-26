@@ -405,7 +405,7 @@ public class ReportDesignerView extends VerticalLayout {
                     .filter(java.util.Objects::nonNull).sorted().toList());
         } catch (Exception ignored) {
         }
-        rolesSelect.setHelperText("Empty = only SUPER_ADMIN can run this report");
+        rolesSelect.setHelperText("Empty = everyone can run this report");
 
         FormLayout meta = new FormLayout(codeField, titleField, categoryCombo, sourceCombo, restrictFormCheck,
                 usageScopeSelect, groupByField, queryArea,

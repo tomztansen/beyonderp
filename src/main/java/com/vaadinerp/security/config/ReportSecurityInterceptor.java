@@ -4,6 +4,7 @@ import com.vaadinerp.meta.ReportMeta;
 import com.vaadinerp.meta.ReportMetaRepository;
 import com.vaadinerp.report.ReportAccessService;
 import com.vaadinerp.security.entity.AppUser;
+import com.vaadinerp.security.entity.RoleMenuPermission;
 import com.vaadinerp.security.repository.RoleMenuPermissionRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -24,6 +25,7 @@ public class ReportSecurityInterceptor implements HandlerInterceptor {
     private static final String SUPER_ADMIN = "SUPER_ADMIN";
     /** Same menu code that gates the Vaadin report-designer route. */
     private static final String DESIGNER_MENU = "REPORT_DESIGNER";
+    private static final String RUNNER_MENU = "REPORT_RUNNER";
 
     private final RoleMenuPermissionRepository permissionRepository;
     private final ReportMetaRepository reportRepository;
@@ -71,7 +73,8 @@ public class ReportSecurityInterceptor implements HandlerInterceptor {
             if (code != null && !code.isBlank()) {
                 ReportMeta report = reportRepository.findById(code).orElse(null);
                 if (report == null
-                        || !ReportAccessService.canAccess(roles, superAdmin, report.getAllowedRoles())) {
+                        || !ReportAccessService.canAccess(roles, superAdmin, report.getAllowedRoles())
+                        || (!superAdmin && !hasEntryPoint(roles, report))) {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN,
                             "You are not allowed to access this report.");
                     return false;
@@ -79,6 +82,27 @@ public class ReportSecurityInterceptor implements HandlerInterceptor {
             }
         }
         return true;
+    }
+
+    /**
+     * The URL must not be a back door: the user needs one of the UI routes that opens this
+     * viewer — Report Runner (RUNNER/BOTH), a form's Print button (FORM/BOTH, can_print), or
+     * the Report Designer preview.
+     */
+    boolean hasEntryPoint(Set<String> roles, ReportMeta report) {
+        if (hasMenuPermission(roles, DESIGNER_MENU)) return true;
+        if (report.isUsableFrom("RUNNER") && hasMenuPermission(roles, RUNNER_MENU)) return true;
+        if (!report.isUsableFrom("FORM")) return false;
+        String form = report.getSourceFormCode();
+        for (String role : roles) {
+            for (RoleMenuPermission p : permissionRepository.findByRoleCode(role)) {
+                // ponytail: tanpa source_form_code, can_print di form mana pun dianggap cukup
+                // (mencocokkan tabel ke form butuh FormMeta); persempit bila perlu.
+                boolean formOk = form == null || form.isBlank() || form.trim().equalsIgnoreCase(p.getMenuCode());
+                if (formOk && Boolean.TRUE.equals(p.getCanPrint())) return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasMenuPermission(Set<String> roles, String menuCode) {
