@@ -245,7 +245,7 @@ public class UserAuthorityAdminView extends VerticalLayout {
             return roleRepository.findByRoleCodeContainingIgnoreCase(filter, pageRequest).stream()
                     .map(com.vaadinerp.security.entity.AppRole::getRoleCode);
         });
-        roleSelect.setRequired(true);
+        roleSelect.setHelperText("Empty = user is saved but cannot log in yet");
 
         Checkbox activeCheckbox = new Checkbox("Active");
         activeCheckbox.setValue(true);
@@ -271,12 +271,6 @@ public class UserAuthorityAdminView extends VerticalLayout {
                 return;
             }
             java.util.Set<String> roles = roleSelect.getValue();
-            if (roles == null || roles.isEmpty()) {
-                Notification n = Notification.show("At least one role must be selected!", 3000,
-                        Notification.Position.TOP_CENTER);
-                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                return;
-            }
             if (isNew && !fromAuthentik.get()
                     && (passwordField.getValue() == null || passwordField.getValue().isBlank())) {
                 Notification n = Notification.show("Password is required for new users!", 3000,

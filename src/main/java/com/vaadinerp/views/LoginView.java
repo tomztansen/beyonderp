@@ -359,8 +359,16 @@ public class LoginView extends Div implements com.vaadin.flow.router.BeforeEnter
                         return;
                 }
                 Object err = vs.getAttribute(SsoCallbackView.ATTR_ERROR);
+                boolean backToPortal = Boolean.TRUE.equals(vs.getAttribute(SsoCallbackView.ATTR_BACK_TO_PORTAL));
+                vs.setAttribute(SsoCallbackView.ATTR_BACK_TO_PORTAL, null);
                 if (err instanceof String msg && !msg.isBlank()) {
                         vs.setAttribute(SsoCallbackView.ATTR_ERROR, null);
+                        String portal = backToPortal && ssoService != null ? ssoService.portalUrl() : null;
+                        if (portal != null) {
+                                msg += " Returning to the SSO portal in 5 seconds...";
+                                attachEvent.getUI().getPage().executeJs(
+                                                "setTimeout(function(){ window.location.href = $0; }, 5000)", portal);
+                        }
                         Notification n = Notification.show(msg, 6000, Notification.Position.TOP_CENTER);
                         n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 }

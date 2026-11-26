@@ -82,13 +82,22 @@ public class SessionSecurityService {
     }
 
     /**
+     * User yang boleh login: aktif dan punya minimal satu role. User tanpa role boleh
+     * disimpan (didaftarkan dulu, role menyusul) tetapi belum boleh login.
+     */
+    private Optional<AppUser> findLoginUser(String username) {
+        return userRepository.findByUsernameIgnoreCaseAndIsActiveTrue(username.trim())
+                .filter(u -> u.getRoles() != null && !u.getRoles().isEmpty());
+    }
+
+    /**
      * Login menggunakan BCrypt hash.
      */
     public boolean login(String username, String password) {
         if (username == null || password == null)
             return false;
 
-        Optional<AppUser> opt = userRepository.findByUsernameIgnoreCaseAndIsActiveTrue(username.trim());
+        Optional<AppUser> opt = findLoginUser(username);
         if (opt.isEmpty()) {
             loginHistory.recordLogin(username.trim(), false);
             return false;
@@ -132,7 +141,7 @@ public class SessionSecurityService {
         if (username == null || password == null)
             return false;
 
-        Optional<AppUser> opt = userRepository.findByUsernameIgnoreCaseAndIsActiveTrue(username.trim());
+        Optional<AppUser> opt = findLoginUser(username);
         if (opt.isEmpty()) {
             loginHistory.recordLogin(username.trim(), false);
             return false;
@@ -169,7 +178,7 @@ public class SessionSecurityService {
         if (username == null || username.isBlank())
             return false;
 
-        Optional<AppUser> opt = userRepository.findByUsernameIgnoreCaseAndIsActiveTrue(username.trim());
+        Optional<AppUser> opt = findLoginUser(username);
         if (opt.isEmpty()) {
             loginHistory.recordLogin(username.trim(), false);
             return false;

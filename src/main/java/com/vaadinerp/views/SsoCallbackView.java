@@ -24,6 +24,8 @@ public class SsoCallbackView extends Div implements BeforeEnterObserver {
     public static final String ATTR_ERROR = "SSO_ERROR";
     /** Penanda bahwa sesi ini login lewat SSO — dipakai saat logout untuk end_session Authentik. */
     public static final String ATTR_SSO_LOGIN = "SSO_LOGIN";
+    /** Akun SSO valid tetapi tidak terdaftar / belum punya role: LoginView mengembalikannya ke portal SSO. */
+    public static final String ATTR_BACK_TO_PORTAL = "SSO_BACK_TO_PORTAL";
 
     private final SsoService sso;
     private final SessionSecurityService security;
@@ -80,7 +82,9 @@ public class SsoCallbackView extends Div implements BeforeEnterObserver {
         try {
             boolean ok = security.loginViaSso(username, identity.sub());
             if (!ok) {
-                fail(event, s, "Account '" + username + "' is not registered in this application.");
+                // Jangan ke /sso/login: sesi Authentik masih hidup -> loop. Kembali ke portal saja.
+                s.setAttribute(ATTR_BACK_TO_PORTAL, Boolean.TRUE);
+                fail(event, s,"Account '" + username + "' is not registered in this application or has no role yet.");
                 return;
             }
             // Tandai sesi (baru, pasca reinit) sebagai login SSO untuk keperluan logout end_session.
