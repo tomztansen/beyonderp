@@ -515,6 +515,18 @@ public class SubformGridField extends CustomField<List<Map<String, Object>>> {
         // Add Context Menu to open in new tab
         com.vaadin.flow.component.grid.contextmenu.GridContextMenu<Map<String, Object>> gridMenu = grid
                 .addContextMenu();
+        // Klik kanan di kolom isian editor, atau saat ada teks tersorot di grid: biarkan menu bawaan
+        // browser (Copy/Paste) yang muncul. Event dihentikan di fase capture pada grid sebelum sampai
+        // ke listener vaadin-context-menu; preventDefault tidak dipanggil, jadi menu browser tampil.
+        grid.addAttachListener(ev -> grid.getElement().executeJs(
+                "if (this.__nativeCtxGuard) return; this.__nativeCtxGuard = true; const grid = this;"
+                        + "this.addEventListener('contextmenu', function(e) {"
+                        + "  const editable = e.composedPath().some(function(el) {"
+                        + "    return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable); });"
+                        + "  const sel = window.getSelection ? window.getSelection() : null;"
+                        + "  const selected = sel && String(sel) && grid.contains(sel.anchorNode);"
+                        + "  if (editable || selected) e.stopPropagation();"
+                        + "}, true);"));
         gridMenu.addItem("Open in New Tab", e -> {
             if (e.getItem().isPresent()) {
                 Map<String, Object> selectedRow = e.getItem().get();
